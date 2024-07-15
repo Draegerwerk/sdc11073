@@ -27,6 +27,8 @@ class _TransactionBase:
                  device_mdib_container: ProviderMdib,
                  logger: LoggerAdapter):
         self._mdib = device_mdib_container
+        # provide the new mdib version that the commit of this transaction will create
+        self.new_mdib_version = device_mdib_container.mdib_version + 1
         self._logger = logger
         self.descriptor_updates: dict[str, TransactionItem] = {}
         self.metric_state_updates: dict[str, TransactionItem] = {}
@@ -201,7 +203,7 @@ class DescriptorTransaction(_TransactionBase):
         """
         proc = TransactionResult()
         if self.descriptor_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             # need to know all to be deleted and to be created descriptors
             to_be_deleted_handles = [tr_item.old.Handle for tr_item in self.descriptor_updates.values()
                                      if tr_item.new is None and tr_item.old is not None]
@@ -402,7 +404,7 @@ class AlertStateTransaction(StateTransactionBase):
                     new_state.DeterminationTime = time.time()
         proc = TransactionResult()
         if self._state_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             updates = self._handle_state_updates(self._state_updates)
             proc.alert_updates.extend(updates)
         return proc
@@ -429,7 +431,7 @@ class MetricStateTransaction(StateTransactionBase):
                     tr_item.new.MetricValue.DeterminationTime = time.time()
         proc = TransactionResult()
         if self._state_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             updates = self._handle_state_updates(self._state_updates)
             proc.metric_updates.extend(updates)
         return proc
@@ -452,7 +454,7 @@ class ComponentStateTransaction(StateTransactionBase):
         """Process transaction and create a TransactionResult."""
         proc = TransactionResult()
         if self._state_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             updates = self._handle_state_updates(self._state_updates)
             proc.comp_updates.extend(updates)
         return proc
@@ -475,7 +477,7 @@ class RtStateTransaction(StateTransactionBase):
         """Process transaction and create a TransactionResult."""
         proc = TransactionResult()
         if self._state_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             updates = self._handle_state_updates(self._state_updates)
             proc.rt_updates.extend(updates)
         return proc
@@ -498,7 +500,7 @@ class OperationalStateTransaction(StateTransactionBase):
         """Process transaction and create a TransactionResult."""
         proc = TransactionResult()
         if self._state_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             updates = self._handle_state_updates(self._state_updates)
             proc.op_updates.extend(updates)
         return proc
@@ -554,8 +556,8 @@ class ContextStateTransaction(_TransactionBase):
         new_state_container = self._mdib.data_model.mk_state_container(descriptor_container)
         new_state_container.Handle = context_state_handle or uuid.uuid4().hex
         if set_associated:
-            # bind to mdib version AFTER this transaction
-            new_state_container.BindingMdibVersion = self._mdib.mdib_version + 1
+            # bind to new mdib version of this transaction
+            new_state_container.BindingMdibVersion = self.new_mdib_version
             new_state_container.BindingStartTime = time.time()
             new_state_container.ContextAssociation = \
                 self._mdib.data_model.pm_types.ContextAssociation.ASSOCIATED
@@ -580,11 +582,40 @@ class ContextStateTransaction(_TransactionBase):
             self._mdib.context_states.set_version(state_container)
         self._state_updates[state_container.Handle] = TransactionItem(None, state_container)
 
+    def disassociate_all(self,
+                         context_descriptor_handle: str,
+                         ignored_handle: str | None = None) -> list[str]:
+        """Disassociate all associated states in mdib for context_descriptor_handle.
+
+        The updated states are added to the transaction.
+        The method returns a list of states that were disassociated.
+        :param context_descriptor_handle: the handle of the context descriptor
+        :param ignored_handle: the context state with this Handle shall not be touched.
+        """
+        pm_types = self._mdib.data_model.pm_types
+        disassociated_state_handles = []
+        old_state_containers = self._mdib.context_states.descriptor_handle.get(context_descriptor_handle, [])
+        for old_state in old_state_containers:
+            if old_state.Handle == ignored_handle or old_state.Handle in self._state_updates:
+                # If state is already part of this transaction leave it also untouched, accept what the user wanted.
+                continue
+            if old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
+                    or old_state.UnbindingMdibVersion is None:
+                self._logger.info('disassociate %s, handle=%s', old_state.NODETYPE.localname,
+                                  old_state.Handle)
+                transaction_state = self.get_context_state(old_state.Handle)
+                transaction_state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
+                if transaction_state.UnbindingMdibVersion is None:
+                    transaction_state.UnbindingMdibVersion = self.new_mdib_version
+                    transaction_state.BindingEndTime = time.time()
+                disassociated_state_handles.append(transaction_state.Handle)
+        return disassociated_state_handles
+
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
         """Process transaction and create a TransactionResult."""
         proc = TransactionResult()
         if self._state_updates:
-            self._mdib.mdib_version += 1
+            self._mdib.mdib_version = self.new_mdib_version
             updates = self._handle_state_updates(self._state_updates)
             proc.ctxt_updates.extend(updates)
         return proc

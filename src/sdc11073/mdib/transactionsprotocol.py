@@ -70,6 +70,8 @@ class TransactionItem:
 class AbstractTransactionManagerProtocol(Protocol):
     """Interface of a TransactionManager."""
 
+    new_mdib_version: int
+
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:
         """Process the transaction."""
 
@@ -160,6 +162,11 @@ class ContextStateTransactionManagerProtocol(StateTransactionManagerProtocol):
                          adjust_state_version: bool = True,
                          set_associated: bool = False) -> AbstractMultiStateProtocol:
         """Create a new ContextStateContainer."""
+
+    def disassociate_all(self,
+                         context_descriptor_handle: str,
+                         ignored_handle: str | None = None) -> list[str]:
+        """Disassociate all associated states in mdib for context_descriptor_handle."""
 
 
 AnyTransactionManagerProtocol = Union[ContextStateTransactionManagerProtocol,
