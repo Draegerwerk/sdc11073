@@ -27,61 +27,74 @@ class ProviderMdibMethods:
     def __init__(self, provider_mdib: ProviderMdib):
         self._mdib = provider_mdib
         self.descriptor_factory = DescriptorFactory(provider_mdib)
-        self.default_instance_identifiers = (provider_mdib.data_model.pm_types.InstanceIdentifier(
+        self.default_validators = (provider_mdib.data_model.pm_types.InstanceIdentifier(
             root='rootWithNoMeaning', extension_string='System'),)
 
     def ensure_location_context_descriptor(self):
         """Create a LocationContextDescriptor if there is none in mdib."""
         mdib = self._mdib
         pm = mdib.data_model.pm_names
-        location_context_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor, allow_none=True)
-        if location_context_container is None:
-            system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
-            descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
-            descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
-            descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
-            mdib.descriptions.add_object(descr_container)
+        system_context_descriptors = mdib.descriptions.NODETYPE.get(pm.SystemContextDescriptor, [])
+        location_context_descriptors = mdib.descriptions.NODETYPE.get(pm.LocationContextDescriptor, [])
+
+        for system_context_descriptor in system_context_descriptors:
+            child_location_descriptors = [d for d in location_context_descriptors
+                                          if d.parent_handle == system_context_descriptor.Handle
+                                          and d.NODETYPE == pm.LocationContextDescriptor]
+            if not child_location_descriptors:
+                descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
+                descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
+                descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
+                mdib.descriptions.add_object(descr_container)
 
     def ensure_patient_context_descriptor(self):
-        """Create PatientContextDescriptor if there is none in mdib."""
+        """Create a PatientContextDescriptor if there is none in mdib."""
         mdib = self._mdib
         pm = mdib.data_model.pm_names
-        patient_context_container = mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor, allow_none=True)
-        if patient_context_container is None:
-            system_context_container = mdib.descriptions.NODETYPE.get_one(pm.SystemContextDescriptor)
-            descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
-            descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_container.Handle)
-            descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
-            mdib.descriptions.add_object(descr_container)
+        system_context_descriptors = mdib.descriptions.NODETYPE.get(pm.SystemContextDescriptor, [])
+        patient_context_descriptors = mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor, [])
+
+        for system_context_descriptor in system_context_descriptors:
+            child_location_descriptors = [d for d in patient_context_descriptors
+                                          if d.parent_handle == system_context_descriptor.Handle
+                                          and d.NODETYPE == pm.PatientContextDescriptor]
+            if not child_location_descriptors:
+                descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
+                descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
+                descr_container.SafetyClassification = mdib.data_model.pm_types.SafetyClassification.INF
+                mdib.descriptions.add_object(descr_container)
 
     def set_location(self, sdc_location: SdcLocation,
                      validators: list[InstanceIdentifier] | None = None,
-                     set_associated: bool = True):
-        """Create a location context state.
+                     location_context_descriptor_handle: str | None = None):
+        """Create a location context state. The new state will be the associated state.
 
         This method updates only the mdib data!
         Use the SdcProvider.set_location method if you want to publish the address on the network.
         :param sdc_location: a sdc11073.location.SdcLocation instance
-        :param validators: a list of pysdc.pmtypes.InstanceIdentifier objects or None
-        :param set_associated: if True, BindingTime, BindingMdibVersion and ContextAssociation are set
+        :param validators: a list of InstanceIdentifier objects or None
+               If None, self.default_validators is used.
+        :param location_context_descriptor_handle: Only needed if the mdib contains more than one
+               LocationContextDescriptor. Then this defines the descriptor for which a new LocationContextState
+               shall be created.
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
-        with mdib.context_state_transaction() as mgr:
-            all_location_contexts = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
-            # set all to currently associated Locations to Disassociated
-            associated_locations = [loc for loc in all_location_contexts if
-                                    loc.ContextAssociation == mdib.data_model.pm_types.ContextAssociation.ASSOCIATED]
-            for location in associated_locations:
-                location_context = mgr.get_context_state(location.Handle)
-                location_context.ContextAssociation = mdib.data_model.pm_types.ContextAssociation.DISASSOCIATED
-                # UnbindingMdibVersion is the first version in which it is no longer bound ( == this version)
-                location_context.UnbindingMdibVersion = mdib.mdib_version
-            descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)
 
-            new_location = mgr.mk_context_state(descriptor_container.Handle, set_associated=set_associated)
+        if location_context_descriptor_handle is None:
+            # assume there is only one descriptor in mdib, user has not provided a handle.
+            descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.LocationContextDescriptor)
+        else:
+            descriptor_container = mdib.descriptions.handle.get_one(location_context_descriptor_handle)
+
+        with mdib.context_state_transaction() as mgr:
+            mgr.disassociate_all(descriptor_container.Handle)
+
+            new_location = mgr.mk_context_state(descriptor_container.Handle, set_associated=True)
             new_location.update_from_sdc_location(sdc_location)
-            if validators is not None:
+            if validators is None:
+                new_location.Validator = self.default_validators
+            else:
                 new_location.Validator = validators
 
     def mk_state_containers_for_all_descriptors(self):

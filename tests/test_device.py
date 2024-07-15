@@ -5,6 +5,7 @@ import unittest
 import uuid
 
 from sdc11073 import wsdiscovery
+from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types import pm_types
 from sdc11073.xml_types import wsd_types
 
@@ -44,6 +45,64 @@ class Test_Device(unittest.TestCase):
             sdc_device2.start_all()
         finally:
             sdc_device2.stop_all()
+
+
+
+class Test_Device_2_mds(unittest.TestCase):
+
+    def setUp(self):
+        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
+        self.wsd.start()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_two_mds.xml')
+        self.sdc_device.start_all()
+        self._locValidators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+
+        time.sleep(0.1)  # allow full init of device
+
+        print('############### setUp done {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+
+    def tearDown(self):
+        print('############### tearDown {}... ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### tearDown {} ... ##############'.format(self._testMethodName))
+        self.sdc_device.stop_all()
+        self.wsd.stop()
+
+    def test_set_location(self):
+        """Call of set_location without giving a descriptor handle shall raise a ValueError."""
+        # first make sure there is only one LocationContextDescriptor
+        location_context_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(
+            pm_qnames.LocationContextDescriptor)
+        self.assertEqual(len(location_context_descriptors), 1)
+
+        context_descriptor_handle = location_context_descriptors[0].Handle
+        states_count = len(self.sdc_device.mdib.context_states.descriptor_handle.get(context_descriptor_handle, []))
+
+        self.sdc_device.mdib.xtra.ensure_location_context_descriptor()  # this adds descriptor to 2nd mib
+        # verify that there are now two LocationContextDescriptors
+        location_context_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(
+            pm_qnames.LocationContextDescriptor)
+        self.assertEqual(len(location_context_descriptors), 2)
+
+        self.assertRaises(ValueError, self.sdc_device.set_location, utils.random_location(), self._locValidators)
+
+        # with descriptor handle it shall work
+        self.sdc_device.set_location(utils.random_location(), self._locValidators,
+                                     location_context_descriptor_handle=context_descriptor_handle)
+        states2 = self.sdc_device.mdib.context_states.descriptor_handle.get(context_descriptor_handle)
+        self.assertEqual(len(states2), states_count + 1)
+
+    def test_ensure_patient_context_descriptor(self):
+        """Verify that ensure_patient_context_descriptor creates the missing PatientContextDescriptor in 2nd mds."""
+        patient_context_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(
+            pm_qnames.PatientContextDescriptor)
+        self.assertEqual(len(patient_context_descriptors), 1)
+        self.sdc_device.mdib.xtra.ensure_patient_context_descriptor()
+        patient_context_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(
+            pm_qnames.PatientContextDescriptor)
+        self.assertEqual(len(patient_context_descriptors), 2)
+
 
 
 class Test_Hello_And_Bye(unittest.TestCase):

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - support for python version 3.12
+- new method ContextStateTransaction.disaccociate_all
 
 ### Fixed
 
@@ -24,11 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed SetServiceClient.set_numeric_value not accepting float, int or string.
 - fixed a bug where a message would be thrown away, if the udp binding of the discovery would be used by provider and consumer, as they would share the same ip and port [#367](https://github.com/Draegerwerk/sdc11073/issues/367)
 - Exception in wsdiscovery if no Scopes in message [#356](https://github.com/Draegerwerk/sdc11073/issues/356)
+- fixed error message not set in OperationInvokedReport[#375](https://github.com/Draegerwerk/sdc11073/issues/375).
+- incorrect BindingMdibVersion and UnbindingMdibVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168)
+- ensure_location_context_descriptor and ensure_patient_context_descriptor also work for multiple system contexts in mdib.
 
 ### Changed
 
 - ContainerBase.diff uses math.isclose for comparison, test added
 - removed the `MULTICAST_OUT` logger from commlog [#328](https://github.com/Draegerwerk/sdc11073/issues/328)
+- SetContextState operation sets ContextAssociation according to value in proposed context state. 
+  Before the proposed state was always associated. 
+  Check added in SetContextState that max. one proposed state per descriptor is associated.
 
 ## [2.0.1] - 2024-02-21
 

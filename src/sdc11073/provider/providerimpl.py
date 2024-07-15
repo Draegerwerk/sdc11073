@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
+    from sdc11073.xml_types.pm_types import InstanceIdentifier
     from sdc11073.xml_types.wsd_types import ScopesType
 
     from .components import SdcProviderComponents
@@ -315,18 +316,26 @@ class SdcProvider:
 
     def set_location(self,
                      location: SdcLocation,
-                     validators: list | None = None,
-                     publish_now: bool = True):
-        """:param location: an SdcLocation instance
-        :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
+                     validators: list[InstanceIdentifier] | None = None,
+                     publish_now: bool = True,
+                     location_context_descriptor_handle: str | None = None):
+        """Set a new associated location.
+
+        :param location: an SdcLocation instance
+        :param validators: a list of InstanceIdentifier objects or None;
+            If it is None, the defaultInstanceIdentifiers member is used
         :param publish_now: if True, the device is published via its wsdiscovery reference.
+        :param location_context_descriptor_handle: Only needed if the mdib contains more than one
+               LocationContextDescriptor. Then this defines the descriptor for which a new LocationContextState
+               shall be created.
+
         """
         if location == self._location:
             return
         self._location = location
-        if validators is None:
-            validators = self._mdib.xtra.default_instance_identifiers
-        self._mdib.xtra.set_location(location, validators)
+        self._mdib.xtra.set_location(location,
+                                     validators,
+                                     location_context_descriptor_handle = location_context_descriptor_handle)
         if publish_now:
             self.publish()
 
