@@ -101,6 +101,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # insert a new patient with wrong handle, this shall fail
         proposed_context = context.mk_proposed_context_object(patient_descriptor_container.Handle)
+        proposed_context.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         proposed_context.Handle = 'some_nonexisting_handle'
         proposed_context.CoreData.Givenname = 'Karl'
         proposed_context.CoreData.Middlename = ['M.']
@@ -119,6 +120,19 @@ class Test_BuiltinOperations(unittest.TestCase):
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FAILED)
         self.assertIsNone(result.OperationTarget)
+
+        # insert two new patients for same descriptor, both associated. This shall fail
+        proposed_context1 = context.mk_proposed_context_object(patient_descriptor_container.Handle)
+        proposed_context1.Handle = patient_descriptor_container.Handle
+        proposed_context1.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        proposed_context2 = context.mk_proposed_context_object(patient_descriptor_container.Handle)
+        proposed_context2.Handle = patient_descriptor_container.Handle
+        proposed_context2.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        future = context.set_context_state(operation_handle, [proposed_context1, proposed_context2])
+        result = future.result(timeout=SET_TIMEOUT)
+        state = result.InvocationInfo.InvocationState
+        self.assertEqual(state, msg_types.InvocationState.FAILED)
+
         self.log_watcher.setPaused(False)
 
         # insert a new patient with correct handle, this shall succeed
@@ -146,6 +160,8 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertNotEqual(patient_context_state_container.Handle,
                             patient_descriptor_container.Handle)  # device replaced it with its own handle
         self.assertEqual(patient_context_state_container.ContextAssociation, pm_types.ContextAssociation.ASSOCIATED)
+        self.assertIsNotNone(patient_context_state_container.BindingMdibVersion)
+        self.assertIsNotNone(patient_context_state_container.BindingStartTime)
 
         # test update of the patient
         proposed_context = context.mk_proposed_context_object(patient_descriptor_container.Handle,
@@ -163,6 +179,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # set new patient, check binding mdib versions and context association
         proposed_context = context.mk_proposed_context_object(patient_descriptor_container.Handle)
+        proposed_context.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         proposed_context.CoreData.Givenname = 'Heidi'
         proposed_context.CoreData.Middlename = ['M.']
         proposed_context.CoreData.Familyname = 'Klammer'
@@ -259,11 +276,11 @@ class Test_BuiltinOperations(unittest.TestCase):
 
             for j, loc in enumerate(dev_locations[:-1]):
                 self.assertEqual(loc.ContextAssociation, pm_types.ContextAssociation.DISASSOCIATED)
-                self.assertEqual(loc.UnbindingMdibVersion, dev_locations[j + 1].BindingMdibVersion - 1)
+                self.assertEqual(loc.UnbindingMdibVersion, dev_locations[j + 1].BindingMdibVersion)
 
             for j, loc in enumerate(cl_locations[:-1]):
                 self.assertEqual(loc.ContextAssociation, pm_types.ContextAssociation.DISASSOCIATED)
-                self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion - 1)
+                self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion)
 
     def test_audio_pause(self):
         """Tests AudioPauseProvider
