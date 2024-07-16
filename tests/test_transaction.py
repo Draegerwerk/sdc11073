@@ -133,18 +133,18 @@ class TestTransactions(unittest.TestCase):
         self.assertIsNotNone(state.Handle)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
-        transaction_processor = self._mdib.transaction
-        self.assertEqual(len(transaction_processor.ctxt_updates), 1)
-        self.assertEqual(transaction_processor.ctxt_updates[0].StateVersion, 0)
-        self.assertEqual(transaction_processor.ctxt_updates[0].Givenname, 'foo')
-        self.assertEqual(transaction_processor.ctxt_updates[0].Familyname, 'bar')
+        transaction_result = self._mdib.transaction
+        self.assertEqual(len(transaction_result.ctxt_updates), 1)
+        self.assertEqual(transaction_result.ctxt_updates[0].StateVersion, 0)
+        self.assertEqual(transaction_result.ctxt_updates[0].Givenname, 'foo')
+        self.assertEqual(transaction_result.ctxt_updates[0].Familyname, 'bar')
 
-        handle = transaction_processor.ctxt_updates[0].Handle
+        handle = transaction_result.ctxt_updates[0].Handle
         with self._mdib.context_state_transaction() as mgr:
             state = mgr.get_context_state(handle)
         self.assertEqual(mdib_version + 2, self._mdib.mdib_version)
-        transaction_processor = self._mdib.transaction
-        self.assertEqual(len(transaction_processor.ctxt_updates), 1)
+        transaction_result = self._mdib.transaction
+        self.assertEqual(len(transaction_result.ctxt_updates), 1)
 
         self.assertTrue(location_descr_handle in self._mdib.context_by_handle)
 
@@ -183,13 +183,13 @@ class TestTransactions(unittest.TestCase):
             mgr.get_descriptor(rt_descr_handle)
             mgr.get_state(rt_descr_handle)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        transaction_processor = self._mdib.transaction
-        self.assertEqual(len(transaction_processor.metric_updates), 1)
-        self.assertEqual(len(transaction_processor.alert_updates), 1)
-        self.assertEqual(len(transaction_processor.op_updates), 1)
-        self.assertEqual(len(transaction_processor.comp_updates), 1)
-        self.assertEqual(len(transaction_processor.rt_updates), 1)
-        self.assertEqual(len(transaction_processor.descr_updated), 5)
+        transaction_result = self._mdib.transaction
+        self.assertEqual(len(transaction_result.metric_updates), 1)
+        self.assertEqual(len(transaction_result.alert_updates), 1)
+        self.assertEqual(len(transaction_result.op_updates), 1)
+        self.assertEqual(len(transaction_result.comp_updates), 1)
+        self.assertEqual(len(transaction_result.rt_updates), 1)
+        self.assertEqual(len(transaction_result.descr_updated), 5)
 
         self.assertTrue(alert_condition_handle in self._mdib.updated_descriptors_by_handle)
         self.assertTrue(alert_condition_handle in self._mdib.alert_by_handle)
@@ -254,9 +254,9 @@ class TestTransactions(unittest.TestCase):
             self.assertEqual(state.StateVersion, context_states[state.Handle].StateVersion + 1)
 
         # verify transaction content is als correct
-        transaction = self._mdib.transaction
-        for descr in transaction.descr_created:
+        transaction_result = self._mdib.transaction
+        for descr in transaction_result.descr_created:
             self.assertEqual(descr.DescriptorVersion, current_descriptors[descr.Handle].DescriptorVersion)
 
-        for state in transaction.all_states():
+        for state in transaction_result.all_states():
             self.assertEqual(state.DescriptorVersion, current_descriptors[state.DescriptorHandle].DescriptorVersion)
