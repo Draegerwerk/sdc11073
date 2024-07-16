@@ -175,7 +175,7 @@ class SetService(ServiceWithOperations):
         if error is not None:
             report_part.InvocationInfo.InvocationError = error
         if error_message is not None:
-            report_part.InvocationErrorMessage = data_model.pm_types.LocalizedText(error_message)
+            report_part.InvocationInfo.InvocationErrorMessage.append(data_model.pm_types.LocalizedText(error_message))
         # implemented is only SDC R0077 for value of invocationSource:
         # Extension = "AnonymousSdcParticipant".
         # a known participant (R0078) is currently not supported
