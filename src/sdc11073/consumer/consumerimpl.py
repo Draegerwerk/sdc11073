@@ -271,8 +271,8 @@ class SdcConsumer:
         self.peer_certificate = None
         self.binary_peer_certificate = None
         self.all_subscribed = False
-        # look for schemas added by services
-        additional_schema_specs = []
+        # look for schemas added by services and components spec
+        additional_schema_specs = self._components.additional_schema_specs[:]
         for handler_cls in self._components.service_handlers:
             additional_schema_specs.extend(handler_cls.additional_namespaces)
         msg_reader_cls = self._components.msg_reader_class

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sdc11073.pysoap.msgfactory import MessageFactory
@@ -22,6 +22,7 @@ from .subscription import ConsumerSubscriptionManager, ConsumerSubscriptionManag
 if TYPE_CHECKING:
     from sdc11073.pysoap.soapclient import SoapClientProtocol
     from sdc11073.dispatch.dispatchkey import RequestDispatcherProtocol
+    from sdc11073.namespaces import PrefixNamespace
 
 
 @dataclass()
@@ -35,6 +36,7 @@ class SdcConsumerComponents:
     subscription_manager_class: type[ConsumerSubscriptionManagerProtocol] = None
     operations_manager_class: type[OperationsManagerProtocol] | None = None
     service_handlers: list = None
+    additional_schema_specs: list[PrefixNamespace] = field(default_factory=list)
 
     def merge(self, other: SdcConsumerComponents):
         """Add data from other to self."""
@@ -53,6 +55,7 @@ class SdcConsumerComponents:
             for handler in other.service_handlers:
                 if handler not in self.service_handlers:
                     self.service_handlers.append(handler)
+        self.additional_schema_specs.extend(other.additional_schema_specs)
 
 
 default_sdc_consumer_components = SdcConsumerComponents(
