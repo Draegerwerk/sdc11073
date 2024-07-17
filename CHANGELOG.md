@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed error message not set in OperationInvokedReport[#375](https://github.com/Draegerwerk/sdc11073/issues/375).
 - incorrect BindingMdibVersion and UnbindingMdibVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168)
 - ensure_location_context_descriptor and ensure_patient_context_descriptor also work for multiple system contexts in mdib.
+- provider mdib observables are updated [#365](https://github.com/Draegerwerk/sdc11073/issues/365)
 
 ### Changed
 
