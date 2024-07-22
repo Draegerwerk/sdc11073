@@ -25,6 +25,7 @@ if TYPE_CHECKING:
         ContextStateTransactionManagerProtocol,
         DescriptorTransactionManagerProtocol,
         StateTransactionManagerProtocol,
+        TransactionResultProtocol
     )
 
 TransactionFactory = Callable[[mdibbase.MdibBase, TransactionType, LoggerAdapter],
@@ -38,7 +39,7 @@ class ProviderMdib(mdibbase.MdibBase):
     Transactions keep track of changes and initiate sending of update notifications to clients.
     """
 
-    transaction = ObservableProperty(fire_only_on_changed_value=False)
+    transaction: TransactionResultProtocol | None = ObservableProperty(fire_only_on_changed_value=False)
     rt_updates = ObservableProperty(fire_only_on_changed_value=False)  # different observable for performance
 
     def __init__(self,
@@ -96,9 +97,32 @@ class ProviderMdib(mdibbase.MdibBase):
                 if self.current_transaction.error:
                     self._logger.info('transaction_manager: transaction without updates!')
                 else:
-                    processor = self.current_transaction.process_transaction(set_determination_time)
-                    self.transaction = processor  # update observable
-                    self.current_transaction.mdib_version = self.mdib_version
+                    # update observables
+                    transaction_result = self.current_transaction.process_transaction(set_determination_time)
+                    self.transaction = transaction_result
+
+                    if transaction_result.alert_updates:
+                        self.alert_by_handle = {st.DescriptorHandle: st for st in transaction_result.alert_updates}
+                    if transaction_result.comp_updates:
+                        self.component_by_handle = {st.DescriptorHandle: st for st in transaction_result.comp_updates}
+                    if transaction_result.ctxt_updates:
+                        self.context_by_handle = {st.Handle: st for st in transaction_result.ctxt_updates}
+                    if transaction_result.descr_created:
+                        self.new_descriptors_by_handle = {descr.Handle: descr for descr
+                                                          in transaction_result.descr_created}
+                    if transaction_result.descr_deleted:
+                        self.deleted_descriptors_by_handle = {descr.Handle: descr for descr
+                                                              in transaction_result.descr_deleted}
+                    if transaction_result.descr_updated:
+                        self.updated_descriptors_by_handle = {descr.Handle: descr for descr
+                                                              in transaction_result.descr_updated}
+                    if transaction_result.metric_updates:
+                        self.metrics_by_handle = {st.DescriptorHandle: st for st in transaction_result.metric_updates}
+                    if transaction_result.op_updates:
+                        self.operation_by_handle = {st.DescriptorHandle: st for st in transaction_result.op_updates}
+                    if transaction_result.rt_updates:
+                        self.waveform_by_handle = {st.DescriptorHandle: st for st in transaction_result.rt_updates}
+
 
                     if callable(self.post_commit_handler):
                         self.post_commit_handler(self, self.current_transaction)
