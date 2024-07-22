@@ -8,7 +8,7 @@ to [format your text](https://docs.github.com/en/get-started/writing-on-github/g
 as it greatly helps to read and to understand your provided information.
 
 For this open source project
-the [Contributor Licence Agreement](https://github.com/Draegerwerk/sdc11073/Contributor_License_Agreement.md) governs
+the [Contributor Licence Agreement](https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md) governs
 all relevant activities and your contributions. By contributing to the project you agree to be bound by this Agreement
 and to licence your work accordingly.
 
@@ -144,8 +144,7 @@ Creating a pull request is a critical step in contributing to our project. Here'
     - Use `ruff check /path/to/your/changes1 /path/to/your/changes2 ...` for static code analysis.
     - Apply `mypy /path/to/your/changes1 /path/to/your/changes2 ...` for type checking.
 
-3. **Commit Your Changes**: Commit your changes with clear, descriptive commit messages. Follow our commit message
-   guidelines for structure and content.
+3. **Commit Your Changes**: Commit your changes with clear, descriptive commit messages.
 
 4. **Push to Your Fork**: Push your changes to your fork of the repository.
 
@@ -161,8 +160,7 @@ Creating a pull request is a critical step in contributing to our project. Here'
 6. **Review and Adjust**:
     - After submitting, at least one of our maintainers has to review your pull request. Be open to feedback also from
       other contributors and ready to make adjustments as needed.
-    - If requested, make further commits to your branch to address feedback. These will automatically be added to your
-      pull request.
+    - If requested, make further commits to your branch to address feedback.
 
 7. **Acceptance and Merge**:
     - Once your pull request is approved by a project maintainer and all CI checks pass, it will be merged.

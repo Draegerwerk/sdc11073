@@ -34,7 +34,7 @@ Market-oriented information on SDC from Dräger can be found `here <https://www.
 
 SDC is supported by the interoperability association `OR.Net <https://ornet.org/en>`__.
 
-For this open source project the `Contributor Licence Agreement <https://github.com/Draegerwerk/sdc11073/Contributor_License_Agreement.md>`__ governs all relevant activities and your contributions. By contributing to the project you agree to be bound by this Agreement and to licence your work accordingly.
+For this open source project the `Contributor Licence Agreement <https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md>`__ governs all relevant activities and your contributions. By contributing to the project you agree to be bound by this Agreement and to licence your work accordingly.
 
 Getting Started
 ===============
@@ -55,7 +55,7 @@ The latest development version can be installed via::
     git clone https://github.com/Draegerwerk/sdc11073/
     pip install .
 
-If you want to contribute also checkout our `contribution guideline <https://github.com/Draegerwerk/sdc11073/CONTRIBUTING.md>`__.
+If you want to contribute also checkout our `contribution guideline <https://github.com/Draegerwerk/sdc11073/blob/master/CONTRIBUTING.md>`__.
 
 Tutorials
 ---------
