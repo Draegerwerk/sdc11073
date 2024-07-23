@@ -55,7 +55,7 @@ class SdcConsumerComponents:
             for handler in other.service_handlers:
                 if handler not in self.service_handlers:
                     self.service_handlers.append(handler)
-        self.additional_schema_specs.extend(other.additional_schema_specs)
+        self.additional_schema_specs = list(set(self.additional_schema_specs).union(set(other.additional_schema_specs)))
 
 
 default_sdc_consumer_components = SdcConsumerComponents(

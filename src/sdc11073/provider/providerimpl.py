@@ -149,19 +149,19 @@ class SdcProvider:
         self.collect_rt_samples_period = 0.1  # in seconds
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
         # look for schemas added by services and components spec
-        additional_schema_specs = self._components.additional_schema_specs[:]
+        additional_schema_specs = set(self._components.additional_schema_specs)
         for hosted_service in self._components.hosted_services.values():
             for port_type_impl in hosted_service:
-                additional_schema_specs.extend(port_type_impl.additional_namespaces)
+                additional_schema_specs.update(port_type_impl.additional_namespaces)
         logger = loghelper.get_logger_adapter('sdc.device.msgreader', log_prefix)
         self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
-                                                            additional_schema_specs,
+                                                            list(additional_schema_specs),
                                                             logger,
                                                             validate=validate)
 
         logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
         self.msg_factory = self._components.msg_factory_class(self._mdib.sdc_definitions,
-                                                              additional_schema_specs,
+                                                              list(additional_schema_specs),
                                                               logger=logger,
                                                               validate=validate)
 

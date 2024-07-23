@@ -84,7 +84,7 @@ class SdcProviderComponents:
         if other.subscriptions_manager_class is not None:
             for key, value in other.subscriptions_manager_class.items():
                 self.subscriptions_manager_class[key] = value
-        self.additional_schema_specs.extend(other.additional_schema_specs)
+        self.additional_schema_specs = list(set(self.additional_schema_specs).union(set(other.additional_schema_specs)))
 
 
 default_sdc_provider_components_sync = SdcProviderComponents(
