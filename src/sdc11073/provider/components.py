@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable
 
 from sdc11073.pysoap.msgfactory import MessageFactory
@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.servicesfactory import HostedServices
     from sdc11073.xml_types.wsd_types import ScopesType
+    from sdc11073.namespaces import PrefixNamespace
 
     from .sco import AbstractScoOperationsRegistry
     from .subscriptionmgr_base import SubscriptionManagerProtocol
@@ -60,6 +61,7 @@ class SdcProviderComponents:
     waveform_provider_class: type | None = None
     scopes_factory: Callable[[ProviderMdib], ScopesType] = None
     hosted_services: dict = None
+    additional_schema_specs: list[PrefixNamespace] = field(default_factory=list)
 
     def merge(self, other: SdcProviderComponents):
         """Add data from other to self."""
@@ -82,6 +84,7 @@ class SdcProviderComponents:
         if other.subscriptions_manager_class is not None:
             for key, value in other.subscriptions_manager_class.items():
                 self.subscriptions_manager_class[key] = value
+        self.additional_schema_specs = list(set(self.additional_schema_specs).union(set(other.additional_schema_specs)))
 
 
 default_sdc_provider_components_sync = SdcProviderComponents(
