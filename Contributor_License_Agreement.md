@@ -62,7 +62,7 @@ of discussing and improving the Project.
 
 ## 2. Grant of Copyright License.
 
-You hereby grant to Us and to the recipients of the Project a perpetual,
+You hereby grant to Us a perpetual,
 worldwide, non-exclusive, no-charge, royalty-free, transferable, copyright
 license to use the Contribution by all means, including, but not limited to,
 reproduce, publish, modify, prepare derivative works of, publicly display,

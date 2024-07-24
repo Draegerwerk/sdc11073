@@ -20,7 +20,7 @@ sdc11073
    :target: https://codecov.io/gh/Draegerwerk/sdc11073
    :alt: test coverage
 
-.. image:: docs/sdc_social_preview.jpg
+.. image:: https://github.com/Draegerwerk/sdc11073/blob/master/docs/sdc_social_preview.jpg
    :alt: sdc Picture
 
 Overview
