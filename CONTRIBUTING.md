@@ -8,9 +8,9 @@ to [format your text](https://docs.github.com/en/get-started/writing-on-github/g
 as it greatly helps to read and to understand your provided information.
 
 For this open source project
-the [Contributor Licence Agreement](https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md) governs
+the [Contributor License Agreement](https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md) governs
 all relevant activities and your contributions. By contributing to the project you agree to be bound by this Agreement
-and to licence your work accordingly.
+and to license your work accordingly.
 
 ## How to set up the project for development
 
