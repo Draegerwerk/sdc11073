@@ -8,7 +8,8 @@ to [format your text](https://docs.github.com/en/get-started/writing-on-github/g
 as it greatly helps to read and to understand your provided information.
 
 For this open source project
-the [Contributor License Agreement](https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md) governs
+the [Contributor License Agreement](https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md)
+governs
 all relevant activities and your contributions. By contributing to the project you agree to be bound by this Agreement
 and to license your work accordingly.
 
@@ -168,10 +169,14 @@ Creating a pull request is a critical step in contributing to our project. Here'
 
 ## Copyright
 
-If you want to be listed as a copyright holder, add your information in the following format to the [COPYRIGHT.md](https://github.com/Draegerwerk/sdc11073/blob/master/COPYRIGHT.md) file:
+If you want to be listed as a copyright holder, add your information in the following format to
+the [COPYRIGHT.md](https://github.com/Draegerwerk/sdc11073/blob/master/COPYRIGHT.md) file:
 
 ```markdown
 - Copyright (c) <year(s) of contribution(s)> <your name> <optionally your email>
 ```
 
-Thank you for contributing to our project!
+If you have contributed in multiple years, you can define a range of years like `2020-2024` or single years
+like `2020-2022,2024`. Remember to update them with your first contribution in that year.
+
+**Thank you for contributing to our project!**
