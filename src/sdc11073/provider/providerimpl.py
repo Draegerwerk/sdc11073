@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import socket
 import threading
 import uuid
 from typing import TYPE_CHECKING, Any, Protocol
@@ -39,7 +40,6 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
-    from sdc11073.xml_types.pm_types import InstanceIdentifier
     from sdc11073.xml_types.wsd_types import ScopesType
 
     from .components import SdcProviderComponents
@@ -94,7 +94,8 @@ class SdcProvider:
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
-                 chunk_size: int = 0):
+                 chunk_size: int = 0,
+                 use_hostname : bool = False):
         """Construct an SdcProvider.
 
         :param ws_discovery: a WsDiscovers instance
@@ -111,6 +112,7 @@ class SdcProvider:
         :param log_prefix: a string
         :param specific_components: a SdcProviderComponents instance
         :param chunk_size: if value > 0, messages are split into chunks of this size.
+        :param use_hostname: if true use the hostname for xaddr constructions, default (false) is to use numerical IP
         """
         self._wsdiscovery = ws_discovery
         self.model = this_model
@@ -148,20 +150,20 @@ class SdcProvider:
 
         self.collect_rt_samples_period = 0.1  # in seconds
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
-        # look for schemas added by services and components spec
-        additional_schema_specs = set(self._components.additional_schema_specs)
+        # look for schemas added by services
+        additional_schema_specs = []
         for hosted_service in self._components.hosted_services.values():
             for port_type_impl in hosted_service:
-                additional_schema_specs.update(port_type_impl.additional_namespaces)
+                additional_schema_specs.extend(port_type_impl.additional_namespaces)
         logger = loghelper.get_logger_adapter('sdc.device.msgreader', log_prefix)
         self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
-                                                            list(additional_schema_specs),
+                                                            additional_schema_specs,
                                                             logger,
                                                             validate=validate)
 
         logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
         self.msg_factory = self._components.msg_factory_class(self._mdib.sdc_definitions,
-                                                              list(additional_schema_specs),
+                                                              additional_schema_specs,
                                                               logger=logger,
                                                               validate=validate)
 
@@ -202,6 +204,7 @@ class SdcProvider:
         self.base_urls = []  # will be set after httpserver is started
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
         properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
+        self._use_hostname=use_hostname
 
     def generate_transaction_id(self) -> int:
         """Return a new transaction id."""
@@ -316,26 +319,18 @@ class SdcProvider:
 
     def set_location(self,
                      location: SdcLocation,
-                     validators: list[InstanceIdentifier] | None = None,
-                     publish_now: bool = True,
-                     location_context_descriptor_handle: str | None = None):
-        """Set a new associated location.
-
-        :param location: an SdcLocation instance
-        :param validators: a list of InstanceIdentifier objects or None;
-            If it is None, the defaultInstanceIdentifiers member is used
+                     validators: list | None = None,
+                     publish_now: bool = True):
+        """:param location: an SdcLocation instance
+        :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
         :param publish_now: if True, the device is published via its wsdiscovery reference.
-        :param location_context_descriptor_handle: Only needed if the mdib contains more than one
-               LocationContextDescriptor. Then this defines the descriptor for which a new LocationContextState
-               shall be created.
-
         """
         if location == self._location:
             return
         self._location = location
-        self._mdib.xtra.set_location(location,
-                                     validators,
-                                     location_context_descriptor_handle = location_context_descriptor_handle)
+        if validators is None:
+            validators = self._mdib.xtra.default_instance_identifiers
+        self._mdib.xtra.set_location(location, validators)
         if publish_now:
             self.publish()
 
@@ -490,7 +485,10 @@ class SdcProvider:
             self.waveform_provider.stop()
 
     def get_xaddrs(self) -> list[str]:
-        addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
+        if self._use_hostname:
+            addresses = [socket.gethostname()]
+        else:
+            addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
         port = self._http_server.my_port
         xaddrs = []
         for addr in addresses:
