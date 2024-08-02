@@ -273,7 +273,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-        client_ssl_context.check_full_qualified_name = False
+        client_ssl_context.check_hostname = False
 
         client_ssl_context.verify_mode = ssl.CERT_NONE
         server_ssl_context.verify_mode = ssl.CERT_NONE
@@ -1636,7 +1636,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         # test uses a simple self signed certificate, certificate verify would fail
         client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-        client_ssl_context.check_full_qualified_name = False
+        client_ssl_context.check_hostname = False
         client_ssl_context.verify_mode = ssl.CERT_NONE
         server_ssl_context.verify_mode = ssl.CERT_NONE
 
