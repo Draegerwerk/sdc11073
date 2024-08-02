@@ -199,6 +199,7 @@ class SdcConsumer:
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
                  force_ssl_connect: bool = False,
+                 alternative_hostname: str = None
                  ):
         """Construct a SdcConsumer.
 
@@ -216,6 +217,7 @@ class SdcConsumer:
                                   False: if ssl_context_container is provided, consumer first tries an
                                          encrypted connection, and if this raises an SSLError,
                                          it tries an unencrypted connection
+        :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical ipv4 address (can be used to use full qualified hostname)
         """
         if not device_location.startswith('http'):
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
@@ -294,6 +296,7 @@ class SdcConsumer:
 
         self._msg_converter = MessageConverterMiddleware(
             self.msg_reader, self.msg_factory, self._logger, self._services_dispatcher)
+        self._alternative_hostname = alternative_hostname
 
     def set_mdib(self, mdib: ConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -340,7 +343,10 @@ class SdcConsumer:
         if self._http_server is None:
             return ''
         p = urlparse(self._http_server.base_url)
-        tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
+        if self._alternative_hostname:
+            tmp = f'{p.scheme}://{self._alternative_hostname}:{p.port}{p.path}'
+        else:
+            tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
         tmp = f'{tmp}{sep}{self.path_prefix}/'
         return tmp
