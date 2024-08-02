@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - new method ContextStateTransaction.disaccociate_all
 - additional schemata for validation can be declared in SdcProviderComponents and SdcConsumerComponents
 - allow to use full qualified name instead of IP in provider and consumer
-- 
+
 ### Fixed
 
 - possible exception in ConsumerMdib._get_context_states [#350](https://github.com/Draegerwerk/sdc11073/issues/350)
