@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import threading
 import uuid
-import socket
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import SplitResult
 
@@ -96,7 +95,7 @@ class SdcProvider:
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
                  chunk_size: int = 0,
-                 use_full_qualified_name: bool = False
+                 alternative_hostname: str = None
                  ):
         """Construct an SdcProvider.
 
@@ -114,7 +113,7 @@ class SdcProvider:
         :param log_prefix: a string
         :param specific_components: a SdcProviderComponents instance
         :param chunk_size: if value > 0, messages are split into chunks of this size.
-        :param use_full_qualified_name: if true use the full_qualified_name for xaddr constructions, default (false) is to use numerical IP
+        :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical ipv4 address (can be used to use full qualified hostname)
         """
         self._wsdiscovery = ws_discovery
         self.model = this_model
@@ -206,7 +205,7 @@ class SdcProvider:
         self.base_urls = []  # will be set after httpserver is started
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
         properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
-        self._use_full_qualified_name = use_full_qualified_name
+        self._alternative_hostname=alternative_hostname
 
     def generate_transaction_id(self) -> int:
         """Return a new transaction id."""
@@ -495,8 +494,8 @@ class SdcProvider:
             self.waveform_provider.stop()
 
     def get_xaddrs(self) -> list[str]:
-        if self._use_full_qualified_name:
-            addresses = [socket.getfqdn()]
+        if self._alternative_hostname:
+            addresses = [self._alternative_hostname]
         else:
             addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
         port = self._http_server.my_port

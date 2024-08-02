@@ -12,7 +12,6 @@ import unittest.mock
 import uuid
 import socket
 from decimal import Decimal
-import re
 from itertools import product
 from http.client import NotConnected
 from lxml import etree as etree_
@@ -1735,7 +1734,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.assertTrue(consumer.is_ssl_connection)
 
 class TestQualifiedName(unittest.TestCase):
-    """Check combinations of encrypted and unencrypted connections."""
+    """Check usage of full qualified name in device and client."""
 
     def setUp(self):
         basic_logging_setup()
@@ -1747,7 +1746,7 @@ class TestQualifiedName(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
                                                     max_subscription_duration=10,
-                                                    use_full_qualified_name=True)  # shorter duration for faster tests
+                                                    alternative_hostname=socket.getfqdn())  # shorter duration for faster tests
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
@@ -1771,23 +1770,65 @@ class TestQualifiedName(unittest.TestCase):
     def test_basic_connect(self):
         """Verify correct behavior with qualified full_qualified_name."""
         x_addr = self.sdc_device.get_xaddrs()[0]
-        ipv4_pattern=r"(?:\d{1,3}\.){3}\d{1,3}"
-        # make sure that the x_addr does not contain a numerical IP (a.b.c.d)
-        self.assertIsNone (re.match(ipv4_pattern, x_addr))
-        # verify that an unforced ssl connect to an unencrypted provider is successful
+        self.assertIn(socket.getfqdn(), x_addr)
         consumer = SdcConsumer(x_addr,
                                self.sdc_device.mdib.sdc_definitions,
                                ssl_context_container=None,
-                               use_full_qualified_name=True)
+                               alternative_hostname=socket.getfqdn())
         try:
             consumer.start_all()
             self.assertTrue(consumer.is_connected)
             for subscription in self.sdc_device._hosted_service_dispatcher._instances['StateEvent'].subscriptions_manager._subscriptions._objects:
                 # now make sure that the subscription also uses no IP
-                self.assertIsNone(re.match(ipv4_pattern, subscription.notify_to_address))
+                self.assertIn(socket.getfqdn(), subscription.notify_to_address)
                 if subscription.end_to_address:
-                    self.assertIsNone(re.match(ipv4_pattern, subscription.end_to_address))
+                    self.assertIn(socket.getfqdn(), subscription.notify_to_address)
         finally:
             consumer.stop_all(unsubscribe=False)
+
+
+class TestWrongQualifiedName(unittest.TestCase):
+    """Check that wrong hostnames lead to no-connection."""
+
+    def setUp(self):
+        basic_logging_setup()
+        self.logger = get_logger_adapter('sdc.test')
+        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+
+        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd.start()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10,
+                                                    alternative_hostname="some_random_invalid_hostname")  # shorter duration for faster tests
+        self.sdc_device.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
+
+        time.sleep(0.5)  # allow init of devices to complete
+        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.log_watcher.setPaused(True)
+        self.sdc_device.stop_all()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchError as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+
+    def test_no_connect(self):
+        x_addr = self.sdc_device.get_xaddrs()[0]
+        """Verify correct behavior with invalid hostname."""
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               ssl_context_container=None)
+        # exception should be raised during try to connect,
+        # could be timeout or other exception depending on local network configuration
+        self.assertRaises(Exception, consumer.start_all)
 
 
