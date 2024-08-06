@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - support for python version 3.12
 - new method ContextStateTransaction.disaccociate_all
+- log a message with level INFO when a context state update is received
 
 ### Fixed
 

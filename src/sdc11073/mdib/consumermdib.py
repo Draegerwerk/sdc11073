@@ -384,6 +384,11 @@ class ConsumerMdib(mdibbase.MdibBase):
                     if self._has_new_state_usable_state_version(old_state_container, state_container,
                                                                 report_type,
                                                                 is_buffered_report):
+                        if state_container.is_context_state:
+                            self._logger.info(  # noqa: PLE1205
+                                '{}: updated context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
+                                report_type, state_container.Handle, state_container.DescriptorHandle,
+                                state_container.ContextAssociation, state_container.Validator)
                         old_state_container.update_from_other_container(state_container)
                         src.update_object(old_state_container)
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
