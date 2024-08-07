@@ -6,7 +6,7 @@ from lxml import etree as etree_
 
 from sdc11073 import definitions_sdc, loghelper
 from sdc11073.consumer import SdcConsumer
-from sdc11073.mdib import ConsumerMdib
+from sdc11073.mdib.consumermdib import ConsumerMdib, ConsumerMdibState
 from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
 from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -140,7 +140,7 @@ class TestClientWaveform(unittest.TestCase):
 
         client_mdib = ConsumerMdib(cl)
         client_mdib._xtra.bind_to_client_observables()
-        client_mdib._is_initialized = True  # fake it, because we do not call init_mdib()
+        client_mdib._state = ConsumerMdibState.initialized # fake it, because we do not call init_mdib()
         client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
         # create dummy descriptors
         for handle in HANDLES:

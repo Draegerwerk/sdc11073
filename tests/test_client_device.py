@@ -13,6 +13,7 @@ import uuid
 from decimal import Decimal
 from itertools import product
 from http.client import NotConnected
+from threading import Event
 from lxml import etree as etree_
 
 import sdc11073.certloader
@@ -1065,7 +1066,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
-
+        self.logger.info('changing alert descriptors...')
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         # update descriptors
         with self.sdc_device.mdib.descriptor_transaction() as mgr:
@@ -1076,6 +1077,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alert_descriptor.SafetyClassification = pm_types.SafetyClassification.MED_C
             limit_alert_descriptor.SafetyClassification = pm_types.SafetyClassification.MED_B
             limit_alert_descriptor.AutoLimitSupported = True
+        self.logger.info('changing alert descriptors done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that descriptor updates are transported to client
         client_alert_descriptor = client_mdib.descriptions.handle.get_one(alert_descriptor_handle)
@@ -1087,6 +1089,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # set alert state presence to true
         time.sleep(0.01)
+        self.logger.info('changing alert state...')
+
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
         with self.sdc_device.mdib.alert_state_transaction() as mgr:
             alert_state = mgr.get_state(alert_descriptor_handle)
@@ -1098,6 +1102,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             limit_alert_state.ActualPriority = pm_types.AlertConditionPriority.MEDIUM
             limit_alert_state.Limits = pm_types.Range(upper=Decimal('3'))
 
+        self.logger.info('changing alert state done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
         client_alert_state = client_mdib.states.descriptor_handle.get_one(alert_descriptor_handle)
@@ -1317,6 +1322,32 @@ class Test_Client_SomeDevice(unittest.TestCase):
         system_error_report = msg_types.SystemErrorReport.from_node(message.p_msg.msg_node)
         self.assertEqual(system_error_report.ReportPart[0], report_part1)
         self.assertEqual(system_error_report.ReportPart[1], report_part2)
+
+    def test_sequence_id_change(self):
+
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        ev = Event()
+        def on_mdib_id_change(flag: bool):
+            """This is a typical handler for changed sequence id or instance id"""
+            self.logger.info('new sequence_id or instance id')
+            self.sdc_client.restart()
+            cl_mdib.reload_all()
+            # this test also need info that observer has finished
+            ev.set()
+
+        # bind handler to observable
+        observableproperties.bind(cl_mdib, sequence_or_instance_id_changed_event=on_mdib_id_change)
+        time.sleep(1)
+        self.logger.info('test changes sequence id now')
+        self.sdc_device.mdib.sequence_id = uuid.uuid4().urn
+        ev_set = ev.wait(timeout=10)
+        self.assertTrue(ev_set)
+        self.assertTrue(self.sdc_client.is_connected)
+        self.assertEqual(cl_mdib.sequence_id, self.sdc_device.mdib.sequence_id)
+        self.assertEqual(len(cl_mdib.descriptions.objects), len(self.sdc_device.mdib.descriptions.objects))
+        self.assertEqual(len(cl_mdib.states.objects), len(self.sdc_device.mdib.states.objects))
+        self.assertEqual(len(cl_mdib.context_states.objects), len(self.sdc_device.mdib.context_states.objects))
 
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):

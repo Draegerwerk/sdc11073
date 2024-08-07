@@ -6,6 +6,8 @@ from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib.providermdib import ProviderMdib
 from sdc11073.mdib.transactions import mk_transaction
+from sdc11073.mdib.statecontainers import NumericMetricStateContainer
+
 from sdc11073.xml_types import pm_qnames, pm_types
 
 mdib_file = str(pathlib.Path(__file__).parent.joinpath('mdib_tns.xml'))
@@ -113,7 +115,7 @@ class TestTransactions(unittest.TestCase):
             self.assertRaises(ApiUsageError, mgr.get_state, metric_handle)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
-    def text_context_state_transaction(self):
+    def test_context_state_transaction(self):
         """Verify that context_state_transaction works as expected.
 
         - mk_context_state method works as expected
@@ -139,18 +141,19 @@ class TestTransactions(unittest.TestCase):
         self.assertEqual(transaction_result.ctxt_updates[0].Givenname, 'foo')
         self.assertEqual(transaction_result.ctxt_updates[0].Familyname, 'bar')
 
-        handle = transaction_result.ctxt_updates[0].Handle
+        ctxt_handle = transaction_result.ctxt_updates[0].Handle
         with self._mdib.context_state_transaction() as mgr:
-            state = mgr.get_context_state(handle)
+            state = mgr.get_context_state(ctxt_handle)
         self.assertEqual(mdib_version + 2, self._mdib.mdib_version)
         transaction_result = self._mdib.transaction
         self.assertEqual(len(transaction_result.ctxt_updates), 1)
 
-        self.assertTrue(location_descr_handle in self._mdib.context_by_handle)
+        self.assertTrue(ctxt_handle in self._mdib.context_by_handle)
 
-        metrics_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)[0].Handle
+        descr = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)[0]
+        state = NumericMetricStateContainer(descr)
         with self._mdib.context_state_transaction() as mgr:
-            self.assertRaises(ApiUsageError, mgr.get_context_state, metrics_handle)
+            self.assertRaises(ApiUsageError, mgr.add_state, state)
 
     def test_description_modification(self):
         """Verify that descriptor_transaction works as expected.
