@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sdc11073.dispatch import DispatchKey
@@ -12,7 +13,6 @@ from .serviceclientbase import HostedServiceClient
 
 if TYPE_CHECKING:
     from concurrent.futures import Future
-    from decimal import Decimal
 
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
@@ -40,7 +40,11 @@ class SetServiceClient(HostedServiceClient):
                           operation_handle, requested_numeric_value)
         request = data_model.msg_types.SetValue()
         request.OperationHandleRef = operation_handle
-        request.RequestedNumericValue = requested_numeric_value
+        if isinstance(requested_numeric_value, float):
+            # convert to string first in order to limit possible excessive number of digits
+            request.RequestedNumericValue = Decimal(str(requested_numeric_value))
+        else:
+            request.RequestedNumericValue = Decimal(requested_numeric_value)
         inf = HeaderInformationBlock(action=request.action, addr_to=self.endpoint_reference.Address)
         message = self._msg_factory.mk_soap_message(inf, payload=request)
         return self._call_operation(message, request_manipulator=request_manipulator)

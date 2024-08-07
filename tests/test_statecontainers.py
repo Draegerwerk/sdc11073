@@ -72,6 +72,28 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         self.assertEqual(state2.OperatingMode, pm_types.OperatingMode.NA)
 
+    def test_diff_float(self):
+        """Verify correct results of ContainerBase.diff() method for float values."""
+        sc1 = sc.ClockStateContainer(descriptor_container=self.descr)
+        sc2 = sc.ClockStateContainer(descriptor_container=self.descr)
+        sc1.LastSet = 0.0
+        sc2.LastSet = 0.0
+        # if sc1 is zero, a diff < 1e-6 is considered equal enough
+        self.assertIsNone(sc1.diff(sc2))
+        sc2.LastSet = 1e-7
+        self.assertIsNone(sc1.diff(sc2, max_float_diff = 1e-6))
+        sc2.LastSet = 1e-5
+        self.assertEqual(1, len(sc1.diff(sc2, max_float_diff = 1e-6)))
+
+        # if sc1 is not zero, the value of abs((sc1-sc2)/sc1) < 1e-6 is considered equal enough
+        sc1.LastSet = 10000.0
+        sc2.LastSet = 10000.0
+        self.assertIsNone(sc1.diff(sc2))
+        sc2.LastSet = 10000.001
+        self.assertIsNone(sc1.diff(sc2, max_float_diff = 1e-6))
+        sc2.LastSet = 10000.1
+        self.assertEqual(1, len(sc1.diff(sc2, max_float_diff = 1e-6)))
+
     def test_AbstractMetricStateContainer(self):
         descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.NumericMetricStateContainer(descriptor_container=descr)

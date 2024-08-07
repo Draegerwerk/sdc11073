@@ -43,7 +43,8 @@ class Test_Client_SomeDevice_AlertDelegate(unittest.TestCase):
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.mdib.xtra.ensure_location_context_descriptor()
-        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators,
+                                     location_context_descriptor_handle='LC.mds0')
 
         time.sleep(0.5)  # allow full init of devices
 

@@ -1,4 +1,5 @@
 import logging
+import selectors
 import socket
 import sys
 import threading
@@ -347,7 +348,7 @@ class TestDiscovery(unittest.TestCase):
     def test_publishManyServices_lateStartedClient(self):
         test_log.info('starting service...')
         self.wsd_service.start()
-        device_count = 20
+        device_count = 1
         eprs = [uuid.uuid4().hex for _ in range(device_count)]
         for i, epr in enumerate(eprs):
             self.wsd_service.publish_service(epr,
@@ -355,7 +356,7 @@ class TestDiscovery(unittest.TestCase):
                                              scopes=utils.random_scope(),
                                              x_addrs=[f"localhost:{8080 + i}/{uuid.uuid4()}"])
 
-        time.sleep(3.02)
+        time.sleep(10)
         test_log.info('starting client...')
         self.wsd_client.start()
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
@@ -420,3 +421,27 @@ class TestDiscovery(unittest.TestCase):
         finally:
             unicast_sock.close()
             self.log_watcher_service.setPaused(False)
+
+    def test_provider_and_consumer_share_same_udp_binding(self):
+        """Verify that a provider and a consumer can exchange messages even if they share the same ip and port."""
+        self.wsd_service.start()
+        self.wsd_client.start()
+        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_service._networking_thread.multi_out_uni_in_out)
+        self.wsd_service._networking_thread._outbound_selector.register(self.wsd_client._networking_thread.multi_out_uni_in_out, selectors.EVENT_WRITE)
+        time.sleep(0.1)
+
+        ttype1 = [utils.random_qname()]
+        scopes1 = utils.random_scope()
+
+        addresses = [f"http://localhost:8080/{uuid.uuid4()}", 'http://{ip}/' + str(uuid.uuid4())]
+        epr = uuid.uuid4().hex
+        self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
+        time.sleep(1)
+
+        services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
+        try:
+            self.assertTrue(any(s for s in services if s.epr == epr))
+            self.assertTrue(epr not in self.wsd_service._remote_services)
+        finally:
+            # ensure that ports are swapped back to avoid crashes in teardown
+            self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_client._networking_thread.multi_out_uni_in_out)

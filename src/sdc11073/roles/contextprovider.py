@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from sdc11073.provider.operations import ExecuteResult
-
 from . import providerbase
 
 if TYPE_CHECKING:
@@ -13,8 +13,7 @@ if TYPE_CHECKING:
 
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.providermdib import ProviderMdib
-    from sdc11073.provider.operations import OperationDefinitionBase
-    from sdc11073.provider.operations import ExecuteParameters
+    from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
     from .providerbase import OperationClassGetter
 
@@ -48,9 +47,24 @@ class GenericContextProvider(providerbase.ProviderRole):
         return None
 
     def _set_context_state(self, params: ExecuteParameters) -> ExecuteResult:
-        """Execute the operation itself (ExecuteHandler)."""
-        proposed_context_states = params.operation_request.argument
+        """Execute the operation itself (ExecuteHandler).
+
+        If the proposed context is a new context and ContextAssociation == pm_types.ContextAssociation.ASSOCIATED,
+        the before associates state(s) will be set to DISASSOCIATED and UnbindingMdibVersion/BindingEndTime
+        are set.
+        """
         pm_types = self._mdib.data_model.pm_types
+        proposed_context_states = params.operation_request.argument
+
+        # check if there is more than one associated state for a context descriptor in proposed_context_states
+        proposed_by_handle = defaultdict(list)
+        for st in proposed_context_states:
+            if st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
+                proposed_by_handle[st.DescriptorHandle].append(st)
+        for handle, states in proposed_by_handle.items():
+            if len(states) > 1:
+                raise ValueError(f'more than one associated context for descriptor handle {handle}')
+
         operation_target_handles = []
         with self._mdib.context_state_transaction() as mgr:
             for proposed_st in proposed_context_states:
@@ -65,40 +79,38 @@ class GenericContextProvider(providerbase.ProviderRole):
                     # this is a new context state
                     # create a new unique handle
                     proposed_st.Handle = uuid.uuid4().hex
-                    operation_target_handles.append(proposed_st.Handle)
-                    proposed_st.BindingMdibVersion = self._mdib.mdib_version
-                    proposed_st.BindingStartTime = time.time()
-                    proposed_st.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+                    if proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
+                        proposed_st.BindingMdibVersion = mgr.new_mdib_version
+                        proposed_st.BindingStartTime = time.time()
                     self._logger.info('new %s, DescriptorHandle=%s Handle=%s',
                                       proposed_st.NODETYPE.localname, proposed_st.DescriptorHandle, proposed_st.Handle)
                     mgr.add_state(proposed_st)
 
-                    # find all associated context states, disassociate them, set unbinding info, and add them to updates
-                    old_state_containers = self._mdib.context_states.descriptor_handle.get(
-                        proposed_st.DescriptorHandle, [])
-                    for old_state in old_state_containers:
-                        if old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
-                                or old_state.UnbindingMdibVersion is None:
-                            self._logger.info('disassociate %s, handle=%s', old_state.NODETYPE.localname,
-                                              old_state.Handle)
-                            new_state = mgr.get_context_state(old_state.Handle)
-                            new_state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
-                            if new_state.UnbindingMdibVersion is None:
-                                new_state.UnbindingMdibVersion = self._mdib.mdib_version
-                                new_state.BindingEndTime = time.time()
-                            operation_target_handles.append(new_state.Handle)
+                    if proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
+                        operation_target_handles.extend(mgr.disassociate_all(proposed_st.DescriptorHandle))
                 else:
                     # this is an update to an existing patient
                     # use "regular" way to update via transaction manager
                     self._logger.info('update %s, handle=%s', proposed_st.NODETYPE.localname, proposed_st.Handle)
-                    tmp = mgr.get_context_state(proposed_st.Handle)
-                    tmp.update_from_other_container(proposed_st, skipped_properties=['ContextAssociation',
-                                                                                     'BindingMdibVersion',
-                                                                                     'UnbindingMdibVersion',
-                                                                                     'BindingStartTime',
-                                                                                     'BindingEndTime',
-                                                                                     'StateVersion'])
-                    operation_target_handles.append(proposed_st.Handle)
+                    old_state = mgr.get_context_state(proposed_st.Handle)
+                    # handle changed ContextAssociation
+                    if (old_state.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED
+                            and proposed_st.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED):
+                        proposed_st.UnbindingMdibVersion = mgr.new_mdib_version
+                        proposed_st.BindingEndTime = time.time()
+                    elif (old_state.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED
+                          and proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED):
+                        proposed_st.BindingMdibVersion = mgr.new_mdib_version
+                        proposed_st.BindingStartTime = time.time()
+                        operation_target_handles.extend(mgr.disassociate_all(proposed_st.DescriptorHandle,
+                                                                             ignored_handle=old_state.Handle))
+
+                    old_state.update_from_other_container(proposed_st, skipped_properties=['BindingMdibVersion',
+                                                                                           'UnbindingMdibVersion',
+                                                                                           'BindingStartTime',
+                                                                                           'BindingEndTime',
+                                                                                           'StateVersion'])
+                operation_target_handles.append(proposed_st.Handle)
             if len(operation_target_handles) == 1:
                 return ExecuteResult(operation_target_handles[0],
                                      self._mdib.data_model.msg_types.InvocationState.FINISHED)

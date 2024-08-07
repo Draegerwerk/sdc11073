@@ -1,3 +1,4 @@
+import os
 import threading
 import time
 import traceback
@@ -11,8 +12,10 @@ from sdc11073 import observableproperties
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.wsdiscovery import WSDiscovery, ScopesType
-from sdc11073.xml_types import msg_types, pm_qnames as pm
+from sdc11073.wsdiscovery import ScopesType
+from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import msg_types
+from sdc11073.xml_types import pm_qnames as pm
 
 
 class DeviceActivity(threading.Thread):
@@ -41,7 +44,7 @@ class DeviceActivity(threading.Thread):
                 valueOperation = oneContainer
             if oneContainer.Handle == "enumstring.ch0.vmd1_sco_0":
                 stringOperation = oneContainer
-        with self.device.mdib.transaction_manager() as mgr:
+        with self.device.mdib.metric_state_transaction() as mgr:
             state = mgr.get_state(valueOperation.OperationTarget)
             if not state.MetricValue:
                 state.mk_metric_value()
@@ -53,7 +56,7 @@ class DeviceActivity(threading.Thread):
             currentValue = Decimal(0)
             while True:
                 if metric:
-                    with self.device.mdib.transaction_manager() as mgr:
+                    with self.device.mdib.metric_state_transaction() as mgr:
                         state = mgr.get_state(metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
@@ -63,7 +66,7 @@ class DeviceActivity(threading.Thread):
                 else:
                     print("Metric not found in MDIB!")
                 if alertCondition:
-                    with self.device.mdib.transaction_manager() as mgr:
+                    with self.device.mdib.alert_state_transaction() as mgr:
                         state = mgr.get_state(alertCondition.Handle)
                         state.Presence = not state.Presence
                         print('set alertstate presence to {}'.format(state.Presence))
@@ -85,37 +88,41 @@ class Test_Reference(unittest.TestCase):
 
     def setUp(self) -> None:
 
-        # tests fill these lists with what they create, teardown cleans up after them.
-        self.my_devices = []
+        # tests fill this list with what they create, teardown cleans up after them.
         self.my_clients = []
         # define how the provider is published on the network and how the client tries to detect the device
         self.loc = reference_provider.get_location()
         self.ip = reference_provider.get_network_adapter().ip
+
+    def tearDown(self) -> None:
+        for cl in self.my_clients:
+            print('stopping {}'.format(cl))
+            cl.stop_all()
+
+    def test_with_created_device(self):
+        # This test creates its own device and runs the tests against it
+        # A WsDiscovery instance is needed to publish devices on the network.
+        # In this case we want to publish them only on localhost 127.0.0.1.
+
         self.provider_discovery = WSDiscovery(self.ip)
         self.provider_discovery.start()
         self.provider = reference_provider.create_reference_provider(ws_discovery=self.provider_discovery)
         reference_provider.set_reference_data(self.provider, loc=self.loc)
         self.device_activity = DeviceActivity(self.provider)
         self.device_activity.start()
+        try:
+            self._runtest_client_connects()
+        finally:
+            self.provider_discovery.stop()
+            self.device_activity.running = False
+            self.device_activity.join()
 
-    def tearDown(self) -> None:
-        self.provider_discovery.stop()
-        for cl in self.my_clients:
-            print('stopping {}'.format(cl))
-            cl.stop_all()
-        self.device_activity.running = False
-        self.device_activity.join()
-
-    def test_with_created_device(self):
-        # This test creates its own device and runs the tests against it
-        # A WsDiscovery instance is needed to publish devices on the network.
-        # In this case we want to publish them only on localhost 127.0.0.1.
-        self._runtest_client_connects()
-
-    @unittest.skip
+    @unittest.skipUnless(os.getenv('EXTERNAL_DEVICE_RUNNING') == "true",
+                         reason='Environment variable EXTERNAL_DEVICE_RUNNING is not "true", '
+                                'indicating that no external SDC Provider was started to test against.')
     def test_client_connects(self):
-        # This test need an externally started device to run the tests against it.
-        #
+        # This test needs an externally started SDC Provider to run the tests against.
+        print('Start unittest "test_client_connects" against externally started SDC Provider.')
         self._runtest_client_connects()
 
     def _runtest_client_connects(self):
@@ -136,8 +143,11 @@ class Test_Reference(unittest.TestCase):
         my_service = services[0]
         print('Test step 1 successful: device discovered')
 
+        ssl_context_container = reference_provider.get_ssl_context()
+        print(f'Used ssl context: {ssl_context_container}')
+
         print('Test step 2: connect to device...')
-        client = SdcConsumer.from_wsd_service(my_service, ssl_context_container=None)
+        client = SdcConsumer.from_wsd_service(my_service, ssl_context_container=ssl_context_container)
         self.my_clients.append(client)
         client.start_all()
         self.assertTrue(client.is_connected)
@@ -173,7 +183,8 @@ class Test_Reference(unittest.TestCase):
         self.assertEqual(len(errors), 0, msg='expected no Errors, got:{}'.format(', '.join(errors)))
         self.assertEqual(len(passed), 4, msg='expected 4 Passed, got :{}'.format(', '.join(passed)))
 
-    def _test_state_updates(self, mdib):
+    @staticmethod
+    def _test_state_updates(mdib):
         passed = []
         errors = []
         print('Test step 7&8: count metric state updates and alert state updates')
@@ -230,7 +241,8 @@ class Test_Reference(unittest.TestCase):
             passed.append('### Test 8 ### passed')
         return passed, errors
 
-    def _test_setstring_operation(self, mdib, client):
+    @staticmethod
+    def _test_setstring_operation(mdib, client):
         passed = []
         errors = []
         print('Test step 9: call SetString operation')
@@ -260,12 +272,12 @@ class Test_Reference(unittest.TestCase):
                     errors.append('### Test 9 ### failed')
         return passed, errors
 
-    def _test_setvalue_operation(self, mdib, client):
+    @staticmethod
+    def _test_setvalue_operation(mdib, client):
         passed = []
         errors = []
         print('Test step 10: call SetValue operation')
-        setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor,
-                                                             [])
+        setvalue_operations = mdib.descriptions.NODETYPE.get(pm.SetValueOperationDescriptor, [])
         setval_handle = 'numeric.ch0.vmd1_sco_0'
         if len(setvalue_operations) == 0:
             print('Test step 10 failed, no SetValue operation found')
