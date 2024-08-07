@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - new method ContextStateTransaction.disaccociate_all
 - additional schemata for validation can be declared in SdcProviderComponents and SdcConsumerComponents
 - new method Consumer.restart
+- log a message with level INFO when a context state update is received
 
 ### Fixed
 
