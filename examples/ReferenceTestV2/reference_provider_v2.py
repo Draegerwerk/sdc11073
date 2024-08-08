@@ -200,7 +200,6 @@ if __name__ == '__main__':
             state.mk_metric_value()
     print("Running forever, CTRL-C to  exit")
     try:
-        num_current_value = 0
         str_current_value = 0
         while True:
             if numeric_metric:
@@ -209,8 +208,10 @@ if __name__ == '__main__':
                         state = mgr.get_state(numeric_metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
-                        state.MetricValue.Value = Decimal(num_current_value)
-                        num_current_value += 1
+                        if state.MetricValue.Value is None:
+                            state.MetricValue.Value = Decimal('0')
+                        else:
+                            state.MetricValue.Value += Decimal(1)
                     with sdc_provider.mdib.descriptor_transaction() as mgr:
                         descriptor: descriptorcontainers.AbstractMetricDescriptorContainer = mgr.get_descriptor(numeric_metric.Handle)
                         descriptor.Unit.Code = 'code1' if descriptor.Unit.Code == 'code2' else 'code2'
@@ -224,7 +225,7 @@ if __name__ == '__main__':
                         state = mgr.get_state(string_metric.Handle)
                         if not state.MetricValue:
                             state.mk_metric_value()
-                        state.MetricValue.Value = f'string {str_current_value}'
+                        state.MetricValue.Value = f'my string {str_current_value}'
                         str_current_value += 1
                 except Exception as ex:
                     print(traceback.format_exc())

@@ -1,18 +1,39 @@
+"""Implementation of Reference Consumer.
+
+The Reference consumer gets its parameters from environment variables:
+- adapter_ip specifies which ip address shall be used
+- ca_folder specifies where the communication certificates are located.
+- ssl_passwd specifies an optional password for the certificates
+- search_epr specifies the last characters of the endpoint reference of the device that the consumer shall connect to.
+  It is not necessary to provide the full epr, just enough to be unique in the current network.
+
+If a value is not provided as environment variable, the default value (see code below) will be used.
+"""
+from __future__ import annotations
+
 import os
 import time
 import traceback
 import uuid
 from collections import defaultdict
 from decimal import Decimal
-from sdc11073 import commlog
+from typing import TYPE_CHECKING
+from functools import reduce
+
 from sdc11073 import observableproperties
 from sdc11073.certloader import mk_ssl_contexts_from_folder
+from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
-from sdc11073.consumer import SdcConsumer
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_qnames, msg_types
+
+if TYPE_CHECKING:
+    from lxml.etree import QName
+    from sdc11073.wsdiscovery.service import Service
+    from sdc11073.pysoap.msgreader import ReceivedMessage
+
 
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
@@ -27,61 +48,94 @@ set_value_handle = "set_value_0.sco.mds_0"
 set_string_handle = "set_string_0.sco.mds_0"
 set_context_state_handle = "set_context_0.sco.mds_0"
 
-ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    comm_logger = commlog.CommLogger(log_folder=r'c:\temp\sdc_refclient_commlog',
-                                     log_out=True,
-                                     log_in=True,
-                                     broadcast_ip_filter=None)
-    commlog.set_communication_logger(comm_logger)
+
+class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
+    def __init__(self, consumer_mdib, logger):
+        super().__init__(consumer_mdib, logger)
+        self.alert_condition_type_concept_updates: list[float] = []  # for test 5a.1
+        self._last_alert_condition_type_concept_updates = time.monotonic()  # timestamp
+
+        self.alert_condition_cause_remedy_updates: list[float] = []  # for test 5a.2
+        self._last_alert_condition_cause_remedy_updates = time.monotonic()  # timestamp
+
+        self.unit_of_measure_updates: list[float] = []  # for test 5a.3
+
+    def _on_description_modification_report(self, received_message_data: ReceivedMessage):
+        """For Test 5a.1 check if the concept description of updated alert condition Type changed.
+        For Test 5a.2 check if alert condition cause-remedy information changed.
+        """
+        cls = self._mdib.data_model.msg_types.DescriptionModificationReport
+        report = cls.from_node(received_message_data.p_msg.msg_node)
+        now = time.monotonic()
+        dmt = self._mdib.sdc_definitions.data_model.msg_types.DescriptionModificationType
+        for report_part in report.ReportPart:
+            modification_type = report_part.ModificationType
+            if modification_type == dmt.UPDATE:
+                for descriptor_container in report_part.Descriptor:
+                    if descriptor_container.is_alert_condition_descriptor:
+                        old_descriptor = self._mdib.descriptions.handle.get_one(descriptor_container.Handle)
+                        # test 5a.1
+                        if descriptor_container.Type.ConceptDescription != old_descriptor.Type.ConceptDescription:
+                            print(f'concept description {descriptor_container.Type.ConceptDescription} <=> '
+                                  f'{old_descriptor.Type.ConceptDescription}')
+                            self.alert_condition_type_concept_updates.append(now - self._last_alert_condition_type_concept_updates)
+                            self._last_alert_condition_type_concept_updates = now
+                        # test 5a.2
+                        # (CauseInfo is a list)
+                        detected_5a2 = False
+                        if len(descriptor_container.CauseInfo) != len(old_descriptor.CauseInfo):
+                            print(f'RemedyInfo no. of CauseInfo {len(descriptor_container.CauseInfo)} <=> '
+                                  f'{len(old_descriptor.CauseInfo)}')
+                            detected_5a2 = True
+                        else:
+                            for i, cause_info in enumerate(descriptor_container.CauseInfo):
+                                old_cause_info = old_descriptor.CauseInfo[i]
+                                if cause_info.RemedyInfo != old_cause_info.RemedyInfo:
+                                    print(f'RemedyInfo {cause_info.RemedyInfo} <=> '
+                                          f'{old_cause_info.RemedyInfo}')
+                                    detected_5a2 = True
+                        if detected_5a2:
+                            self.alert_condition_cause_remedy_updates.append(now - self._last_alert_condition_cause_remedy_updates)
+                            self._last_alert_condition_cause_remedy_updates = now
+        super()._on_description_modification_report(received_message_data)
 
 
-sleep_timer = 30
-
-
-def test_1b(wsd, my_service) -> str:
-    # send resolve and check response
+def test_1b_resolve(wsd, my_service) -> str:
+    """Send resolve and check response."""
     wsd.clear_remote_services()
     wsd._send_resolve(my_service.epr)
     time.sleep(3)
     if len(wsd._remote_services) == 0:
-        return ('### Test 1b ### failed, no response')
+        return '### Test 1b ### failed, no response'
     elif len(wsd._remote_services) > 1:
-        return ('### Test 1b ### failed, multiple response')
+        return '### Test 1b ### failed, multiple response'
     else:
         service = wsd._remote_services.get(my_service.epr)
         if service.epr != my_service.epr:
-            return ('### Test 1b ### failed, not the same epr')
+            return '### Test 1b ### failed, not the same epr'
         else:
-            return ('### Test 1b ### passed')
+            return '### Test 1b ### passed'
 
 
-def connect_client(my_service) -> SdcConsumer:
+def connect_client(my_service: Service) -> SdcConsumer:
     if ca_folder:
         ssl_contexts = mk_ssl_contexts_from_folder(ca_folder,
-                                                 cyphers_file=None,
-                                                 private_key='user_private_key_encrypted.pem',
-                                                 certificate='user_certificate_root_signed.pem',
-                                                 ca_public_key='root_certificate.pem',
-                                                 ssl_passwd=ssl_passwd
-                                                 )
+                                                   cyphers_file=None,
+                                                   private_key='user_private_key_encrypted.pem',
+                                                   certificate='user_certificate_root_signed.pem',
+                                                   ca_public_key='root_certificate.pem',
+                                                   ssl_passwd=ssl_passwd
+                                                   )
     else:
         ssl_contexts = None
     client = SdcConsumer.from_wsd_service(my_service,
-                                        ssl_context_container=ssl_contexts,
-                                        validate=True)
+                                          ssl_context_container=ssl_contexts,
+                                          validate=True)
     client.start_all()
     return client
 
 
-def init_mdib(client) -> ConsumerMdib:
-    # The Reference Provider answers to GetMdib
-    mdib = ConsumerMdib(client)
-    mdib.init_mdib()
-    return mdib
-
-
-def test_min_updates_per_handle(updates_dict, min_updates, node_type_filter = None) -> (bool, str):  # True ok
+def test_min_updates_per_handle(updates_dict, min_updates, node_type_filter=None) -> (bool, str):  # True ok
     results = []
     is_ok = True
     if len(updates_dict) == 0:
@@ -97,11 +151,11 @@ def test_min_updates_per_handle(updates_dict, min_updates, node_type_filter = No
     return is_ok, '\n'.join(results)
 
 
-def test_min_updates_for_type(updates_dict, min_updates, q_name) -> (bool, str):  # True ok
+def test_min_updates_for_type(updates_dict: dict, min_updates: int, q_name_list: list[QName]) -> (bool, str):  # True ok
     flat_list = []
     for v in updates_dict.values():
         flat_list.extend(v)
-    matches = [x for x in flat_list if x.NODETYPE == q_name]
+    matches = [x for x in flat_list if x.NODETYPE in q_name_list]
     if len(matches) >= min_updates:
         return True, ''
     return False, f'expect >= {min_updates}, got {len(matches)} out of {len(flat_list)}'
@@ -126,6 +180,8 @@ def run_ref_test():
     # a) The Reference Provider sends Hello messages
     # b) The Reference Provider answers to Probe and Resolve messages
 
+    # Remark: 1a) is not testable because provider can't be forced to send a hello while this test is running.
+
     my_service = None
     while my_service is None:
         services = wsd.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
@@ -139,7 +195,7 @@ def run_ref_test():
     results.append('### Test 1 ### passed')
 
     print('Test step 1b: send resolve and check response')
-    result = test_1b(wsd, my_service)
+    result = test_1b_resolve(wsd, my_service)
     results.append(result)
     print(f'{result} : resolve and check response')
 
@@ -171,7 +227,8 @@ def run_ref_test():
     log_result(max(durations) <= 15, results, step, info)
     step = '2b.2'
     info = 'the Reference Provider grants subscriptions of at most 15 seconds (renew)'
-    granted = list(client.subscription_mgr.subscriptions.items())[0][1].renew(30000)
+    subscription = list(client.subscription_mgr.subscriptions.values())[0]
+    granted = subscription.renew(30000)
     print(f'renew granted = {granted}')
     log_result(max(durations) <= 15, results, step, info)
 
@@ -183,7 +240,8 @@ def run_ref_test():
     info = 'The Reference Provider answers to GetMdib'
     print(step, info)
     try:
-        mdib = init_mdib(client)
+        mdib = ConsumerMdib(client,extras_cls=ConsumerMdibMethodsReferenceTest)
+        mdib.init_mdib()  # throws throws an exception if provider did not answer to GetMdib
         log_result(mdib is not None, results, step, info)
     except:
         print(traceback.format_exc())
@@ -204,35 +262,38 @@ def run_ref_test():
             results.append(f'{step} => failed {info}')
             return results
         step = 'Test step 3b.1: The Reference Provider provides at least one location context state'
-        loc_states = [ s for s in states if s.NODETYPE == pm_qnames.LocationContextState]
+        loc_states = [s for s in states if s.NODETYPE == pm_qnames.LocationContextState]
         log_result(len(loc_states) > 0, results, step, info)
 
     # 4 State Reports
-    # a)The Reference Provider produces at least 5 metric updates in 30 seconds
-    #   The metric types shall comprise numeric and string metrics
-    # b) The Reference Provider produces at least 5 alert condition updates in 30 seconds
-    # c) The Reference Provider produces at least 5 alert signal updates in 30 seconds
-    # d) The Reference Provider provides alert system self checks in accordance to the periodicity defined in the MDIB (at least every 10 seconds)
-    # e) The Reference Provider provides 3 waveforms x 10 messages per second x 100 samples per message
-    # f) The Reference Provider provides changes for the following components:
-    #   * Clock/Battery object (Component report)
-    #   * The Reference Provider provides changes for the VMD/MDS (Component report)
+    # a) The Reference Provider produces at least 5 numeric metric updates in 30 seconds
+    # b) The Reference Provider produces at least 5 string metric updates (StringMetric or EnumStringMetric) in 30 seconds
+    # c) The Reference Provider produces at least 5 alert condition updates (AlertCondition or LimitAlertCondition) in 30 seconds
+    # d) The Reference Provider produces at least 5 alert signal updates in 30 seconds
+    # e) The Reference Provider provides alert system self checks in accordance to the periodicity defined in the MDIB (at least every 10 seconds)
+    # f) The Reference Provider provides 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message
+    # g) The Reference Provider provides changes for the following components:
+    #   * At least 5 Clock or Battery object updates in 30 seconds (Component report)
+    #   * At least 5 MDS or VMD updates in 30 seconds (Component report)
     # g) The Reference Provider provides changes for the following operational states:
-    #    Enable/Disable operations (some different than the ones mentioned above) (Operational State Report)"""
+    #    At least 5 Operation updates in 30 seconds; enable/disable operations; some different than the ones mentioned above (Operational State Report)"""
 
     # setup data collectors for next test steps
     numeric_metric_updates = defaultdict(list)
     string_metric_updates = defaultdict(list)
     alert_condition_updates = defaultdict(list)
     alert_signal_updates = defaultdict(list)
-    # other_alert_updates = defaultdict(list)
     alert_system_updates = defaultdict(list)
     component_updates = defaultdict(list)
     waveform_updates = defaultdict(list)
+    operational_state_updates = defaultdict(list)
     description_updates = []
 
-    def onMetricUpdates(metrics_by_handle):
-        # print('onMetricUpdates', metrics_by_handle)
+    def on_metric_updates(metrics_by_handle):
+        """Callback for all metric state updates.
+
+        Writes to numeric_metric_updates or string_metric_updates, depending on type of state.
+        """
         for k, v in metrics_by_handle.items():
             print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             if v.NODETYPE == pm_qnames.NumericMetricState:
@@ -241,6 +302,10 @@ def run_ref_test():
                 string_metric_updates[k].append(v)
 
     def on_alert_updates(alerts_by_handle):
+        """Callback for all alert state updates.
+
+        Writes to alert_condition_updates, alert_signal_updates or alert_system_updates, depending on type of state.
+        """
         for k, v in alerts_by_handle.items():
             print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             if v.is_alert_condition:
@@ -249,35 +314,57 @@ def run_ref_test():
                 alert_signal_updates[k].append(v)
             elif v.NODETYPE == pm_qnames.AlertSystemState:
                 alert_system_updates[k].append(v)
-            # else:
-            #     other_alert_updates[k].append(v)
 
     def on_component_updates(components_by_handle):
-        # print('on_component_updates', alerts_by_handle)
+        """Callback for all component state updates.
+
+        Writes to component_updates .
+        """
         for k, v in components_by_handle.items():
             print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             component_updates[k].append(v)
 
     def on_waveform_updates(waveforms_by_handle):
+        """Callback for all waveform state updates.
+
+        Writes to waveform_updates .
+        """
         for k, v in waveforms_by_handle.items():
             waveform_updates[k].append(v)
 
     def on_description_modification(description_modification_report):
+        """Callback for all description modification updates.
+
+        Writes to description_updates .
+        """
         print('on_description_modification')
         description_updates.append(description_modification_report)
 
-    observableproperties.bind(mdib, metrics_by_handle=onMetricUpdates)
+    def on_operational_state_updates(operational_states_by_handle):
+        """Callback for all operational state updates.
+
+        Writes to operational_state_updates .
+        """
+        for k, v in operational_states_by_handle.items():
+            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
+            operational_state_updates[k].append(v)
+
+    observableproperties.bind(mdib, metrics_by_handle=on_metric_updates)
     observableproperties.bind(mdib, alert_by_handle=on_alert_updates)
     observableproperties.bind(mdib, component_by_handle=on_component_updates)
     observableproperties.bind(mdib, waveform_by_handle=on_waveform_updates)
     observableproperties.bind(mdib, description_modifications=on_description_modification)
+    observableproperties.bind(mdib, operation_by_handle=on_operational_state_updates)
 
-    min_updates = sleep_timer // 5 - 1
-    print('will wait for {} seconds now, expecting at least {} updates per Handle'.format(sleep_timer, min_updates))
+    # now collect reports
+    sleep_timer = 30
+    min_updates = 5
+    print(f'will wait for {sleep_timer} seconds now, expecting at least {min_updates} updates per Handle')
     time.sleep(sleep_timer)
 
+    # now check report count
     step = '4a'
-    info ='count numeric metric state updates'
+    info = 'count numeric metric state updates'
     print(step, info)
     is_ok, result = test_min_updates_per_handle(numeric_metric_updates, min_updates)
     log_result(is_ok, results, step, info)
@@ -285,7 +372,7 @@ def run_ref_test():
     step = '4b'
     info = 'count string metric state updates'
     print(step)
-    is_ok, result = test_min_updates_per_handle(string_metric_updates, min_updates,)
+    is_ok, result = test_min_updates_per_handle(string_metric_updates, min_updates)
     log_result(is_ok, results, step, info)
 
     step = '4c'
@@ -295,32 +382,34 @@ def run_ref_test():
     log_result(is_ok, results, step, info)
 
     step = '4d'
-    info =' count alert signal updates'
+    info = ' count alert signal updates'
     print(step, info)
     is_ok, result = test_min_updates_per_handle(alert_signal_updates, min_updates)
     log_result(is_ok, results, step, info)
 
-    step ='4e'
+    step = '4e'
     info = 'count alert system self checks'
     is_ok, result = test_min_updates_per_handle(alert_system_updates, min_updates)
     log_result(is_ok, results, step, info)
 
     step = '4f'
     info = 'count waveform updates'
+    # 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message
     print(step, info)
     is_ok, result = test_min_updates_per_handle(waveform_updates, min_updates)
-    log_result(is_ok, results, step, info+ ' notifications per second')
+    log_result(is_ok, results, step, info + ' notifications per second')
     if len(waveform_updates) < 3:
-        log_result(False, results, step, info+' number of waveforms')
+        log_result(False, results, step, info + ' number of waveforms')
     else:
-        log_result(True, results, step, info+' number of waveforms')
+        log_result(True, results, step, info + ' number of waveforms')
 
-    expected_samples = 1000 * sleep_timer*0.9
+    expected_samples = 1000 * sleep_timer * 0.9
     for handle, reports in waveform_updates.items():
         notifications = [n for n in reports if n.MetricValue is not None]
         samples = sum([len(n.MetricValue.Samples) for n in notifications])
         if samples < expected_samples:
-            log_result(False, results, step, info + f' waveform {handle} has {samples} samples, expecting {expected_samples}')
+            log_result(False, results, step,
+                       info + f' waveform {handle} has {samples} samples, expecting {expected_samples}')
             is_ok = False
         else:
             log_result(True, results, step, info + f' waveform {handle} has {samples} samples')
@@ -328,54 +417,75 @@ def run_ref_test():
     pm = mdib.data_model.pm_names
     pm_types = mdib.data_model.pm_types
 
-    # The Reference Provider provides changes for the following reports as well:
-    # Clock/Battery object (Component report)
-    step = '4g'
-    info = 'count battery updates'
+    step = '4g.1'
+    info = 'count battery or clock updates'
     print(step, info)
-    is_ok, result = test_min_updates_for_type(component_updates, 1, pm.BatteryState)
+    is_ok, result = test_min_updates_for_type(component_updates,
+                                              min_updates,
+                                              [pm.BatteryState, pm.ClockState])
     log_result(is_ok, results, step, info)
 
-    step = '4g'
-    info ='count VMD updates'
+    step = '4g.2'
+    info = 'count VMD or MDS updates'
     print(step, info)
-    is_ok, result = test_min_updates_for_type(component_updates, 1, pm.VmdState)
-    log_result(is_ok, results, step, info)
-
-    step = '4g'
-    info = 'count MDS updates'
-    print(step, info)
-    is_ok, result = test_min_updates_for_type(component_updates, 1, pm.MdsState)
+    is_ok, result = test_min_updates_for_type(component_updates,
+                                              min_updates,
+                                              [pm.VmdState, pm.MdsState])
     log_result(is_ok, results, step, info)
 
     step = '4h'
     info = 'Enable/Disable operations'
-    results.append(f'{step} => failed, not implemented {info}')
+    print(step, info)
+    is_ok, result = test_min_updates_for_type(operational_state_updates,
+                                              min_updates,
+                                              [pm.SetValueOperationState,
+                                               pm.SetStringOperationState,
+                                               pm.ActivateOperationState,
+                                               pm.SetContextStateOperationState,
+                                               pm.SetMetricStateOperationState,
+                                               pm.SetComponentStateOperationState,
+                                               pm.SetAlertStateOperationState])
+    log_result(is_ok, results, step, info)
 
-    """
-    5 Description Modifications:
-    a) The Reference Provider produces at least 1 update every 10 seconds comprising
-        * Update Alert condition concept description of type
-        * Update Alert condition cause-remedy information
-        * Update Unit of measure (metrics)
-    b)  The Reference Provider produces at least 1 insertion followed by a deletion every 10 seconds comprising
-        * Insert a VMD including Channels including metrics
-        * Remove the VMD
-    """
-    step = '5a'
-    info = 'Update Alert condition concept description of type'
+    # 5 Description Modifications:
+    # a) The Reference Provider produces at least 1 update every 10 seconds comprising
+    #     * Update Alert condition concept description of Type
+    #     * Update Alert condition cause-remedy information
+    #     * Update Unit of measure (metrics)
+    # b)  The Reference Provider produces at least 1 insertion followed by a deletion every 10 seconds comprising
+    #     * Insert a VMD including Channels including metrics (inserted VMDs/Channels/Metrics are required to have
+    #       a new handle assigned on each insertion such that containment tree entries are not recycled).
+    #       (Tests for the handling of re-insertion of previously inserted objects should be tested additionally)
+    #     * Remove the VMD
+    step = '5a.1'
+    info = 'Update Alert condition concept description of Type'
     print(step, info)
     # verify only that there are Alert Condition Descriptors updated
-    found = False
-    for report in description_updates:
-        for report_part in report.ReportPart:
-            if report_part.ModificationType == msg_types.DescriptionModificationType.UPDATE:
-                for descriptor in report_part.Descriptor:
-                    if descriptor.NODETYPE == pm_qnames.AlertConditionDescriptor:
-                        found = True
-    log_result(found, results, step, info)
+    updates = mdib.xtra.alert_condition_type_concept_updates
+    if not updates:
+        log_result(False, results, step, info, 'no updates')
+    else:
+        max_diff = max(updates)
+        if max_diff > 10:
+            log_result(False, results, step, info, f'max dt={max_diff}')
+        else:
+            log_result(True, results, step, info, f'{len(updates)-1} updates, max diff= {max_diff:.1f}')
 
-    step = '5a'
+    step = '5a.2'
+    info = 'Update Alert condition cause-remedy information'
+    print(step, info)
+    # verify only that there are remedy infos updated
+    updates = mdib.xtra.alert_condition_cause_remedy_updates
+    if not updates:
+        log_result(False, results, step, info, 'no updates')
+    else:
+        max_diff = max(updates)
+        if max_diff > 10:
+            log_result(False, results, step, info, f'{updates} => max dt={max_diff}')
+        else:
+            log_result(True, results, step, info, f'{len(updates)-1} updates, max diff= {max_diff:.1f}')
+
+    step = '5a.3'
     info = 'Update Unit of measure'
     print(step, info)
     # verify only that there are Alert Condition Descriptors updated
@@ -415,7 +525,8 @@ def run_ref_test():
         * Context state is added to the MDIB including context association and validation
         * If there is an associated context already, that context shall be disassociated
             * Handle and version information is generated by the provider
-        * In order to avoid infinite growth of patient contexts, older contexts are allowed to be removed from the MDIB (=ContextAssociation=No)
+        * In order to avoid infinite growth of patient contexts, older contexts are allowed to be removed from the MDIB 
+          (=ContextAssociation=No)
     c) SetValue: Immediately answers with "finished"
         * Finished has to be sent as a report in addition to the response => 
     d) SetString: Initiates a transaction that sends Wait, Start and Finished
@@ -486,7 +597,8 @@ def run_ref_test():
                 if len(operation_result.report_parts) == 0:
                     log_result(False, results, step, info, 'no notification')
                 elif len(operation_result.report_parts) > 1:
-                    log_result(False, results, step, info, f'got {len(operation_result.report_parts)} notifications, expect only one')
+                    log_result(False, results, step, info,
+                               f'got {len(operation_result.report_parts)} notifications, expect only one')
                 else:
                     log_result(True, results, step, info, f'got {len(operation_result.report_parts)} notifications')
                 if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
@@ -515,8 +627,8 @@ def run_ref_test():
             elif len(operation_result.report_parts) >= 3:
                 # check order of operation invoked reports (simple expectation, there could be multiple WAIT in theory)
                 expectation = [msg_types.InvocationState.WAIT,
-                                  msg_types.InvocationState.START,
-                                  msg_types.InvocationState.FINISHED]
+                               msg_types.InvocationState.START,
+                               msg_types.InvocationState.FINISHED]
                 inv_states = [p.InvocationInfo.InvocationState for p in operation_result.report_parts]
                 if inv_states != expectation:
                     log_result(False, results, step, info, f'wrong order {inv_states}')
@@ -550,12 +662,14 @@ def run_ref_test():
                     st.MetricValue.Value = Decimal(1)
                 else:
                     st.MetricValue.Value += Decimal(0.1)
-            future_object = client.set_service_client.set_metric_state(operation.Handle, [proposed_metric_state1, proposed_metric_state2])
+            future_object = client.set_service_client.set_metric_state(operation.Handle,
+                                                                       [proposed_metric_state1, proposed_metric_state2])
             operation_result = future_object.result()
             if len(operation_result.report_parts) == 0:
                 log_result(False, results, step, info, 'no notification')
             elif len(operation_result.report_parts) > 1:
-                log_result(False, results, step, info, f'got {len(operation_result.report_parts)} notifications, expect only one')
+                log_result(False, results, step, info,
+                           f'got {len(operation_result.report_parts)} notifications, expect only one')
             else:
                 log_result(True, results, step, info, f'got {len(operation_result.report_parts)} notifications')
             if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
