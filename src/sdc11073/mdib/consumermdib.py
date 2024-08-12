@@ -232,13 +232,9 @@ class ConsumerMdib(mdibbase.MdibBase):
             self.add_state_containers(state_containers)
 
             mdib_version_group = response.mdib_version_group
-            if mdib_version_group.mdib_version is not None:
-                self.mdib_version = mdib_version_group.mdib_version
-                self._logger.info('setting initial mdib version to {}',
-                                  mdib_version_group.mdib_version)  # noqa: PLE1205
-            else:
-                self._logger.info('found no mdib version in GetMdib response, assuming "0"')
-                self.mdib_version = 0
+            self.mdib_version = mdib_version_group.mdib_version
+            self._logger.info('setting initial mdib version to {}',
+                              mdib_version_group.mdib_version)  # noqa: PLE1205
             self.sequence_id = mdib_version_group.sequence_id
             self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa: PLE1205
             if mdib_version_group.instance_id != self.instance_id:
@@ -315,9 +311,10 @@ class ConsumerMdib(mdibbase.MdibBase):
             self._logger.warning('{}: ignoring too old Mdib version, have {}, got {}',  # noqa: PLE1205
                                  log_prefix, self.mdib_version, new_mdib_version)
         elif (new_mdib_version - self.mdib_version) > 1:
-            if self._sdc_client.all_subscribed:
-                self._logger.warning('{}: expect mdib_version {}, got {}',  # noqa: PLE1205
-                                     log_prefix, self.mdib_version + 1, new_mdib_version)
+            # This can happen if consumer did not subscribe to all notifications.
+            # Still log a warning, because mdib is no longer a correct mirror of provider mdib.
+            self._logger.warning('{}: expect mdib_version {}, got {}',  # noqa: PLE1205
+                                 log_prefix, self.mdib_version + 1, new_mdib_version)
         # it is possible to receive multiple notifications with the same mdib version => compare ">="
         return new_mdib_version >= self.mdib_version
 
@@ -357,7 +354,7 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _update_from_states_report(self, report_type: str,
                                    report: (EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport
-                                            | EpisodicContextReport | EpisodicComponentReport),
+                                            | EpisodicComponentReport),
                                    ) -> dict[str, AbstractStateContainer]:
         """Update mdib with incoming states."""
         states_by_handle = {}
@@ -450,10 +447,9 @@ class ConsumerMdib(mdibbase.MdibBase):
         Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'metric states'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            states_by_handle = self._update_from_states_report('metric states', report)
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'metric states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_states_report('metric states', report)
         finally:
             self.metrics_by_handle = states_by_handle  # update observable
 
@@ -474,10 +470,9 @@ class ConsumerMdib(mdibbase.MdibBase):
         Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'alert states'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            states_by_handle = self._update_from_states_report('alert states', report)
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'alert states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_states_report('alert states', report)
         finally:
             self.alert_by_handle = states_by_handle  # update observable
 
@@ -498,10 +493,9 @@ class ConsumerMdib(mdibbase.MdibBase):
         Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'operational states'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            states_by_handle = self._update_from_states_report('operational states', report)
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'operational states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_states_report('operational states', report)
         finally:
             self.operation_by_handle = states_by_handle  # update observable
 
@@ -522,10 +516,9 @@ class ConsumerMdib(mdibbase.MdibBase):
         Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'context states'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            states_by_handle = self._update_from_context_states_report(report)
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'context states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_context_states_report(report)
         finally:
             self.context_by_handle = states_by_handle  # update observable
 
@@ -546,10 +539,9 @@ class ConsumerMdib(mdibbase.MdibBase):
         Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'component states'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            states_by_handle = self._update_from_states_report('component states', report)
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'component states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_states_report('component states', report)
         finally:
             self.component_by_handle = states_by_handle  # update observable
 
@@ -571,41 +563,40 @@ class ConsumerMdib(mdibbase.MdibBase):
         Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'waveform states'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            for state_container in state_containers:
-                old_state_container = self.states.descriptor_handle.get_one(state_container.DescriptorHandle,
-                                                                            allow_none=True)
-                if old_state_container is not None:
-                    if self._has_new_state_usable_state_version(old_state_container, state_container,
-                                                                'waveform states'):
-                        old_state_container.update_from_other_container(state_container)
-                        self.states.update_object(old_state_container)
-                        states_by_handle[old_state_container.DescriptorHandle] = old_state_container
-                else:
-                    self._logger.error('waveform states: got a new state {}',  # noqa: PLE1205
-                                       state_container.DescriptorHandle)
-                    self._set_descriptor_container_reference(state_container)
-                    self.states.add_object(state_container)
-                    states_by_handle[state_container.DescriptorHandle] = state_container
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'waveform states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                for state_container in state_containers:
+                    old_state_container = self.states.descriptor_handle.get_one(state_container.DescriptorHandle,
+                                                                                allow_none=True)
+                    if old_state_container is not None:
+                        if self._has_new_state_usable_state_version(old_state_container, state_container,
+                                                                    'waveform states'):
+                            old_state_container.update_from_other_container(state_container)
+                            self.states.update_object(old_state_container)
+                            states_by_handle[old_state_container.DescriptorHandle] = old_state_container
+                    else:
+                        self._logger.error('waveform states: got a new state {}',  # noqa: PLE1205
+                                           state_container.DescriptorHandle)
+                        self._set_descriptor_container_reference(state_container)
+                        self.states.add_object(state_container)
+                        states_by_handle[state_container.DescriptorHandle] = state_container
 
-            # add to Waveform Buffer
-            for state_container in states_by_handle.values():
-                state_container: RealTimeSampleArrayMetricStateContainer
-                descriptor_container = state_container.descriptor_container
-                d_handle = state_container.DescriptorHandle
-                rt_buffer = self.rt_buffers.get(d_handle)
-                if rt_buffer is None:
-                    sample_period = 0  # default
-                    if descriptor_container is not None:
-                        # read sample period
-                        sample_period = descriptor_container.SamplePeriod or 0
-                    rt_buffer = ConsumerRtBuffer(sample_period=sample_period,
-                                                 max_samples=self._max_realtime_samples)
-                    self.rt_buffers[d_handle] = rt_buffer
-                rt_sample_containers = rt_buffer.mk_rt_sample_containers(state_container)
-                rt_buffer.add_rt_sample_containers(rt_sample_containers)
+                # add to Waveform Buffer
+                for state_container in states_by_handle.values():
+                    state_container: RealTimeSampleArrayMetricStateContainer
+                    descriptor_container = state_container.descriptor_container
+                    d_handle = state_container.DescriptorHandle
+                    rt_buffer = self.rt_buffers.get(d_handle)
+                    if rt_buffer is None:
+                        sample_period = 0  # default
+                        if descriptor_container is not None:
+                            # read sample period
+                            sample_period = descriptor_container.SamplePeriod or 0
+                        rt_buffer = ConsumerRtBuffer(sample_period=sample_period,
+                                                     max_samples=self._max_realtime_samples)
+                        self.rt_buffers[d_handle] = rt_buffer
+                    rt_sample_containers = rt_buffer.mk_rt_sample_containers(state_container)
+                    rt_buffer.add_rt_sample_containers(rt_sample_containers)
         finally:
             self.waveform_by_handle = states_by_handle  # update observable
 
@@ -633,82 +624,80 @@ class ConsumerMdib(mdibbase.MdibBase):
         deleted_descriptor_by_handle = {}
         try:
             dmt = self.sdc_definitions.data_model.msg_types.DescriptionModificationType
-            if not self._can_accept_mdib_version(mdib_version_group.mdib_version, 'descriptors'):
-                return
-            self._update_from_mdib_version_group(mdib_version_group)
-            for report_part in report.ReportPart:
-                modification_type = report_part.ModificationType
-                if modification_type == dmt.CREATE:
-                    for descriptor_container in report_part.Descriptor:
-                        self.descriptions.add_object(descriptor_container)
-                        self._logger.debug(  # noqa: PLE1205
-                            'process_incoming_descriptors: created description "{}" (parent="{}")',
-                            descriptor_container.Handle, descriptor_container.parent_handle)
-                        new_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
-                    for state_container in report_part.State:
-                        self._set_descriptor_container_reference(state_container)
-                        multi_key(state_container).add_object_no_lock(state_container)
-                elif modification_type == dmt.UPDATE:
-                    updated_descriptor_containers = report_part.Descriptor
-                    updated_state_containers = report_part.State
-                    for descriptor_container in updated_descriptor_containers:
-                        self._logger.info(  # noqa: PLE1205
-                            'process_incoming_descriptors: update descriptor "{}" (parent="{}")',
-                            descriptor_container.Handle, descriptor_container.parent_handle)
-                        old_container = self.descriptions.handle.get_one(descriptor_container.Handle,
-                                                                         allow_none=True)
-                        if old_container is None:
-                            self._logger.error(  # noqa: PLE1205
-                                'process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
-                                descriptor_container.Handle)
-                        else:
-                            old_container.update_from_other_container(descriptor_container)
-                        updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
-                        # if this is a context descriptor, delete all associated states that are not in
-                        # state_containers list
-                        if descriptor_container.is_context_descriptor:
-                            updated_handles = {s.Handle for s in updated_state_containers
-                                               if
-                                               s.DescriptorHandle == descriptor_container.Handle}
-                            my_handles = {s.Handle for s in self.context_states.descriptor_handle.get(
-                                descriptor_container.Handle, [])}  # set comprehension
-                            to_be_deleted = my_handles - updated_handles
-                            for handle in to_be_deleted:
-                                state = self.context_states.handle.get_one(handle)
-                                self.context_states.remove_object_no_lock(state)
-                    for state_container in updated_state_containers:
-                        my_multi_key = multi_key(state_container)
-
-                        if state_container.is_context_state:
-                            old_state_container = my_multi_key.handle.get_one(state_container.Handle,
-                                                                              allow_none=True)
-                        else:
-                            old_state_container = my_multi_key.descriptor_handle.get_one(
-                                state_container.DescriptorHandle, allow_none=True)
-                            if old_state_container is None:
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'descriptors'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                for report_part in report.ReportPart:
+                    modification_type = report_part.ModificationType
+                    if modification_type == dmt.CREATE:
+                        for descriptor_container in report_part.Descriptor:
+                            self.descriptions.add_object(descriptor_container)
+                            self._logger.debug(  # noqa: PLE1205
+                                'process_incoming_descriptors: created description "{}" (parent="{}")',
+                                descriptor_container.Handle, descriptor_container.parent_handle)
+                            new_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
+                        for state_container in report_part.State:
+                            self._set_descriptor_container_reference(state_container)
+                            multi_key(state_container).add_object_no_lock(state_container)
+                    elif modification_type == dmt.UPDATE:
+                        updated_descriptor_containers = report_part.Descriptor
+                        updated_state_containers = report_part.State
+                        for descriptor_container in updated_descriptor_containers:
+                            self._logger.info(  # noqa: PLE1205
+                                'process_incoming_descriptors: update descriptor "{}" (parent="{}")',
+                                descriptor_container.Handle, descriptor_container.parent_handle)
+                            old_container = self.descriptions.handle.get_one(descriptor_container.Handle,
+                                                                             allow_none=True)
+                            if old_container is None:
                                 self._logger.error(  # noqa: PLE1205
-                                    'process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
-                                    state_container.DescriptorHandle)
-                        if old_state_container is not None:
-                            old_state_container.update_from_other_container(state_container)
-                            my_multi_key.update_object(old_state_container)
+                                    'process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
+                                    descriptor_container.Handle)
+                            else:
+                                old_container.update_from_other_container(descriptor_container)
+                            updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
+                            # if this is a context descriptor, delete all associated states that are not in
+                            # state_containers list
+                            if descriptor_container.is_context_descriptor:
+                                updated_handles = {s.Handle for s in updated_state_containers
+                                                   if s.DescriptorHandle == descriptor_container.Handle}
+                                my_handles = {s.Handle for s in self.context_states.descriptor_handle.get(
+                                    descriptor_container.Handle, [])}  # set comprehension
+                                to_be_deleted = my_handles - updated_handles
+                                for handle in to_be_deleted:
+                                    state = self.context_states.handle.get_one(handle)
+                                    self.context_states.remove_object_no_lock(state)
+                        for state_container in updated_state_containers:
+                            my_multi_key = multi_key(state_container)
 
-                elif modification_type == dmt.DELETE:
-                    deleted_descriptor_containers = report_part.Descriptor
-                    deleted_state_containers = report_part.State
-                    for descriptor_container in deleted_descriptor_containers:
-                        self._logger.debug(  # noqa: PLE1205
-                            'process_incoming_descriptors: remove descriptor "{}" (parent="{}")',
-                            descriptor_container.Handle, descriptor_container.parent_handle)
-                        self.rm_descriptor_by_handle(
-                            descriptor_container.Handle)  # handling of self.deleted_descriptor_by_handle inside called method
-                        deleted_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
+                            if state_container.is_context_state:
+                                old_state_container = my_multi_key.handle.get_one(state_container.Handle,
+                                                                                  allow_none=True)
+                            else:
+                                old_state_container = my_multi_key.descriptor_handle.get_one(
+                                    state_container.DescriptorHandle, allow_none=True)
+                                if old_state_container is None:
+                                    self._logger.error(  # noqa: PLE1205
+                                        'process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
+                                        state_container.DescriptorHandle)
+                            if old_state_container is not None:
+                                old_state_container.update_from_other_container(state_container)
+                                my_multi_key.update_object(old_state_container)
 
-                    for state_container in deleted_state_containers:
-                        multi_key(state_container).remove_object_no_lock(state_container)
-                else:
-                    raise ValueError(
-                        f'unknown modification type {modification_type} in description modification report')
+                    elif modification_type == dmt.DELETE:
+                        deleted_descriptor_containers = report_part.Descriptor
+                        deleted_state_containers = report_part.State
+                        for descriptor_container in deleted_descriptor_containers:
+                            self._logger.debug(  # noqa: PLE1205
+                                'process_incoming_descriptors: remove descriptor "{}" (parent="{}")',
+                                descriptor_container.Handle, descriptor_container.parent_handle)
+                            self.rm_descriptor_by_handle(
+                                descriptor_container.Handle)  # handling of self.deleted_descriptor_by_handle inside called method
+                            deleted_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
+
+                        for state_container in deleted_state_containers:
+                            multi_key(state_container).remove_object_no_lock(state_container)
+                    else:
+                        raise ValueError(
+                            f'unknown modification type {modification_type} in description modification report')
 
         finally:
             self.description_modifications = report  # update observable for complete report
