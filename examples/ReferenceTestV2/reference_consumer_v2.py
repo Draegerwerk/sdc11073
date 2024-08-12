@@ -67,18 +67,15 @@ class ResultsCollector:
     def log_result(self, is_ok: bool | None, step: str, info: str, extra_info: str | None = None):
         xtra = f' ({extra_info}) ' if extra_info else ''
         self._results.append(ResultEntry(is_ok, step, info, xtra))
-        #
-        # if is_ok is None:
-        #     self._results.append(f'{step} => no result {xtra}{info}')
-        # elif is_ok:
-        #     self._results.append(f'{step} => passed {xtra}{info}')
-        # else:
-        #     self._results.append(f'{step} => failed {xtra}{info}')
 
     def print_summary(self):
         print('\n### Summary ###')
         for r in self._results:
             print(r)
+
+    @property
+    def failed_count(self):
+        return len([r for r in self._results if r.verdict is False])
 
 
 class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
@@ -452,10 +449,7 @@ def run_ref_test(results_collector: ResultsCollector):
     print(step, info)
     is_ok, result = test_min_updates_per_handle(waveform_updates, min_updates)
     results_collector.log_result(is_ok, step, info + ' notifications per second')
-    if len(waveform_updates) < 3:
-        results_collector.log_result(False, step, info + ' number of waveforms')
-    else:
-        results_collector.log_result(True, step, info + ' number of waveforms')
+    results_collector.log_result(len(waveform_updates) >= 3, step, info + ' number of waveforms')
 
     expected_samples = 1000 * sleep_timer * 0.9
     for handle, reports in waveform_updates.items():
@@ -464,7 +458,6 @@ def run_ref_test(results_collector: ResultsCollector):
         if samples < expected_samples:
             results_collector.log_result(False, step,
                                          info + f' waveform {handle} has {samples} samples, expecting {expected_samples}')
-            is_ok = False
         else:
             results_collector.log_result(True, step, info + f' waveform {handle} has {samples} samples')
 
@@ -770,3 +763,6 @@ if __name__ == '__main__':
 
     run_ref_test(results)
     results.print_summary()
+    if results.failed_count:
+        exit(-1)
+    exit(0)
