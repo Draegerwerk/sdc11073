@@ -1,8 +1,8 @@
 import unittest
 from unittest import mock
-from lxml.etree import QName, fromstring, tostring
+from lxml.etree import QName, Element, fromstring, tostring
 
-from sdc11073.xml_types import pm_types, xml_structure
+from sdc11073.xml_types import pm_types, xml_structure, basetypes
 
 
 class TestPmTypes(unittest.TestCase):
@@ -384,3 +384,25 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         self.assertNotEqual(inst1, inst2)
         self.assertFalse(inst1 == inst2)
         self.assertTrue(inst1 != inst2)
+
+
+    def test_element_with_text_list(self):
+        """Verify that a ElementWithTextList.text is a list even if text of node is None or element does not exist."""
+        node = Element('foo')
+        node.text = 'abc def ghi'
+        obj = basetypes.ElementWithTextList.from_node(node)
+        self.assertEqual(obj.text, ['abc', 'def', 'ghi'])
+
+        node.text = None
+        obj = basetypes.ElementWithTextList.from_node(node)
+        self.assertEqual(obj.text, [])
+
+        # test the case that the element that is supposed to contain the text does not exist.
+        obj = basetypes.ElementWithTextList()
+        mocked = unittest.mock.MagicMock(side_effect=xml_structure.ElementNotFoundError)
+        with unittest.mock.patch.object(xml_structure.NodeTextListProperty,
+                                        '_get_element_by_child_name',
+                                        new=mocked):
+            obj.update_from_node(node)
+            self.assertEqual(obj.text, [])
+            mocked.assert_called_once()

@@ -178,6 +178,7 @@ class AbstractDescriptorContainer(ContainerBase):
                 f'Update from a container with different handle is not possible! '
                 f'Have "{self.Handle}", got "{other.Handle}"')
         self._update_from_other(other, skipped_properties)
+        self.node = other.node
 
     def get_actual_value(self, attr_name: str) -> Any:
         """Ignores default value and implied value, e.g. returns None if value is not present in xml."""

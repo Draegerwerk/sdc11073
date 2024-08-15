@@ -27,7 +27,6 @@ from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisM
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol # import here for code cov. :(
 
-from .components import default_sdc_provider_components
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
@@ -40,6 +39,7 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
+    from sdc11073.xml_types.pm_types import InstanceIdentifier
     from sdc11073.xml_types.wsd_types import ScopesType
 
     from .components import SdcProviderComponents
@@ -126,6 +126,7 @@ class SdcProvider:
         self._socket_timeout = socket_timeout or int(max_subscription_duration * 1.2)
         self._log_prefix = log_prefix
         if default_components is None:
+            from .components import default_sdc_provider_components  # lazy import avoids cyclic import
             default_components = default_sdc_provider_components
         self._components = copy.deepcopy(default_components)
         if specific_components is not None:
@@ -147,20 +148,20 @@ class SdcProvider:
 
         self.collect_rt_samples_period = 0.1  # in seconds
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
-        # look for schemas added by services
-        additional_schema_specs = []
+        # look for schemas added by services and components spec
+        additional_schema_specs = set(self._components.additional_schema_specs)
         for hosted_service in self._components.hosted_services.values():
             for port_type_impl in hosted_service:
-                additional_schema_specs.extend(port_type_impl.additional_namespaces)
+                additional_schema_specs.update(port_type_impl.additional_namespaces)
         logger = loghelper.get_logger_adapter('sdc.device.msgreader', log_prefix)
         self.msg_reader = self._components.msg_reader_class(self._mdib.sdc_definitions,
-                                                            additional_schema_specs,
+                                                            list(additional_schema_specs),
                                                             logger,
                                                             validate=validate)
 
         logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
         self.msg_factory = self._components.msg_factory_class(self._mdib.sdc_definitions,
-                                                              additional_schema_specs,
+                                                              list(additional_schema_specs),
                                                               logger=logger,
                                                               validate=validate)
 
@@ -315,18 +316,26 @@ class SdcProvider:
 
     def set_location(self,
                      location: SdcLocation,
-                     validators: list | None = None,
-                     publish_now: bool = True):
-        """:param location: an SdcLocation instance
-        :param validators: a list of pmtypes.InstanceIdentifier objects or None; in that case the defaultInstanceIdentifiers member is used
+                     validators: list[InstanceIdentifier] | None = None,
+                     publish_now: bool = True,
+                     location_context_descriptor_handle: str | None = None):
+        """Set a new associated location.
+
+        :param location: an SdcLocation instance
+        :param validators: a list of InstanceIdentifier objects or None;
+            If it is None, the defaultInstanceIdentifiers member is used
         :param publish_now: if True, the device is published via its wsdiscovery reference.
+        :param location_context_descriptor_handle: Only needed if the mdib contains more than one
+               LocationContextDescriptor. Then this defines the descriptor for which a new LocationContextState
+               shall be created.
+
         """
         if location == self._location:
             return
         self._location = location
-        if validators is None:
-            validators = self._mdib.xtra.default_instance_identifiers
-        self._mdib.xtra.set_location(location, validators)
+        self._mdib.xtra.set_location(location,
+                                     validators,
+                                     location_context_descriptor_handle = location_context_descriptor_handle)
         if publish_now:
             self.publish()
 

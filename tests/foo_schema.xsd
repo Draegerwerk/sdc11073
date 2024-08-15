@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:foo="http://test/foo" targetNamespace="http://test/foo" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xsd:simpleType name="String3">
+		<xsd:annotation>
+			<xsd:documentation>a string with a minimum length of 3 characters.</xsd:documentation>
+		</xsd:annotation>
+		<xsd:restriction base="xsd:string">
+			<xsd:minLength value="3"/>
+		</xsd:restriction>
+	</xsd:simpleType>
+	<xsd:element name="Foo" >
+		<xsd:complexType>
+			<xsd:attribute name="Bar" type="foo:String3" use="required"/>
+		</xsd:complexType>
+	</xsd:element>
+</xsd:schema>

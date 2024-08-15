@@ -141,15 +141,6 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
         """Remove objects from table without locking."""
         apply_map(self.remove_object_no_lock, objects)
 
-    def replace_object_no_lock(self, new_obj: AbstractDescriptorContainer):
-        """Remove existing descriptor_container and add new one, but do not touch child list of parent.
-
-        This keeps order.
-        """
-        orig_obj = self.handle.get_one(new_obj.Handle)
-        self.remove_object_no_lock(orig_obj)
-        self.add_object_no_lock(new_obj)
-
 
 class StatesLookup(_MultikeyWithVersionLookup):
     """StatesLookup is the table-like storage for states.
@@ -400,6 +391,8 @@ class MdibBase:
         mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
         mdib_node.set('SequenceId', self.sequence_id)
+        if self.instance_id is not None:
+            mdib_node.set('InstanceId', str(self.instance_id))
         md_description_node = self._reconstruct_md_description()
         mdib_node.append(md_description_node)
 

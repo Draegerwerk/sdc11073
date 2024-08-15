@@ -8,7 +8,6 @@ import threading
 import time
 from typing import Any, Callable
 
-MULTICAST_OUT = 'sdc_comm.multicast.out'
 DISCOVERY_IN = 'sdc_comm.discovery.in'
 DISCOVERY_OUT = 'sdc_comm.discovery.out'
 SOAP_REQUEST_IN = 'sdc_comm.soap.request.in'
@@ -18,7 +17,7 @@ SOAP_RESPONSE_OUT = 'sdc_comm.soap.response.out'
 SOAP_SUBSCRIPTION_IN = 'sdc_comm.soap.subscription.in'
 WSDL = 'sdc_comm.wsdl'
 
-LOGGER_NAMES = (MULTICAST_OUT, DISCOVERY_IN, DISCOVERY_OUT, SOAP_REQUEST_IN, SOAP_REQUEST_OUT,
+LOGGER_NAMES = (DISCOVERY_IN, DISCOVERY_OUT, SOAP_REQUEST_IN, SOAP_REQUEST_OUT,
                 SOAP_RESPONSE_IN, SOAP_RESPONSE_OUT, SOAP_SUBSCRIPTION_IN, WSDL)
 
 
@@ -91,8 +90,6 @@ class DirectoryLogger(CommLogger):
             })
         if log_out:
             self.handlers.update({
-                MULTICAST_OUT: self._GenericHandler(
-                    functools.partial(self._write_log, self.T_UDP_MULTICAST, self.D_OUT)),
                 DISCOVERY_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_OUT)),
                 SOAP_REQUEST_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_REQ, self.D_OUT)),
                 SOAP_RESPONSE_OUT: self._GenericHandler(

@@ -1071,6 +1071,18 @@ class _ElementListProperty(_ElementBase, ABC):
     def init_instance_data(self, instance: Any):
         setattr(instance, self._local_var_name, [])
 
+    def update_from_node(self, instance: Any, node: xml_utils.LxmlElement):
+        """Update instance data with data from node.
+
+        This method is used internally and should not be called by application.
+        :param instance:the instance that has the property as member
+        :param node:the etree node that provides the value
+        :return:
+        """
+        value: list | None = self.get_py_value_from_node(instance, node)
+        if value is not None:
+            setattr(instance, self._local_var_name, value)
+
 
 class SubElementListProperty(_ElementListProperty):
     """SubElementListProperty is  a list of values that have an "as_etree_node" method.
@@ -1323,15 +1335,19 @@ class NodeTextListProperty(_ElementListProperty):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)),
                          is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
-        """Read value from node."""
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> list[Any] | None:  # noqa: ARG002
+        """Read value from node.
+
+        If the expected node does not exist, return _default_py_value (usually None).
+        If the node exists, but the text is None, return an empty list.
+        """
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
             if sub_node.text is not None:
                 return sub_node.text.split()
+            return []
         except ElementNotFoundError:
-            pass
-        return self._default_py_value
+            return self._default_py_value
 
     def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""

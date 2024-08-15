@@ -1,7 +1,7 @@
 codecov:
     notify:
-        # do not notify until at least 12 builds have been uploaded from the CI pipeline
-        after_n_builds: 12 # https://docs.codecov.com/docs/codecovyml-reference#codecovnotify
+        # do not notify until at least 16 builds (python versions * os * extension = 4 * 2 * 2 = 16) have been uploaded from the CI pipeline
+        after_n_builds: 16 # https://docs.codecov.com/docs/codecovyml-reference#codecovnotify
 coverage:
   status:
     project:

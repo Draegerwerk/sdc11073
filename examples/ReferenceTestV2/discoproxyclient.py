@@ -1,3 +1,10 @@
+"""Implementation of discovery proxy client.
+
+A discovery proxy prototype has been implemented based on
+https://confluence.hl7.org/display/GP/Topic%3A+Discovery+Proxy+Actors
+
+This client connects to that proxy.
+"""
 from __future__ import annotations
 
 import os
@@ -270,88 +277,97 @@ class DiscoProxyClient:
         return EmptyResponse()
 
 
-def mk_provider(wsd: DiscoProxyClient, mdib_path: str, uuid_str: str):
-    my_mdib = ProviderMdib.from_mdib_file(mdib_path)
-    print("UUID for this device is {}".format(uuid_str))
-    dpwsModel = ThisModelType(manufacturer='sdc11073',
-                              manufacturer_url='www.sdc11073.com',
-                              model_name='TestDevice',
-                              model_number='1.0',
-                              model_url='www.sdc11073.com/model',
-                              presentation_url='www.sdc11073.com/model/presentation')
 
-    dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
-                                firmware_version='Version1',
-                                serial_number='12345')
-    specific_components = None
-    sdc_provider = SdcProvider(wsd, dpwsModel, dpwsDevice, my_mdib, UUID(uuid_str),
-                               ssl_context_container=ssl_contexts,
-                               specific_components=specific_components,
-                               max_subscription_duration=15
-                               )
-    return sdc_provider
-
-
-def log_services(log, the_services):
-    log.info('found %d services:', len(the_services))
-    for the_service in the_services:
-        log.info('found service: %r', the_service)
 
 
 if __name__ == '__main__':
-    basic_logging_setup()
-    logger = get_logger_adapter('sdc.disco.main')
-    ca_folder = r'C:\tmp\ORNET_REF_Certificates'
-    ssl_passwd = 'dummypass'
-    disco_ip = '192.168.30.5:33479'
-    my_ip = '192.168.30.106'
-    My_UUID_str = '12345678-6f55-11ea-9697-123456789bcd'
-    here = os.path.dirname(__file__)
-    default_mdib_path = os.path.join(here, 'mdib_test_sequence_2_v4(temp).xml')
-    mdib_path = os.getenv('ref_mdib') or default_mdib_path
-    ref_fac = os.getenv('ref_fac') or 'r_fac'
-    ref_poc = os.getenv('ref_poc') or 'r_poc'
-    ref_bed = os.getenv('ref_bed') or 'r_bed'
-    loc = SdcLocation(ref_fac, ref_poc, ref_bed)
 
-    ssl_contexts = mk_ssl_contexts_from_folder(ca_folder,
-                                               cyphers_file=None,
-                                               private_key='user_private_key_encrypted.pem',
-                                               certificate='user_certificate_root_signed.pem',
-                                               ca_public_key='root_certificate.pem',
-                                               ssl_passwd=ssl_passwd,
-                                               )
+    def mk_provider(wsd: DiscoProxyClient, mdib_path: str, uuid_str: str, ssl_contexts: SSLContextContainer):
+        my_mdib = ProviderMdib.from_mdib_file(mdib_path)
+        print("UUID for this device is {}".format(uuid_str))
+        dpwsModel = ThisModelType(manufacturer='sdc11073',
+                                  manufacturer_url='www.sdc11073.com',
+                                  model_name='TestDevice',
+                                  model_number='1.0',
+                                  model_url='www.sdc11073.com/model',
+                                  presentation_url='www.sdc11073.com/model/presentation')
 
-    proxy = DiscoProxyClient(disco_ip, my_ip, ssl_contexts)
-    # proxy = DiscoProxyClient(disco_ip, my_ip)
-    proxy.start()
-    try:
-        services = proxy.search_services()
-        log_services(logger, services)
+        dpwsDevice = ThisDeviceType(friendly_name='TestDevice',
+                                    firmware_version='Version1',
+                                    serial_number='12345')
+        specific_components = None
+        sdc_provider = SdcProvider(wsd, dpwsModel, dpwsDevice, my_mdib, UUID(uuid_str),
+                                   ssl_context_container=ssl_contexts,
+                                   specific_components=specific_components,
+                                   max_subscription_duration=15
+                                   )
+        return sdc_provider
 
-        # now publish a device
+
+    def log_services(log, the_services):
+        """Print the found services."""
+        log.info('found %d services:', len(the_services))
+        for the_service in the_services:
+            log.info('found service: %r', the_service)
+
+
+    def main():
+        # example code how to use the DiscoProxyClient.
+        # It assumes a discovery proxy is reachable on disco_ip address.
+        basic_logging_setup()
+        logger = get_logger_adapter('sdc.disco.main')
+        ca_folder = r'C:\tmp\ORNET_REF_Certificates'
+        ssl_passwd = 'dummypass'
+        disco_ip = '192.168.30.5:33479'
+        my_ip = '192.168.30.106'
+        My_UUID_str = '12345678-6f55-11ea-9697-123456789bcd'
+        here = os.path.dirname(__file__)
+        default_mdib_path = os.path.join(here, 'mdib_test_sequence_2_v4(temp).xml')
+        mdib_path = os.getenv('ref_mdib') or default_mdib_path
+        ref_fac = os.getenv('ref_fac') or 'r_fac'
+        ref_poc = os.getenv('ref_poc') or 'r_poc'
+        ref_bed = os.getenv('ref_bed') or 'r_bed'
         loc = SdcLocation(ref_fac, ref_poc, ref_bed)
-        logger.info("location for this device is {}", loc)
-        logger.info('start provider...')
 
-        sdc_provider = mk_provider(proxy, mdib_path, My_UUID_str)
-        sdc_provider.start_all()
+        ssl_contexts = mk_ssl_contexts_from_folder(ca_folder,
+                                                   cyphers_file=None,
+                                                   private_key='user_private_key_encrypted.pem',
+                                                   certificate='user_certificate_root_signed.pem',
+                                                   ca_public_key='root_certificate.pem',
+                                                   ssl_passwd=ssl_passwd,
+                                                   )
 
-        validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        sdc_provider.set_location(loc, validators)
+        proxy = DiscoProxyClient(disco_ip, my_ip, ssl_contexts)
+        proxy.start()
+        try:
+            services = proxy.search_services()
+            log_services(logger, services)
 
-        services = proxy.search_services()
-        log_services(logger, services)
-        for service in services:
-            result = proxy.send_resolve(service.epr)
-            logger.info('resolvematches: %r', result.ResolveMatch)
+            # now publish a device
+            loc = SdcLocation(ref_fac, ref_poc, ref_bed)
+            logger.info("location for this device is {}", loc)
+            logger.info('start provider...')
 
-        time.sleep(5)
-        logger.info('stop provider...')
-        sdc_provider.stop_all()
+            sdc_provider = mk_provider(proxy, mdib_path, My_UUID_str, ssl_contexts)
+            sdc_provider.start_all()
 
-        services = proxy.search_services()
-        log_services(logger, services)
+            validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+            sdc_provider.set_location(loc, validators)
 
-    finally:
-        proxy.stop()
+            services = proxy.search_services()
+            log_services(logger, services)
+            for service in services:
+                result = proxy.send_resolve(service.epr)
+                logger.info('resolvematches: %r', result.ResolveMatch)
+
+            time.sleep(5)
+            logger.info('stop provider...')
+            sdc_provider.stop_all()
+
+            services = proxy.search_services()
+            log_services(logger, services)
+
+        finally:
+            proxy.stop()
+
+    main()
