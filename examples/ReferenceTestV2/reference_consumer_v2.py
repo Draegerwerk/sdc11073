@@ -764,5 +764,5 @@ if __name__ == '__main__':
     run_ref_test(results)
     results.print_summary()
     if results.failed_count:
-        exit(-1)
+        exit(1)
     exit(0)
