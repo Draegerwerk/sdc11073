@@ -167,13 +167,17 @@ Creating a pull request is a critical step in contributing to our project. Here'
     - Once your pull request is approved by a project maintainer and all CI checks pass, it will be merged.
     - Congratulations! You've successfully contributed to the project.
 
-## Copyright
+## Acknowledgment
 
-If you want to be listed as a copyright holder, add your information in the following format to
-the [COPYRIGHT.md](https://github.com/Draegerwerk/sdc11073/blob/master/COPYRIGHT.md) file:
+We thank the following contributors for their valuable contributions to the project:
+
+- 2020-2024 Bernd Deichmann
+- 2023-2024 Leon Budnick
+
+If you want to be listed as a contributor, add your information in the following format:
 
 ```markdown
-- Copyright (c) <year(s) of contribution(s)> <your name> <optionally your email>
+- <year(s) of contribution(s)> <your name> <optionally your email>
 ```
 
 If you have contributed in multiple years, you can define a range of years like `2020-2024` or single years
