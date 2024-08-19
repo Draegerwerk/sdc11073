@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - support for python version 3.12
 - new method ContextStateTransaction.disaccociate_all
 - additional schemata for validation can be declared in SdcProviderComponents and SdcConsumerComponents
+- new method Consumer.restart
+- log a message with level INFO when a context state update is received
 
 ### Fixed
 
@@ -38,7 +40,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - SetContextState operation sets ContextAssociation according to value in proposed context state. 
   Before the proposed state was always associated. 
   Check added in SetContextState that max. one proposed state per descriptor is associated.
-
+- refactored ClientMdib.reload_all and processing of notifications
+- 
 ## [2.0.1] - 2024-02-21
 
 ### Fixed

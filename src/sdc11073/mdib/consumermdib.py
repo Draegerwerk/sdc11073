@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import enum
+import threading
 import time
 import traceback
 from collections import deque
@@ -8,8 +10,8 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any, Callable
 
 from sdc11073 import loghelper
+from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
-
 from . import mdibbase
 from .consumermdibxtra import ConsumerMdibMethods
 
@@ -29,7 +31,9 @@ if TYPE_CHECKING:
         OperationInvokedReport,
     )
 
-    from .statecontainers import AbstractStateContainer, RealTimeSampleArrayMetricStateContainer
+    from .statecontainers import (AbstractStateContainer,
+                                  AbstractContextStateContainer,
+                                  RealTimeSampleArrayMetricStateContainer)
 
 
 @dataclass
@@ -134,16 +138,30 @@ class _BufferedData:
     handler: callable
 
 
+class ConsumerMdibState(enum.Enum):
+    """ConsumerMdib can be in one of these states."""
+    initializing = enum.auto()  # the state during reload_all()
+    initialized = enum.auto()  # the state when mdib is in sync with provider
+    invalid = enum.auto()  # the state when mdib is not in sync with provider
+
+
 class ConsumerMdib(mdibbase.MdibBase):
     """ConsumerMdib is a mirror of a provider mdib. Updates are performed by an SdcConsumer."""
 
     MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
 
+    # sequence_or_instance_id_changed_event is set to True every time the sequence id changes.
+    # It is not reset to False any time later.
+    # It is in the responsibility of the application to react on a changed sequence id.
+    # Observe this property and call "reload_all" in the observer code.
+    sequence_or_instance_id_changed_event: bool = properties.ObservableProperty(
+        default_value=False, fire_only_on_changed_value=False)
+
     def __init__(self,
                  sdc_client: SdcConsumer,
                  extras_cls: type | None = None,
                  max_realtime_samples: int = 100):
-        """Contruct a ConsumerMdib instance.
+        """Construct a ConsumerMdib instance.
 
         :param sdc_client: a SdcConsumer instance
         :param  extras_cls: extended functionality
@@ -155,14 +173,13 @@ class ConsumerMdib(mdibbase.MdibBase):
         if extras_cls is None:
             extras_cls = ConsumerMdibMethods
         self._xtra = extras_cls(self, self._logger)
-        self._is_initialized = False
+        self._state = ConsumerMdibState.invalid
         self.rt_buffers = {}  # key  is a handle, value is a ConsumerRtBuffer
         self._max_realtime_samples = max_realtime_samples
         self._last_wf_age_log = time.time()
         # a buffer for notifications that are received before initial get_mdib is done
         self._buffered_notifications = []
         self._buffered_notifications_lock = Lock()
-        self._sequence_id_changed_flag = False
 
     @property
     def xtra(self) -> Any:
@@ -177,7 +194,7 @@ class ConsumerMdib(mdibbase.MdibBase):
     @property
     def is_initialized(self) -> bool:
         """Returns True if everything has been set up completely."""
-        return self._is_initialized
+        return self._state == ConsumerMdibState.initialized
 
     def init_mdib(self):
         """Binds own notification handlers to observables of sdc client and calls GetMdib.
@@ -185,7 +202,7 @@ class ConsumerMdib(mdibbase.MdibBase):
         Client mdib is initialized from GetMdibResponse, and from then on updated from incoming notifications.
         :return: None
         """
-        if self._is_initialized:
+        if self.is_initialized:
             raise ApiUsageError('ConsumerMdib is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise, we might miss notifications.
@@ -195,73 +212,59 @@ class ConsumerMdib(mdibbase.MdibBase):
         self._logger.info('initializing mdib done')
 
     def reload_all(self):
-        """Delete all data and reloads everything. Useful e.g. after sequence id change.
+        """Delete all data and reloads everything."""
+        self._logger.info('reload_all called')
+        with self.mdib_lock:
+            self._state = ConsumerMdibState.initializing  # notifications are now buffered
+            self.descriptions.clear()
+            self.clear_states()
+            self.sequence_id = None
+            self.instance_id = None
+            self.mdib_version = None
 
-        This method is not called automatically, the application has to take care.
-        :return: None
-        """
-        self._is_initialized = False
-        self._sequence_id_changed_flag = False
-        self.descriptions.clear()
-        self.clear_states()
+            get_service = self._sdc_client.client('Get')
+            self._logger.info('initializing mdib...')
+            response = get_service.get_mdib()  # GetRequestResult
+            self._logger.info('creating description containers...')
+            descriptor_containers, state_containers = response.result
+            self.add_description_containers(descriptor_containers)
+            self._logger.info('creating state containers...')
+            self.add_state_containers(state_containers)
 
-        get_service = self._sdc_client.client('Get')
-        self._logger.info('initializing mdib...')
-        response = get_service.get_mdib()  # GetRequestResult
-        self._logger.info('creating description containers...')
-        descriptor_containers, state_containers = response.result
-        self.add_description_containers(descriptor_containers)
-        self._logger.info('creating state containers...')
-        self.add_state_containers(state_containers)
-
-        mdib_version_group = response.mdib_version_group
-        if mdib_version_group.mdib_version is not None:
+            mdib_version_group = response.mdib_version_group
             self.mdib_version = mdib_version_group.mdib_version
-            self._logger.info('setting initial mdib version to {}', mdib_version_group.mdib_version)  # noqa: PLE1205
-        else:
-            self._logger.warning('found no mdib version in GetMdib response, assuming "0"')
-            self.mdib_version = 0
-        self.sequence_id = mdib_version_group.sequence_id
-        self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa: PLE1205
-        if mdib_version_group.instance_id != self.instance_id:
-            self.instance_id = mdib_version_group.instance_id
-        self._logger.info('setting initial instance id to {}', mdib_version_group.instance_id)  # noqa: PLE1205
+            self._logger.info('setting initial mdib version to {}',
+                              mdib_version_group.mdib_version)  # noqa: PLE1205
+            self.sequence_id = mdib_version_group.sequence_id
+            self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa: PLE1205
+            if mdib_version_group.instance_id != self.instance_id:
+                self.instance_id = mdib_version_group.instance_id
+            self._logger.info('setting initial instance id to {}', mdib_version_group.instance_id)  # noqa: PLE1205
 
-        # retrieve context states only if there were none in mdib
-        if len(self.context_states.objects) == 0:
-            self._get_context_states()
-        else:
-            self._logger.info('found context states in GetMdib Result, will not call getContextStates')
+            # retrieve context states only if there were none in mdib
+            if len(self.context_states.objects) == 0:
+                self._get_context_states()
+            else:
+                self._logger.info('found context states in GetMdib Result, will not call getContextStates')
 
-        # process buffered notifications
-        with self._buffered_notifications_lock:
-            for buffered_report in self._buffered_notifications:
-                buffered_report.handler(buffered_report.mdib_version_group,
-                                        buffered_report.data,
-                                        is_buffered_report=True)
-            del self._buffered_notifications[:]
-            self._is_initialized = True
-
-    def _buffer_data(self, mdib_version_group: MdibVersionGroupReader,
-                     data: Any,
-                     func: Callable) -> bool:
-        """Write notification to a temporary buffer, as long as mdib is not initialized.
-
-        :param mdib_version_group:
-        :param data:
-        :param func: the callable that shall be called later for delayed handling of report
-        :return: True if buffered, False if report shall be processed immediately
-        """
-        if self._is_initialized:
-            # no reason to buffer
-            return False
-
-        # get lock and check if we need to write to buffer
-        with self._buffered_notifications_lock:
-            if not self._is_initialized:
-                self._buffered_notifications.append(_BufferedData(mdib_version_group, data, func))
-                return True
-            return False
+            # process buffered notifications
+            with self._buffered_notifications_lock:
+                self._logger.debug('got _buffered_notifications_lock')
+                for buffered_report in self._buffered_notifications:
+                    # buffered data might contain notifications that do not fit.
+                    if buffered_report.mdib_version_group.sequence_id != self.sequence_id:
+                        self.logger.debug('wrong sequence id "%s"; ignore buffered report',
+                                          buffered_report.mdib_version_group.sequence_id)
+                        continue
+                    if buffered_report.mdib_version_group.mdib_version <= self.mdib_version:
+                        self.logger.debug('older mdib version "%d"; ignore buffered report',
+                                          buffered_report.mdib_version_group.mdib_version)
+                        continue
+                    buffered_report.handler(buffered_report.mdib_version_group,
+                                            buffered_report.data)
+                del self._buffered_notifications[:]
+                self._state = ConsumerMdibState.initialized
+            self._logger.info('reload_all done')
 
     def _get_context_states(self, handles: list[str] | None = None):
         try:
@@ -300,37 +303,46 @@ class ConsumerMdib(mdibbase.MdibBase):
         finally:
             self._logger.info('_get_context_states done')
 
-    def _can_accept_version(self, mdib_version: int, sequence_id: str, log_prefix: str) -> bool:
-        if not self._can_accept_mdib_version(log_prefix, mdib_version):
-            return False
-        if self._sequence_id_changed(sequence_id):
-            return False
-        return True
-
-    def _can_accept_mdib_version(self, log_prefix: str, new_mdib_version: int) -> bool:
+    def _can_accept_mdib_version(self, new_mdib_version: int, log_prefix: str) -> bool:
         if self.MDIB_VERSION_CHECK_DISABLED:
             return True
-        if new_mdib_version is None:
-            self._logger.error('{}: could not check MdibVersion!', log_prefix)  # noqa: PLE1205
-        else:
-            # log deviations from expected mdib version
-            if new_mdib_version < self.mdib_version:
-                self._logger.warning('{}: ignoring too old Mdib version, have {}, got {}',  # noqa: PLE1205
-                                     log_prefix, self.mdib_version, new_mdib_version)
-            elif (new_mdib_version - self.mdib_version) > 1:
-                if self._sdc_client.all_subscribed:
-                    self._logger.warning('{}: expect mdib_version {}, got {}',  # noqa: PLE1205
-                                         log_prefix, self.mdib_version + 1, new_mdib_version)
-            # it is possible to receive multiple notifications with the same mdib version => compare ">="
-            if new_mdib_version >= self.mdib_version:
-                return True
-        return False
+        # log deviations from expected mdib version
+        if new_mdib_version < self.mdib_version:
+            self._logger.warning('{}: ignoring too old Mdib version, have {}, got {}',  # noqa: PLE1205
+                                 log_prefix, self.mdib_version, new_mdib_version)
+        elif (new_mdib_version - self.mdib_version) > 1:
+            # This can happen if consumer did not subscribe to all notifications.
+            # Still log a warning, because mdib is no longer a correct mirror of provider mdib.
+            self._logger.warning('{}: expect mdib_version {}, got {}',  # noqa: PLE1205
+                                 log_prefix, self.mdib_version + 1, new_mdib_version)
+        # it is possible to receive multiple notifications with the same mdib version => compare ">="
+        return new_mdib_version >= self.mdib_version
 
-    def _sequence_id_changed(self, sequence_id: str) -> bool:
-        if self.sequence_id != sequence_id:
-            self._sequence_id_changed_flag = True
-            self.sequence_id = sequence_id
-        return self._sequence_id_changed_flag
+    def _check_sequence_or_instance_id_changed(self, mdib_version_group):
+        """Check if sequence id and instance id are still the same.
+
+        If not,
+        - set state member to invalid
+        - set the observable "sequence_or_instance_id_changed_event" in a thread.
+          This allows to implement an observer that can directly call reload_all without blocking the consumer."""
+        if mdib_version_group.sequence_id == self.sequence_id and mdib_version_group.instance_id == self.instance_id:
+            return
+        if self._state == ConsumerMdibState.initialized:
+            if mdib_version_group.sequence_id != self.sequence_id:
+                self.logger.warning('sequence id changed from "%s" to "%s"',
+                                    self.sequence_id, mdib_version_group.sequence_id)
+            if mdib_version_group.instance_id != self.instance_id:
+                self.logger.warning('instance id changed from "%r" to "%r"',
+                                    self.instance_id, mdib_version_group.instance_id)
+            self.logger.warning('mdib is no longer valid!')
+
+            self._state = ConsumerMdibState.invalid
+
+            def _set_observable():
+                self.sequence_or_instance_id_changed_event = True
+
+            thr = threading.Thread(target=_set_observable)
+            thr.start()
 
     def _update_from_mdib_version_group(self, mdib_version_group: MdibVersionGroupReader):
         if mdib_version_group.mdib_version != self.mdib_version:
@@ -340,143 +352,234 @@ class ConsumerMdib(mdibbase.MdibBase):
         if mdib_version_group.instance_id != self.instance_id:
             self.instance_id = mdib_version_group.instance_id
 
-    def _process_incoming_states(self, report_type: str,
-                                 state_containers: list[AbstractStateContainer],
-                                 is_buffered_report: bool) -> dict[str, AbstractStateContainer]:
-        """Update mdib with incoming states."""
-        states_by_handle = {}
-        for state_container in state_containers:
-            src = self.states
-            old_state_container = src.descriptor_handle.get_one(state_container.DescriptorHandle,
-                                                                allow_none=True)
-            if old_state_container is not None:
-                if self._has_new_state_usable_state_version(old_state_container, state_container,
-                                                            report_type,
-                                                            is_buffered_report):
-                    old_state_container.update_from_other_container(state_container)
-                    src.update_object(old_state_container)
-                    states_by_handle[old_state_container.DescriptorHandle] = old_state_container
-            else:
-                self._logger.error('{}: got a new state {}',  # noqa: PLE1205
-                                   report_type,
-                                   state_container.DescriptorHandle)
-                self._set_descriptor_container_reference(state_container)
-                src.add_object(state_container)
-                states_by_handle[state_container.DescriptorHandle] = state_container
-        return states_by_handle
-
-    def process_incoming_states_report(self, report_type: str,
-                                       report: EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport | EpisodicContextReport | EpisodicComponentReport,
-                                       is_buffered_report: bool) -> dict:
+    def _update_from_states_report(self, report_type: str,
+                                   report: (EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport
+                                            | EpisodicComponentReport),
+                                   ) -> dict[str, AbstractStateContainer]:
         """Update mdib with incoming states."""
         states_by_handle = {}
         for report_part in report.ReportPart:
             for state_container in report_part.values_list:
-                if state_container.is_context_state:
-                    src = self.context_states
-                    old_state_container = src.handle.get_one(state_container.Handle,
-                                                             allow_none=True)
-                else:
-                    src = self.states
-                    old_state_container = src.descriptor_handle.get_one(state_container.DescriptorHandle,
-                                                                        allow_none=True)
+                src = self.states
+                old_state_container = src.descriptor_handle.get_one(state_container.DescriptorHandle,
+                                                                    allow_none=True)
                 if old_state_container is not None:
                     if self._has_new_state_usable_state_version(old_state_container, state_container,
-                                                                report_type,
-                                                                is_buffered_report):
+                                                                report_type):
                         old_state_container.update_from_other_container(state_container)
                         src.update_object(old_state_container)
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
                 else:
-                    if state_container.is_context_state:
-                        self._logger.info(  # noqa: PLE1205
-                            '{}: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
-                            report_type, state_container.Handle, state_container.DescriptorHandle,
-                            state_container.ContextAssociation, state_container.Validator)
-                    else:
-                        self._logger.error('{}: got a new state {}',  # noqa: PLE1205
-                                           report_type,
-                                           state_container.DescriptorHandle)
+                    self._logger.error('{}: got a new state {}',  # noqa: PLE1205
+                                       report_type,
+                                       state_container.DescriptorHandle)
                     self._set_descriptor_container_reference(state_container)
                     src.add_object(state_container)
                     states_by_handle[state_container.DescriptorHandle] = state_container
         return states_by_handle
 
+    def _update_from_context_states_report(self, report: EpisodicContextReport,
+                                           ) -> dict[str, AbstractContextStateContainer]:
+        """Update mdib with incoming states."""
+        states_by_handle = {}
+        for report_part in report.ReportPart:
+            for state_container in report_part.values_list:
+                src = self.context_states
+                old_state_container = src.handle.get_one(state_container.Handle,
+                                                         allow_none=True)
+                if old_state_container is not None:
+                    if self._has_new_state_usable_state_version(old_state_container, state_container,
+                                                                'context states'):
+                        self._logger.info(  # noqa: PLE1205
+                            'updated context state: handle = {} Descriptor Handle={} Assoc={}, Validators={}',
+                            state_container.Handle, state_container.DescriptorHandle,
+                            state_container.ContextAssociation, state_container.Validator)
+                        old_state_container.update_from_other_container(state_container)
+                        src.update_object(old_state_container)
+                        states_by_handle[old_state_container.DescriptorHandle] = old_state_container
+                else:
+                    self._logger.info(  # noqa: PLE1205
+                        'new context state: handle = {} Descriptor Handle={} Assoc={}, Validators={}',
+                        state_container.Handle, state_container.DescriptorHandle,
+                        state_container.ContextAssociation, state_container.Validator)
+                    self._set_descriptor_container_reference(state_container)
+                    src.add_object(state_container)
+                    states_by_handle[state_container.Handle] = state_container
+        return states_by_handle
+
+    def _pre_check_report_ok(self,
+                             mdib_version_group: MdibVersionGroupReader,
+                             report: AbstractReport | list[RealTimeSampleArrayMetricStateContainer],
+                             handler: Callable) -> bool:
+        """Check if the report can be added to mdib.
+
+        The pre-check runs before the mdib lock is acquired.
+        The report is buffered if state is 'initializing' and 'is_buffered_report' is False.
+        :return: True if report can be added to mdib.
+        """
+        self._check_sequence_or_instance_id_changed(mdib_version_group)  # this might change self._state
+        if self._state == ConsumerMdibState.invalid:
+            # ignore report in these states
+            return False
+        if self._state == ConsumerMdibState.initializing:
+            with self._buffered_notifications_lock:
+                # check state again, it might have changed before lock was acquired
+                if self._state == ConsumerMdibState.initializing:
+                    self._buffered_notifications.append(_BufferedData(mdib_version_group, report, handler))
+                    return False
+        return True
+
     def process_incoming_metric_states_report(self, mdib_version_group: MdibVersionGroupReader,
-                                              report: EpisodicMetricReport,
-                                              is_buffered_report: bool = False):
-        """Add data from EpisodicMetricReport to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, report,
-                                                        self.process_incoming_metric_states_report):
+                                              report: EpisodicMetricReport):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, report,
+                                         self._process_incoming_metric_states_report):
             return
+        with self.mdib_lock:
+            self._process_incoming_metric_states_report(mdib_version_group, report)
+
+    def _process_incoming_metric_states_report(self,
+                                               mdib_version_group: MdibVersionGroupReader,
+                                               report: EpisodicMetricReport):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'metric states'):
-                    return
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'metric states'):
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self.process_incoming_states_report(
-                    'metric states', report, is_buffered_report)
+                states_by_handle = self._update_from_states_report('metric states', report)
         finally:
-            self.metrics_by_handle = states_by_handle  # used by wait_metric_matches method
+            self.metrics_by_handle = states_by_handle  # update observable
 
     def process_incoming_alert_states_report(self, mdib_version_group: MdibVersionGroupReader,
-                                             report: EpisodicAlertReport,
-                                             is_buffered_report: bool = False):
-        """Add data from EpisodicAlertReport to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, report,
-                                                        self.process_incoming_alert_states_report):
+                                             report: EpisodicAlertReport):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, report,
+                                         self._process_incoming_alert_states_report):
             return
+        with self.mdib_lock:
+            self._process_incoming_alert_states_report(mdib_version_group, report)
+
+    def _process_incoming_alert_states_report(self, mdib_version_group: MdibVersionGroupReader,
+                                              report: EpisodicAlertReport):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'alert states'):
-                    return
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'alert states'):
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self.process_incoming_states_report(
-                    'alert states', report, is_buffered_report)
+                states_by_handle = self._update_from_states_report('alert states', report)
         finally:
-            self.alert_by_handle = states_by_handle  # used by wait_metric_matches method
+            self.alert_by_handle = states_by_handle  # update observable
 
     def process_incoming_operational_states_report(self, mdib_version_group: MdibVersionGroupReader,
-                                                   report: OperationInvokedReport,
-                                                   is_buffered_report: bool = False):
-        """Add data from OperationInvokedReport to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, report,
-                                                        self.process_incoming_operational_states_report):
+                                                   report: OperationInvokedReport):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, report,
+                                         self.process_incoming_operational_states_report):
             return
-        states_by_handle = {}
+        with self.mdib_lock:
+            self._process_incoming_operational_states_report(mdib_version_group, report)
 
+    def _process_incoming_operational_states_report(self, mdib_version_group: MdibVersionGroupReader,
+                                                    report: OperationInvokedReport):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        states_by_handle = {}
         try:
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'operational states'):
-                    return
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'operational states'):
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self.process_incoming_states_report(
-                    'operational states', report, is_buffered_report)
+                states_by_handle = self._update_from_states_report('operational states', report)
         finally:
-            self.operation_by_handle = states_by_handle  # used by wait_metric_matches method
+            self.operation_by_handle = states_by_handle  # update observable
+
+    def process_incoming_context_states_report(self, mdib_version_group: MdibVersionGroupReader,
+                                               report: EpisodicContextReport):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, report,
+                                         self._process_incoming_context_states_report):
+            return
+        with self.mdib_lock:
+            self._process_incoming_context_states_report(mdib_version_group, report)
+
+    def _process_incoming_context_states_report(self, mdib_version_group: MdibVersionGroupReader,
+                                                report: EpisodicContextReport):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        states_by_handle = {}
+        try:
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'context states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_context_states_report(report)
+        finally:
+            self.context_by_handle = states_by_handle  # update observable
+
+    def process_incoming_component_states_report(self, mdib_version_group: MdibVersionGroupReader,
+                                                 report: EpisodicComponentReport):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, report,
+                                         self._process_incoming_component_states_report):
+            return
+        with self.mdib_lock:
+            self._process_incoming_component_states_report(mdib_version_group, report)
+
+    def _process_incoming_component_states_report(self, mdib_version_group: MdibVersionGroupReader,
+                                                  report: EpisodicComponentReport):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        states_by_handle = {}
+        try:
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'component states'):
+                self._update_from_mdib_version_group(mdib_version_group)
+                states_by_handle = self._update_from_states_report('component states', report)
+        finally:
+            self.component_by_handle = states_by_handle  # update observable
 
     def process_incoming_waveform_states(self, mdib_version_group: MdibVersionGroupReader,
-                                         state_containers: list[RealTimeSampleArrayMetricStateContainer],
-                                         is_buffered_report: bool = False) -> dict[
-                                                                                  str, RealTimeSampleArrayMetricStateContainer] | None:
-        """Add data from state_containers to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, state_containers,
-                                                        self.process_incoming_waveform_states):
-            return None
+                                         state_containers: list[RealTimeSampleArrayMetricStateContainer]
+                                         ) -> dict[str, RealTimeSampleArrayMetricStateContainer] | None:
+        """Check mdib_version_group and process state_containers it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, state_containers,
+                                         self._process_incoming_waveform_states):
+            return
+        with self.mdib_lock:
+            self._process_incoming_waveform_states(mdib_version_group, state_containers)
+
+    def _process_incoming_waveform_states(self, mdib_version_group: MdibVersionGroupReader,
+                                          state_containers: list[RealTimeSampleArrayMetricStateContainer]):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
         states_by_handle = {}
         try:
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'waveform states'):
-                    return None
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'waveform states'):
                 self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self._process_incoming_states(
-                    'waveform states', state_containers, is_buffered_report)
+                for state_container in state_containers:
+                    old_state_container = self.states.descriptor_handle.get_one(state_container.DescriptorHandle,
+                                                                                allow_none=True)
+                    if old_state_container is not None:
+                        if self._has_new_state_usable_state_version(old_state_container, state_container,
+                                                                    'waveform states'):
+                            old_state_container.update_from_other_container(state_container)
+                            self.states.update_object(old_state_container)
+                            states_by_handle[old_state_container.DescriptorHandle] = old_state_container
+                    else:
+                        self._logger.error('waveform states: got a new state {}',  # noqa: PLE1205
+                                           state_container.DescriptorHandle)
+                        self._set_descriptor_container_reference(state_container)
+                        self.states.add_object(state_container)
+                        states_by_handle[state_container.DescriptorHandle] = state_container
 
                 # add to Waveform Buffer
                 for state_container in states_by_handle.values():
@@ -495,67 +598,33 @@ class ConsumerMdib(mdibbase.MdibBase):
                     rt_sample_containers = rt_buffer.mk_rt_sample_containers(state_container)
                     rt_buffer.add_rt_sample_containers(rt_sample_containers)
         finally:
-            if states_by_handle is not None:
-                self.waveform_by_handle = states_by_handle
-        return states_by_handle
-
-    def process_incoming_context_states_report(self, mdib_version_group: MdibVersionGroupReader,
-                                               report: EpisodicContextReport,
-                                               is_buffered_report: bool = False):
-        """Add data from EpisodicContextReport to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, report,
-                                                        self.process_incoming_context_states_report):
-            return
-
-        try:
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'context states'):
-                    return
-                self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self.process_incoming_states_report(
-                    'context states', report, is_buffered_report)
-        finally:
-            self.context_by_handle = states_by_handle  # used by wait_metric_matches method
-
-    def process_incoming_component_states_report(self, mdib_version_group: MdibVersionGroupReader,
-                                                 report: EpisodicComponentReport,
-                                                 is_buffered_report: bool = False):
-        """Add data from EpisodicComponentReport to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, report,
-                                                        self.process_incoming_component_states_report):
-            return
-
-        try:
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'component states'):
-                    return
-                self._update_from_mdib_version_group(mdib_version_group)
-                states_by_handle = self.process_incoming_states_report(
-                    'component states', report, is_buffered_report)
-        finally:
-            self.component_by_handle = states_by_handle  # used by wait_metric_matches method
+            self.waveform_by_handle = states_by_handle  # update observable
 
     def process_incoming_description_modifications(self, mdib_version_group: MdibVersionGroupReader,
-                                                   report: DescriptionModificationReport,
-                                                   is_buffered_report: bool = False):
-        """Add data from DescriptionModificationReport to mdib."""
-        if not is_buffered_report and self._buffer_data(mdib_version_group, report,
-                                                        self.process_incoming_description_modifications):
+                                                   report: DescriptionModificationReport):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(mdib_version_group, report,
+                                         self._process_incoming_description_modifications):
             return
+        with self.mdib_lock:
+            self._process_incoming_description_modifications(mdib_version_group, report)
+
+    def _process_incoming_description_modifications(self, mdib_version_group: MdibVersionGroupReader,
+                                                    report: DescriptionModificationReport):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observables
+        Call this method only if mdib_lock is already acquired."""
 
         def multi_key(st_container: AbstractStateContainer) -> mdibbase.StatesLookup | mdibbase.MultiStatesLookup:
             return self.context_states if st_container.is_context_state else self.states
 
         new_descriptor_by_handle = {}
         updated_descriptor_by_handle = {}
+        deleted_descriptor_by_handle = {}
         try:
             dmt = self.sdc_definitions.data_model.msg_types.DescriptionModificationType
-            with self.mdib_lock:
-                if not self._can_accept_version(mdib_version_group.mdib_version, mdib_version_group.sequence_id,
-                                                'descriptors'):
-                    return
+            if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'descriptors'):
                 self._update_from_mdib_version_group(mdib_version_group)
                 for report_part in report.ReportPart:
                     modification_type = report_part.ModificationType
@@ -589,8 +658,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                             # state_containers list
                             if descriptor_container.is_context_descriptor:
                                 updated_handles = {s.Handle for s in updated_state_containers
-                                                   if
-                                                   s.DescriptorHandle == descriptor_container.Handle}
+                                                   if s.DescriptorHandle == descriptor_container.Handle}
                                 my_handles = {s.Handle for s in self.context_states.descriptor_handle.get(
                                     descriptor_container.Handle, [])}  # set comprehension
                                 to_be_deleted = my_handles - updated_handles
@@ -623,6 +691,8 @@ class ConsumerMdib(mdibbase.MdibBase):
                                 descriptor_container.Handle, descriptor_container.parent_handle)
                             self.rm_descriptor_by_handle(
                                 descriptor_container.Handle)  # handling of self.deleted_descriptor_by_handle inside called method
+                            deleted_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
+
                         for state_container in deleted_state_containers:
                             multi_key(state_container).remove_object_no_lock(state_container)
                     else:
@@ -636,12 +706,13 @@ class ConsumerMdib(mdibbase.MdibBase):
                 self.new_descriptors_by_handle = new_descriptor_by_handle
             if updated_descriptor_by_handle:
                 self.updated_descriptors_by_handle = updated_descriptor_by_handle
+            if deleted_descriptor_by_handle:
+                self.deleted_descriptor_by_handle = deleted_descriptor_by_handle
 
     def _has_new_state_usable_state_version(self,
                                             old_state_container: AbstractStateContainer,
                                             new_state_container: AbstractStateContainer,
-                                            report_name: str,
-                                            is_buffered_report: bool) -> bool:
+                                            report_name: str) -> bool:
         """Compare state versions old vs new.
 
         :param old_state_container:
@@ -660,11 +731,10 @@ class ConsumerMdib(mdibbase.MdibBase):
                                old_state_container.StateVersion, new_state_container.StateVersion)
             return True  # the new version is newer, therefore it can be added to mdib
         if diff < 0:
-            if not is_buffered_report:
-                self._logger.error(  # noqa: PLE1205
-                    '{}: reduced state version for state DescriptorHandle={} ({}->{}) ',
-                    report_name, old_state_container.DescriptorHandle,
-                    old_state_container.StateVersion, new_state_container.StateVersion)
+            self._logger.error(  # noqa: PLE1205
+                '{}: reduced state version for state DescriptorHandle={} ({}->{}) ',
+                report_name, old_state_container.DescriptorHandle,
+                old_state_container.StateVersion, new_state_container.StateVersion)
             return False
         diffs = old_state_container.diff(new_state_container)  # compares all xml attributes
         if diffs:
