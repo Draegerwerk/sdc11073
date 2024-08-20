@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from sdc11073 import observableproperties as properties
 
 
@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 class XmlConsumerMdibMethods:
     """Extra methods for consumer mdib tht are not core functionality."""
 
-    DETERMINATIONTIME_WARN_LIMIT = 1.0  # in seconds
 
     def __init__(self, consumer_mdib: XmlConsumerMdib, logger: LoggerAdapter):
         self._mdib = consumer_mdib

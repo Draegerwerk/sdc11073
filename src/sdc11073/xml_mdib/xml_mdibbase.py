@@ -1,33 +1,22 @@
 from __future__ import annotations
 
-import traceback
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Union
 
 from lxml import etree as etree_
 
-from sdc11073 import multikey
 from sdc11073 import observableproperties as properties
-from sdc11073.etc import apply_map
-from sdc11073.xml_types.pm_types import Coding, have_matching_codes
 from sdc11073.xml_types import msg_qnames, pm_qnames
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.mdib.mdibbase import Entity, MultiStateEntity
-from sdc11073.namespaces import default_ns_helper as ns_helper
+from sdc11073.namespaces import QN_TYPE
 from sdc11073.namespaces import text_to_qname
 if TYPE_CHECKING:
     from lxml.etree import QName
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
-    from sdc11073.xml_types.pm_types import CodedValue
-    from sdc11073 import xml_utils
 
-    # from .descriptorcontainers import AbstractDescriptorContainer, AbstractOperationDescriptorContainer
-    # from .statecontainers import AbstractMultiStateContainer, AbstractStateContainer
-
-
-xsi_type_qname = ns_helper.XSI.tag('type')
 
 # Many types are fixed in schema. This table maps from tag in Element to its type
 _static_type_lookup = {
@@ -52,7 +41,7 @@ def get_xsi_type(element: etree_.Element) -> QName:
     If there is a xsi:type entry, this specifies the type.
     If not, the tag is used to determine the type.
     """
-    xsi_type_str = element.attrib.get(xsi_type_qname)
+    xsi_type_str = element.attrib.get(QN_TYPE)
 
     if xsi_type_str:
         return text_to_qname(xsi_type_str, element.nsmap)
@@ -76,7 +65,7 @@ class _XmlEntityBase:
 @dataclass
 class XmlEntity(_XmlEntityBase):
     """Groups descriptor and state."""
-    state: etree_.Element | None
+    state: Union[etree_.Element, None]
 
     @property
     def is_multi_state(self) -> bool:
@@ -127,11 +116,9 @@ class XmlMdibBase:
         self.instance_id = None  # None or an unsigned int
         self.log_prefix = ''
         self.mdib_lock = Lock()
-        self.mdstate_version = 0
-        self.mddescription_version = 0
 
-        self._get_mdib_response_node: etree_.Element | None = None
-        self._md_state_node: etree_.Element | None = None
+        self._get_mdib_response_node: Union[etree_.Element, None] = None
+        self._md_state_node: Union[etree_.Element, None] = None
         self._entities: dict[str, XmlEntity | XmlMultiStateEntity] = {}  # key is the handle
 
     @property
