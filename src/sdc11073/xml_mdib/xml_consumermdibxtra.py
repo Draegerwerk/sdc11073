@@ -32,33 +32,31 @@ class XmlConsumerMdibMethods:
         properties.bind(self._sdc_client, episodic_operational_state_report=self._on_operational_state_report)
 
     def _on_episodic_metric_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_episodic_metric_report')
+        self._logger.debug('_on_episodic_metric_report')
         self._mdib.process_incoming_metric_states_report(received_message_data)
-        pass
 
     def _on_episodic_alert_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_episodic_alert_report')
-        pass
+        self._logger.debug('_on_episodic_alert_report')
+        self._mdib.process_incoming_alert_states_report(received_message_data)
 
     def _on_operational_state_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_operational_state_report')
-        pass
+        self._logger.debug('_on_operational_state_report')
+        self._mdib.process_incoming_operational_state_report(received_message_data)
 
     def _on_waveform_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_waveform_report')
+        self._logger.debug('_on_waveform_report')
         self._mdib.process_incoming_waveform_states(received_message_data)
 
     def _on_episodic_context_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_episodic_context_report')
-        pass
+        self._logger.debug('_on_episodic_context_report')
+        self._mdib.process_incoming_context_report(received_message_data)
 
     def _on_episodic_component_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_episodic_component_report')
-        pass
+        self._logger.debug('_on_episodic_component_report')
+        self._mdib.process_incoming_component_report(received_message_data)
 
     def _on_description_modification_report(self, received_message_data: ReceivedMessage):
-        self._logger.info('_on_description_modification_report')
+        self._logger.debug('_on_description_modification_report')
         self._mdib.process_incoming_description_modification_report(received_message_data)
-        pass
 
 

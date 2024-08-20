@@ -4,7 +4,7 @@ import copy
 import time
 from dataclasses import dataclass
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
@@ -18,6 +18,7 @@ from .xml_mdibbase import XmlMdibBase, XmlEntity, XmlMultiStateEntity, get_xsi_t
 if TYPE_CHECKING:
     from sdc11073.consumer.consumerimpl import SdcConsumer
     from sdc11073.pysoap.msgreader import ReceivedMessage
+    from sdc11073.xml_utils import LxmlElement
     from lxml.etree import QName
 
 
@@ -156,16 +157,8 @@ class XmlConsumerMdib(XmlMdibBase):
          - update mdib.
          - update observable
         Call this method only if mdib_lock is already acquired."""
-        if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'metric states'):
-            self._update_from_mdib_version_group(received_message.mdib_version_group)
-        # Todo: replace states in self._get_mdib_response_node
-
-        handles = []
-        for report_part in received_message.p_msg.msg_node:
-            for state in report_part:
-                if state.tag == msg_qnames.MetricState:
-                    handles.append(self._update_state(state))
-        self.metric_handles = handles  # update observable
+        self.metric_handles = self._process_incoming_state_report(received_message,
+                                                                  msg_qnames.MetricState)
 
     def process_incoming_alert_states_report(self, received_message_data: ReceivedMessage):
         """Check mdib_version_group and process report it if okay."""
@@ -180,15 +173,90 @@ class XmlConsumerMdib(XmlMdibBase):
          - update mdib.
          - update observable
         Call this method only if mdib_lock is already acquired."""
-        if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'alert states'):
+        self.alert_handles = self._process_incoming_state_report(received_message,
+                                                                 msg_qnames.AlertState)
+
+    def process_incoming_component_report(self, received_message_data: ReceivedMessage):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(received_message_data,
+                                         self._process_incoming_metric_states_report):
+            return
+        with self.mdib_lock:
+            self._process_incoming_component_report(received_message_data)
+
+    def _process_incoming_component_report(self, received_message: ReceivedMessage):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        self.component_handles = self._process_incoming_state_report(received_message,
+                                                                     msg_qnames.ComponentState)
+
+    def process_incoming_operational_state_report(self, received_message_data: ReceivedMessage):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(received_message_data,
+                                         self._process_incoming_metric_states_report):
+            return
+        with self.mdib_lock:
+            self._process_incoming_operational_state_report(received_message_data)
+
+    def _process_incoming_operational_state_report(self, received_message: ReceivedMessage):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        self.operation_handles = self._process_incoming_state_report(received_message,
+                                                                     msg_qnames.OperationState)
+
+    def process_incoming_context_report(self, received_message_data: ReceivedMessage):
+        """Check mdib_version_group and process report it if okay."""
+        if not self._pre_check_report_ok(received_message_data,
+                                         self._process_incoming_metric_states_report):
+            return
+        with self.mdib_lock:
+            self._process_incoming_context_report(received_message_data)
+
+    def _process_incoming_context_report(self, received_message: ReceivedMessage):
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'component states'):
             self._update_from_mdib_version_group(received_message.mdib_version_group)
 
         handles = []
         for report_part in received_message.p_msg.msg_node:
-            for state in report_part:
-                if state.tag == msg_qnames.AlertState:
-                    handles.append(self._update_state(state))  # replace states in self._get_mdib_response_node
-        self.alert_handles = handles  # update observable
+            for state_node in report_part:
+                if state_node.tag == msg_qnames.ContextState:
+                    handle = state_node.attrib['Handle']
+                    descriptor_handle = state_node.attrib['DescriptorHandle']
+                    xml_entity = self._entities[descriptor_handle]
+                    state_node = copy.deepcopy(state_node)  # we modify state_node, but only in a deep copy
+                    state_node.tag = pm_qnames.State  # xml_entity.state.tag  # keep old tag
+
+                    # replace state in parent
+                    found = False
+                    parent = self._md_state_node
+                    for st in parent:
+                        if st.get('Handle') == handle:
+                            parent.replace(st, state_node)
+                            found = True
+                            break
+                    if not found:
+                        parent.append(state_node)
+
+                    # replace in xml entity
+                    found = False
+                    for i, old_state_node in enumerate(xml_entity.states):
+                        if old_state_node.attrib['Handle'] == handle:
+                            xml_entity.states[i] = state_node
+                            found = True
+                            break
+                    if not found: # new context state
+                        xml_entity.states.append(state_node)
+
+                    handles.append(handle)
+        self.context_handles = handles  # update observable
 
     def process_incoming_waveform_states(self, received_message_data: ReceivedMessage):
         if not self._pre_check_report_ok(received_message_data,
@@ -205,7 +273,6 @@ class XmlConsumerMdib(XmlMdibBase):
         for state in received_message.p_msg.msg_node:
             handles.append(self._update_state(state,
                                               pm_qnames.RealTimeSampleArrayMetricState))  # replaces states in self._get_mdib_response_node
-
         self.waveform_handles = handles  # update observable
 
     def process_incoming_description_modification_report(self, received_message: ReceivedMessage):
@@ -236,11 +303,15 @@ class XmlConsumerMdib(XmlMdibBase):
                                                                         descriptors,
                                                                         states))
             elif modification_type == 'Del':
-                deleted_descriptors_handles.extend(self._delete_descriptors(parent_handle,
-                                                                            source_mds_handle,
-                                                                            descriptors, states))
+                deleted_descriptors_handles.extend(self._delete_descriptors(descriptors))
             else:
                 self.logger.error('Unknown modification type %r', modification_type)
+        if updated_descriptors_handles:
+            self.updated_descriptors_handles = updated_descriptors_handles
+        if new_descriptors_handles:
+            self.new_descriptors_handles = new_descriptors_handles
+        if deleted_descriptors_handles:
+            self.deleted_descriptors_handles = deleted_descriptors_handles
 
     def _update_descriptors(self, parent_handle: str, source_mds_handle: str, descriptors: list, states: list):
         handles = []
@@ -300,7 +371,8 @@ class XmlConsumerMdib(XmlMdibBase):
                 # Mds children have different names.
                 # child_order determines the tag of the element (first tuple position), and the corresponding type
                 # (2nd position)
-                child_order = ((pm_qnames.MetaData, pm_qnames.MetaData),  # optional member, no handle
+                child_order: Iterable[tuple[QName, QName]] = (
+                    (pm_qnames.MetaData, pm_qnames.MetaData),  # optional member, no handle
                                (pm_qnames.SystemContext, pm_qnames.SystemContextDescriptor),
                                (pm_qnames.Clock, pm_qnames.ClockDescriptor),
                                (pm_qnames.Battery, pm_qnames.BatteryDescriptor),
@@ -314,30 +386,30 @@ class XmlConsumerMdib(XmlMdibBase):
         return handles
 
     @staticmethod
-    def _insert_child(child_node, child_xsi_type, parent_node, child_order: list[tuple[QName, QName]]):
+    def _insert_child(child_node, child_xsi_type, parent_node, child_order: Iterable[tuple[QName, QName]]):
         """Rename child_node to correct name acc. to BICEPS schema and insert at correct position."""
         # rename child_node to correct name required by BICEPS schema
-        add_before_qnames = []
+        add_before_q_names = []
 
         for i, entry in enumerate(child_order):
             schema_name, xsi_type = entry
             if xsi_type == child_xsi_type:
                 child_node.tag = schema_name
-                add_before_qnames.extend([x[0] for x in child_order[i + 1:]])
+                add_before_q_names.extend([x[0] for x in child_order[i + 1:]])
                 break
 
         # find position
         existing_children = parent_node[:]
-        if not existing_children or not add_before_qnames:
+        if not existing_children or not add_before_q_names:
             parent_node.append(child_node)
             return
         for i, tmp_child_node in enumerate(existing_children):
-            if tmp_child_node.tag in add_before_qnames:
+            if tmp_child_node.tag in add_before_q_names:
                 tmp_child_node.addprevious(child_node)
                 return
         raise RuntimeError('this should not happen')
 
-    def _delete_descriptors(self, parent_handle: str, source_mds_handle: str, descriptors: list, states: list):
+    def _delete_descriptors(self, descriptors: list[LxmlElement]):
         handles = []
         for descriptor in descriptors:
             handle = descriptor.attrib['Handle']
@@ -345,10 +417,41 @@ class XmlConsumerMdib(XmlMdibBase):
             if entity is None:
                 self.logger.error('shall delete descriptor "%s", but it is unknown', handle)
             else:
-                del self._entities[handle]
-                handles.append(handle)
+                self._delete_entity(entity, handles)
         return handles
         # Todo: update self._get_mdib_response_node
+
+    def _delete_entity(self, entity: XmlEntity | XmlMultiStateEntity, deleted_handles: list[str]):
+        """Recursive method to delete an entity and subtree."""
+        parent = entity.descriptor.getparent()
+        if parent:
+            parent.remove(entity.descriptor)
+        states = entity.states if entity.is_multi_state else [entity.state]
+        for state in states:
+            parent = state.getparent()
+            if parent:
+                parent.remove(state)
+        handle = entity.descriptor.get('Handle')
+        del self._entities[handle]
+        deleted_handles.append(handle)
+        child_entities = [e for e in self._entities.values() if e.parent_handle == handle]
+        for e in child_entities:
+            self._delete_entity(e, deleted_handles)
+
+    def _process_incoming_state_report(self, received_message: ReceivedMessage, expected_q_name: QName) -> list[str]:
+        """Check mdib version, if okay:
+         - update mdib.
+         - update observable
+        Call this method only if mdib_lock is already acquired."""
+        if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'state'):
+            self._update_from_mdib_version_group(received_message.mdib_version_group)
+
+        handles = []
+        for report_part in received_message.p_msg.msg_node:
+            for state in report_part:
+                if state.tag == expected_q_name:
+                    handles.append(self._update_state(state))  # replace states in self._get_mdib_response_node
+        return handles  # update observable
 
     def _update_state(self, state_node, xsi_type: QName | None = None) -> str:
         """Replace state in DOM tree and entity"""

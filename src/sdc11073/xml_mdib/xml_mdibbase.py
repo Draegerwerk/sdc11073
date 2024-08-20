@@ -196,7 +196,7 @@ class XmlMdibBase:
             for state in xml_entity.states:
                 cls = self.sdc_definitions.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
                 state_container = cls(descriptor_container)
-                state_container.update_from_node(xml_entity.state)
+                state_container.update_from_node(state)
                 ret.states.append(state_container)
         return ret
 
