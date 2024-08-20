@@ -25,14 +25,13 @@ class _ThreadingHTTPServer(HTTPServer):
 
     def __init__(self, logger, server_address,
                  chunk_size, supported_encodings):
-
-        super().__init__(server_address, DispatchingRequestHandler)
         self.daemon_threads = True
         self.threads = []
         self.logger = logger
         self.dispatcher = PathElementRegistry()
         self.chunk_size = chunk_size
         self.supported_encodings = supported_encodings
+        super().__init__(server_address, DispatchingRequestHandler)
 
     def process_request_thread(self, request, client_address):
         """Same as in BaseServer but as a thread.
