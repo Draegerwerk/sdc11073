@@ -94,7 +94,8 @@ class SdcProvider:
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
-                 chunk_size: int = 0):
+                 chunk_size: int = 0,
+                 alternative_hostname: str | None = None):
         """Construct an SdcProvider.
 
         :param ws_discovery: a WsDiscovers instance
@@ -111,6 +112,8 @@ class SdcProvider:
         :param log_prefix: a string
         :param specific_components: a SdcProviderComponents instance
         :param chunk_size: if value > 0, messages are split into chunks of this size.
+        :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical
+                                     ipv4 address (can be used to use full qualified hostname)
         """
         self._wsdiscovery = ws_discovery
         self.model = this_model
@@ -133,7 +136,7 @@ class SdcProvider:
             # merge specific stuff into _components
             self._components.merge(specific_components)
         self.chunk_size = chunk_size
-
+        self._alternative_hostname = alternative_hostname
         self._mdib.log_prefix = log_prefix
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._logger = loghelper.get_logger_adapter('sdc.device', log_prefix)
@@ -490,7 +493,11 @@ class SdcProvider:
             self.waveform_provider.stop()
 
     def get_xaddrs(self) -> list[str]:
-        addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
+        if self._alternative_hostname:
+            addresses = [self._alternative_hostname]
+        else:
+            addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
+
         port = self._http_server.my_port
         xaddrs = []
         for addr in addresses:

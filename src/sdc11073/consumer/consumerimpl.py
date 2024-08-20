@@ -199,6 +199,7 @@ class SdcConsumer:
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
                  force_ssl_connect: bool = False,
+                 alternative_hostname: str | None = None
                  ):
         """Construct a SdcConsumer.
 
@@ -216,6 +217,8 @@ class SdcConsumer:
                                   False: if ssl_context_container is provided, consumer first tries an
                                          encrypted connection, and if this raises an SSLError,
                                          it tries an unencrypted connection
+        :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical
+                                     ipv4 address (can be used to use full qualified hostname)
         """
         if not device_location.startswith('http'):
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
@@ -250,6 +253,8 @@ class SdcConsumer:
         self.host_description: mex_types.Metadata | None = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
+        self._alternative_hostname = alternative_hostname
+
         try:
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)  # noqa: PLE1205
         except AttributeError:
@@ -346,7 +351,7 @@ class SdcConsumer:
         if self._http_server is None:
             return ''
         p = urlparse(self._http_server.base_url)
-        tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
+        tmp = f'{p.scheme}://{self._alternative_hostname or self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
         tmp = f'{tmp}{sep}{self.path_prefix}/'
         return tmp
