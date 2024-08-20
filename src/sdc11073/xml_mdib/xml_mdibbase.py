@@ -45,26 +45,75 @@ _static_type_lookup = {
     pm_qnames.Battery: pm_qnames.BatteryDescriptor,
 }
 
+
+def get_xsi_type(element: etree_.Element) -> QName:
+    """Return the BICEPS type of an element.
+
+    If there is a xsi:type entry, this specifies the type.
+    If not, the tag is used to determine the type.
+    """
+    xsi_type_str = element.attrib.get(xsi_type_qname)
+
+    if xsi_type_str:
+        return text_to_qname(xsi_type_str, element.nsmap)
+    else:
+        _xsi_type = etree_.QName(element.tag)
+        try:
+            return _static_type_lookup[_xsi_type]
+        except KeyError:
+            raise KeyError(str(_xsi_type))
+
+
 @dataclass
-class XmlEntity:
+class _XmlEntityBase:
     """Groups descriptor and state."""
     parent_handle: str | None
     source_mds: str | None
     node_type: etree_.QName
     descriptor: etree_.Element
-    state: etree_.Element | None
+
 
 @dataclass
-class XmlMultiStateEntity:
+class XmlEntity(_XmlEntityBase):
+    """Groups descriptor and state."""
+    state: etree_.Element | None
+
+    @property
+    def is_multi_state(self) -> bool:
+        return False
+
+@dataclass
+class XmlMultiStateEntity(_XmlEntityBase):
     """Groups descriptor and list of multi-states."""
-    parent_handle: str | None
-    source_mds: str | None
-    node_type: etree_.QName
-    descriptor: etree_.Element
     states: list[etree_.Element]
+
+    @property
+    def is_multi_state(self) -> bool:
+        return True
 
 
 class XmlMdibBase:
+
+    metric_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    waveform_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    alert_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    context_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    component_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    new_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    updated_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    deleted_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    # deleted_states_handles = properties.ObservableProperty(
+    #     fire_only_on_changed_value=False)  # is a result of deleted descriptors
+    # description_modifications = properties.ObservableProperty(fire_only_on_changed_value=False)
+    operation_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+
+    multi_state_q_names = (pm_qnames.PatientContextDescriptor,
+                           pm_qnames.LocationContextDescriptor,
+                           pm_qnames.WorkflowContextDescriptor,
+                           pm_qnames.OperatorContextDescriptor,
+                           pm_qnames.MeansContextDescriptor,
+                           pm_qnames.EnsembleContextDescriptor)
+
     def __init__(self, sdc_definitions: type[BaseDefinitions], logger: LoggerAdapter):
         """Construct MdibBase.
 
@@ -81,8 +130,8 @@ class XmlMdibBase:
         self.mdstate_version = 0
         self.mddescription_version = 0
 
-        self._get_mdib_response_node: etree_.Element | None = None\
-
+        self._get_mdib_response_node: etree_.Element | None = None
+        self._md_state_node: etree_.Element | None = None
         self._entities: dict[str, XmlEntity | XmlMultiStateEntity] = {}  # key is the handle
 
     @property
@@ -100,6 +149,7 @@ class XmlMdibBase:
             raise ValueError(f'root node must be {str(msg_qnames.GetMdibResponse)}, got {str(root_node.tag)}')
         self._get_mdib_response_node = root_node
         self._entities.clear()
+        self._md_state_node = root_node[0][1]  # GetMdibResponse -> Mdib -> MdState
 
         def register_children_with_handle(parent_node, source_mds=None):
             parent_handle = parent_node.attrib.get('Handle')
@@ -109,21 +159,11 @@ class XmlMdibBase:
                     source_mds = child_handle
                 if child_handle:
                     print (child_node.attrib)
-                    xsi_type_str = child_node.attrib.get(xsi_type_qname)
-                    if xsi_type_str:
-                        xsi_type = text_to_qname(xsi_type_str, child_node.nsmap)
-                    else:
-                        _xsi_type = etree_.QName(child_node.tag)
-                        try:
-                            xsi_type = _static_type_lookup[_xsi_type]
-                        except KeyError:
-                            raise KeyError(str(_xsi_type))
-                    if child_node.tag in (pm_qnames.LocationContext, pm_qnames.PatientContext):
+                    xsi_type = get_xsi_type(child_node)
+                    if xsi_type in self.multi_state_q_names:
                         self._entities[child_handle] = XmlMultiStateEntity(parent_handle, source_mds, xsi_type, child_node, [])
-                        # print(f'MultiStateEntity {child_node.tag}')
                     else:
                         self._entities[child_handle] = XmlEntity(parent_handle, source_mds, xsi_type, child_node, None)
-                    # print(f'Entity {child_node.tag}')
                     register_children_with_handle(child_node, source_mds)
 
         for mdib_node in root_node:
@@ -141,6 +181,8 @@ class XmlMdibBase:
     def mk_entity(self, handle) -> Entity | MultiStateEntity:
         xml_entity = self._entities[handle]
         cls = self.sdc_definitions.data_model.get_descriptor_container_class(xml_entity.node_type)
+        if cls is None:
+            raise ValueError(f'do not know how to make container from {str(xml_entity.node_type)}')
         descriptor_container = cls(handle, parent_handle=xml_entity.parent_handle)
         descriptor_container.update_from_node(xml_entity.descriptor)
         descriptor_container.set_source_mds(xml_entity.source_mds)
@@ -166,6 +208,9 @@ class XmlMdibBase:
     def node_type(self) -> _NodetypeGetter:
         return _NodetypeGetter(self._entities, self.mk_entity)
 
+    @property
+    def parent_handle(self) -> _NodetypeGetter:
+        return _ParentHandleGetter(self._entities, self.mk_entity)
 
 
 class _HandleGetter:
@@ -176,8 +221,10 @@ class _HandleGetter:
         self._mk_entity = mk_entity
 
     def get(self, handle: str) -> Entity | MultiStateEntity:
-        return self._mk_entity(handle)
-
+        try:
+            return self._mk_entity(handle)
+        except KeyError:
+            return None
 
 class _NodetypeGetter:
     def __init__(self,
@@ -190,5 +237,19 @@ class _NodetypeGetter:
         ret = []
         for handle, entity in self._entities.items():
             if entity.node_type == node_type:
+                ret.append(self._mk_entity(handle))
+        return ret
+
+class _ParentHandleGetter:
+    def __init__(self,
+                 entities: dict[str, XmlEntity | XmlMultiStateEntity],
+                 mk_entity: Callable[[str], Entity | MultiStateEntity]):
+        self._entities = entities
+        self._mk_entity = mk_entity
+
+    def get(self, parent_handle: str) -> list[Entity | MultiStateEntity]:
+        ret = []
+        for handle, entity in self._entities.items():
+            if entity.parent_handle == parent_handle:
                 ret.append(self._mk_entity(handle))
         return ret

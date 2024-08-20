@@ -58,6 +58,7 @@ class XmlConsumerMdibMethods:
 
     def _on_description_modification_report(self, received_message_data: ReceivedMessage):
         self._logger.info('_on_description_modification_report')
+        self._mdib.process_incoming_description_modification_report(received_message_data)
         pass
 
 
