@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - additional schemata for validation can be declared in SdcProviderComponents and SdcConsumerComponents
 - new method Consumer.restart
 - log a message with level INFO when a context state update is received
+- allow to use full qualified name instead of IP in provider and consumer
 
 ### Fixed
 
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - incorrect BindingMdibVersion and UnbindingMdibVersion [#168](https://github.com/Draegerwerk/sdc11073/issues/168)
 - ensure_location_context_descriptor and ensure_patient_context_descriptor also work for multiple system contexts in mdib.
 - provider mdib observables are updated [#365](https://github.com/Draegerwerk/sdc11073/issues/365)
+- fixed possible error if _ThreadingHTTPServer fails to start and in server_close self.dispatcher member does not exist
 
 ### Changed
 
