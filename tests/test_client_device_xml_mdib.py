@@ -137,7 +137,28 @@ class Test_Client_SomeDevice(unittest.TestCase):
             raise
         sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
 
+    def add_random_patient(self, count: int = 1) -> [str, list]:
+        ret = []
+        patientDescriptorContainer = self.sdc_provider.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
+        with self.sdc_provider.mdib.context_state_transaction() as mgr:
+            for i in range(count):
+                st = mgr.mk_context_state(patientDescriptorContainer.Handle, set_associated=True)
+                st.CoreData.Givenname = f'Max{i}'
+                st.CoreData.Middlename = ['Willy']
+                st.CoreData.Birthname = f'Mustermann{i}'
+                st.CoreData.Familyname = f'Musterfrau{i}'
+                st.CoreData.Title = 'Rex'
+                st.CoreData.Sex = pm_types.Sex.MALE
+                st.CoreData.PatientType = pm_types.PatientType.ADULT
+                st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
+                st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
+                st.CoreData.Race = pm_types.CodedValue('123', 'def')
+                st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
+                ret.append(st)
+        return patientDescriptorContainer.Handle, ret
+
     def test_consumer_xml_mdib(self):
+        context_descriptor_handle, _ = self.add_random_patient(2)
         msg_reader = self.sdc_consumer.msg_reader
         consumer_mdib = XmlConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
@@ -158,6 +179,35 @@ class Test_Client_SomeDevice(unittest.TestCase):
         consumer_ent_list = consumer_mdib.node_type.get(pm_qnames.VmdDescriptor)
         provider_list = self.sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.VmdDescriptor)
         self.assertEqual(len(provider_list), len(consumer_ent_list))
+
+        # test update method of entities
+        descriptor_handle = '0x34F00100'
+        consumer_entity = consumer_mdib.handle.get(descriptor_handle)
+        descriptor_version = consumer_entity.descriptor.DescriptorVersion
+        state_version = consumer_entity.state.StateVersion
+        consumer_entity.descriptor.DescriptorVersion += 1
+        consumer_entity.state.StateVersion += 1
+        consumer_entity.update()
+        self.assertEqual(descriptor_version, consumer_entity.descriptor.DescriptorVersion)
+        self.assertEqual(state_version, consumer_entity.state.StateVersion)
+
+        # update with deleted xml entity
+        del consumer_mdib._entities[descriptor_handle]
+        self.assertRaises(ValueError, consumer_entity.update)
+
+        context_consumer_entity = consumer_mdib.handle.get(context_descriptor_handle)
+        self.assertEqual(2, len(context_consumer_entity.states))
+        descriptor_version = consumer_entity.descriptor.DescriptorVersion
+        state_versions = [(st.Handle,st.StateVersion) for st in context_consumer_entity.states]
+        context_consumer_entity.descriptor.DescriptorVersion += 1
+        del context_consumer_entity.states[0]
+        context_consumer_entity.update()
+        self.assertEqual(descriptor_version, context_consumer_entity.descriptor.DescriptorVersion)
+        updated_state_versions = [(st.Handle,st.StateVersion) for st in context_consumer_entity.states]
+        self.assertEqual(state_versions, updated_state_versions)
+
+        del consumer_mdib._entities[context_descriptor_handle]
+        self.assertRaises(ValueError, context_consumer_entity.update)
 
     def test_metric_update(self):
         msg_reader = self.sdc_consumer.msg_reader
@@ -305,38 +355,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
         patientDescriptorContainer = self.sdc_provider.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
 
         coll = observableproperties.SingleValueCollector(consumer_mdib, 'context_handles')
-        with self.sdc_provider.mdib.context_state_transaction() as mgr:
-            tr_MdibVersion = self.sdc_provider.mdib.mdib_version
-            st = mgr.mk_context_state(patientDescriptorContainer.Handle, set_associated=True)
-            st.CoreData.Givenname = 'Max'
-            st.CoreData.Middlename = ['Willy']
-            st.CoreData.Birthname = 'Mustermann'
-            st.CoreData.Familyname = 'Musterfrau'
-            st.CoreData.Title = 'Rex'
-            st.CoreData.Sex = pm_types.Sex.MALE
-            st.CoreData.PatientType = pm_types.PatientType.ADULT
-            st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
-            st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
-            st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
+
+        context_descriptor_handle, states = self.add_random_patient(1)
+        st = states[0]
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         entity = consumer_mdib.handle.get(patientDescriptorContainer.Handle)
         patient_context_state_container = entity.states[0]
-        self.assertTrue(patient_context_state_container is not None)
-        self.assertEqual(patient_context_state_container.CoreData.Givenname, st.CoreData.Givenname)
-        self.assertEqual(patient_context_state_container.CoreData.Middlename, st.CoreData.Middlename)
-        self.assertEqual(patient_context_state_container.CoreData.Birthname, st.CoreData.Birthname)
-        self.assertEqual(patient_context_state_container.CoreData.Familyname, st.CoreData.Familyname)
-        self.assertEqual(patient_context_state_container.CoreData.Title, st.CoreData.Title)
-        self.assertEqual(patient_context_state_container.CoreData.Sex, st.CoreData.Sex)
-        self.assertEqual(patient_context_state_container.CoreData.PatientType, st.CoreData.PatientType)
-        self.assertEqual(patient_context_state_container.CoreData.Height, st.CoreData.Height)
-        self.assertEqual(patient_context_state_container.CoreData.Weight, st.CoreData.Weight)
-        self.assertEqual(patient_context_state_container.CoreData.Race, st.CoreData.Race)
-        self.assertEqual(patient_context_state_container.CoreData.DateOfBirth, st.CoreData.DateOfBirth)
-        self.assertEqual(patient_context_state_container.BindingMdibVersion,
-                         self.sdc_provider.mdib.mdib_version)
-        self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
+        self.assertIsNone(st.diff(patient_context_state_container, max_float_diff=1e-6))
 
         # test update of same patient
         coll = observableproperties.SingleValueCollector(consumer_mdib, 'context_handles')
@@ -344,12 +369,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
             st = mgr.get_context_state(patient_context_state_container.Handle)
             st.CoreData.Givenname = 'Moritz'
         coll.result(timeout=NOTIFICATION_TIMEOUT)
-        entity = consumer_mdib.handle.get(patientDescriptorContainer.Handle)
+        entity.update()
         patient_context_state_container = entity.states[0]
-        self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Moritz')
-        self.assertGreater(patient_context_state_container.BindingMdibVersion,
-                           tr_MdibVersion)
-        self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
+        self.assertIsNone(st.diff(patient_context_state_container, max_float_diff=1e-6))
+
 
     def test_description_modification(self):
         msg_reader = self.sdc_consumer.msg_reader

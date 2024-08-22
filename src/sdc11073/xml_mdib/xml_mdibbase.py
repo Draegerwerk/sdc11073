@@ -3,20 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from threading import Lock
 from typing import TYPE_CHECKING, Callable, Union
+from weakref import ref, ReferenceType
 
 from lxml import etree as etree_
 
 from sdc11073 import observableproperties as properties
-from sdc11073.xml_types import msg_qnames, pm_qnames
 from sdc11073.mdib.mdibbase import MdibVersionGroup
-from sdc11073.mdib.mdibbase import Entity, MultiStateEntity
 from sdc11073.namespaces import QN_TYPE
 from sdc11073.namespaces import text_to_qname
+from sdc11073.xml_types import msg_qnames, pm_qnames
+
 if TYPE_CHECKING:
     from lxml.etree import QName
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
-
+    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
+    from sdc11073.mdib.statecontainers import AbstractMultiStateContainer, AbstractStateContainer
 
 # Many types are fixed in schema. This table maps from tag in Element to its type
 _static_type_lookup = {
@@ -55,10 +57,10 @@ def get_xsi_type(element: etree_.Element) -> QName:
 
 @dataclass
 class _XmlEntityBase:
-    """Groups descriptor and state."""
+    """A descriptor element and some info about it for easier access."""
     parent_handle: str | None
     source_mds: str | None
-    node_type: etree_.QName
+    node_type: etree_.QName  # name of descriptor type
     descriptor: etree_.Element
 
 
@@ -71,6 +73,11 @@ class XmlEntity(_XmlEntityBase):
     def is_multi_state(self) -> bool:
         return False
 
+    def mk_entity(self, mdib: XmlMdibBase) -> Entity:
+        """Return a corresponding entity with containers."""
+        return Entity(self, mdib)
+
+
 @dataclass
 class XmlMultiStateEntity(_XmlEntityBase):
     """Groups descriptor and list of multi-states."""
@@ -80,9 +87,105 @@ class XmlMultiStateEntity(_XmlEntityBase):
     def is_multi_state(self) -> bool:
         return True
 
+    def mk_entity(self, mdib: XmlMdibBase) -> MultiStateEntity:
+        """Return a corresponding entity with containers."""
+        return MultiStateEntity(self, mdib)
+
+
+class EntityBase:
+    """A descriptor container and a weak reference to the corresponding xml entity."""
+
+    def __init__(self,
+                 source: XmlEntity | XmlMultiStateEntity,
+                 mdib: XmlMdibBase,  # needed if a new state needs to be added
+                 # descriptor: AbstractDescriptorContainer
+                 ):
+        self._source: ReferenceType[XmlEntity | XmlMultiStateEntity] = ref(source)
+        self._mdib: XmlMdibBase = mdib
+        # self.descriptor: AbstractDescriptorContainer = descriptor
+
+        cls = mdib.sdc_definitions.data_model.get_descriptor_container_class(source.node_type)
+        if cls is None:
+            raise ValueError(f'do not know how to make container from {str(source.node_type)}')
+        handle = source.descriptor.get('Handle')
+        self.descriptor: AbstractDescriptorContainer = cls(handle, parent_handle=source.parent_handle)
+        self.descriptor.update_from_node(source.descriptor)
+        self.descriptor.set_source_mds(source.source_mds)
+        self.source_mds = source.source_mds
+
+
+class Entity(EntityBase):
+    """Groups descriptor container and state container."""
+
+    def __init__(self,
+                 source: XmlEntity,
+                 mdib: XmlMdibBase,  # needed if a new state needs to be added
+                 # descriptor: AbstractDescriptorContainer,
+                 # state: AbstractStateContainer
+                 ):
+        super().__init__(source, mdib)
+        cls = mdib.sdc_definitions.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
+        self.state: AbstractStateContainer = cls(self.descriptor)
+        self.state.update_from_node(source.state)
+
+    def update(self):
+        xml_entity: XmlEntity = self._source()
+        if xml_entity is None:
+            raise ValueError('entity no longer exists in mdib')
+        if int(xml_entity.descriptor.get('DescriptorVersion', '0')) != self.descriptor.DescriptorVersion:
+            self.descriptor.update_from_node(xml_entity.descriptor)
+        if int(xml_entity.state.get('StateVersion', '0')) != self.state.StateVersion:
+            self.state.update_from_node(xml_entity.state)
+
+
+class MultiStateEntity(EntityBase):
+    """Groups descriptor container and list of multi-state containers."""
+
+    def __init__(self,
+                 source: XmlMultiStateEntity,
+                 mdib: XmlMdibBase):
+        super().__init__(source, mdib)
+        self.states: list[AbstractMultiStateContainer] = []
+        for state in source.states:
+            state_type = get_xsi_type(state)
+            cls = mdib.sdc_definitions.data_model.get_state_container_class(state_type)
+            state_container = cls(self.descriptor)
+            state_container.update_from_node(state)
+            self.states.append(state_container)
+
+    def update(self):
+        """Update all containers.
+
+        States list has always the same order as in source."""
+        xml_entity: XmlMultiStateEntity = self._source()
+        if xml_entity is None:
+            raise ValueError('entity no longer exists in mdib')
+        if int(xml_entity.descriptor.get('DescriptorVersion', '0')) != self.descriptor.DescriptorVersion:
+            self.descriptor.update_from_node(xml_entity.descriptor)
+
+        for i, xml_state in enumerate(xml_entity.states):
+            create_new_state = False
+            xml_handle = xml_state.get('Handle')
+            try:
+                existing_state = self.states[i]
+            except IndexError:
+                create_new_state = True
+            else:
+                if existing_state.Handle == xml_handle:
+                    if existing_state.StateVersion != int(xml_state.get('StateVersion', '0')):
+                        existing_state.update_from_node(xml_state)
+                else:
+                    del self.states[i]
+                    create_new_state = True
+            if create_new_state:
+                xsi_type = get_xsi_type(xml_state)
+                cls = self._mdib.sdc_definitions.data_model.get_state_container_class(xsi_type)
+                state_container = cls(self.descriptor)
+                state_container.update_from_node(xml_state)
+                self.states.insert(i, state_container)
+
 
 class XmlMdibBase:
-
     metric_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     waveform_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     alert_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
@@ -91,9 +194,6 @@ class XmlMdibBase:
     new_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     updated_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     deleted_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
-    # deleted_states_handles = properties.ObservableProperty(
-    #     fire_only_on_changed_value=False)  # is a result of deleted descriptors
-    # description_modifications = properties.ObservableProperty(fire_only_on_changed_value=False)
     operation_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
 
     multi_state_q_names = (pm_qnames.PatientContextDescriptor,
@@ -145,10 +245,11 @@ class XmlMdibBase:
                 if child_node.tag == pm_qnames.Mds:
                     source_mds = child_handle
                 if child_handle:
-                    print (child_node.attrib)
+                    print(child_node.attrib)
                     xsi_type = get_xsi_type(child_node)
                     if xsi_type in self.multi_state_q_names:
-                        self._entities[child_handle] = XmlMultiStateEntity(parent_handle, source_mds, xsi_type, child_node, [])
+                        self._entities[child_handle] = XmlMultiStateEntity(parent_handle, source_mds, xsi_type,
+                                                                           child_node, [])
                     else:
                         self._entities[child_handle] = XmlEntity(parent_handle, source_mds, xsi_type, child_node, None)
                     register_children_with_handle(child_node, source_mds)
@@ -156,36 +257,20 @@ class XmlMdibBase:
         for mdib_node in root_node:
             md_description_node = mdib_node[0]
             md_state_node = mdib_node[1]
-            register_children_with_handle(md_description_node, )
+            register_children_with_handle(md_description_node)
             for state_node in md_state_node:
                 handle = state_node.attrib['DescriptorHandle']
                 entity = self._entities[handle]
-                if isinstance(entity, MultiStateEntity):
+                if isinstance(entity, XmlEntity):
+                    entity.state = state_node
+                elif isinstance(entity, XmlMultiStateEntity):
                     entity.states.append(state_node)
                 else:
-                    entity.state = state_node
+                    raise RuntimeError(f'instance {entity.__class__} not expected here')
 
     def mk_entity(self, handle) -> Entity | MultiStateEntity:
         xml_entity = self._entities[handle]
-        cls = self.sdc_definitions.data_model.get_descriptor_container_class(xml_entity.node_type)
-        if cls is None:
-            raise ValueError(f'do not know how to make container from {str(xml_entity.node_type)}')
-        descriptor_container = cls(handle, parent_handle=xml_entity.parent_handle)
-        descriptor_container.update_from_node(xml_entity.descriptor)
-        descriptor_container.set_source_mds(xml_entity.source_mds)
-        if isinstance(xml_entity, XmlEntity):
-            cls = self.sdc_definitions.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
-            state_container = cls(descriptor_container)
-            state_container.update_from_node(xml_entity.state)
-            ret = Entity(descriptor_container, state_container)
-        else:
-            ret = MultiStateEntity(descriptor_container, [])
-            for state in xml_entity.states:
-                cls = self.sdc_definitions.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
-                state_container = cls(descriptor_container)
-                state_container.update_from_node(state)
-                ret.states.append(state_container)
-        return ret
+        return xml_entity.mk_entity(self)
 
     @property
     def handle(self) -> _HandleGetter:
@@ -196,7 +281,7 @@ class XmlMdibBase:
         return _NodetypeGetter(self._entities, self.mk_entity)
 
     @property
-    def parent_handle(self) -> _NodetypeGetter:
+    def parent_handle(self) -> _ParentHandleGetter:
         return _ParentHandleGetter(self._entities, self.mk_entity)
 
 
@@ -207,11 +292,12 @@ class _HandleGetter:
         self._entities = entities
         self._mk_entity = mk_entity
 
-    def get(self, handle: str) -> Entity | MultiStateEntity:
+    def get(self, handle: str) -> Entity | MultiStateEntity | None:
         try:
             return self._mk_entity(handle)
         except KeyError:
             return None
+
 
 class _NodetypeGetter:
     def __init__(self,
@@ -226,6 +312,7 @@ class _NodetypeGetter:
             if entity.node_type == node_type:
                 ret.append(self._mk_entity(handle))
         return ret
+
 
 class _ParentHandleGetter:
     def __init__(self,
