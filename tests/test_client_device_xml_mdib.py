@@ -1,5 +1,4 @@
 import logging
-import logging
 import sys
 import time
 import traceback
@@ -27,14 +26,6 @@ from sdc11073.xml_types import pm_types, pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDevice
 
-ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
-                                          log_out=True,
-                                          log_in=True,
-                                          broadcast_ip_filter=None)
-    comm_logger.start()
-
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
@@ -48,14 +39,13 @@ def provide_realtime_data(sdc_device):
     if waveform_provider is None:
         return
     paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.01)
-    waveform_provider.register_waveform_generator('0x34F05500', paw)  # '0x34F05500 MBUSX_RESP_THERAPY2.00H_Paw'
+    waveform_provider.register_waveform_generator('0x34F05500', paw)
 
     flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveform_period=1.2, sample_period=0.01)
-    waveform_provider.register_waveform_generator('0x34F05501', flow)  # '0x34F05501 MBUSX_RESP_THERAPY2.01H_Flow'
+    waveform_provider.register_waveform_generator('0x34F05501', flow)
 
     co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveform_period=1.0, sample_period=0.01)
-    waveform_provider.register_waveform_generator('0x34F05506',
-                                                  co2)  # '0x34F05506 MBUSX_RESP_THERAPY2.06H_CO2_Signal'
+    waveform_provider.register_waveform_generator('0x34F05506', co2)
 
     # make SinusGenerator (0x34F05501) the annotator source
     waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
@@ -162,6 +152,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
         msg_reader = self.sdc_consumer.msg_reader
         consumer_mdib = XmlConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
+        # check difference of mdib versions (consumer is allowed to be max. one smaller
+        self.assertLess(self.sdc_provider.mdib.mdib_version - consumer_mdib.mdib_version, 2)
+        self.assertEqual(consumer_mdib.sequence_id, self.sdc_provider.mdib.sequence_id)
+        self.assertEqual(consumer_mdib.instance_id, self.sdc_provider.mdib.instance_id)
+
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
         self.assertEqual(len(self.sdc_provider.mdib.descriptions.objects), len(consumer_mdib._entities))
 
@@ -208,6 +203,14 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         del consumer_mdib._entities[context_descriptor_handle]
         self.assertRaises(ValueError, context_consumer_entity.update)
+
+        # check difference of mdib versions (consumer is allowed to be max. one smaller
+        self.assertLess(self.sdc_provider.mdib.mdib_version - consumer_mdib.mdib_version, 2)
+        # check also in DOM tree
+        self.assertLess(self.sdc_provider.mdib.mdib_version
+                        - int(consumer_mdib._get_mdib_response_node.get('MdibVersion')), 2)
+        self.assertLess(self.sdc_provider.mdib.mdib_version
+                        - int(consumer_mdib._get_mdib_response_node[0].get('MdibVersion')), 2)
 
     def test_metric_update(self):
         msg_reader = self.sdc_consumer.msg_reader
@@ -273,10 +276,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                          'component_handles')
 
         with self.sdc_provider.mdib.component_state_transaction() as mgr:
-            # mgr automatically increases the StateVersion
             st = mgr.get_state(descriptor_handle)
             st.ActivationState = pm_types.ComponentActivation.FAILURE
-            # st.ActualPriority = pm_types.AlertConditionPriority.MEDIUM
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
@@ -298,7 +299,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                          'operation_handles')
 
         with self.sdc_provider.mdib.operational_state_transaction() as mgr:
-            # mgr automatically increases the StateVersion
             st = mgr.get_state(descriptor_handle)
             st.OperatingMode = pm_types.OperatingMode.NA
 
@@ -339,7 +339,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # verify that client mdib has same number of objects as device mdib
         dev_descriptor_count2 = len(self.sdc_provider.mdib.descriptions.objects)
-        dev_state_count2 = len(self.sdc_provider.mdib.states.objects)
         cl_descriptor_count2 = len(consumer_mdib._entities)
         self.assertTrue(dev_descriptor_count2 < dev_descriptor_count1)
         self.assertEqual(dev_descriptor_count2, 0)

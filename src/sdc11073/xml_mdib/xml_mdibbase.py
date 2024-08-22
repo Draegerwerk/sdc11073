@@ -36,6 +36,13 @@ _static_type_lookup = {
     pm_qnames.Battery: pm_qnames.BatteryDescriptor,
 }
 
+multi_state_q_names = (pm_qnames.PatientContextDescriptor,
+                       pm_qnames.LocationContextDescriptor,
+                       pm_qnames.WorkflowContextDescriptor,
+                       pm_qnames.OperatorContextDescriptor,
+                       pm_qnames.MeansContextDescriptor,
+                       pm_qnames.EnsembleContextDescriptor)
+
 
 def get_xsi_type(element: etree_.Element) -> QName:
     """Return the BICEPS type of an element.
@@ -98,7 +105,6 @@ class EntityBase:
     def __init__(self,
                  source: XmlEntity | XmlMultiStateEntity,
                  mdib: XmlMdibBase,  # needed if a new state needs to be added
-                 # descriptor: AbstractDescriptorContainer
                  ):
         self._source: ReferenceType[XmlEntity | XmlMultiStateEntity] = ref(source)
         self._mdib: XmlMdibBase = mdib
@@ -114,14 +120,19 @@ class EntityBase:
         self.source_mds = source.source_mds
 
 
+def mk_xml_entity(node, parent_handle, source_mds) -> XmlEntity | XmlMultiStateEntity :
+    xsi_type = get_xsi_type(node)
+    if xsi_type in multi_state_q_names:
+        return XmlMultiStateEntity(parent_handle, source_mds, xsi_type, node, [])
+    return XmlEntity(parent_handle, source_mds, xsi_type, node, None)
+
+
 class Entity(EntityBase):
     """Groups descriptor container and state container."""
 
     def __init__(self,
                  source: XmlEntity,
                  mdib: XmlMdibBase,  # needed if a new state needs to be added
-                 # descriptor: AbstractDescriptorContainer,
-                 # state: AbstractStateContainer
                  ):
         super().__init__(source, mdib)
         cls = mdib.sdc_definitions.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
@@ -195,15 +206,12 @@ class XmlMdibBase:
     updated_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     deleted_descriptors_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     operation_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
+    sequence_id = properties.ObservableProperty()
+    instance_id = properties.ObservableProperty()
 
-    multi_state_q_names = (pm_qnames.PatientContextDescriptor,
-                           pm_qnames.LocationContextDescriptor,
-                           pm_qnames.WorkflowContextDescriptor,
-                           pm_qnames.OperatorContextDescriptor,
-                           pm_qnames.MeansContextDescriptor,
-                           pm_qnames.EnsembleContextDescriptor)
-
-    def __init__(self, sdc_definitions: type[BaseDefinitions], logger: LoggerAdapter):
+    def __init__(self, sdc_definitions: type[BaseDefinitions],
+                 logger: LoggerAdapter,
+                 entity_factory: Callable | None = None):
         """Construct MdibBase.
 
         :param sdc_definitions: a class derived from BaseDefinitions
@@ -220,11 +228,28 @@ class XmlMdibBase:
         self._get_mdib_response_node: Union[etree_.Element, None] = None
         self._md_state_node: Union[etree_.Element, None] = None
         self._entities: dict[str, XmlEntity | XmlMultiStateEntity] = {}  # key is the handle
+        self._entity_factory = entity_factory or mk_xml_entity
 
     @property
     def mdib_version_group(self) -> MdibVersionGroup:
         """"Get current version data."""
         return MdibVersionGroup(self.mdib_version, self.sequence_id, self.instance_id)
+
+    def _update_mdib_version_group(self, mdib_version_group: MdibVersionGroup):
+        """Set members and update entries in DOM tree."""
+        mdib_node = self._get_mdib_response_node[0]
+        if mdib_version_group.mdib_version != self.mdib_version:
+            self.mdib_version = mdib_version_group.mdib_version
+            self._get_mdib_response_node.set('MdibVersion', str(mdib_version_group.mdib_version))
+            mdib_node.set('MdibVersion', str(mdib_version_group.mdib_version))
+        if mdib_version_group.sequence_id != self.sequence_id:
+            self.sequence_id = mdib_version_group.sequence_id
+            self._get_mdib_response_node.set('SequenceId', str(mdib_version_group.sequence_id))
+            mdib_node.set('SequenceId', str(mdib_version_group.sequence_id))
+        if mdib_version_group.instance_id != self.instance_id:
+            self.instance_id = mdib_version_group.instance_id
+            self._get_mdib_response_node.set('InstanceId', str(mdib_version_group.instance_id))
+            mdib_node.set('InstanceId', str(mdib_version_group.instance_id))
 
     @property
     def logger(self) -> LoggerAdapter:
@@ -232,6 +257,7 @@ class XmlMdibBase:
         return self._logger
 
     def _set_root_node(self, root_node: etree_.Element):
+        """Set member and create xml entities"""
         if root_node.tag != msg_qnames.GetMdibResponse:
             raise ValueError(f'root node must be {str(msg_qnames.GetMdibResponse)}, got {str(root_node.tag)}')
         self._get_mdib_response_node = root_node
@@ -246,12 +272,9 @@ class XmlMdibBase:
                     source_mds = child_handle
                 if child_handle:
                     print(child_node.attrib)
-                    xsi_type = get_xsi_type(child_node)
-                    if xsi_type in self.multi_state_q_names:
-                        self._entities[child_handle] = XmlMultiStateEntity(parent_handle, source_mds, xsi_type,
-                                                                           child_node, [])
-                    else:
-                        self._entities[child_handle] = XmlEntity(parent_handle, source_mds, xsi_type, child_node, None)
+                    self._entities[child_handle] = self._entity_factory(child_node,
+                                                                        parent_handle,
+                                                                        source_mds)
                     register_children_with_handle(child_node, source_mds)
 
         for mdib_node in root_node:
@@ -261,12 +284,10 @@ class XmlMdibBase:
             for state_node in md_state_node:
                 handle = state_node.attrib['DescriptorHandle']
                 entity = self._entities[handle]
-                if isinstance(entity, XmlEntity):
-                    entity.state = state_node
-                elif isinstance(entity, XmlMultiStateEntity):
+                if entity.is_multi_state:
                     entity.states.append(state_node)
                 else:
-                    raise RuntimeError(f'instance {entity.__class__} not expected here')
+                    entity.state = state_node
 
     def mk_entity(self, handle) -> Entity | MultiStateEntity:
         xml_entity = self._entities[handle]

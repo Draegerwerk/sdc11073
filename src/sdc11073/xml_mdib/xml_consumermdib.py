@@ -41,7 +41,8 @@ class XmlConsumerMdib(XmlMdibBase):
     def __init__(self,
                  sdc_client: SdcConsumer,
                  extras_cls: type | None = None,
-                 max_realtime_samples: int = 100):
+                 max_realtime_samples: int = 100,
+                 entity_factory: Callable | None = None):
         """Construct a ConsumerMdib instance.
 
         :param sdc_client: a SdcConsumer instance
@@ -49,7 +50,8 @@ class XmlConsumerMdib(XmlMdibBase):
         :param max_realtime_samples: determines how many real time samples are stored per RealtimeSampleArray
         """
         super().__init__(sdc_client.sdc_definitions,
-                         loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix))
+                         loghelper.get_logger_adapter('sdc.client.mdib', sdc_client.log_prefix),
+                         entity_factory)
         self._sdc_client = sdc_client
         if extras_cls is None:
             extras_cls = XmlConsumerMdibMethods
@@ -107,16 +109,7 @@ class XmlConsumerMdib(XmlMdibBase):
             self._logger.info('initializing mdib...')
             response = get_service.get_mdib()
             self._set_root_node(response.p_msg.msg_node)
-
-            mdib_version_group = response.mdib_version_group
-            self.mdib_version = mdib_version_group.mdib_version
-            self._logger.info('setting initial mdib version to {}',
-                              mdib_version_group.mdib_version)  # noqa: PLE1205
-            self.sequence_id = mdib_version_group.sequence_id
-            self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa: PLE1205
-            if mdib_version_group.instance_id != self.instance_id:
-                self.instance_id = mdib_version_group.instance_id
-            self._logger.info('setting initial instance id to {}', mdib_version_group.instance_id)  # noqa: PLE1205
+            self._update_mdib_version_group(response.mdib_version_group)
 
             # Todo: Is this special handling still needed?
             # # retrieve context states only if there were none in mdib
@@ -222,7 +215,7 @@ class XmlConsumerMdib(XmlMdibBase):
          - update observable
         Call this method only if mdib_lock is already acquired."""
         if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'component states'):
-            self._update_from_mdib_version_group(received_message.mdib_version_group)
+            self._update_mdib_version_group(received_message.mdib_version_group)
 
         handles = []
         for report_part in received_message.p_msg.msg_node:
@@ -267,7 +260,7 @@ class XmlConsumerMdib(XmlMdibBase):
 
     def _process_incoming_waveform_states(self, received_message: ReceivedMessage):
         if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'waveform states'):
-            self._update_from_mdib_version_group(received_message.mdib_version_group)
+            self._update_mdib_version_group(received_message.mdib_version_group)
 
         handles = []
         for state in received_message.p_msg.msg_node:
@@ -345,15 +338,15 @@ class XmlConsumerMdib(XmlMdibBase):
                 st.tag = pm_qnames.State
                 self._md_state_node.append(st)
 
-            if xsi_type in self.multi_state_q_names:
-                xml_entity = XmlMultiStateEntity(parent_handle, source_mds_handle, xsi_type, descriptor, current_states)
+            xml_entity = self._entity_factory(descriptor, parent_handle, source_mds_handle)
+            if xml_entity.is_multi_state:
+                xml_entity.states.extend(current_states)
             else:
                 if len(current_states) != 1:
                     self.logger.error('create descriptor: Expect one state, got %d', len(current_states))
                     # Todo: what to do in this case? add entity without state?
-                    xml_entity = XmlEntity(parent_handle, source_mds_handle, xsi_type, descriptor, None)
                 else:
-                    xml_entity = XmlEntity(parent_handle, source_mds_handle, xsi_type, descriptor, current_states[0])
+                    xml_entity.state = current_states[0]
             self._entities[handle] = xml_entity
             handles.append(handle)
 
@@ -444,7 +437,7 @@ class XmlConsumerMdib(XmlMdibBase):
          - update observable
         Call this method only if mdib_lock is already acquired."""
         if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'state'):
-            self._update_from_mdib_version_group(received_message.mdib_version_group)
+            self._update_mdib_version_group(received_message.mdib_version_group)
 
         handles = []
         for report_part in received_message.p_msg.msg_node:
@@ -550,14 +543,6 @@ class XmlConsumerMdib(XmlMdibBase):
                                  log_prefix, self.mdib_version + 1, new_mdib_version)
         # it is possible to receive multiple notifications with the same mdib version => compare ">="
         return new_mdib_version >= self.mdib_version
-
-    def _update_from_mdib_version_group(self, mdib_version_group):
-        if mdib_version_group.mdib_version != self.mdib_version:
-            self.mdib_version = mdib_version_group.mdib_version
-        if mdib_version_group.sequence_id != self.sequence_id:
-            self.sequence_id = mdib_version_group.sequence_id
-        if mdib_version_group.instance_id != self.instance_id:
-            self.instance_id = mdib_version_group.instance_id
 
     def _check_sequence_or_instance_id_changed(self, mdib_version_group):
         """Check if sequence id and instance id are still the same.
