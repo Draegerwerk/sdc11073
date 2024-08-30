@@ -12,12 +12,16 @@ from lxml import etree as etree_
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
+from sdc11073.provider.xml_providerimpl import XmlSdcProvider
+from sdc11073.provider.components import (SdcProviderComponents, default_sdc_provider_components_async)
+
 from sdc11073.provider.subscriptionmgr import BicepsSubscription
 from sdc11073.xml_types import pm_types, pm_qnames as pm
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.xml_types.eventing_types import Subscribe
 
+from sdc11073.xml_mdib.xml_providermdib import XmlProviderMdib
 if TYPE_CHECKING:
     import sdc11073.certloader
     import uuid
@@ -137,6 +141,79 @@ class SomeDevice(SdcProvider):
                 mdsDescriptor.MetaData.ModelName.append(pm_types.LocalizedText(model.ModelName[0].text))
                 mdsDescriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
+        super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
+                         ssl_context_container=ssl_context_container,
+                         max_subscription_duration = max_subscription_duration,
+                         log_prefix=log_prefix,
+                         default_components=default_components,
+                         specific_components=specific_components,
+                         chunk_size=chunk_size,
+                         alternative_hostname=alternative_hostname)
+
+    @classmethod
+    def from_mdib_file(cls,
+                       wsdiscovery: WsDiscoveryProtocol,
+                       epr: str | uuid.UUID | None,
+                       mdib_xml_path: str | pathlib.Path,
+                       validate: bool =True,
+                       ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+                       max_subscription_duration: int = 15,
+                       log_prefix: str = '',
+                       default_components: SdcProviderComponents | None = None,
+                       specific_components: SdcProviderComponents | None = None,
+                       chunk_size: int = 0,
+                       alternative_hostname: str | None = None):
+        """Construct class with path to a mdib file."""
+        mdib_xml_path = pathlib.Path(mdib_xml_path)
+        if not mdib_xml_path.is_absolute():
+            mdib_xml_path = pathlib.Path(__file__).parent.joinpath(mdib_xml_path)
+        return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
+                   max_subscription_duration = max_subscription_duration,
+                   log_prefix=log_prefix,
+                   default_components=default_components, specific_components=specific_components,
+                   chunk_size=chunk_size,
+                   alternative_hostname=alternative_hostname)
+
+
+
+
+class SomeDeviceXmlMdib(XmlSdcProvider):
+    """A device used for unit tests. Some values are predefined."""
+
+    def __init__(self, wsdiscovery: WsDiscoveryProtocol,
+                 mdib_xml_data: bytes,
+                 epr: str | uuid.UUID | None = None,
+                 validate: bool = True,
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+                 max_subscription_duration: int = 15,
+                 log_prefix: str = '',
+                 default_components: SdcProviderComponents | None = None,
+                 specific_components: SdcProviderComponents | None = None,
+                 chunk_size: int = 0,
+                 alternative_hostname: str | None = None):
+        model = ThisModelType(manufacturer='Example Manufacturer',
+                              manufacturer_url='www.example-manufacturer.com',
+                              model_name='SomeDevice',
+                              model_number='1.0',
+                              model_url='www.example-manufacturer.com/whatever/you/want/model',
+                              presentation_url='www.example-manufacturer.com/whatever/you/want/presentation')
+        device = ThisDeviceType(friendly_name='Py SomeDevice',
+                                firmware_version='0.99',
+                                serial_number='12345')
+
+        device_mdib_container = XmlProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
+        device_mdib_container.instance_id = 1  # set the optional value
+        # set Metadata
+        # mds_entities = device_mdib_container.parent_handle.get(None)
+        mds_entities = device_mdib_container.entities.parent_handle(None)
+        # Todo: write that meta data back to dom tree
+        for mds_entity in mds_entities:
+            mds_descriptor = mds_entity.descriptor
+            if mds_descriptor.MetaData is not None:
+                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText('Example Manufacturer'))
+                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText(model.ModelName[0].text))
+                mds_descriptor.MetaData.SerialNumber.append('ABCD-1234')
+                mds_descriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
                          ssl_context_container=ssl_context_container,
                          max_subscription_duration = max_subscription_duration,

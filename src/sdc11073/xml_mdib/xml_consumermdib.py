@@ -13,7 +13,8 @@ from sdc11073.mdib.consumermdib import ConsumerMdibState
 from sdc11073.namespaces import QN_TYPE, default_ns_helper
 from sdc11073.xml_types import msg_qnames, pm_qnames
 from .xml_consumermdibxtra import XmlConsumerMdibMethods
-from .xml_mdibbase import XmlMdibBase, XmlEntity, XmlMultiStateEntity, get_xsi_type
+from .xml_mdibbase import XmlMdibBase
+from .xml_entities import XmlEntity, XmlMultiStateEntity, get_xsi_type
 
 if TYPE_CHECKING:
     from sdc11073.consumer.consumerimpl import SdcConsumer
@@ -238,15 +239,8 @@ class XmlConsumerMdib(XmlMdibBase):
                     if not found:
                         parent.append(state_node)
 
-                    # replace in xml entity
-                    found = False
-                    for i, old_state_node in enumerate(xml_entity.states):
-                        if old_state_node.attrib['Handle'] == handle:
-                            xml_entity.states[i] = state_node
-                            found = True
-                            break
-                    if not found: # new context state
-                        xml_entity.states.append(state_node)
+                    # replace or add in xml entity
+                    xml_entity.states[handle] = state_node
 
                     handles.append(handle)
         self.context_handles = handles  # update observable
@@ -517,16 +511,13 @@ class XmlConsumerMdib(XmlMdibBase):
             received_message_data.mdib_version_group)  # this might change self._state
         if self._state == ConsumerMdibState.invalid:
             # ignore report in these states
-            print('_pre_check_report_ok: invalid')
             return False
         if self._state == ConsumerMdibState.initializing:
-            print('_pre_check_report_ok: buffering')
             with self._buffered_notifications_lock:
                 # check state again, it might have changed before lock was acquired
                 if self._state == ConsumerMdibState.initializing:
                     self._buffered_notifications.append(_BufferedData(received_message_data, handler))
                     return False
-        print('_pre_check_report_ok: ok')
         return True
 
     def _can_accept_mdib_version(self, new_mdib_version: int, log_prefix: str) -> bool:

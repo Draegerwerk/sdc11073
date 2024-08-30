@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
     from .descriptorcontainers import AbstractDescriptorContainer, AbstractOperationDescriptorContainer
     from .statecontainers import AbstractMultiStateContainer, AbstractStateContainer
-
+    from .entityprotocol import EntityGetterProtocol
 
 @dataclass
 class MdibVersionGroup:
@@ -225,6 +225,41 @@ class MultiStateEntity:
     states: list[AbstractMultiStateContainer]
 
 
+class EntityGetter:
+    def __init__(self, mdib: MdibBase):
+        self._mdib = mdib
+
+    def handle(self, handle: str) ->  Entity | MultiStateEntity | None:
+        """Return entity with given handle."""
+        descriptor = self._mdib.descriptions.handle.get_one(handle)
+        return self._mk_entity(descriptor)
+
+    def node_type(self, node_type: QName) -> list[Entity | MultiStateEntity]:
+        """Return all entities with given node type."""
+        descriptors = self._mdib.descriptions.NODETYPE.get(node_type)
+        return [self._mk_entity(d) for d in descriptors]
+
+    def parent_handle(self, parent_handle: str | None) -> list[Entity | MultiStateEntity]:
+        descriptors = self._mdib.descriptions.parent_handle.get(parent_handle)
+        return [self._mk_entity(d) for d in descriptors]
+
+    def coding(self, coding: Coding) -> list[Entity | MultiStateEntity]:
+        descriptors = [d for d in self._mdib.descriptions.objects if d.Type.is_equivalent(coding)]
+        return [self._mk_entity(d) for d in descriptors]
+
+    def coded_value(self, coded_value: CodedValue) -> list[Entity | MultiStateEntity]:
+        descriptors = [d for d in self._mdib.descriptions.objects if d.Type.is_equivalent(coded_value)]
+        return [self._mk_entity(d) for d in descriptors]
+
+    def _mk_entity(self, descriptor) -> Entity | MultiStateEntity:
+        if descriptor.is_context_descriptor:
+            states = self._mdib.context_states.descriptor_handle.get(descriptor.Handle)
+            return MultiStateEntity(descriptor, states)
+        state = self._mdib.states.descriptor_handle.get_one(descriptor.Handle)
+        return Entity(descriptor, state)
+
+
+
 class MdibBase:
     """Base class with common functionality of provider mdib and consumer mdib."""
 
@@ -264,6 +299,8 @@ class MdibBase:
         self.mdib_lock = Lock()
         self.mdstate_version = 0
         self.mddescription_version = 0
+
+        self.entities: EntityGetterProtocol = EntityGetter(self)
 
     @property
     def logger(self) -> LoggerAdapter:
