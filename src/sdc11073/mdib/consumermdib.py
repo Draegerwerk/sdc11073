@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from .statecontainers import (AbstractStateContainer,
                                   AbstractContextStateContainer,
                                   RealTimeSampleArrayMetricStateContainer)
+    from .entityprotocol import EntityGetterProtocol
 
 
 @dataclass
@@ -180,6 +181,7 @@ class ConsumerMdib(mdibbase.MdibBase):
         # a buffer for notifications that are received before initial get_mdib is done
         self._buffered_notifications = []
         self._buffered_notifications_lock = Lock()
+        self.entities: EntityGetterProtocol = mdibbase.EntityGetter(self)
 
     @property
     def xtra(self) -> Any:

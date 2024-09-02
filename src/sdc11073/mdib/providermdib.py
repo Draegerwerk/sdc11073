@@ -19,17 +19,35 @@ from .transactions import mk_transaction
 from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
 
 if TYPE_CHECKING:
+    from lxml.etree import QName
     from sdc11073.definitions_base import BaseDefinitions
-
+    from .statecontainers import AbstractMultiStateContainer
     from .transactionsprotocol import (
         ContextStateTransactionManagerProtocol,
         DescriptorTransactionManagerProtocol,
         StateTransactionManagerProtocol,
         TransactionResultProtocol
     )
+    from .entityprotocol import ProviderEntityGetterProtocol
 
 TransactionFactory = Callable[[mdibbase.MdibBase, TransactionType, LoggerAdapter],
                               AnyTransactionManagerProtocol]
+
+
+class ProviderEntityGetter(mdibbase.EntityGetter):
+    def new_entity(self,
+            node_type: QName,
+            handle: str,
+            parent_handle: str) -> mdibbase.Entity | mdibbase.MultiStateEntity:
+        """Create an entity."""
+        raise NotImplementedError
+
+    def new_state(self,
+            entity: mdibbase.MultiStateEntity,
+            handle: str | None = None,
+            ) -> AbstractMultiStateContainer:
+        """Create a new context state."""
+        raise NotImplementedError
 
 
 class ProviderMdib(mdibbase.MdibBase):
@@ -75,6 +93,7 @@ class ProviderMdib(mdibbase.MdibBase):
         self._transaction_factory = transaction_factory or mk_transaction
         self._retrievability_episodic = []  # a list of handles
         self.retrievability_periodic = defaultdict(list)
+        self.entities: ProviderEntityGetterProtocol = ProviderEntityGetter(self)
 
     @property
     def xtra(self) -> Any:

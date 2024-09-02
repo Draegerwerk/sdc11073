@@ -7,14 +7,14 @@ from sdc11073 import observableproperties as properties
 
 if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
-    from .xml_consumermdib import XmlConsumerMdib
+    from .entity_consumermdib import EntityConsumerMdib
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
-class XmlConsumerMdibMethods:
+class EntityConsumerMdibMethods:
     """Extra methods for consumer mdib tht are not core functionality."""
 
 
-    def __init__(self, consumer_mdib: XmlConsumerMdib, logger: LoggerAdapter):
+    def __init__(self, consumer_mdib: EntityConsumerMdib, logger: LoggerAdapter):
         self._mdib = consumer_mdib
         self._sdc_client = consumer_mdib.sdc_client
         self._msg_reader = self._sdc_client.msg_reader

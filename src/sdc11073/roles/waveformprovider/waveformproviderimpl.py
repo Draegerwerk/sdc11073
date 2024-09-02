@@ -114,9 +114,8 @@ class GenericWaveformProvider:
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sample_period
-        # descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
-        entity = self._mdib.entities.handle(descriptor_handle)
-        if entity.descriptor.SamplePeriod != sample_period:
+        descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
+        if descriptor_container.SamplePeriod != sample_period:
             # we must inform subscribers
             with self._mdib.descriptor_transaction() as mgr:
                 descr = mgr.get_descriptor(descriptor_handle)
@@ -174,10 +173,8 @@ class GenericWaveformProvider:
         """
         for descriptor_handle, wf_generator in self._waveform_generators.items():
             if wf_generator.is_active:
-                entity = self._mdib.entities.handle(descriptor_handle)
-                # state = transaction.get_state(descriptor_handle)
-                self._update_rt_samples(entity.state)
-                transaction.add_state(entity.state)
+                state = transaction.get_state(descriptor_handle)
+                self._update_rt_samples(state)
         self._add_all_annotations()
 
     def provide_waveforms(self,

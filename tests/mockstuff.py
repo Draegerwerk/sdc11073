@@ -21,7 +21,7 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
 from sdc11073.xml_types.eventing_types import Subscribe
 
-from sdc11073.xml_mdib.xml_providermdib import XmlProviderMdib
+from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 if TYPE_CHECKING:
     import sdc11073.certloader
     import uuid
@@ -201,7 +201,7 @@ class SomeDeviceXmlMdib(XmlSdcProvider):
                                 firmware_version='0.99',
                                 serial_number='12345')
 
-        device_mdib_container = XmlProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
+        device_mdib_container = EntityProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
         device_mdib_container.instance_id = 1  # set the optional value
         # set Metadata
         # mds_entities = device_mdib_container.parent_handle.get(None)
@@ -246,3 +246,45 @@ class SomeDeviceXmlMdib(XmlSdcProvider):
                    default_components=default_components, specific_components=specific_components,
                    chunk_size=chunk_size,
                    alternative_hostname=alternative_hostname)
+
+
+from sdc11073.roles.waveformprovider.waveformproviderimpl import (GenericWaveformProvider,
+                                                                  WaveformGeneratorProtocol,
+                                                                  _SampleArrayGenerator)
+if TYPE_CHECKING:
+    from sdc11073.entity_mdib.xml_transactions import RtStateTransaction
+
+
+class XmGenericWaveformProvider(GenericWaveformProvider):
+
+    def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorProtocol):
+        """Add wf_generator to waveform sources.
+
+        :param descriptor_handle: the handle of the RealtimeSampleArray that shall accept this data
+        :param wf_generator: a waveforms.WaveformGenerator instance
+        """
+        sample_period = wf_generator.sample_period
+        entity = self._mdib.entities.handle(descriptor_handle)
+        if entity.descriptor.SamplePeriod != sample_period:
+            # we must inform subscribers
+            with self._mdib.descriptor_transaction() as mgr:
+                descr = mgr.get_descriptor(descriptor_handle)
+                descr.SamplePeriod = sample_period
+        if descriptor_handle in self._waveform_generators:
+            self._waveform_generators[descriptor_handle].set_waveform_generator(wf_generator)
+        else:
+            self._waveform_generators[descriptor_handle] = _SampleArrayGenerator(self._mdib.data_model,
+                                                                                 descriptor_handle,
+                                                                                 wf_generator)
+
+    def update_all_realtime_samples(self, transaction: RtStateTransaction):
+        """Update all realtime sample states that have a waveform generator registered.
+
+        On transaction commit the mdib will call the appropriate send method of the sdc device.
+        """
+        for descriptor_handle, wf_generator in self._waveform_generators.items():
+            if wf_generator.is_active:
+                entity = self._mdib.entities.handle(descriptor_handle)
+                self._update_rt_samples(entity.state)
+                transaction.add_state(entity)
+        self._add_all_annotations()

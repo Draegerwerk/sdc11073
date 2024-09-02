@@ -4,7 +4,7 @@ import copy
 from typing import TYPE_CHECKING, Union
 from weakref import ref, ReferenceType
 
-from lxml import etree as etree_
+from lxml.etree import QName
 
 from sdc11073.namespaces import QN_TYPE
 from sdc11073.namespaces import text_to_qname
@@ -12,11 +12,9 @@ from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.pm_types import CodedValue
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
     from sdc11073.mdib.statecontainers import AbstractMultiStateContainer, AbstractStateContainer
-    from sdc11073.xml_types.pm_types import Coding
-    from .xml_mdibbase import XmlMdibBase
+    from .entity_mdibbase import EntityMdibBase
     from sdc11073.xml_utils import LxmlElement
 
 # Many types are fixed in schema. This table maps from tag in Element to its type
@@ -35,15 +33,8 @@ _static_type_lookup = {
     pm_qnames.Battery: pm_qnames.BatteryDescriptor,
 }
 
-multi_state_q_names = (pm_qnames.PatientContextDescriptor,
-                       pm_qnames.LocationContextDescriptor,
-                       pm_qnames.WorkflowContextDescriptor,
-                       pm_qnames.OperatorContextDescriptor,
-                       pm_qnames.MeansContextDescriptor,
-                       pm_qnames.EnsembleContextDescriptor)
 
-
-def get_xsi_type(element: etree_.Element) -> QName:
+def get_xsi_type(element: LxmlElement) -> QName:
     """Return the BICEPS type of an element.
 
     If there is a xsi:type entry, this specifies the type.
@@ -54,7 +45,7 @@ def get_xsi_type(element: etree_.Element) -> QName:
     if xsi_type_str:
         return text_to_qname(xsi_type_str, element.nsmap)
     else:
-        _xsi_type = etree_.QName(element.tag)
+        _xsi_type = QName(element.tag)
         try:
             return _static_type_lookup[_xsi_type]
         except KeyError:
@@ -63,11 +54,12 @@ def get_xsi_type(element: etree_.Element) -> QName:
 
 class _XmlEntityBase:
     """A descriptor element and some info about it for easier access."""
+
     def __init__(self,
                  parent_handle: str | None,
                  source_mds: str | None,
-                 node_type: etree_.QName,
-                 descriptor: etree_.Element):
+                 node_type: QName,
+                 descriptor: LxmlElement):
         self.parent_handle = parent_handle
         self.source_mds = source_mds
         self.node_type = node_type  # name of descriptor type
@@ -76,7 +68,7 @@ class _XmlEntityBase:
         self.descriptor = descriptor  # setter updates self._descriptor and self.coded_value
 
     @property
-    def descriptor(self) -> etree_.Element:
+    def descriptor(self) -> LxmlElement:
         return self._descriptor
 
     @descriptor.setter
@@ -91,11 +83,12 @@ class _XmlEntityBase:
 
 class XmlEntity(_XmlEntityBase):
     """Groups descriptor and state."""
+
     def __init__(self,
                  parent_handle: str | None,
                  source_mds: str | None,
-                 node_type: etree_.QName,
-                 descriptor: etree_.Element,
+                 node_type: QName,
+                 descriptor: LxmlElement,
                  state: LxmlElement | None):
         super().__init__(parent_handle, source_mds, node_type, descriptor)
         self.state = state
@@ -104,27 +97,28 @@ class XmlEntity(_XmlEntityBase):
     def is_multi_state(self) -> bool:
         return False
 
-    def mk_entity(self, mdib: XmlMdibBase) -> ConsumerEntity:
+    def mk_entity(self, mdib: EntityMdibBase) -> ConsumerEntity:
         """Return a corresponding entity with containers."""
         return ConsumerEntity(self, mdib)
 
 
 class XmlMultiStateEntity(_XmlEntityBase):
     """Groups descriptor and list of multi-states."""
+
     def __init__(self,
                  parent_handle: str | None,
                  source_mds: str | None,
-                 node_type: etree_.QName,
-                 descriptor: etree_.Element,
-                 states: list[etree_.Element]):
+                 node_type: QName,
+                 descriptor: LxmlElement,
+                 states: list[LxmlElement]):
         super().__init__(parent_handle, source_mds, node_type, descriptor)
-        self.states: dict[str, etree_.Element] = {node.get('Handle') : node for node in states}
+        self.states: dict[str, LxmlElement] = {node.get('Handle'): node for node in states}
 
     @property
     def is_multi_state(self) -> bool:
         return True
 
-    def mk_entity(self, mdib: XmlMdibBase) -> ConsumerMultiStateEntity:
+    def mk_entity(self, mdib: EntityMdibBase) -> ConsumerMultiStateEntity:
         """Return a corresponding entity with containers."""
         return ConsumerMultiStateEntity(self, mdib)
 
@@ -134,10 +128,10 @@ class ConsumerEntityBase:
 
     def __init__(self,
                  source: XmlEntity | XmlMultiStateEntity,
-                 mdib: XmlMdibBase,  # needed if a new state needs to be added
+                 mdib: EntityMdibBase,  # needed if a new state needs to be added
                  ):
         self._source: ReferenceType[XmlEntity | XmlMultiStateEntity] = ref(source)
-        self._mdib: XmlMdibBase = mdib
+        self._mdib: EntityMdibBase = mdib
         # self.descriptor: AbstractDescriptorContainer = descriptor
 
         cls = mdib.sdc_definitions.data_model.get_descriptor_container_class(source.node_type)
@@ -155,7 +149,7 @@ class ConsumerEntity(ConsumerEntityBase):
 
     def __init__(self,
                  source: XmlEntity,
-                 mdib: XmlMdibBase,  # needed if a new state needs to be added
+                 mdib: EntityMdibBase,  # needed if a new state needs to be added
                  ):
         super().__init__(source, mdib)
         self.state: AbstractStateContainer | None = None
@@ -179,7 +173,7 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
 
     def __init__(self,
                  source: XmlMultiStateEntity,
-                 mdib: XmlMdibBase):
+                 mdib: EntityMdibBase):
         super().__init__(source, mdib)
         self.states: dict[str, AbstractMultiStateContainer] = {}
         for handle, state in source.states.items():
@@ -220,17 +214,14 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
                 self.states.pop(handle)
 
 
-def mk_xml_entity(node, parent_handle, source_mds) -> XmlEntity | XmlMultiStateEntity :
-    xsi_type = get_xsi_type(node)
-    if xsi_type in multi_state_q_names:
-        return XmlMultiStateEntity(parent_handle, source_mds, xsi_type, node, [])
-    return XmlEntity(parent_handle, source_mds, xsi_type, node, None)
+ConsumerEntityType = Union[ConsumerEntity, ConsumerMultiStateEntity]
 
 
 ##############  provider ##########################
 
 class ProviderInternalEntityBase:
     """A descriptor element and some info about it for easier access."""
+
     def __init__(self, descriptor: AbstractDescriptorContainer):
         self.descriptor = descriptor
 
@@ -253,6 +244,7 @@ class ProviderInternalEntityBase:
 
 class ProviderInternalEntity(ProviderInternalEntityBase):
     """Groups descriptor and state."""
+
     def __init__(self,
                  descriptor: AbstractDescriptorContainer,
                  state: AbstractStateContainer | None):
@@ -270,6 +262,7 @@ class ProviderInternalEntity(ProviderInternalEntityBase):
 
 class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
     """Groups descriptor and list of multi-states."""
+
     def __init__(self,
                  descriptor: AbstractDescriptorContainer,
                  states: list[AbstractMultiStateContainer]):
@@ -283,7 +276,6 @@ class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
     def mk_entity(self) -> ProviderMultiStateEntity:
         """Return a corresponding entity with containers."""
         return ProviderMultiStateEntity(self)
-
 
 
 class ProviderEntityBase:
@@ -347,5 +339,6 @@ class ProviderMultiStateEntity(ProviderEntityBase):
         self.descriptor = copy.deepcopy(source_entity.descriptor)
         self.states = copy.deepcopy(source_entity.states)
 
-ProviderInternalEntityType = Union[ProviderEntity, ProviderMultiStateEntity]
+
+ProviderInternalEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity]
 ProviderEntityType = Union[ProviderEntity, ProviderMultiStateEntity]

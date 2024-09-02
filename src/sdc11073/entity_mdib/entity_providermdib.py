@@ -6,7 +6,6 @@ from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 import time
 from lxml.etree import Element, SubElement
-from .xml_mdibbase import XmlMdibBase
 from typing import TYPE_CHECKING, Callable, Any, Iterable
 from sdc11073.mdib.transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
 from sdc11073.loghelper import LoggerAdapter
@@ -18,9 +17,10 @@ from sdc11073.xml_types.pm_types import RetrievabilityMethod
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.etc import apply_map
 
-from .xml_transactions import mk_transaction
-from .xml_entities import ProviderInternalEntity, ProviderInternalMultiStateEntity
-from .xml_entities import ProviderEntity, ProviderMultiStateEntity
+from .entity_transactions import mk_transaction
+from .entities import ProviderInternalEntity, ProviderInternalMultiStateEntity, ProviderInternalEntityType
+from .entities import ProviderEntity, ProviderMultiStateEntity
+from .entity_mdibbase import EntityMdibBase
 
 if TYPE_CHECKING:
     from lxml.etree import QName
@@ -40,13 +40,13 @@ if TYPE_CHECKING:
     )
     from sdc11073.mdib.entityprotocol import ProviderEntityGetterProtocol
 
-TransactionFactory = Callable[[XmlMdibBase, TransactionType, LoggerAdapter],
-AnyTransactionManagerProtocol]
+    TransactionFactory = Callable[[EntityProviderMdib, TransactionType, LoggerAdapter],
+    AnyTransactionManagerProtocol]
 
 
-class XmlProviderMdibMethods:
+class EntityProviderMdibMethods:
 
-    def __init__(self, provider_mdib: XmlProviderMdib):
+    def __init__(self, provider_mdib: EntityProviderMdib):
         self._mdib = provider_mdib
 
     def set_all_source_mds(self):
@@ -138,9 +138,9 @@ class XmlProviderMdibMethods:
 class ProviderEntityGetter:
     """Implements entityprotocol.ProviderEntityGetterProtocol"""
     def __init__(self,
-                 mdib: XmlProviderMdib):
-        self._entities: dict[str, ProviderInternalEntity | ProviderInternalMultiStateEntity] = mdib._entities
-        self._new_entities: dict[str, ProviderInternalEntity | ProviderInternalMultiStateEntity] = mdib._new_entities
+                 mdib: EntityProviderMdib):
+        self._entities: dict[str, ProviderInternalEntityType] = mdib._entities
+        self._new_entities: dict[str, ProviderInternalEntityType] = mdib._new_entities
         self._mdib = mdib
 
     def handle(self, handle: str) ->  ProviderEntity | ProviderMultiStateEntity | None:
@@ -237,7 +237,7 @@ class ProviderEntityGetter:
         state_cls = self._mdib.data_model.get_state_container_class(entity.descriptor.STATE_QNAME)
         state = state_cls(entity.descriptor)
         state.Handle = handle
-        # entity.states[handle] = state
+        entity.states[handle] = state
         return state
 
     def __len__(self) -> int:
@@ -245,7 +245,7 @@ class ProviderEntityGetter:
         return len(self._entities)
 
 
-class XmlProviderMdib:
+class EntityProviderMdib(EntityMdibBase):
     """Device side implementation of a mdib.
 
     Do not modify containers directly, use transactions for that purpose.
@@ -273,26 +273,20 @@ class XmlProviderMdib:
         if sdc_definitions is None:
             from sdc11073.definitions_sdc import SdcV1Definitions  # lazy import, needed to brake cyclic imports
             sdc_definitions = SdcV1Definitions
+        super().__init__(sdc_definitions,
+                         loghelper.get_logger_adapter('sdc.device.mdib', log_prefix)
+                         )
 
-        self.sdc_definitions = sdc_definitions
-        self.data_model = sdc_definitions.data_model
         self.nsmapper = sdc_definitions.data_model.ns_helper
 
-        self._logger = loghelper.get_logger_adapter('sdc.device.mdib', log_prefix)
-        self.mdib_version = 0
-        self.sequence_id = ''  # needs to be set to a reasonable value by derived class
-        self.instance_id = None  # None or an unsigned int
-        self.log_prefix = ''
-        self.mdib_lock = Lock()
-
         if extra_functionality is None:
-            extra_functionality = XmlProviderMdibMethods
+            extra_functionality = EntityProviderMdibMethods
 
-        self._entities: dict[str, ProviderInternalEntity | ProviderInternalMultiStateEntity] = {}  # key is the handle
+        self._entities: dict[str, ProviderInternalEntityType] = {}  # key is the handle
 
         # Keep track of entities that were created but are not yet part of mdib.
         # They become part of mdib when they were added via transaction.
-        self._new_entities: dict[str, ProviderInternalEntity | ProviderInternalMultiStateEntity] = {}
+        self._new_entities: dict[str, ProviderInternalEntityType] = {}
 
         # The official API
         self.entities: ProviderEntityGetterProtocol = ProviderEntityGetter(self)
@@ -327,16 +321,6 @@ class XmlProviderMdib:
         """Give access to extended functionality."""
         return self._xtra
 
-    @property
-    def mdib_version_group(self) -> MdibVersionGroup:
-        """"Get current version data."""
-        return MdibVersionGroup(self.mdib_version, self.sequence_id, self.instance_id)
-
-    @property
-    def logger(self) -> LoggerAdapter:
-        """Return the logger."""
-        return self._logger
-
     def set_initialized(self):
         self._is_initialized = True
 
@@ -358,6 +342,8 @@ class XmlProviderMdib:
                 else:
                     # update observables
                     transaction_result = self.current_transaction.process_transaction(set_determination_time)
+                    if transaction_result.new_mdib_version is not None:
+                        self.mdib_version = transaction_result.new_mdib_version
                     self.transaction = transaction_result
 
                     if transaction_result.alert_updates:
@@ -491,7 +477,7 @@ class XmlProviderMdib:
 
     @staticmethod
     def _mk_internal_entity(descriptor_container: AbstractDescriptorContainer,
-                   all_states: list[AbstractStateContainer]) -> ProviderInternalEntity | ProviderInternalMultiStateEntity:
+                   all_states: list[AbstractStateContainer]) -> ProviderInternalEntityType:
         states = [s for s in all_states if s.DescriptorHandle == descriptor_container.Handle]
         if descriptor_container.is_context_descriptor:
             return ProviderInternalMultiStateEntity(descriptor_container, states)
@@ -503,13 +489,13 @@ class XmlProviderMdib:
             f'found {len(states)} states for {descriptor_container.NODETYPE} handle = {descriptor_container.Handle}')
 
     def add_internal_entity(self, descriptor_container: AbstractDescriptorContainer,
-                   all_states: list[AbstractStateContainer])-> ProviderInternalEntity | ProviderInternalMultiStateEntity:
+                   all_states: list[AbstractStateContainer])-> ProviderInternalEntityType:
         """Create new entity and add it to self._entities.
 
         This method can't be used after mdib is initialized. Adding entities can the only be done via transaction.
         """
         if self._is_initialized:
-            raise ValueError('add_entity call not allowed, use a treansaction!' )
+            raise ValueError('add_entity call not allowed, use a transaction!' )
         entity =  self._mk_internal_entity(descriptor_container, all_states)
         self._entities[descriptor_container.Handle] = entity
         return entity
@@ -563,7 +549,7 @@ class XmlProviderMdib:
                        path: str,
                        protocol_definition: type[BaseDefinitions] | None = None,
                        xml_reader_class: type[MessageReader] | None = MessageReader,
-                       log_prefix: str | None = None) -> XmlProviderMdib:
+                       log_prefix: str | None = None) -> EntityProviderMdib:
         """Construct mdib from a file.
 
         :param path: the input file path for creating the mdib
@@ -584,7 +570,7 @@ class XmlProviderMdib:
                     xml_text: bytes,
                     protocol_definition: type[BaseDefinitions] | None = None,
                     xml_reader_class: type[MessageReader] | None = MessageReader,
-                    log_prefix: str | None = None) -> XmlProviderMdib:
+                    log_prefix: str | None = None) -> EntityProviderMdib:
         """Construct mdib from a string.
 
         :param xml_text: the input string for creating the mdib

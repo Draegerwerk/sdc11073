@@ -208,6 +208,8 @@ class NetworkingThread:
                             self._logger.debug('incoming message already known: %s (from %r, Id %s).',
                                                received_message.action, addr, mid)
                             continue
+                        self._logger.debug('new incoming message: %s (from %r, Id %s).',
+                                           received_message.action, addr, mid)
                         self._known_message_ids.appendleft(mid)
                         self._wsd.handle_received_message(received_message, addr)
                 except Exception:  # noqa: BLE001

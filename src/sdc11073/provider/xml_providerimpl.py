@@ -31,7 +31,7 @@ from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 if TYPE_CHECKING:
     from enum import Enum
     from sdc11073.location import SdcLocation
-    from sdc11073.xml_mdib.xml_providermdib import XmlProviderMdib
+    from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
@@ -84,7 +84,7 @@ class XmlSdcProvider:
     def __init__(self, ws_discovery: WsDiscoveryProtocol,
                  this_model: ThisModelType,
                  this_device: ThisDeviceType,
-                 device_mdib_container: XmlProviderMdib,
+                 device_mdib_container: EntityProviderMdib,
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
@@ -352,7 +352,7 @@ class XmlSdcProvider:
                                           x_addrs)
 
     @property
-    def mdib(self) -> XmlProviderMdib:
+    def mdib(self) -> EntityProviderMdib:
         """Return mdib reference."""
         return self._mdib
 
