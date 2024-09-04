@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -60,10 +60,10 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -100,7 +100,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success() || failure()  # upload artifacts also if test stage failed
         with:
-          name: unittest_reports
+          name: unittest_reports-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}
           path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           retention-days: 5
 
@@ -108,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success() || failure()  # upload artifacts also if test stage failed
         with:
-          name: pytest_logs
+          name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}
           path: pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
           retention-days: 5
 

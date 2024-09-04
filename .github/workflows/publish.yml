@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download Build
         uses: actions/download-artifact@v4
@@ -58,11 +58,11 @@ jobs:
       - name: Download unittest reports
         uses: actions/download-artifact@v4
         with:
-          name: unittest_reports
+          pattern: unittest_reports-*
           path: pytest_reports/
 
       - name: Zip unittest reports
-        uses: vimtor/action-zip@v1.1
+        uses: vimtor/action-zip@v1
         with:
           files: pytest_reports/
           dest: pytest_reports/test_reports.zip
@@ -75,7 +75,7 @@ jobs:
           echo DO_PRERELEASE=$do_prerelease
 
       - name: Attach artifacts to github release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             CHANGELOG.md
