@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import traceback
 from dataclasses import dataclass
 from threading import Lock
@@ -208,21 +209,74 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
             obj.StateVersion = version + 1
 
 
-@dataclass
-class Entity:
+class _EntityBase:
+
+    def __init__(self, mdib: MdibBase, descriptor: AbstractDescriptorContainer):
+        self._mdib = mdib
+        self.descriptor = descriptor
+
+    @property
+    def handle(self) -> str:
+        return self.descriptor.Handle
+
+    @property
+    def parent_handle(self) -> str:
+        return self.descriptor.parent_handle
+
+    @property
+    def node_type(self) -> QName:
+        return self.descriptor.NODETYPE
+
+    def update(self):
+        orig = self._mdib.descriptions.get_one(self.handle)
+        self.descriptor.update_from_other_container(orig)
+
+class Entity(_EntityBase):
     """Groups descriptor and state."""
 
-    descriptor: AbstractDescriptorContainer
-    state: AbstractStateContainer
+    def __init__(self, mdib: MdibBase, descriptor: AbstractDescriptorContainer, state: AbstractStateContainer):
+        super().__init__(mdib, descriptor)
+        self.state = state
 
 
-@dataclass
-class MultiStateEntity:
+    @property
+    def is_multi_state(self) -> bool:
+        return False
+
+    def update(self):
+        super().update()
+        orig = self._mdib.states.get_one(self.handle)
+        self.state.update_from_other_container(orig)
+
+
+class MultiStateEntity(_EntityBase):
     """Groups descriptor and list of multi-states."""
 
-    descriptor: AbstractDescriptorContainer
-    states: list[AbstractMultiStateContainer]
+    def __init__(self, mdib: MdibBase, descriptor: AbstractDescriptorContainer,
+                 states: list[AbstractMultiStateContainer]):
+        super().__init__(mdib, descriptor)
+        self.states: dict[str, AbstractMultiStateContainer] = {s.Handle: s for s in states}
 
+    @property
+    def is_multi_state(self) -> bool:
+        return True
+
+    def update(self):
+        super().update()
+
+        all_orig_states = self._mdib.context_states.descriptor_handle.get(self.handle)
+        states_dict = { st.Handle: st for st in all_orig_states}
+        # update existing states, remove deleted ones
+        for state in list(self.states.values()):
+            try:
+                orig = states_dict[state.Handle]
+                state.update_from_other_container(orig)
+            except KeyError:
+                self.states.pop(state.handle)
+        # add new states
+        for handle in states_dict:
+            if handle not in self.states:
+                self.states[handle] = states_dict[handle].mk_copy()
 
 class EntityGetter:
     def __init__(self, mdib: MdibBase):
@@ -230,7 +284,9 @@ class EntityGetter:
 
     def handle(self, handle: str) ->  Entity | MultiStateEntity | None:
         """Return entity with given handle."""
-        descriptor = self._mdib.descriptions.handle.get_one(handle)
+        descriptor = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
+        if descriptor is None:
+            return None
         return self._mk_entity(descriptor)
 
     def node_type(self, node_type: QName) -> list[Entity | MultiStateEntity]:
@@ -253,9 +309,9 @@ class EntityGetter:
     def _mk_entity(self, descriptor) -> Entity | MultiStateEntity:
         if descriptor.is_context_descriptor:
             states = self._mdib.context_states.descriptor_handle.get(descriptor.Handle, [])
-            return MultiStateEntity(descriptor, states)
+            return MultiStateEntity(self._mdib,copy.deepcopy(descriptor), copy.deepcopy(states))
         state = self._mdib.states.descriptor_handle.get_one(descriptor.Handle)
-        return Entity(descriptor, state)
+        return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
 
     def items(self) -> Iterable[tuple[str, [Entity | MultiStateEntity]]]:
         """Like items() of a dictionary."""
@@ -636,13 +692,13 @@ class MdibBase:
         """Return descriptor and state as Entity."""
         descr = self.descriptions.handle.get_one(handle)
         state = self.states.descriptor_handle.get_one(handle)
-        return Entity(descr, state)
+        return Entity(self, descr, state)
 
     def get_context_entity(self, handle: str) -> MultiStateEntity:
         """Return descriptor and states as MultiStateEntity."""
         descr = self.descriptions.handle.get_one(handle)
         states = self.context_states.descriptor_handle.get(handle, [])
-        return MultiStateEntity(descr, states)
+        return MultiStateEntity(self, descr, states)
 
     def has_multiple_mds(self) -> bool:
         """Check if there is more than one mds in mdib (convenience method)."""

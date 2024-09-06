@@ -16,7 +16,7 @@ from .patientcontextprovider import GenericPatientContextProvider
 if TYPE_CHECKING:
     from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
+    from sdc11073.mdib.transactionsprotocol import AnyTransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -53,10 +53,10 @@ class ProviderRoleProtocol(Protocol):
         If a role provider needs to add operations beyond that, it can do it here.
         """
 
-    def on_pre_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def on_pre_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
         """Manipulate operation (e.g. add more states)."""
 
-    def on_post_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def on_post_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
         """Implement actions after the transaction."""
         ...
 
@@ -76,7 +76,7 @@ class BaseProduct:
         self._sco = sco
         self._mdib = mdib
         self._model = mdib.data_model
-        self._ordered_providers: list[ProviderRoleProtocol] = []  # order matters, first come, first serve
+        self._ordered_providers: list[ProviderRoleProtocol] = []  # order matters, first come, first served
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
@@ -130,8 +130,6 @@ class BaseProduct:
         """Call make_operation_instance of all role providers, until the first returns not None."""
         operation_target_handle = operation_descriptor_container.OperationTarget
         operation_target_entity = self._mdib.entities.handle(operation_target_handle)
-        # operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle,
-        #                                                                 allow_none=True)  # descriptor container
         if operation_target_entity is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warning('Operation %s: target %s does not exist, will not register operation',
@@ -145,19 +143,6 @@ class BaseProduct:
                 return operation
             self._logger.debug('%s: no handler for %s', role_handler.__class__.__name__, operation_descriptor_container)
         return None
-
-    # def _register_existing_mdib_operations(self, sco: AbstractScoOperationsRegistry):
-    #     operation_descriptor_containers = self._mdib.descriptions.parent_handle.get(
-    #         self._sco.sco_descriptor_container.Handle, [])
-    #     for descriptor in operation_descriptor_containers:
-    #         registered_op = sco.get_operation_by_handle(descriptor.Handle)
-    #         if registered_op is None:
-    #             self._logger.debug('found unregistered %s in mdib, handle=%s, code=%r target=%s',
-    #                                descriptor.NODETYPE.localname, descriptor.Handle, descriptor.Type,
-    #                                descriptor.OperationTarget)
-    #             operation = self.make_operation_instance(descriptor, sco.operation_cls_getter)
-    #             if operation is not None:
-    #                 sco.register_operation(operation)
 
     def _register_existing_mdib_operations(self, sco: AbstractScoOperationsRegistry):
         operation_entities = self._mdib.entities.parent_handle(self._sco.sco_descriptor_container.Handle)
@@ -173,11 +158,11 @@ class BaseProduct:
                 if operation is not None:
                     sco.register_operation(operation)
 
-    def _on_pre_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def _on_pre_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
         for provider in self._all_providers_sorted():
             provider.on_pre_commit(mdib, transaction)
 
-    def _on_post_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def _on_post_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
         for provider in self._all_providers_sorted():
             provider.on_post_commit(mdib, transaction)
 

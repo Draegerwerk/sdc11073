@@ -76,8 +76,8 @@ class WsDiscoveryProtocol(Protocol):
         ...
 
 
-class XmlSdcProvider:
-    """SdcProvider is the host for sdc services, subscription manager etc."""
+class EntitySdcProvider:
+    """SdcProvider that uses the provider entity interface of mdib."""
 
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 

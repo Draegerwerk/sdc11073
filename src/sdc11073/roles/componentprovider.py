@@ -28,15 +28,15 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
+        op_target_entity = self._mdib.entities.handle(operation_target_handle)
 
         if operation_descriptor_container.NODETYPE == pm_names.SetComponentStateOperationDescriptor:  # noqa: SIM300
-            if op_target_descriptor_container.NODETYPE in (pm_names.MdsDescriptor,
-                                                           pm_names.ChannelDescriptor,
-                                                           pm_names.VmdDescriptor,
-                                                           pm_names.ClockDescriptor,
-                                                           pm_names.ScoDescriptor,
-                                                           ):
+            if op_target_entity.node_type in (pm_names.MdsDescriptor,
+                                              pm_names.ChannelDescriptor,
+                                              pm_names.VmdDescriptor,
+                                              pm_names.ClockDescriptor,
+                                              pm_names.ScoDescriptor,
+                                              ):
                 op_cls = operation_cls_getter(pm_names.SetComponentStateOperationDescriptor)
                 return op_cls(operation_descriptor_container.Handle,
                               operation_target_handle,
@@ -44,11 +44,11 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
                               coded_value=operation_descriptor_container.Type)
         elif operation_descriptor_container.NODETYPE == pm_names.ActivateOperationDescriptor:  # noqa: SIM300
             #  on what can activate be called?
-            if op_target_descriptor_container.NODETYPE in (pm_names.MdsDescriptor,
-                                                           pm_names.ChannelDescriptor,
-                                                           pm_names.VmdDescriptor,
-                                                           pm_names.ScoDescriptor,
-                                                           ):
+            if op_target_entity.node_type in (pm_names.MdsDescriptor,
+                                              pm_names.ChannelDescriptor,
+                                              pm_names.VmdDescriptor,
+                                              pm_names.ScoDescriptor,
+                                              ):
                 # no generic handler to be called!
                 op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
                 return op_cls(operation_descriptor_container.Handle,
@@ -64,15 +64,16 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         params.operation_instance.current_value = value
         with self._mdib.component_state_transaction() as mgr:
             for proposed_state in value:
-                state = mgr.get_state(proposed_state.DescriptorHandle)
-                if state.is_component_state:
-                    self._logger.info('updating %s with proposed component state', state)
-                    state.update_from_other_container(proposed_state,
-                                                      skipped_properties=['StateVersion', 'DescriptorVersion'])
+                entity = self._mdib.entities.handle(proposed_state.DescriptorHandle)
+                if entity.state.is_component_state:
+                    self._logger.info('updating %s with proposed component state', entity.state)
+                    entity.state.update_from_other_container(
+                        proposed_state, skipped_properties=['StateVersion', 'DescriptorVersion'])
+                    mgr.write_entity(entity)
                 else:
                     self._logger.warning(
                         '_set_component_state operation: ignore invalid referenced type %s in operation',
-                        state.NODETYPE.localname)
+                        entity.node_type.localname)
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
 

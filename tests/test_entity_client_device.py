@@ -30,7 +30,7 @@ from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types import pm_types, pm_qnames as pm
 from tests import utils
-from tests.mockstuff import SomeDeviceXmlMdib
+from tests.mockstuff import SomeDeviceEntityMdib
 
 if TYPE_CHECKING:
     from sdc11073.entity_mdib.entities import ProviderMultiStateEntity
@@ -201,12 +201,12 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_provider: SomeDeviceXmlMdib | None = None
+        self.sdc_provider: SomeDeviceEntityMdib | None = None
         self.sdc_consumer: SdcConsumer | None = None
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def _init_provider_consumer(self, mdib_file = default_mdib_file):
-        self.sdc_provider = SomeDeviceXmlMdib.from_mdib_file(self.wsd, None, mdib_file,
+        self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None, mdib_file,
                                                              default_components=my_sdc_provider_components_async,
                                                              max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
@@ -276,7 +276,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
             new_states.append(st)
 
         with self.sdc_provider.mdib.context_state_transaction() as mgr:
-            mgr.add_state(entity, handles)
+            mgr.write_entity(entity, handles)
         return entity, new_states
 
     def test_consumer_xml_mdib(self):
@@ -365,7 +365,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
 
         with self.sdc_provider.mdib.metric_state_transaction() as mgr:
             # mgr automatically increases the StateVersion
-            mgr.add_state(provider_entity)
+            mgr.write_entity(provider_entity)
 
         # time.sleep(1)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
@@ -393,7 +393,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
             # mgr automatically increases the StateVersion
             provider_entity.state.ActivationState = pm_types.AlertActivation.PAUSED
             provider_entity.state.ActualPriority = pm_types.AlertConditionPriority.MEDIUM
-            mgr.add_state(provider_entity)
+            mgr.write_entity(provider_entity)
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_entity.update()  # aminly to get correct version counters
@@ -417,7 +417,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         old_state_version = provider_channel_entity.state.StateVersion
         with self.sdc_provider.mdib.component_state_transaction() as mgr:
             provider_channel_entity.state.ActivationState = pm_types.ComponentActivation.FAILURE
-            mgr.add_state(provider_channel_entity)
+            mgr.write_entity(provider_channel_entity)
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_channel_entity.update()
@@ -442,7 +442,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         provider_entity.state.OperatingMode = pm_types.OperatingMode.NA
 
         with self.sdc_provider.mdib.operational_state_transaction() as mgr:
-            mgr.add_state(provider_entity)
+            mgr.write_entity(provider_entity)
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
@@ -475,7 +475,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         mds_entities = self.sdc_provider.mdib.entities.node_type(pm.MdsDescriptor)
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             for entity in mds_entities:
-                mgr.remove_descriptor(entity.descriptor.Handle)
+                mgr.remove_entity(entity)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
         # verify both mdibs are empty
@@ -511,7 +511,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         provider_state = provider_entity.states[st_handle]
         provider_state.CoreData.Givenname = 'Moritz'
         with self.sdc_provider.mdib.context_state_transaction() as mgr:
-            mgr.add_state(provider_entity, [st_handle])
+            mgr.write_entity(provider_entity, [st_handle])
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         time.sleep(1)
         provider_entity.update()
@@ -542,7 +542,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         provider_entity = self.sdc_provider.mdib.entities.handle(consumer_entity.handle)
         provider_entity.descriptor.DeterminationPeriod = new_determination_period
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
-            mgr.handle_entity(provider_entity)
+            mgr.write_entity(provider_entity)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
         # verify that client got updates
@@ -566,7 +566,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         initial_state_version = provider_entity.state.StateVersion
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
-            mgr.handle_entity(provider_entity)
+            mgr.write_entity(provider_entity)
 
         provider_entity.update()
         self.assertEqual(provider_entity.descriptor.DescriptorVersion, initial_descriptor_version + 1)
@@ -606,7 +606,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
                           )
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
-            mgr.handle_entity(new_entity)
+            mgr.write_entity(new_entity)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
         new_consumer_entity = consumer_mdib.entities.handle(new_handle)
@@ -629,7 +629,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         new_entity.descriptor.Type = pm_types.CodedValue('23456')
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
-            mgr.handle_entity(new_entity)
+            mgr.write_entity(new_entity)
         # long timeout, sometimes high load on jenkins makes these tests fail
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         consumer_entity = consumer_mdib.entities.handle(new_battery_handle)
@@ -641,14 +641,10 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         # test deleting a descriptor
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'deleted_descriptors_handles')
+        provider_channel_entity = self.sdc_provider.mdib.entities.handle(channel_descriptor_handle)
+
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
-            mgr.remove_descriptor(channel_descriptor_handle)
+            mgr.remove_entity(provider_channel_entity)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         entity = consumer_mdib.entities.handle(new_handle)
         self.assertIsNone(entity)
-
-
-    def test_set_metric_value(self):
-        self._init_provider_consumer()
-        consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
-        consumer_mdib.init_mdib()

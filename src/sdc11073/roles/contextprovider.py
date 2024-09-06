@@ -36,10 +36,10 @@ class GenericContextProvider(providerbase.ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         if pm_names.SetContextStateOperationDescriptor == operation_descriptor_container.NODETYPE:
-            op_target_descr_container = self._mdib.descriptions.handle.get_one(
-                operation_descriptor_container.OperationTarget)
+            op_target_entity = self._mdib.entities.handle( operation_descriptor_container.OperationTarget)
+
             if (not self._op_target_descr_types) or (
-                    op_target_descr_container.NODETYPE not in self._op_target_descr_types):
+                    op_target_entity.descriptor.NODETYPE not in self._op_target_descr_types):
                 return None  # we do not handle this target type
             return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                 operation_cls_getter,
@@ -66,13 +66,16 @@ class GenericContextProvider(providerbase.ProviderRole):
                 raise ValueError(f'more than one associated context for descriptor handle {handle}')
 
         operation_target_handles = []
+        modified_state_handles: dict[str, list[str]] = defaultdict(list)
+        modified_entities = []
         with self._mdib.context_state_transaction() as mgr:
             for proposed_st in proposed_context_states:
+                entity = self._mdib.entities.handle(proposed_st.DescriptorHandle)
+                modified_entities.append(entity)
                 old_state_container = None
                 if proposed_st.DescriptorHandle != proposed_st.Handle:
-                    # this is an update for an existing state
-                    old_state_container = self._mdib.context_states.handle.get_one(
-                        proposed_st.Handle, allow_none=True)
+                    # this is an update for an existing state or a new one
+                    old_state_container = entity.states.get(proposed_st.Handle)
                     if old_state_container is None:
                         raise ValueError(f'handle {proposed_st.Handle} not found')
                 if old_state_container is None:
@@ -80,37 +83,50 @@ class GenericContextProvider(providerbase.ProviderRole):
                     # create a new unique handle
                     proposed_st.Handle = uuid.uuid4().hex
                     if proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
+                        # disassociate existing states
+                        handles = self._mdib.xtra.disassociate_all(entity,
+                                                                   unbinding_mdib_version = mgr.new_mdib_version)
+                        operation_target_handles.extend(handles)
+                        modified_state_handles[entity.handle].extend(handles)
+                        # set version and time in new state
                         proposed_st.BindingMdibVersion = mgr.new_mdib_version
                         proposed_st.BindingStartTime = time.time()
                     self._logger.info('new %s, DescriptorHandle=%s Handle=%s',
                                       proposed_st.NODETYPE.localname, proposed_st.DescriptorHandle, proposed_st.Handle)
-                    mgr.add_state(proposed_st)
-
-                    if proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
-                        operation_target_handles.extend(mgr.disassociate_all(proposed_st.DescriptorHandle))
+                    # add to entity, and keep handle for later
+                    entity.states[proposed_st.Handle] = proposed_st
                 else:
                     # this is an update to an existing patient
                     # use "regular" way to update via transaction manager
                     self._logger.info('update %s, handle=%s', proposed_st.NODETYPE.localname, proposed_st.Handle)
-                    old_state = mgr.get_context_state(proposed_st.Handle)
                     # handle changed ContextAssociation
-                    if (old_state.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED
+                    if (old_state_container.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED
                             and proposed_st.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED):
                         proposed_st.UnbindingMdibVersion = mgr.new_mdib_version
                         proposed_st.BindingEndTime = time.time()
-                    elif (old_state.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED
+                    elif (old_state_container.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED
                           and proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED):
                         proposed_st.BindingMdibVersion = mgr.new_mdib_version
                         proposed_st.BindingStartTime = time.time()
-                        operation_target_handles.extend(mgr.disassociate_all(proposed_st.DescriptorHandle,
-                                                                             ignored_handle=old_state.Handle))
-
-                    old_state.update_from_other_container(proposed_st, skipped_properties=['BindingMdibVersion',
+                        handles = self._mdib.xtra.disassociate_all(entity,
+                                                                   unbinding_mdib_version = mgr.new_mdib_version,
+                                                                   ignored_handle=old_state_container.Handle)
+                        operation_target_handles.extend(handles)
+                        modified_state_handles[entity.handle].extend(handles)
+                    old_state_container.update_from_other_container(proposed_st, skipped_properties=[
+                                                                                           'BindingMdibVersion',
                                                                                            'UnbindingMdibVersion',
                                                                                            'BindingStartTime',
                                                                                            'BindingEndTime',
                                                                                            'StateVersion'])
+                modified_state_handles[entity.handle].append(proposed_st.Handle)
                 operation_target_handles.append(proposed_st.Handle)
+
+            # write changes back to mdib
+            for entity in modified_entities:
+                handles = modified_state_handles[entity.handle]
+                mgr.write_entity(entity, handles)
+
             if len(operation_target_handles) == 1:
                 return ExecuteResult(operation_target_handles[0],
                                      self._mdib.data_model.msg_types.InvocationState.FINISHED)

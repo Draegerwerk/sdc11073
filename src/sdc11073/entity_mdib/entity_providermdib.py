@@ -1,26 +1,28 @@
 from __future__ import annotations
+
+import time
 import uuid
-from threading import Lock
 from collections import defaultdict
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
-import time
-from lxml.etree import Element, SubElement
+from threading import Lock
 from typing import TYPE_CHECKING, Callable, Any, Iterable
-from sdc11073.mdib.transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
-from sdc11073.loghelper import LoggerAdapter
-from sdc11073.observableproperties import ObservableProperty
+
+from lxml.etree import Element, SubElement
+
 from sdc11073 import loghelper
 from sdc11073.definitions_base import ProtocolsRegistry
+from sdc11073.etc import apply_map
+from sdc11073.loghelper import LoggerAdapter
+from sdc11073.mdib.mdibbase import MdibVersionGroup
+from sdc11073.mdib.transactionsprotocol import TransactionType
+from sdc11073.observableproperties import ObservableProperty
 from sdc11073.pysoap.msgreader import MessageReader
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
-from sdc11073.mdib.mdibbase import MdibVersionGroup
-from sdc11073.etc import apply_map
-
-from .entity_transactions import mk_transaction
-from .entities import ProviderInternalEntity, ProviderInternalMultiStateEntity, ProviderInternalEntityType
 from .entities import ProviderEntity, ProviderMultiStateEntity
+from .entities import ProviderInternalEntity, ProviderInternalMultiStateEntity, ProviderInternalEntityType
 from .entity_mdibbase import EntityMdibBase
+from .entity_transactions import mk_transaction
 
 if TYPE_CHECKING:
     from lxml.etree import QName
@@ -33,25 +35,25 @@ if TYPE_CHECKING:
     from sdc11073 import xml_utils
 
     from sdc11073.mdib.transactionsprotocol import (
-        ContextStateTransactionManagerProtocol,
-        DescriptorTransactionManagerProtocol,
-        StateTransactionManagerProtocol,
+        AnyEntityTransactionManagerProtocol,
+        EntityContextStateTransactionManagerProtocol,
+        EntityDescriptorTransactionManagerProtocol,
+        EntityStateTransactionManagerProtocol,
         TransactionResultProtocol
     )
     from sdc11073.mdib.entityprotocol import ProviderEntityGetterProtocol
-
-    TransactionFactory = Callable[[EntityProviderMdib, TransactionType, LoggerAdapter],
-    AnyTransactionManagerProtocol]
 
 
 class EntityProviderMdibMethods:
 
     def __init__(self, provider_mdib: EntityProviderMdib):
         self._mdib = provider_mdib
+        self.default_validators = (provider_mdib.data_model.pm_types.InstanceIdentifier(
+            root='rootWithNoMeaning', extension_string='System'),)
 
     def set_all_source_mds(self):
         dict_by_parent_handle = defaultdict(list)
-        descriptor_containers = [entity.descriptor for entity in self._mdib._entities.values()]
+        descriptor_containers = [entity.descriptor for entity in self._mdib.internal_entities.values()]
         for d in descriptor_containers:
             dict_by_parent_handle[d.parent_handle].append(d)
 
@@ -64,11 +66,46 @@ class EntityProviderMdibMethods:
         for mds in dict_by_parent_handle[None]:
             tag_tree(mds.Handle, mds)
 
-
     def set_location(self, sdc_location: SdcLocation,
                      validators: list[InstanceIdentifier] | None = None,
                      location_context_descriptor_handle: str | None = None):
-        pass
+        """Create a location context state. The new state will be the associated state.
+
+        This method updates only the mdib data!
+        Use the SdcProvider.set_location method if you want to publish the address on the network.
+        :param sdc_location: a sdc11073.location.SdcLocation instance
+        :param validators: a list of InstanceIdentifier objects or None
+               If None, self.default_validators is used.
+        :param location_context_descriptor_handle: Only needed if the mdib contains more than one
+               LocationContextDescriptor. Then this defines the descriptor for which a new LocationContextState
+               shall be created.
+        """
+        mdib = self._mdib
+        pm = mdib.data_model.pm_names
+
+        if location_context_descriptor_handle is None:
+            # assume there is only one descriptor in mdib, user has not provided a handle.
+            location_entity = mdib.entities.node_type(pm.LocationContextDescriptor)[0]
+        else:
+            location_entity = mdib.entities.handle(location_context_descriptor_handle)
+
+        new_location = mdib.entities.new_state(location_entity)
+        new_location.update_from_sdc_location(sdc_location)
+        if validators is None:
+            new_location.Validator = self.default_validators
+        else:
+            new_location.Validator = validators
+
+        with mdib.context_state_transaction() as mgr:
+            # disassociate before creating a new state
+            handles = self.disassociate_all(location_entity,
+                                            mgr.new_mdib_version,
+                                            ignored_handle=new_location.Handle)
+            new_location.BindingMdibVersion = mgr.new_mdib_version
+            new_location.BindingStartTime = time.time()
+            new_location.ContextAssociation = mdib.data_model.pm_types.ContextAssociation.ASSOCIATED
+            handles.append(new_location.Handle)
+            mgr.write_entity(location_entity, handles)
 
     def mk_state_containers_for_all_descriptors(self):
         """Create a state container for every descriptor that is missing a state in mdib.
@@ -77,7 +114,7 @@ class EntityProviderMdibMethods:
         """
         mdib = self._mdib
         pm = mdib.data_model.pm_names
-        for entity in mdib._entities.values():
+        for entity in mdib.internal_entities.values():
             if entity.descriptor.is_context_descriptor:
                 continue
             if entity.state is None:
@@ -95,14 +132,13 @@ class EntityProviderMdibMethods:
                 if mdib.current_transaction is not None:
                     mdib.current_transaction.add_state(state)
 
-
     def update_retrievability_lists(self):
         """Update internal lists, based on current mdib descriptors."""
         mdib = self._mdib
         with mdib.mdib_lock:
             del mdib._retrievability_episodic[:]  # noqa: SLF001
             mdib.retrievability_periodic.clear()
-            for entity in mdib._entities.values():
+            for entity in mdib.internal_entities.values():
                 for r in entity.descriptor.get_retrievability():
                     for r_by in r.By:
                         if r_by.Method == RetrievabilityMethod.EPISODIC:
@@ -115,12 +151,12 @@ class EntityProviderMdibMethods:
     def get_all_entities_in_subtree(self, root_entity: ProviderEntity | ProviderMultiStateEntity,
                                     depth_first: bool = True,
                                     include_root: bool = True
-                                    ) -> list[ProviderEntity | ProviderMultiStateEntity] :
+                                    ) -> list[ProviderEntity | ProviderMultiStateEntity]:
         """Return the tree below descriptor_container as a flat list."""
         result = []
 
-        def _getchildren(parent: AbstractDescriptorContainer):
-            child_containers = [e for e in self._mdib._entities.values() if e.parent_handle == parent.handle]
+        def _getchildren(parent: ProviderEntity | ProviderMultiStateEntity):
+            child_containers = [e for e in self._mdib.internal_entities.values() if e.parent_handle == parent.handle]
             if not depth_first:
                 result.extend(child_containers)
             apply_map(_getchildren, child_containers)
@@ -134,16 +170,44 @@ class EntityProviderMdibMethods:
             result.append(root_entity)
         return result
 
+    def disassociate_all(self,
+                         entity: ProviderMultiStateEntity,
+                         unbinding_mdib_version: int,
+                         ignored_handle: str | None = None) -> list[str]:
+        """Disassociate all associated states in entity.
+
+        The method returns a list of states that were disassociated.
+        :param entity: ProviderMultiStateEntity
+        :param ignored_handle: the context state with this Handle shall not be touched.
+        """
+        pm_types = self._mdib.data_model.pm_types
+        disassociated_state_handles = []
+        for handle, state in entity.states.items():
+            if state.Handle == ignored_handle:
+                # If state is already part of this transaction leave it also untouched, accept what the user wanted.
+                continue
+            if state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
+                    or state.UnbindingMdibVersion is None:
+                # self._logger.info('disassociate %s, handle=%s', state.NODETYPE.localname,
+                #                   state.Handle)
+                state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
+                if state.UnbindingMdibVersion is None:
+                    state.UnbindingMdibVersion = unbinding_mdib_version
+                    state.BindingEndTime = time.time()
+                disassociated_state_handles.append(state.Handle)
+        return disassociated_state_handles
+
 
 class ProviderEntityGetter:
     """Implements entityprotocol.ProviderEntityGetterProtocol"""
+
     def __init__(self,
                  mdib: EntityProviderMdib):
-        self._entities: dict[str, ProviderInternalEntityType] = mdib._entities
-        self._new_entities: dict[str, ProviderInternalEntityType] = mdib._new_entities
+        self._entities: dict[str, ProviderInternalEntityType] = mdib.internal_entities
+        self._new_entities: dict[str, ProviderInternalEntityType] = mdib.new_entities
         self._mdib = mdib
 
-    def handle(self, handle: str) ->  ProviderEntity | ProviderMultiStateEntity | None:
+    def handle(self, handle: str) -> ProviderEntity | ProviderMultiStateEntity | None:
         """Return entity with given handle."""
         try:
             internal_entity = self._entities[handle]
@@ -175,7 +239,7 @@ class ProviderEntityGetter:
         """Return all entities with given Coding."""
         ret = []
         for handle, internal_entity in self._entities.items():
-            if internal_entity.descriptor.Type.is_equivalent(coding):
+            if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(coding):
                 ret.append(internal_entity.mk_entity())
         return ret
 
@@ -183,7 +247,8 @@ class ProviderEntityGetter:
         """Return all entities with given Coding."""
         ret = []
         for handle, internal_entity in self._entities.items():
-            if internal_entity.descriptor.Type.is_equivalent(coded_value):
+            if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(
+                    coded_value):
                 ret.append(internal_entity.mk_entity())
         return ret
 
@@ -220,14 +285,13 @@ class ProviderEntityGetter:
             state_cls = self._mdib.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
             new_internal_entity.state = state_cls(descriptor_container)
 
-        self._new_entities[descriptor_container.Handle] = new_internal_entity # write to mdib in process_transaction
+        self._new_entities[descriptor_container.Handle] = new_internal_entity  # write to mdib in process_transaction
         return new_internal_entity.mk_entity()
 
-
     def new_state(self,
-            entity: ProviderMultiStateEntity,
-            handle: str | None = None,
-            ) -> AbstractContextStateContainer:
+                  entity: ProviderMultiStateEntity,
+                  handle: str | None = None,
+                  ) -> AbstractContextStateContainer:
 
         if handle is None:
             handle = uuid.uuid4().hex
@@ -261,7 +325,8 @@ class EntityProviderMdib(EntityMdibBase):
                  sdc_definitions: type[BaseDefinitions] | None = None,
                  log_prefix: str | None = None,
                  extra_functionality: type | None = None,
-                 transaction_factory: TransactionFactory | None = None,
+                 transaction_factory: Callable[[EntityProviderMdib, TransactionType, LoggerAdapter],
+                 AnyEntityTransactionManagerProtocol] | None = None,
                  ):
         """Construct a ProviderMdib.
 
@@ -321,6 +386,17 @@ class EntityProviderMdib(EntityMdibBase):
         """Give access to extended functionality."""
         return self._xtra
 
+    @property
+    def internal_entities(self) -> dict[str, ProviderInternalEntityType]:
+        """This property is needed by transactions. Do not use it otherwise."""
+        return self._entities
+
+    @property
+    def new_entities(self) -> dict[str, ProviderInternalEntityType]:
+        """This property is needed by transactions. Do not use it otherwise."""
+        return self._new_entities
+
+
     def set_initialized(self):
         self._is_initialized = True
 
@@ -328,7 +404,7 @@ class EntityProviderMdib(EntityMdibBase):
     def _transaction_manager(self,
                              transaction_type: TransactionType,
                              set_determination_time: bool = True) -> AbstractContextManager[
-        AnyTransactionManagerProtocol]:
+        AnyEntityTransactionManagerProtocol]:
         """Start a transaction, return a new transaction manager."""
         with self._tr_lock, self.mdib_lock:
             try:
@@ -368,60 +444,58 @@ class EntityProviderMdib(EntityMdibBase):
                     if transaction_result.rt_updates:
                         self.waveform_by_handle = {st.DescriptorHandle: st for st in transaction_result.rt_updates}
 
-
                     if callable(self.post_commit_handler):
                         self.post_commit_handler(self, self.current_transaction)
             finally:
                 self.current_transaction = None
 
     @contextmanager
-    def context_state_transaction(self) -> AbstractContextManager[ContextStateTransactionManagerProtocol]:
+    def context_state_transaction(self) -> AbstractContextManager[EntityContextStateTransactionManagerProtocol]:
         """Return a transaction for context state updates."""
         with self._transaction_manager(TransactionType.context) as mgr:
             yield mgr
 
     @contextmanager
     def alert_state_transaction(self, set_determination_time: bool = True) \
-            -> AbstractContextManager[StateTransactionManagerProtocol]:
+            -> AbstractContextManager[EntityStateTransactionManagerProtocol]:
         """Return a transaction for alert state updates."""
         with self._transaction_manager(TransactionType.alert, set_determination_time) as mgr:
             yield mgr
 
     @contextmanager
     def metric_state_transaction(self, set_determination_time: bool = True) \
-            -> AbstractContextManager[StateTransactionManagerProtocol]:
+            -> AbstractContextManager[EntityStateTransactionManagerProtocol]:
         """Return a transaction for metric state updates (not real time samples!)."""
         with self._transaction_manager(TransactionType.metric, set_determination_time) as mgr:
             yield mgr
 
     @contextmanager
     def rt_sample_state_transaction(self, set_determination_time: bool = False) \
-            -> AbstractContextManager[StateTransactionManagerProtocol]:
+            -> AbstractContextManager[EntityStateTransactionManagerProtocol]:
         """Return a transaction for real time sample state updates."""
         with self._transaction_manager(TransactionType.rt_sample, set_determination_time) as mgr:
             yield mgr
 
     @contextmanager
-    def component_state_transaction(self) -> AbstractContextManager[StateTransactionManagerProtocol]:
+    def component_state_transaction(self) -> AbstractContextManager[EntityStateTransactionManagerProtocol]:
         """Return a transaction for component state updates."""
         with self._transaction_manager(TransactionType.component) as mgr:
             yield mgr
 
     @contextmanager
-    def operational_state_transaction(self) -> AbstractContextManager[StateTransactionManagerProtocol]:
+    def operational_state_transaction(self) -> AbstractContextManager[EntityStateTransactionManagerProtocol]:
         """Return a transaction for operational state updates."""
         with self._transaction_manager(TransactionType.operational) as mgr:
             yield mgr
 
     @contextmanager
-    def descriptor_transaction(self) -> AbstractContextManager[DescriptorTransactionManagerProtocol]:
+    def descriptor_transaction(self) -> AbstractContextManager[EntityDescriptorTransactionManagerProtocol]:
         """Return a transaction for descriptor updates.
 
         This transaction also allows to handle the states that relate to the modified descriptors.
         """
         with self._transaction_manager(TransactionType.descriptor) as mgr:
             yield mgr
-
 
     def make_descriptor_node(self,
                              descriptor_container: AbstractDescriptorContainer,
@@ -451,7 +525,6 @@ class EntityProviderMdib(EntityMdibBase):
         descriptor_container.sort_child_nodes(node)
         return node
 
-
     def reconstruct_mdib(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
         """Build dom tree from current data.
 
@@ -459,7 +532,6 @@ class EntityProviderMdib(EntityMdibBase):
         """
         with self.mdib_lock:
             return self._reconstruct_mdib(add_context_states=False), self.mdib_version_group
-
 
     def reconstruct_mdib_with_context_states(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
         """Build dom tree from current data.
@@ -477,8 +549,10 @@ class EntityProviderMdib(EntityMdibBase):
 
     @staticmethod
     def _mk_internal_entity(descriptor_container: AbstractDescriptorContainer,
-                   all_states: list[AbstractStateContainer]) -> ProviderInternalEntityType:
+                            all_states: list[AbstractStateContainer]) -> ProviderInternalEntityType:
         states = [s for s in all_states if s.DescriptorHandle == descriptor_container.Handle]
+        for s in states:
+            s.descriptor_container = descriptor_container
         if descriptor_container.is_context_descriptor:
             return ProviderInternalMultiStateEntity(descriptor_container, states)
         if len(states) == 1:
@@ -489,14 +563,14 @@ class EntityProviderMdib(EntityMdibBase):
             f'found {len(states)} states for {descriptor_container.NODETYPE} handle = {descriptor_container.Handle}')
 
     def add_internal_entity(self, descriptor_container: AbstractDescriptorContainer,
-                   all_states: list[AbstractStateContainer])-> ProviderInternalEntityType:
+                            all_states: list[AbstractStateContainer]) -> ProviderInternalEntityType:
         """Create new entity and add it to self._entities.
 
         This method can't be used after mdib is initialized. Adding entities can the only be done via transaction.
         """
         if self._is_initialized:
-            raise ValueError('add_entity call not allowed, use a transaction!' )
-        entity =  self._mk_internal_entity(descriptor_container, all_states)
+            raise ValueError('add_entity call not allowed, use a transaction!')
+        entity = self._mk_internal_entity(descriptor_container, all_states)
         self._entities[descriptor_container.Handle] = entity
         return entity
 
@@ -518,8 +592,8 @@ class EntityProviderMdib(EntityMdibBase):
 
         # add a list of states
         md_state_node = SubElement(mdib_node, pm.MdState,
-                                          attrib={'StateVersion': str(self.mdstate_version)},
-                                          nsmap=doc_nsmap)
+                                   attrib={'StateVersion': str(self.mdstate_version)},
+                                   nsmap=doc_nsmap)
         tag = pm.State
         for entity in self._entities.values():
             if entity.descriptor.is_context_descriptor:
@@ -538,8 +612,8 @@ class EntityProviderMdib(EntityMdibBase):
         root_entities = self.entities.parent_handle(None)
         if root_entities:
             md_description_node = Element(pm.MdDescription,
-                                                 attrib={'DescriptionVersion': str(self.mddescription_version)},
-                                                 nsmap=doc_nsmap)
+                                          attrib={'DescriptionVersion': str(self.mddescription_version)},
+                                          nsmap=doc_nsmap)
             for root_entity in root_entities:
                 self.make_descriptor_node(root_entity.descriptor, md_description_node, tag=pm.Mds, set_xsi_type=False)
         return md_description_node
@@ -592,7 +666,7 @@ class EntityProviderMdib(EntityMdibBase):
 
         xml_msg_reader = xml_reader_class(protocol_definition, None, mdib.logger)
         descriptor_containers, state_containers = xml_msg_reader.read_mdib_xml(xml_text)
-        #Todo: msg_reader sets source_mds while reading xml mdib
+        # Todo: msg_reader sets source_mds while reading xml mdib
 
         for d in descriptor_containers:
             mdib.add_internal_entity(d, state_containers)
@@ -604,4 +678,3 @@ class EntityProviderMdib(EntityMdibBase):
         mdib.set_initialized()
 
         return mdib
-

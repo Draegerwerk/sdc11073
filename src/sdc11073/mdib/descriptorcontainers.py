@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from lxml import etree as etree_
 
     from sdc11073 import xml_utils
-    from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.isoduration import DurationType
     from sdc11073.xml_types.xml_structure import ExtensionLocalValue
 

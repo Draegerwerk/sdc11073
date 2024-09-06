@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 from sdc11073.provider.operations import ExecuteResult
@@ -37,22 +38,25 @@ class GenericSDCClockProvider(ProviderRole):
         super().init_operations(sco)
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
-        clock_descriptor = self._mdib.descriptions.NODETYPE.get_one(pm_names.ClockDescriptor,
-                                                                    allow_none=True)
-        if clock_descriptor is None:
-            mds_container = self._mdib.descriptions.NODETYPE.get_one(pm_names.MdsDescriptor)
-            clock_descr_handle = 'clock_' + mds_container.Handle
+        clock_entities = self._mdib.entities.node_type(pm_names.ClockDescriptor)
+        if len(clock_entities) == 0:
+            mds_entities = self._mdib.entities.node_type(pm_names.MdsDescriptor)
+            if len(mds_entities) == 0:
+                self._logger.info('empty mdib, cannot create a clock descriptor')
+                return
+            # create a clock descriptor for the first mds
+            # Todo: create for all?
+            my_mds_entity = mds_entities[0]
+            clock_descr_handle = 'clock_' + uuid.uuid4().hex
             self._logger.debug('creating a clock descriptor, handle=%s', clock_descr_handle)
-            clock_descriptor = self._create_clock_descriptor_container(
-                handle=clock_descr_handle,
-                parent_handle=mds_container.Handle,
-                coded_value=pm_types.CodedValue('123'),
-                safety_classification=pm_types.SafetyClassification.INF)
-            self._mdib.descriptions.add_object(clock_descriptor)
-        clock_state = self._mdib.states.descriptor_handle.get_one(clock_descriptor.Handle, allow_none=True)
-        if clock_state is None:
-            clock_state = self._mdib.data_model.mk_state_container(clock_descriptor)
-            self._mdib.states.add_object(clock_state)
+            model = self._mdib.data_model
+            clock_entity = self._mdib.entities.new_entity(model.pm_names.ClockDescriptor,
+                                                          handle = clock_descr_handle,
+                                                          parent_handle=my_mds_entity.handle)
+            clock_entity.descriptor.SafetyClassification = pm_types.SafetyClassification.INF
+            clock_entity.descriptor.Type = pm_types.CodedValue('123')
+            with self._mdib.descriptor_transaction() as mgr:
+                mgr.write_entity(clock_entity)
 
     def make_operation_instance(self,
                                 operation_descriptor_container: AbstractOperationDescriptorProtocol,
@@ -86,19 +90,23 @@ class GenericSDCClockProvider(ProviderRole):
         self._logger.info('set value %s from %s to %s',
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
+
+        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+
+        # look for clock entities that are a direct child of this mds
+        mds_handle = op_target_entity.descriptor.source_mds or op_target_entity.handle
+        clock_entities = self._mdib.entities.node_type(pm_names.ClockDescriptor)
+        clock_entities = [c for c in clock_entities if c.parent_handle == mds_handle]
+
+        if len(clock_entities) == 0:
+            self._logger.warning('_set_ntp_string: no clock entity found')
+            return ExecuteResult(params.operation_instance.operation_target_handle,
+                                 self._mdib.data_model.msg_types.InvocationState.FAILED,
+                                 )
+
+        clock_entities[0].state.ReferenceSource = [value]
         with self._mdib.component_state_transaction() as mgr:
-            state = mgr.get_state(params.operation_instance.operation_target_handle)
-            if pm_names.MdsState == state.NODETYPE:
-                mds_handle = state.DescriptorHandle
-                mgr.unget_state(state)
-                # look for the ClockState child
-                clock_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.ClockDescriptor, [])
-                clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
-                if len(clock_descriptors) == 1:
-                    state = mgr.get_state(clock_descriptors[0].handle)
-            if pm_names.ClockState != state.NODETYPE:
-                raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
-            state.ReferenceSource = [value]
+            mgr.write_entity(clock_entities[0])
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
 
@@ -109,20 +117,22 @@ class GenericSDCClockProvider(ProviderRole):
         self._logger.info('set value %s from %s to %s',
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
-        with self._mdib.component_state_transaction() as mgr:
-            state = mgr.get_state(params.operation_instance.operation_target_handle)
-            if pm_names.MdsState == state.NODETYPE:
-                mds_handle = state.DescriptorHandle
-                mgr.unget_state(state)
-                # look for the ClockState child
-                clock_descriptors = self._mdib.descriptions.NODETYPE.get(pm_names.ClockDescriptor, [])
-                clock_descriptors = [c for c in clock_descriptors if c.parent_handle == mds_handle]
-                if len(clock_descriptors) == 1:
-                    state = mgr.get_state(clock_descriptors[0].handle)
 
-            if pm_names.ClockState != state.NODETYPE:
-                raise ValueError(f'_set_ntp_string: expected ClockState, got {state.NODETYPE.localname}')
-            state.TimeZone = value
+        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+
+        # look for clock entities that are a direct child of this mds
+        mds_handle = op_target_entity.descriptor.source_mds or op_target_entity.handle
+        clock_entities = self._mdib.entities.node_type(pm_names.ClockDescriptor)
+        clock_entities = [c for c in clock_entities if c.parent_handle == mds_handle]
+
+        if len(clock_entities) == 0:
+            self._logger.warning('_set_ntp_string: no clock entity found')
+            return ExecuteResult(params.operation_instance.operation_target_handle,
+                                 self._mdib.data_model.msg_types.InvocationState.FAILED)
+
+        clock_entities[0].state.TimeZone = value
+        with self._mdib.component_state_transaction() as mgr:
+            mgr.write_entity(clock_entities[0])
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
 
@@ -140,7 +150,11 @@ class GenericSDCClockProvider(ProviderRole):
         """
         model = self._mdib.data_model
         cls = model.get_descriptor_container_class(model.pm_names.ClockDescriptor)
-        return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
+        return self._create_descriptor_container(cls,
+                                                 handle,
+                                                 parent_handle,
+                                                 coded_value,
+                                                 safety_classification)
 
 
 class SDCClockProvider(GenericSDCClockProvider):

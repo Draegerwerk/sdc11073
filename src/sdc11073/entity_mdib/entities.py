@@ -80,6 +80,9 @@ class _XmlEntityBase:
         else:
             self.coded_value = None
 
+    def __str__(self):
+        return f'{self.__class__.__name__} {self.node_type.localname} handle={self._descriptor.get("Handle")}'
+
 
 class XmlEntity(_XmlEntityBase):
     """Groups descriptor and state."""
@@ -143,6 +146,21 @@ class ConsumerEntityBase:
         self.descriptor.set_source_mds(source.source_mds)
         self.source_mds = source.source_mds
 
+    @property
+    def handle(self) -> str:
+        return self.descriptor.Handle
+
+    @property
+    def parent_handle(self) -> str | None:
+        return self.descriptor.parent_handle
+
+    @property
+    def node_type(self) -> QName:
+        return self.descriptor.NODETYPE
+
+    def __str__(self):
+        return f'{self.__class__.__name__} {self.node_type} handle={self.handle}'
+
 
 class ConsumerEntity(ConsumerEntityBase):
     """Groups descriptor container and state container."""
@@ -195,7 +213,7 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
             create_new_state = False
             try:
                 existing_state = self.states[handle]
-            except IndexError:
+            except KeyError:
                 create_new_state = True
             else:
                 if existing_state.StateVersion != int(xml_state.get('StateVersion', '0')):
@@ -226,12 +244,12 @@ class ProviderInternalEntityBase:
         self.descriptor = descriptor
 
     @property
-    def parent_handle(self) -> str:
-        return self.descriptor.parent_handle
-
-    @property
     def handle(self) -> str:
         return self.descriptor.Handle
+
+    @property
+    def parent_handle(self) -> str | None:
+        return self.descriptor.parent_handle
 
     @property
     def source_mds(self) -> str:
@@ -241,6 +259,9 @@ class ProviderInternalEntityBase:
     def node_type(self) -> QName:
         return self.descriptor.NODETYPE
 
+    def __str__(self):
+        return f'{self.__class__.__name__} {self.node_type.localname} handle={self.handle}'
+
 
 class ProviderInternalEntity(ProviderInternalEntityBase):
     """Groups descriptor and state."""
@@ -249,7 +270,18 @@ class ProviderInternalEntity(ProviderInternalEntityBase):
                  descriptor: AbstractDescriptorContainer,
                  state: AbstractStateContainer | None):
         super().__init__(descriptor)
-        self.state = state
+        self._state = state
+        if state is not None:
+            self._state.descriptor_container = self.descriptor
+
+    @property
+    def state(self) -> AbstractStateContainer | None:
+        return self._state
+
+    @state.setter
+    def state(self, new_state: AbstractStateContainer):
+        self._state = new_state
+        self._state.descriptor_container = self.descriptor
 
     @property
     def is_multi_state(self) -> bool:
@@ -290,6 +322,17 @@ class ProviderEntityBase:
     @property
     def handle(self) -> str:
         return self.descriptor.Handle
+
+    @property
+    def parent_handle(self) -> str | None:
+        return self.descriptor.parent_handle
+
+    @property
+    def node_type(self) -> QName:
+        return self.descriptor.NODETYPE
+
+    def __str__(self):
+        return f'{self.__class__.__name__} {self.node_type.localname} handle={self.handle}'
 
 
 class ProviderEntity(ProviderEntityBase):

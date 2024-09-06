@@ -17,7 +17,7 @@ def mk_scopes(mdib) -> ScopesType:
     loc_entities = mdib.entities.node_type(pm_names.LocationContextDescriptor)
     assoc_loc = []
     for ent in loc_entities:
-        assoc_loc.extend([loc for loc in ent.states if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED])
+        assoc_loc.extend([loc for loc in ent.states.values() if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED])
     # assoc_loc = [loc for loc in locations if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
     if len(assoc_loc) == 1:
         loc = assoc_loc[0]

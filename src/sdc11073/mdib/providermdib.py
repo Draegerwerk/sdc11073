@@ -40,14 +40,49 @@ class ProviderEntityGetter(mdibbase.EntityGetter):
             handle: str,
             parent_handle: str) -> mdibbase.Entity | mdibbase.MultiStateEntity:
         """Create an entity."""
-        raise NotImplementedError
+        if (handle in self._mdib.descriptions.handle.keys()
+                or handle in self._mdib.context_states.handle.keys()
+                # or handle in self._new_entities
+        ):
+            raise ValueError('Handle already exists')
+
+        # Todo: check if this node type is a valid child of parent
+
+        descr_cls = self._mdib.data_model.get_descriptor_container_class(node_type)
+        descriptor_container = descr_cls(handle=handle, parent_handle=parent_handle)
+        parent_descriptor = self._mdib.descriptions.handle.get_one(parent_handle)
+        if parent_descriptor.NODETYPE == self._mdib.data_model.pm_names.MdsDescriptor:
+            descriptor_container.set_source_mds(parent_descriptor.Handle)
+        else:
+            descriptor_container.set_source_mds(parent_descriptor.source_mds)
+
+        if descriptor_container.is_context_descriptor:
+            new_entity = mdibbase.MultiStateEntity(self._mdib, descriptor_container, [])
+        else:
+            state_cls = self._mdib.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
+            state = state_cls(descriptor_container)
+            new_entity = mdibbase.Entity(self._mdib,descriptor_container, state)
+
+        # self._new_entities[descriptor_container.Handle] = new_entity # write to mdib in process_transaction
+        return new_entity
 
     def new_state(self,
             entity: mdibbase.MultiStateEntity,
             handle: str | None = None,
             ) -> AbstractMultiStateContainer:
         """Create a new context state."""
-        raise NotImplementedError
+        # raise NotImplementedError
+
+        if handle is None:
+            handle = uuid.uuid4().hex
+        elif handle in  self._mdib.context_states.handle.keys():
+            raise ValueError(f'State with handle {handle} already exists')
+
+        state_cls = self._mdib.data_model.get_state_container_class(entity.descriptor.STATE_QNAME)
+        state = state_cls(entity.descriptor)
+        state.Handle = handle
+        entity.states[handle] = state
+        return state
 
 
 class ProviderMdib(mdibbase.MdibBase):

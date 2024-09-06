@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import time
 import traceback
 from collections import defaultdict
 from threading import Thread
@@ -116,28 +117,38 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
 class AsyncioEventLoopThread(Thread):
     """Central event loop for provider."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, logger ):
         super().__init__(name=name)
+        self._logger = logger
         self.daemon = True
         self.loop = asyncio.new_event_loop()
-        self.running = False
+        self._running = False
+
+    @property
+    def running(self):
+        return self._running
 
     def run(self):
         """Run method of thread."""
-        self.running = True
+        self._logger.info('%s started', self.__class__.__name__)
+        self._running = True
         self.loop.run_forever()
+        self._logger.info('%s finished', self.__class__.__name__)
 
     def run_coro(self, coro: Awaitable) -> Any:
         """Run threadsafe."""
-        if not self.running:
+        if not self._running:
+            self._logger.error('%s: async thread is not running', self.__class__.__name__)
             return None
         return asyncio.run_coroutine_threadsafe(coro, loop=self.loop).result()
 
     def stop(self):
         """Stop thread."""
-        self.running = False
+        self._logger.info('%s: stopping now', self.__class__.__name__)
+        self._running = False
         self.loop.call_soon_threadsafe(self.loop.stop)
         self.join()
+        self._logger.info('%s: stopped', self.__class__.__name__)
 
 
 class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
@@ -158,9 +169,16 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                  ):
         super().__init__(sdc_definitions, msg_factory, soap_client_pool, max_subscription_duration, log_prefix)
         if soap_client_pool.async_loop_subscr_mgr is None:
-            thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr')
+            thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr', logger=self._logger)
             soap_client_pool.async_loop_subscr_mgr = thr
             thr.start()
+            for i in range(10):
+                if not thr.running:
+                    time.sleep(0.1)
+                else:
+                    break
+            if not thr.running:
+                raise RuntimeError('could not start AsyncioEventLoopThread')
         self._async_send_thread = soap_client_pool.async_loop_subscr_mgr
 
     def _mk_subscription_instance(self, request_data: RequestData) -> BicepsSubscriptionAsync:
@@ -201,7 +219,8 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
         """Send payload to all subscribers."""
         with self._subscriptions.lock:
             if not self._async_send_thread.running:
-                self._logger.info('could not send notifications, async send loop is not running.')
+                self._logger.warning('could not send notifications, async send loop is not running.')
+                self._logger.warning(traceback.format_stack())
                 return
             subscribers = self._get_subscriptions_for_action(action)
             if isinstance(payload, MessageType):

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .descriptorcontainers import AbstractDescriptorProtocol
     from .providermdib import ProviderMdib
     from .statecontainers import AbstractStateProtocol
-
+    from .entityprotocol import MultiStateEntityProtocol
 
 class ProviderMdibMethods:
     """Extra methods for provider mdib tht are not core functionality."""
@@ -177,6 +177,33 @@ class ProviderMdibMethods:
         mds = self.get_mds_descriptor(descriptor_container)
         descriptor_container.set_source_mds(mds.Handle)
 
+
+    def disassociate_all(self,
+                         entity: MultiStateEntityProtocol,
+                         unbinding_mdib_version: int,
+                         ignored_handle: str | None = None) -> list[str]:
+        """Disassociate all associated states in entity.
+
+        The method returns a list of states that were disassociated.
+        :param entity: ProviderMultiStateEntity
+        :param ignored_handle: the context state with this Handle shall not be touched.
+        """
+        pm_types = self._mdib.data_model.pm_types
+        disassociated_state_handles = []
+        for handle, state in entity.states.items():
+            if state.Handle == ignored_handle:
+                # If state is already part of this transaction leave it also untouched, accept what the user wanted.
+                continue
+            if state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
+                    or state.UnbindingMdibVersion is None:
+                # self._logger.info('disassociate %s, handle=%s', state.NODETYPE.localname,
+                #                   state.Handle)
+                state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
+                if state.UnbindingMdibVersion is None:
+                    state.UnbindingMdibVersion = unbinding_mdib_version
+                    state.BindingEndTime = time.time()
+                disassociated_state_handles.append(state.Handle)
+        return disassociated_state_handles
 
 class DescriptorFactory:
     """DescriptorFactory provides some methods to make creation of descriptors easier."""

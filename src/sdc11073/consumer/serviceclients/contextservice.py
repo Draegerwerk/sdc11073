@@ -28,6 +28,29 @@ class ContextServiceClient(HostedServiceClient):
     notifications = (DispatchKey(Actions.EpisodicContextReport, msg_qnames.EpisodicContextReport),
                      DispatchKey(Actions.PeriodicContextReport, msg_qnames.PeriodicContextReport))
 
+    # def mk_proposed_context_object(self, descriptor_handle: str,
+    #                                handle: str | None = None) -> AbstractMultiStateProtocol:
+    #     """Create a state that can be used in set_context_state operation.
+    #
+    #     :param descriptor_handle: the descriptor for which a state shall be created or updated
+    #     :param handle: if None, a new object with default values is created (INSERT operation).
+    #                    Else a copy of an existing state with this handle is returned.
+    #     :return: a context state instance
+    #     """
+    #     data_model = self._sdc_definitions.data_model
+    #     mdib = self._mdib_wref()
+    #     if mdib is None:
+    #         raise ApiUsageError('no mdib information')
+    #     context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
+    #     if handle is None:
+    #         cls = data_model.get_state_container_class(context_descriptor_container.STATE_QNAME)
+    #         obj = cls(descriptor_container=context_descriptor_container)
+    #         obj.Handle = descriptor_handle  # this indicates that this is a new context state
+    #     else:
+    #         _obj = mdib.context_states.handle.get_one(handle)
+    #         obj = _obj.mk_copy()
+    #     return obj
+
     def mk_proposed_context_object(self, descriptor_handle: str,
                                    handle: str | None = None) -> AbstractMultiStateProtocol:
         """Create a state that can be used in set_context_state operation.
@@ -41,13 +64,14 @@ class ContextServiceClient(HostedServiceClient):
         mdib = self._mdib_wref()
         if mdib is None:
             raise ApiUsageError('no mdib information')
-        context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
+        context_entity = mdib.entities.handle(descriptor_handle)
         if handle is None:
-            cls = data_model.get_state_container_class(context_descriptor_container.STATE_QNAME)
-            obj = cls(descriptor_container=context_descriptor_container)
+            cls = data_model.get_state_container_class(context_entity.descriptor.STATE_QNAME)
+            obj = cls(descriptor_container=context_entity.descriptor)
             obj.Handle = descriptor_handle  # this indicates that this is a new context state
         else:
-            _obj = mdib.context_states.handle.get_one(handle)
+            _obj = context_entity.states[handle]
+            # _obj = mdib.context_states.handle.get_one(handle)
             obj = _obj.mk_copy()
         return obj
 

@@ -84,8 +84,9 @@ class OperationDefinitionBase:
         """
         self._logger = loghelper.get_logger_adapter(f'sdc.device.op.{self.__class__.__name__}', log_prefix)
         self._mdib: ProviderMdib | None = None
-        self._descriptor_container = None
-        self._operation_state_container = None
+        self._operation_entity = None
+        # self._descriptor_container = None
+        # self._operation_state_container = None
         self.handle: str = handle
         self.operation_target_handle: str = operation_target_handle
         # documentation of operation_target_handle:
@@ -102,7 +103,7 @@ class OperationDefinitionBase:
 
     @property
     def descriptor_container(self) -> AbstractDescriptorProtocol:  # noqa: D102
-        return self._descriptor_container
+        return self._operation_entity.descriptor
 
     def execute_operation(self,
                           soap_request: ReceivedSoapMessage,
@@ -122,10 +123,10 @@ class OperationDefinitionBase:
         """Set on_timeout observable if timeout is detected."""
         if self.last_called_time is None:
             return
-        if self._descriptor_container.InvocationEffectiveTimeout is None:
+        if self._operation_entity.descriptor.InvocationEffectiveTimeout is None:
             return
         age = time.time() - self.last_called_time
-        if age < self._descriptor_container.InvocationEffectiveTimeout:
+        if age < self._operation_entity.descriptor.InvocationEffectiveTimeout:
             return
         if self._timeout_handler is not None:
             self._timeout_handler(self)
@@ -135,45 +136,57 @@ class OperationDefinitionBase:
         """Set mdib reference.
 
         The operation needs to know the mdib that it operates on.
-        This is called by SubscriptionManager on registration.
+        This method  is called by SubscriptionManager on registration.
         Needs to be implemented by derived classes if specific things have to be initialized.
         """
         if self._mdib is not None:
             raise ApiUsageError('Mdib is already set')
         self._mdib = mdib
         self._logger.log_prefix = mdib.log_prefix  # use same prefix as mdib for logging
-        self._descriptor_container = self._mdib.descriptions.handle.get_one(self.handle, allow_none=True)
-        if self._descriptor_container is not None:
+        self._operation_entity = self._mdib.entities.handle(self.handle)
+        # self._descriptor_container = self._mdib.descriptions.handle.get_one(self.handle, allow_none=True)
+        if self._operation_entity is not None:
             # there is already a descriptor
             self._logger.debug('descriptor for operation "%s" is already present, re-using it', self.handle)
         else:
-            cls = mdib.data_model.get_descriptor_container_class(self.OP_DESCR_QNAME)
-            self._descriptor_container = cls(self.handle, parent_descriptor_handle)
+            self._operation_entity = self._mdib.entities.new_entity(self.OP_DESCR_QNAME,
+                                                                    self.handle,
+                                                                    parent_descriptor_handle )
+            # cls = mdib.data_model.get_descriptor_container_class(self.OP_DESCR_QNAME)
+            # self._descriptor_container = cls(self.handle, parent_descriptor_handle)
             self._init_operation_descriptor_container()
             # ToDo: transaction context for flexibility to add operations at runtime
-            mdib.descriptions.add_object(self._descriptor_container)
+            with self._mdib.descriptor_transaction() as mgr:
+                mgr.write_entity(self._operation_entity)
+            # mdib.descriptions.add_object(self._descriptor_container)
 
-        self._operation_state_container = self._mdib.states.descriptor_handle.get_one(self.handle, allow_none=True)
-        if self._operation_state_container is not None:
-            self._logger.debug('operation state for operation "%s" is already present, re-using it', self.handle)
-        else:
-            cls = mdib.data_model.get_state_container_class(self.OP_STATE_QNAME)
-            self._operation_state_container = cls(self._descriptor_container)
-            mdib.states.add_object(self._operation_state_container)
+        # self._operation_state_container = self._mdib.states.descriptor_handle.get_one(self.handle, allow_none=True)
+        # if self._operation_state_container is not None:
+        #     self._logger.debug('operation state for operation "%s" is already present, re-using it', self.handle)
+        # else:
+        #     cls = mdib.data_model.get_state_container_class(self.OP_STATE_QNAME)
+        #     self._operation_state_container = cls(self._descriptor_container)
+        #     mdib.states.add_object(self._operation_state_container)
 
     def _init_operation_descriptor_container(self):
-        self._descriptor_container.OperationTarget = self.operation_target_handle
+        self._operation_entity.descriptor.OperationTarget = self.operation_target_handle
         if self._coded_value is not None:
-            self._descriptor_container.Type = self._coded_value
+            self._operation_entity.descriptor.Type = self._coded_value
 
     def set_operating_mode(self, mode: OperatingMode):
         """Set OperatingMode member in state in transaction context."""
-        with self._mdib.operational_state_transaction() as mgr:
-            state = mgr.get_state(self.handle)
-            state.OperatingMode = mode
+        entity = self._mdib.entities.handle(self.handle)
+        entity.state.OperatingMode = mode
 
+        with self._mdib.operational_state_transaction() as mgr:
+            mgr.write_entity(entity)
+
+    # def __str__(self):
+    #     code = None if self._descriptor_container is None else self._descriptor_container.Type
+    #     return (f'{self.__class__.__name__} handle={self.handle} code={code} '
+    #            f'operation-target={self.operation_target_handle}')
     def __str__(self):
-        code = None if self._descriptor_container is None else self._descriptor_container.Type
+        code = None if self._operation_entity is None else self._operation_entity.descriptor.Type
         return (f'{self.__class__.__name__} handle={self.handle} code={code} '
                f'operation-target={self.operation_target_handle}')
 

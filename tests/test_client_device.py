@@ -482,7 +482,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
-                                                    max_subscription_duration=10)  # shorter duration for faster tests
+                                                    max_subscription_duration=10,
+                                                    log_prefix=f'{self._testMethodName}: ')  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -500,7 +501,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                       sdc_definitions=self.sdc_device.mdib.sdc_definitions,
                                       ssl_context_container=None,
                                       validate=CLIENT_VALIDATE,
-                                      specific_components=specific_components)
+                                      specific_components=specific_components,
+                                      log_prefix=self._testMethodName)
         self.sdc_client.start_all()  # with periodic reports and system error report
         time.sleep(1)
         sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
@@ -1372,12 +1374,19 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
         self.httpserver.started_evt.wait(timeout=5)
         self.logger.info('common http server A listens on port {}', self.httpserver.my_port)
 
-        self.sdc_device_1 = SomeDevice.from_mdib_file(self.wsd, 'device1', mdib_70041, log_prefix='<dev1> ')
+        self.sdc_device_1 = SomeDevice.from_mdib_file(self.wsd,
+                                                      'device1',
+
+                                                      mdib_70041,
+                                                      log_prefix=f'{self._testMethodName}1: ')
         self.sdc_device_1.start_all(shared_http_server=self.httpserver)
         self.sdc_device_1.set_location(location, self._loc_validators)
         provide_realtime_data(self.sdc_device_1)
 
-        self.sdc_device_2 = SomeDevice.from_mdib_file(self.wsd, 'device2', mdib_70041, log_prefix='<dev2> ')
+        self.sdc_device_2 = SomeDevice.from_mdib_file(self.wsd,
+                                                      'device2',
+                                                      mdib_70041,
+                                                      log_prefix=f'{self._testMethodName}2: ')
         self.sdc_device_2.start_all(shared_http_server=self.httpserver)
         self.sdc_device_2.set_location(location, self._loc_validators)
         provide_realtime_data(self.sdc_device_2)
@@ -1449,7 +1458,10 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd,
+                                                    None,
+                                                    mdib_70041,
+                                                    log_prefix=f'{self._testMethodName}: ',
                                                     chunk_size=512)
 
         # in order to test correct handling of default namespaces, we make participant model the default namespace
@@ -1504,7 +1516,8 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
             subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParamAsync},
             soap_client_class=SoapClientAsync
         )
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='<Final> ',
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    log_prefix=f'{self._testMethodName}: ',
                                                     specific_components=specific_components,
                                                     chunk_size=512)
         # in order to test correct handling of default namespaces, we make participant model the default namespace
@@ -1592,7 +1605,8 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041, log_prefix='',
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    log_prefix=f'{self._testMethodName}: ',
                                                     default_components=default_sdc_provider_components_sync,
                                                     chunk_size=512)
         self.sdc_device.start_all(periodic_reports_interval=1.0)
@@ -1776,7 +1790,8 @@ class TestQualifiedName(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
                                                     max_subscription_duration=10,
-                                                    alternative_hostname=socket.getfqdn())  # shorter duration for faster tests
+                                                    alternative_hostname=socket.getfqdn(),
+                                                    log_prefix=f'{self._testMethodName}: ')  # shorter duration for faster tests
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
@@ -1829,8 +1844,9 @@ class TestWrongQualifiedName(unittest.TestCase):
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
-                                                    max_subscription_duration=10,
-                                                    alternative_hostname="some_random_invalid_hostname")  # shorter duration for faster tests
+                                                    max_subscription_duration=10, # shorter duration for faster tests
+                                                    alternative_hostname="some_random_invalid_hostname",
+                                                    log_prefix=f'{self._testMethodName}: ')
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)

@@ -12,8 +12,7 @@ from lxml import etree as etree_
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
-from sdc11073.provider.xml_providerimpl import XmlSdcProvider
-from sdc11073.provider.components import (SdcProviderComponents, default_sdc_provider_components_async)
+from sdc11073.provider.entity_providerimpl import EntitySdcProvider
 
 from sdc11073.provider.subscriptionmgr import BicepsSubscription
 from sdc11073.xml_types import pm_types, pm_qnames as pm
@@ -177,7 +176,7 @@ class SomeDevice(SdcProvider):
 
 
 
-class SomeDeviceXmlMdib(XmlSdcProvider):
+class SomeDeviceEntityMdib(EntitySdcProvider):
     """A device used for unit tests. Some values are predefined."""
 
     def __init__(self, wsdiscovery: WsDiscoveryProtocol,
@@ -252,10 +251,10 @@ from sdc11073.roles.waveformprovider.waveformproviderimpl import (GenericWavefor
                                                                   WaveformGeneratorProtocol,
                                                                   _SampleArrayGenerator)
 if TYPE_CHECKING:
-    from sdc11073.entity_mdib.xml_transactions import RtStateTransaction
+    from sdc11073.entity_mdib.entity_transactions import RtStateTransaction
 
 
-class XmGenericWaveformProvider(GenericWaveformProvider):
+class EntityGenericWaveformProvider(GenericWaveformProvider):
 
     def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorProtocol):
         """Add wf_generator to waveform sources.
@@ -267,9 +266,10 @@ class XmGenericWaveformProvider(GenericWaveformProvider):
         entity = self._mdib.entities.handle(descriptor_handle)
         if entity.descriptor.SamplePeriod != sample_period:
             # we must inform subscribers
+            entity.descriptor.SamplePeriod = sample_period
             with self._mdib.descriptor_transaction() as mgr:
-                descr = mgr.get_descriptor(descriptor_handle)
-                descr.SamplePeriod = sample_period
+                mgr.write_entity(entity)
+
         if descriptor_handle in self._waveform_generators:
             self._waveform_generators[descriptor_handle].set_waveform_generator(wf_generator)
         else:
@@ -286,5 +286,5 @@ class XmGenericWaveformProvider(GenericWaveformProvider):
             if wf_generator.is_active:
                 entity = self._mdib.entities.handle(descriptor_handle)
                 self._update_rt_samples(entity.state)
-                transaction.add_state(entity)
+                transaction.write_entity(entity)
         self._add_all_annotations()

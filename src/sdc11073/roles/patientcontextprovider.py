@@ -22,23 +22,24 @@ class GenericPatientContextProvider(GenericContextProvider):
 
     def __init__(self, mdib: ProviderMdib, log_prefix: str | None):
         super().__init__(mdib, log_prefix=log_prefix)
-        self._patient_context_descriptor_container = None
+        self._patient_context_entity = None
         self._set_patient_context_operations = []
 
     def init_operations(self, sco: AbstractScoOperationsRegistry):
         """Find the PatientContextDescriptor."""
         super().init_operations(sco)
         pm_names = self._mdib.data_model.pm_names
-        descriptor_containers = self._mdib.descriptions.NODETYPE.get(pm_names.PatientContextDescriptor)
-        if descriptor_containers is not None and len(descriptor_containers) == 1:
-            self._patient_context_descriptor_container = descriptor_containers[0]
+        entities = self._mdib.entities.node_type(pm_names.PatientContextDescriptor)
+        # Todo: what to do in multi mds case?
+        if len(entities) == 1:
+            self._patient_context_entity = entities[0]
 
     def make_operation_instance(self,
                                 operation_descriptor_container: AbstractOperationDescriptorProtocol,
                                 operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
         """Add Operation Handler if operation target is the previously found PatientContextDescriptor."""
-        if self._patient_context_descriptor_container and \
-                operation_descriptor_container.OperationTarget == self._patient_context_descriptor_container.Handle:
+        if self._patient_context_entity is not None and \
+                operation_descriptor_container.OperationTarget == self._patient_context_entity.handle:
             pc_operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
                                                                         operation_cls_getter,
                                                                         operation_handler=self._set_context_state)
@@ -55,10 +56,10 @@ class PatientContextProvider(GenericPatientContextProvider):
         pm_names = self._mdib.data_model.pm_names
         ops = []
         operation_cls_getter = sco.operation_cls_getter
-        if self._patient_context_descriptor_container and not self._set_patient_context_operations:
+        if self._patient_context_entity is not None  and not self._set_patient_context_operations:
             op_cls = operation_cls_getter(pm_names.SetContextStateOperationDescriptor)
             pc_operation = op_cls('opSetPatCtx',
-                                  self._patient_context_descriptor_container.handle,
+                                  self._patient_context_entity.handle,
                                   self._set_context_state,
                                   coded_value=None)
             ops.append(pc_operation)

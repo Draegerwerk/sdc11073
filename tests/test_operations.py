@@ -466,14 +466,19 @@ class Test_BuiltinOperations(unittest.TestCase):
     def test_set_metric_state(self):
         # first we need to add a set_metric_state Operation
         sco_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
-        cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.SetMetricStateOperationDescriptor)
+        descr_cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.SetMetricStateOperationDescriptor)
+        state_cls = self.sdc_device.mdib.data_model.get_state_container_class(descr_cls.STATE_QNAME)
         operation_target_handle = '0x34F001D5'
         my_code = pm_types.CodedValue('99999')
-        my_operation_descriptor = cls('HANDLE_FOR_MY_TEST', sco_descriptors[0].Handle)
+        my_operation_descriptor = descr_cls('HANDLE_FOR_MY_TEST', sco_descriptors[0].Handle)
         my_operation_descriptor.Type = my_code
         my_operation_descriptor.SafetyClassification = pm_types.SafetyClassification.INF
         my_operation_descriptor.OperationTarget = operation_target_handle
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
+
+        my_operation_state = state_cls(my_operation_descriptor)
+        self.sdc_device.mdib.states.add_object(my_operation_state)
+
         sco_handle = 'Sco.mds0'
         sco = self.sdc_device._sco_operations_registries[sco_handle]
         role_provider = self.sdc_device.product_lookup[sco_handle]
@@ -509,13 +514,18 @@ class Test_BuiltinOperations(unittest.TestCase):
         operation_target_handle = '2.1.2.1'  # a channel
         # first we need to add a set_component_state Operation
         sco_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
-        cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.SetComponentStateOperationDescriptor)
-        my_operation_descriptor = cls('HANDLE_FOR_MY_TEST', sco_descriptors[0].Handle)
-        my_operation_descriptor.SafetyClassification = pm_types.SafetyClassification.INF
+        descr_cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.SetComponentStateOperationDescriptor)
+        state_cls = self.sdc_device.mdib.data_model.get_state_container_class(descr_cls.STATE_QNAME)
 
+        my_operation_descriptor = descr_cls('HANDLE_FOR_MY_TEST', sco_descriptors[0].Handle)
+        my_operation_descriptor.SafetyClassification = pm_types.SafetyClassification.INF
         my_operation_descriptor.OperationTarget = operation_target_handle
         my_operation_descriptor.Type = pm_types.CodedValue('999998')
         self.sdc_device.mdib.descriptions.add_object(my_operation_descriptor)
+
+        my_operation_state = state_cls(my_operation_descriptor)
+        self.sdc_device.mdib.states.add_object(my_operation_state)
+
         sco_handle = 'Sco.mds0'
         sco = self.sdc_device._sco_operations_registries[sco_handle]
         role_provider = self.sdc_device.product_lookup[sco_handle]
@@ -583,12 +593,12 @@ class Test_BuiltinOperations(unittest.TestCase):
             future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
             received_message = coll.result(timeout=5)
-            msg_types = received_message.msg_reader.msg_types
-            operation_invoked_report = msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
+            my_msg_types = received_message.msg_reader.msg_types
+            operation_invoked_report = my_msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
             self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
-                             msg_types.InvocationState.WAIT)
+                             my_msg_types.InvocationState.WAIT)
             state = result.InvocationInfo.InvocationState
-            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertEqual(state, my_msg_types.InvocationState.FINISHED)
             self.assertIsNone(result.InvocationInfo.InvocationError)
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
             time.sleep(0.5)
@@ -599,12 +609,12 @@ class Test_BuiltinOperations(unittest.TestCase):
             future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
             result = future.result(timeout=SET_TIMEOUT)
             received_message = coll.result(timeout=5)
-            msg_types = received_message.msg_reader.msg_types
-            operation_invoked_report = msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
+            my_msg_types = received_message.msg_reader.msg_types
+            operation_invoked_report = my_msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
             self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
-                             msg_types.InvocationState.FINISHED)
+                             my_msg_types.InvocationState.FINISHED)
             state = result.InvocationInfo.InvocationState
-            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertEqual(state, my_msg_types.InvocationState.FINISHED)
             self.assertIsNone(result.InvocationInfo.InvocationError)
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 

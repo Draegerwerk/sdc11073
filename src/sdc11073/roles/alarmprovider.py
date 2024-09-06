@@ -85,6 +85,7 @@ class AlertDelegateProvider(providerbase.ProviderRole):
         for name in params.operation_instance.descriptor_container.ModifiableData:
             tmp = getattr(value, name)
             setattr(op_target_entity.state, name, tmp)
+        modified = []
         if op_target_entity.descriptor.SignalDelegationSupported:
             if value.ActivationState == pm_types.AlertActivation.ON:
                 modified = self._pause_fallback_alert_signals(op_target_entity,
@@ -94,8 +95,7 @@ class AlertDelegateProvider(providerbase.ProviderRole):
                                                                  all_alert_signal_entities)
         with self._mdib.alert_state_transaction() as mgr:
             mgr.write_entity(op_target_entity)
-            for ent in modified:
-                mgr.write_entity(ent)
+            mgr.write_entities(modified)
 
         return ExecuteResult(operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
@@ -117,8 +117,7 @@ class AlertDelegateProvider(providerbase.ProviderRole):
 
         with self._mdib.alert_state_transaction() as mgr:
             mgr.write_entity(op_target_entity)
-            for ent in modified:
-                mgr.write_entity(ent)
+            mgr.write_entities(modified)
 
     def _pause_fallback_alert_signals(self,
                                       delegable_signal_entity: EntityProtocol,
@@ -199,6 +198,11 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
         self._worker_thread.daemon = True
         self._worker_thread.start()
 
+    def stop(self):
+        """Stop worker thread."""
+        self._stop_worker.set()
+        self._worker_thread.join()
+
     def _worker_thread_loop(self):
         # delay start of operation
         shall_stop = self._stop_worker.wait(timeout=self.WORKER_THREAD_INTERVAL)
@@ -218,8 +222,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
             if len(entities_needing_update) > 0:
                 with self._mdib.alert_state_transaction() as mgr:
                     self._update_alert_system_states(entities_needing_update)
-                    for ent in entities_needing_update:
-                        mgr.write_entity(ent)
+                    mgr.write_entities(entities_needing_update)
         except Exception:
             self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())
 
@@ -355,9 +358,9 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
 
         def _get_alert_state(state: AbstractStateProtocol) -> AbstractStateProtocol:
             """Return the equivalent state from current transaction, if it already in transaction."""
-            tr_item = transaction.get_state_transaction_item(state.DescriptorHandle)
-            if tr_item is not None:
-                return tr_item.new
+            _item = transaction.get_state_transaction_item(state.DescriptorHandle)
+            if _item is not None:
+                return _item.new
             return state
 
         for _alert_system_state in alert_system_states:
@@ -413,7 +416,6 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
         Handling of delegated signals is in the responsibility of the delegated device!
         """
         pm_types = mdib.data_model.pm_types
-        pm_names = mdib.data_model.pm_names
 
         my_alert_signal_entities = [e for e in all_alert_signal_entities
                                     if e.descriptor.ConditionSignaled == changed_alert_condition.DescriptorHandle]

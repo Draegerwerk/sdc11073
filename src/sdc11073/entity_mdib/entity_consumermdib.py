@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from threading import Lock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Union
+
 from lxml.etree import QName
 
 from sdc11073 import loghelper
@@ -14,10 +15,9 @@ from sdc11073.mdib.consumermdib import ConsumerMdibState
 from sdc11073.namespaces import QN_TYPE, default_ns_helper
 from sdc11073.xml_types import msg_qnames, pm_qnames
 from sdc11073.xml_utils import LxmlElement
-
+from .entities import XmlEntity, XmlMultiStateEntity, get_xsi_type
 from .entity_consumermdibxtra import EntityConsumerMdibMethods
 from .entity_mdibbase import EntityMdibBase
-from .entities import XmlEntity, XmlMultiStateEntity, get_xsi_type
 
 if TYPE_CHECKING:
     from sdc11073.consumer.consumerimpl import SdcConsumer
@@ -33,7 +33,6 @@ class _BufferedData:
     handler: callable
 
 
-
 multi_state_q_names = (pm_qnames.PatientContextDescriptor,
                        pm_qnames.LocationContextDescriptor,
                        pm_qnames.WorkflowContextDescriptor,
@@ -41,9 +40,9 @@ multi_state_q_names = (pm_qnames.PatientContextDescriptor,
                        pm_qnames.MeansContextDescriptor,
                        pm_qnames.EnsembleContextDescriptor)
 
-XmlInternalEntityType = Union[XmlEntity,  XmlMultiStateEntity]
+XmlInternalEntityType = Union[XmlEntity, XmlMultiStateEntity]
 
-XmlEntityFactory =  Callable[[LxmlElement, str, str], XmlInternalEntityType]
+XmlEntityFactory = Callable[[LxmlElement, str, str], XmlInternalEntityType]
 
 
 def _mk_xml_entity(node: LxmlElement, parent_handle: str, source_mds: str) -> XmlEntity | XmlMultiStateEntity:
@@ -56,11 +55,12 @@ def _mk_xml_entity(node: LxmlElement, parent_handle: str, source_mds: str) -> Xm
 
 class EntityGetter:
     """Implements entityprotocol.EntityGetterProtocol"""
+
     def __init__(self, entities: dict[str, XmlEntity | XmlMultiStateEntity], mdib: EntityConsumerMdib):
         self._entities = entities
         self._mdib = mdib
 
-    def handle(self, handle: str) ->  ConsumerEntityType | None:
+    def handle(self, handle: str) -> ConsumerEntityType | None:
         """Return entity with given handle."""
         try:
             return self._mdib.mk_entity(handle)
@@ -109,11 +109,10 @@ class EntityGetter:
         return len(self._entities)
 
 
-
 class EntityConsumerMdib(EntityMdibBase):
     """Implementation of the consumer side mdib with EntityGetter Interface.
 
-    The internal entities store descriptors and states as XML nodes. This needs only very litte CPU time for
+    The internal entities store descriptors and states as XML nodes. This needs only very little CPU time for
     handling of notifications.
     The instantiation of descriptor and state container instances is only done on demand when the user calls the
     EntityGetter interface.
@@ -127,6 +126,7 @@ class EntityConsumerMdib(EntityMdibBase):
     # Observe this property and call "reload_all" in the observer code.
 
     MDIB_VERSION_CHECK_DISABLED = False
+
     # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
 
     def __init__(self,
@@ -430,7 +430,8 @@ class EntityConsumerMdib(EntityMdibBase):
 
             xml_entity = self._entity_factory(descriptor, parent_handle, source_mds_handle)
             if xml_entity.is_multi_state:
-                xml_entity.states.extend(current_states)
+                for st in current_states:
+                    xml_entity.states[st.Handle] = st
             else:
                 if len(current_states) != 1:
                     self.logger.error('create descriptor: Expect one state, got %d', len(current_states))
@@ -456,12 +457,12 @@ class EntityConsumerMdib(EntityMdibBase):
                 # (2nd position)
                 child_order: Iterable[tuple[QName, QName]] = (
                     (pm_qnames.MetaData, pm_qnames.MetaData),  # optional member, no handle
-                               (pm_qnames.SystemContext, pm_qnames.SystemContextDescriptor),
-                               (pm_qnames.Clock, pm_qnames.ClockDescriptor),
-                               (pm_qnames.Battery, pm_qnames.BatteryDescriptor),
-                               (pm_qnames.ApprovedJurisdictions, pm_qnames.ApprovedJurisdictions),
-                               # optional list, no handle
-                               (pm_qnames.Vmd, pm_qnames.VmdDescriptor))
+                    (pm_qnames.SystemContext, pm_qnames.SystemContextDescriptor),
+                    (pm_qnames.Clock, pm_qnames.ClockDescriptor),
+                    (pm_qnames.Battery, pm_qnames.BatteryDescriptor),
+                    (pm_qnames.ApprovedJurisdictions, pm_qnames.ApprovedJurisdictions),
+                    # optional list, no handle
+                    (pm_qnames.Vmd, pm_qnames.VmdDescriptor))
                 # Insert at correct position with correct name!
                 self._insert_child(descriptor, xsi_type,
                                    parent_xml_entity.descriptor, child_order)
@@ -507,12 +508,12 @@ class EntityConsumerMdib(EntityMdibBase):
     def _delete_entity(self, entity: XmlEntity | XmlMultiStateEntity, deleted_handles: list[str]):
         """Recursive method to delete an entity and subtree."""
         parent = entity.descriptor.getparent()
-        if parent:
+        if parent is not None:
             parent.remove(entity.descriptor)
-        states = entity.states if entity.is_multi_state else [entity.state]
+        states = entity.states.values() if entity.is_multi_state else [entity.state]
         for state in states:
             parent = state.getparent()
-            if parent:
+            if parent is not None:
                 parent.remove(state)
         handle = entity.descriptor.get('Handle')
         del self._entities[handle]
