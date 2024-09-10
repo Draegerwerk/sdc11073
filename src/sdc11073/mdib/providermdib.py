@@ -283,6 +283,7 @@ class ProviderMdib(mdibbase.MdibBase):
         mdib.add_description_containers(descriptor_containers)
         mdib.add_state_containers(state_containers)
         mdib.xtra.mk_state_containers_for_all_descriptors()
+        mdib.xtra.set_states_initial_values()
         mdib.xtra.update_retrievability_lists()
         mdib.xtra.set_all_source_mds()
         return mdib

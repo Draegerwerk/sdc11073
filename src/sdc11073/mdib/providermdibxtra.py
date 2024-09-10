@@ -125,6 +125,45 @@ class ProviderMdibMethods:
                     else:
                         mdib.states.add_object(state)
 
+    def set_states_initial_values(self):
+        """Set all states to defined starting conditions.
+
+        This method is ment to be called directly after the mdib was loaded and before the provider is published
+        on the network.
+        It changes values only internally in the mdib, no notifications are sent!
+
+        """
+        pm_names = self._mdib.data_model.pm_names
+        pm_types = self._mdib.data_model.pm_types
+
+        for state in self._mdib.states.objects:
+            descriptor = self._mdib.descriptions.handle.get_one(state.DescriptorHandle)
+            if descriptor.NODETYPE == pm_names.AlertSystemDescriptor:
+                # alert systems are active
+                state.ActivationState = pm_types.AlertActivation.ON
+                state.SystemSignalActivation.append(
+                    pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.AUD,
+                                                    state=pm_types.AlertActivation.ON))
+            elif descriptor.is_alert_condition_descriptor:
+                # alert conditions are active, but not present
+                state.ActivationState = pm_types.AlertActivation.ON
+                state.Presence = False
+            elif descriptor.is_alert_signal_descriptor:
+                # alert signals are not present, and delegable signals are also not active
+                if descriptor.SignalDelegationSupported:
+                    state.Location = pm_types.AlertSignalPrimaryLocation.REMOTE
+                    state.ActivationState = pm_types.AlertActivation.OFF
+                    state.Presence = pm_types.AlertSignalPresence.OFF
+                else:
+                    state.ActivationState = pm_types.AlertActivation.ON
+                    state.Presence = pm_types.AlertSignalPresence.OFF
+            elif descriptor.is_component_descriptor:
+                # all components are active
+                state.ActivationState = pm_types.ComponentActivation.ON
+            elif descriptor.is_operational_descriptor:
+                # all operations are enabled
+                state.OperatingMode = pm_types.OperatingMode.ENABLED
+
     def update_retrievability_lists(self):
         """Update internal lists, based on current mdib descriptors."""
         mdib = self._mdib

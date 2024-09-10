@@ -185,15 +185,8 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
         self._worker_thread = None
 
     def init_operations(self, sco: AbstractScoOperationsRegistry):
-        """Initialize and start what the provider needs.
-
-        - set initial values of all AlertSystemStateContainers.
-        - set initial values of all AlertStateContainers.
-        - start a worker thread that periodically updates AlertSystemStateContainers.
-        """
+        """Start a worker thread that periodically updates AlertSystemStateContainers."""
         super().init_operations(sco)
-        self._set_alert_system_states_initial_values()
-        self._set_alert_states_initial_values()
         self._worker_thread = Thread(target=self._worker_thread_loop)
         self._worker_thread.daemon = True
         self._worker_thread.start()
@@ -225,52 +218,6 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
                     mgr.write_entities(entities_needing_update)
         except Exception:
             self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())
-
-    def _set_alert_system_states_initial_values(self):
-        """Set ActivationState to ON in all alert systems.
-
-        Adds audible SystemSignalActivation, state=ON to all AlertSystemState instances.      Why????
-        """
-        pm_names = self._mdib.data_model.pm_names
-        pm_types = self._mdib.data_model.pm_types
-
-        entities = self._mdib.entities.node_type(pm_names.AlertSystemDescriptor)
-        with self._mdib.alert_state_transaction() as mgr:
-            for entity in entities:
-                entity.state.ActivationState = pm_types.AlertActivation.ON
-                entity.state.SystemSignalActivation.append(
-                    pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.AUD,
-                                                    state=pm_types.AlertActivation.ON))
-                mgr.write_entity(entity)
-
-    def _set_alert_states_initial_values(self):
-        """Set AlertConditions and AlertSignals.
-
-        - if an AlertCondition.ActivationState is 'On', then the local AlertSignals shall also be 'On'
-        - all remote alert Signals shall be 'Off' initially (must be explicitly enabled by delegating device).
-        """
-        pm_types = self._mdib.data_model.pm_types
-        pm_names = self._mdib.data_model.pm_names
-        with self._mdib.alert_state_transaction() as mgr:
-
-            for entity in self._mdib.entities.node_type(pm_names.AlertConditionDescriptor):
-                entity.state.ActivationState = pm_types.AlertActivation.ON
-                entity.state.Presence = False
-                mgr.write_entity(entity)
-            for entity in self._mdib.entities.node_type(pm_names.LimitAlertConditionDescriptor):
-                entity.state.ActivationState = pm_types.AlertActivation.ON
-                entity.state.Presence = False
-                mgr.write_entity(entity)
-
-            for entity in self._mdib.entities.node_type(pm_names.AlertSignalDescriptor):
-                if entity.descriptor.SignalDelegationSupported:
-                    entity.state.Location = pm_types.AlertSignalPrimaryLocation.REMOTE
-                    entity.state.ActivationState = pm_types.AlertActivation.OFF
-                    entity.state.Presence = pm_types.AlertSignalPresence.OFF
-                else:
-                    entity.state.ActivationState = pm_types.AlertActivation.ON
-                    entity.state.Presence = pm_types.AlertSignalPresence.OFF
-                mgr.write_entity(entity)
 
     def _get_alert_system_entities_needing_update(self) -> list[EntityProtocol]:
         pm_names = self._mdib.data_model.pm_names

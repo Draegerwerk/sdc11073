@@ -132,6 +132,46 @@ class EntityProviderMdibMethods:
                 if mdib.current_transaction is not None:
                     mdib.current_transaction.add_state(state)
 
+    def set_states_initial_values(self):
+        """Set all states to defined starting conditions.
+
+        This method is ment to be called directly after the mdib was loaded and before the provider is published
+        on the network.
+        It changes values only internally in the mdib, no notifications are sent!
+
+        """
+        pm_names = self._mdib.data_model.pm_names
+        pm_types = self._mdib.data_model.pm_types
+
+        for entity in self._mdib.internal_entities.values():
+            if entity.node_type == pm_names.AlertSystemDescriptor:
+                # alert systems are active
+                entity.state.ActivationState = pm_types.AlertActivation.ON
+                entity.state.SystemSignalActivation.append(
+                    pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.AUD,
+                                                    state=pm_types.AlertActivation.ON))
+            elif entity.descriptor.is_alert_condition_descriptor:
+                # alert conditions are active, but not present
+                entity.state.ActivationState = pm_types.AlertActivation.ON
+                entity.state.Presence = False
+            elif entity.descriptor.is_alert_signal_descriptor:
+                # alert signals are not present, and delegable signals are also not active
+                if entity.descriptor.SignalDelegationSupported:
+                    entity.state.Location = pm_types.AlertSignalPrimaryLocation.REMOTE
+                    entity.state.ActivationState = pm_types.AlertActivation.OFF
+                    entity.state.Presence = pm_types.AlertSignalPresence.OFF
+                else:
+                    entity.state.ActivationState = pm_types.AlertActivation.ON
+                    entity.state.Presence = pm_types.AlertSignalPresence.OFF
+            elif entity.descriptor.is_component_descriptor:
+                # all components are active
+                entity.state.ActivationState = pm_types.ComponentActivation.ON
+            elif entity.descriptor.is_operational_descriptor:
+                # all operations are enabled
+                entity.state.OperatingMode = pm_types.OperatingMode.ENABLED
+
+
+
     def update_retrievability_lists(self):
         """Update internal lists, based on current mdib descriptors."""
         mdib = self._mdib
@@ -674,6 +714,7 @@ class EntityProviderMdib(EntityMdibBase):
         mdib.xtra.set_all_source_mds()
 
         mdib.xtra.mk_state_containers_for_all_descriptors()
+        mdib.xtra.set_states_initial_values()
         mdib.xtra.update_retrievability_lists()
         mdib.set_initialized()
 
