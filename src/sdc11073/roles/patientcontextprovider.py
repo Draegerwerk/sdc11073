@@ -6,7 +6,7 @@ from .contextprovider import GenericContextProvider
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -20,7 +20,7 @@ class GenericPatientContextProvider(GenericContextProvider):
     Nothing is added to the mdib. If the mdib does not contain these operations, the functionality is not available.
     """
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str | None):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str | None):
         super().__init__(mdib, log_prefix=log_prefix)
         self._patient_context_entity = None
         self._set_patient_context_operations = []

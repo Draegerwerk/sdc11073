@@ -21,7 +21,6 @@ from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
 if TYPE_CHECKING:
     from lxml.etree import QName
     from sdc11073.definitions_base import BaseDefinitions
-    from .statecontainers import AbstractMultiStateContainer
     from .transactionsprotocol import (
         ContextStateTransactionManagerProtocol,
         DescriptorTransactionManagerProtocol,
@@ -35,6 +34,7 @@ TransactionFactory = Callable[[mdibbase.MdibBase, TransactionType, LoggerAdapter
 
 
 class ProviderEntityGetter(mdibbase.EntityGetter):
+
     def new_entity(self,
             node_type: QName,
             handle: str,
@@ -62,27 +62,7 @@ class ProviderEntityGetter(mdibbase.EntityGetter):
             state_cls = self._mdib.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
             state = state_cls(descriptor_container)
             new_entity = mdibbase.Entity(self._mdib,descriptor_container, state)
-
-        # self._new_entities[descriptor_container.Handle] = new_entity # write to mdib in process_transaction
         return new_entity
-
-    def new_state(self,
-            entity: mdibbase.MultiStateEntity,
-            handle: str | None = None,
-            ) -> AbstractMultiStateContainer:
-        """Create a new context state."""
-        # raise NotImplementedError
-
-        if handle is None:
-            handle = uuid.uuid4().hex
-        elif handle in  self._mdib.context_states.handle.keys():
-            raise ValueError(f'State with handle {handle} already exists')
-
-        state_cls = self._mdib.data_model.get_state_container_class(entity.descriptor.STATE_QNAME)
-        state = state_cls(entity.descriptor)
-        state.Handle = handle
-        entity.states[handle] = state
-        return state
 
 
 class ProviderMdib(mdibbase.MdibBase):
@@ -176,7 +156,6 @@ class ProviderMdib(mdibbase.MdibBase):
                         self.operation_by_handle = {st.DescriptorHandle: st for st in transaction_result.op_updates}
                     if transaction_result.rt_updates:
                         self.waveform_by_handle = {st.DescriptorHandle: st for st in transaction_result.rt_updates}
-
 
                     if callable(self.post_commit_handler):
                         self.post_commit_handler(self, self.current_transaction)

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from lxml.etree import QName
 
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
     from .providerbase import OperationClassGetter
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class GenericContextProvider(providerbase.ProviderRole):
     """Handles SetContextState operations."""
 
-    def __init__(self, mdib: ProviderMdib,
+    def __init__(self, mdib: ProviderMdibProtocol,
                  op_target_descr_types: list[QName] | None = None,
                  log_prefix: str | None = None):
         super().__init__(mdib, log_prefix)
@@ -139,7 +139,7 @@ class GenericContextProvider(providerbase.ProviderRole):
 class EnsembleContextProvider(GenericContextProvider):
     """EnsembleContextProvider."""
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str | None = None):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str | None = None):
         super().__init__(mdib,
                          op_target_descr_types=[mdib.data_model.pm_names.EnsembleContextDescriptor],
                          log_prefix=log_prefix)
@@ -148,7 +148,7 @@ class EnsembleContextProvider(GenericContextProvider):
 class LocationContextProvider(GenericContextProvider):
     """LocationContextProvider."""
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str | None = None):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str | None = None):
         super().__init__(mdib,
                          op_target_descr_types=[mdib.data_model.pm_names.LocationContextDescriptor],
                          log_prefix=log_prefix)

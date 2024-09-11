@@ -32,7 +32,7 @@ from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 if TYPE_CHECKING:
     from enum import Enum
     from sdc11073.location import SdcLocation
-    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
@@ -85,7 +85,7 @@ class SdcProvider:
     def __init__(self, ws_discovery: WsDiscoveryProtocol,
                  this_model: ThisModelType,
                  this_device: ThisDeviceType,
-                 device_mdib_container: ProviderMdib,
+                 device_mdib_container: ProviderMdibProtocol,
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
@@ -101,7 +101,7 @@ class SdcProvider:
         :param ws_discovery: a WsDiscovers instance
         :param this_model: a ThisModelType instance
         :param this_device: a ThisDeviceType instance
-        :param device_mdib_container: a ProviderMdib instance
+        :param device_mdib_container: a ProviderMdibProtocol instance
         :param epr: something that serves as a unique identifier of this device for discovery.
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
@@ -243,19 +243,19 @@ class SdcProvider:
         cls = self._components.sco_operations_registry_class
         pm_names = self._mdib.data_model.pm_names
 
-        sco_descr_list = self._mdib.descriptions.NODETYPE.get(pm_names.ScoDescriptor, [])
-        for sco_descr in sco_descr_list:
+        entities = self._mdib.entities.node_type(pm_names.ScoDescriptor)
+        for entity in entities:
             sco_operations_registry = cls(self.hosted_services.set_service,
                                           self._components.operation_cls_getter,
                                           self._mdib,
-                                          sco_descr,
+                                          entity.descriptor,
                                           log_prefix=self._log_prefix)
-            self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
+            self._sco_operations_registries[entity.handle] = sco_operations_registry
 
             product_roles = self._components.role_provider_class(self._mdib,
                                                                  sco_operations_registry,
                                                                  self._log_prefix)
-            self.product_lookup[sco_descr.Handle] = product_roles
+            self.product_lookup[entity.handle] = product_roles
             product_roles.init_operations()
         if self._components.waveform_provider_class is not None:
             self.waveform_provider = self._components.waveform_provider_class(self._mdib,
@@ -352,7 +352,7 @@ class SdcProvider:
                                           x_addrs)
 
     @property
-    def mdib(self) -> ProviderMdib:
+    def mdib(self) -> ProviderMdibProtocol:
         """Return mdib reference."""
         return self._mdib
 

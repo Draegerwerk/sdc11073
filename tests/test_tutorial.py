@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 import unittest
 import uuid
 from decimal import Decimal
@@ -8,11 +9,10 @@ from typing import TYPE_CHECKING
 
 from sdc11073 import network
 from sdc11073.consumer import SdcConsumer
-from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.definitions_sdc import SdcV1Definitions
+from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
+from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import ProviderMdib
-from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.components import SdcProviderComponents
 from sdc11073.provider.operations import ExecuteResult
@@ -21,11 +21,11 @@ from sdc11073.roles.providerbase import ProviderRole
 from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
 from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types.actions import periodic_actions_and_system_error_report
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.msg_types import InvocationState
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.wsd_types import ScopesType
-from sdc11073.xml_types.actions import periodic_actions_and_system_error_report
 from tests import utils
 
 if TYPE_CHECKING:
@@ -42,8 +42,8 @@ here = os.path.dirname(__file__)
 my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
 
 
-def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_components=None):
-    my_mdib = ProviderMdib.from_mdib_file(mdib_path)
+def create_generic_provider(wsdiscovery_instance, location, mdib_path, specific_components=None):
+    my_mdib = EntityProviderMdib.from_mdib_file(mdib_path)
     my_epr = uuid.uuid4().hex
     this_model = ThisModelType(manufacturer='Draeger',
                                manufacturer_url='www.draeger.com',
@@ -55,18 +55,20 @@ def createGenericDevice(wsdiscovery_instance, location, mdib_path, specific_comp
     this_device = ThisDeviceType(friendly_name='TestDevice',
                                  firmware_version='Version1',
                                  serial_number='12345')
-    sdc_device = SdcProvider(wsdiscovery_instance,
-                             this_model,
-                             this_device,
-                             my_mdib,
-                             epr=my_epr,
-                             specific_components=specific_components)
-    for desc in sdc_device.mdib.descriptions.objects:
-        desc.SafetyClassification = pm_types.SafetyClassification.MED_A
-    sdc_device.start_all(start_rtsample_loop=False)
+    sdc_provider = SdcProvider(wsdiscovery_instance,
+                               this_model,
+                               this_device,
+                               my_mdib,
+                               epr=my_epr,
+                               specific_components=specific_components)
+    with sdc_provider.mdib.descriptor_transaction() as tr:
+        for _, ent in sdc_provider.mdib.entities.items():
+            ent.descriptor.SafetyClassification = pm_types.SafetyClassification.MED_A
+            tr.write_entity(ent)
+    sdc_provider.start_all(start_rtsample_loop=False)
     validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-    sdc_device.set_location(location, validators)
-    return sdc_device
+    sdc_provider.set_location(location, validators)
+    return sdc_provider
 
 
 MY_CODE_1 = CodedValue('196279')  # refers to an activate operation in mdib
@@ -126,11 +128,12 @@ class MyProvider1(ProviderRole):
         self.operation2_called += 1
         self.operation2_args = argument
         self._logger.info('_handle_operation_2 called arg={}', argument)
+        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        if op_target_entity.state.MetricValue is None:
+            op_target_entity.state.mk_metric_value()
+        op_target_entity.state.MetricValue.Value = argument
         with self._mdib.metric_state_transaction() as mgr:
-            my_state = mgr.get_state(params.operation_instance.operation_target_handle)
-            if my_state.MetricValue is None:
-                my_state.mk_metric_value()
-            my_state.MetricValue.Value = argument
+            mgr.write_entity(op_target_entity)
         return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
 
@@ -165,11 +168,12 @@ class MyProvider2(ProviderRole):
         argument = params.operation_request.argument
         self.operation3_args = argument
         self._logger.info('_handle_operation_3 called')
+        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        if op_target_entity.state.MetricValue is None:
+            op_target_entity.state.mk_metric_value()
+        op_target_entity.state.MetricValue.Value = argument
         with self._mdib.metric_state_transaction() as mgr:
-            my_state = mgr.get_state(params.operation_instance.operation_target_handle)
-            if my_state.MetricValue is None:
-                my_state.mk_metric_value()
-            my_state.MetricValue.Value = argument
+            mgr.write_entity(op_target_entity)
         return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
 
@@ -195,8 +199,8 @@ class Test_Tutorial(unittest.TestCase):
         self.my_location = utils.random_location()
         self.my_location2 = utils.random_location()
         # tests fill these lists with what they create, teardown cleans up after them.
-        self.my_devices = []
-        self.my_clients = []
+        self.my_providers = []
+        self.my_consumers = []
         self.my_ws_discoveries = []
 
         basic_logging_setup()
@@ -205,17 +209,17 @@ class Test_Tutorial(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._logger.info('###### tearDown ... ##########')
-        for cl in self.my_clients:
-            self._logger.info('stopping {}', cl)
-            cl.stop_all()
-        for d in self.my_devices:
-            self._logger.info('stopping {}', d)
-            d.stop_all()
-        for w in self.my_ws_discoveries:
-            self._logger.info('stopping {}', w)
-            w.stop()
+        for consumer in self.my_consumers:
+            self._logger.info('stopping {}', consumer)
+            consumer.stop_all()
+        for provider in self.my_providers:
+            self._logger.info('stopping {}', provider)
+            provider.stop_all()
+        for discovery in self.my_ws_discoveries:
+            self._logger.info('stopping {}', discovery)
+            discovery.stop()
 
-    def test_createDevice(self):
+    def test_create_provider(self):
         # A WsDiscovery instance is needed to publish devices on the network.
         # In this case we want to publish them only on localhost 127.0.0.1.
         my_ws_discovery = WSDiscovery('127.0.0.1')
@@ -223,20 +227,20 @@ class Test_Tutorial(unittest.TestCase):
         my_ws_discovery.start()
 
         # to create a device, this what you usually do:
-        my_generic_device = createGenericDevice(my_ws_discovery, self.my_location, my_mdib_path)
-        self.my_devices.append(my_generic_device)
+        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        self.my_providers.append(my_generic_provider)
 
-    def test_searchDevice(self):
+    def test_search_provider(self):
         # create one discovery and two device that we can then search for
         my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_device1 = createGenericDevice(my_ws_discovery, self.my_location, my_mdib_path)
-        self.my_devices.append(my_generic_device1)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        self.my_providers.append(my_generic_provider1)
 
-        my_generic_device2 = createGenericDevice(my_ws_discovery, self.my_location2, my_mdib_path)
-        self.my_devices.append(my_generic_device2)
+        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, my_mdib_path)
+        self.my_providers.append(my_generic_provider2)
 
         # Search for devices
         # ------------------
@@ -252,31 +256,24 @@ class Test_Tutorial(unittest.TestCase):
         # (that can even be printers).
         # TODO: enable this step once https://github.com/Draegerwerk/sdc11073/issues/223 has been fixed
 
-        # now search only for devices in my_location2
+        # search for any device at my_location2
         services = my_client_ws_discovery.search_services(scopes=ScopesType(self.my_location2.scope_string),
                                                           timeout=SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        # search for medical devices only (BICEPS Final version only)
+        # search for medical devices at any location
         services = my_client_ws_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter,
                                                           timeout=SEARCH_TIMEOUT)
         self.assertGreaterEqual(len(services), 2)
 
-        # search for medical devices only all known protocol versions
-        all_types = [p.MedicalDeviceTypesFilter for p in ProtocolsRegistry.protocols]
-        services = my_client_ws_discovery.search_multiple_types(types_list=all_types,
-                                                                timeout=SEARCH_TIMEOUT)
-
-        self.assertGreaterEqual(len(services), 2)
-
-    def test_createClient(self):
+    def test_create_client(self):
         # create one discovery and one device that we can then search for
         my_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_device1 = createGenericDevice(my_ws_discovery, self.my_location, my_mdib_path)
-        self.my_devices.append(my_generic_device1)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_client_ws_discovery)
@@ -289,27 +286,24 @@ class Test_Tutorial(unittest.TestCase):
                                                           scopes=ScopesType(self.my_location.scope_string))
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
-        self.my_clients.append(my_client)
-        my_client.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
+        my_consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
+        self.my_consumers.append(my_consumer)
+        my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
         ############# Mdib usage ##############################
         # In data oriented tests a mdib instance is very handy:
         # The mdib collects all data and makes it easily available for the test
         # The MdibBase wraps data in "container" objects.
         # The basic idea is that every node that has a handle becomes directly accessible via its handle.
-        my_mdib = ConsumerMdib(my_client)
+        my_mdib = EntityConsumerMdib(my_consumer)
         my_mdib.init_mdib()  # my_mdib keeps itself now updated
 
         # now query some data
         # mdib has three lookups: descriptions, states and context_states
         # each lookup can be searched by different keys,
         # e.g. looking for a descriptor by type looks like this:
-        location_context_descriptor_containers = my_mdib.descriptions.NODETYPE.get(pm.LocationContextDescriptor)
-        self.assertEqual(len(location_context_descriptor_containers), 1)
-        # we can look for the corresponding state by handle:
-        location_context_state_containers = my_mdib.context_states.descriptor_handle.get(
-            location_context_descriptor_containers[0].Handle)
-        self.assertEqual(len(location_context_state_containers), 1)
+        location_context_entities = my_mdib.entities.node_type(pm.LocationContextDescriptor)
+        self.assertEqual(len(location_context_entities), 1)
+        self.assertEqual(len(location_context_entities[0].states), 1)
 
     def test_call_operation(self):
         # create one discovery and one device that we can then search for
@@ -317,8 +311,8 @@ class Test_Tutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_device1 = createGenericDevice(my_ws_discovery, self.my_location, my_mdib_path)
-        self.my_devices.append(my_generic_device1)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_client_ws_discovery)
@@ -331,32 +325,37 @@ class Test_Tutorial(unittest.TestCase):
                                                           scopes=ScopesType(self.my_location.scope_string))
         self.assertEqual(len(services), 1)  # both devices found
 
-        my_client = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
-        self.my_clients.append(my_client)
-        my_client.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
-        my_mdib = ConsumerMdib(my_client)
+        my_consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
+        self.my_consumers.append(my_consumer)
+        my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
+        my_mdib = EntityConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
         # we want to set a patient.
         # first we must find the operation that has PatientContextDescriptor as operation target
-        patient_context_descriptor_containers = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)
-        self.assertEqual(len(patient_context_descriptor_containers), 1)
-        my_patient_context_descriptor_container = patient_context_descriptor_containers[0]
-        all_operations = my_mdib.descriptions.NODETYPE.get(pm.SetContextStateOperationDescriptor, [])
-        my_operations = [op for op in all_operations if
-                         op.OperationTarget == my_patient_context_descriptor_container.Handle]
+        patient_context_entities = my_mdib.entities.node_type(pm.PatientContextDescriptor)
+        self.assertEqual(len(patient_context_entities), 1)
+        my_patient_context_entity = patient_context_entities[0]
+        all_operation_entities = my_mdib.entities.node_type(pm.SetContextStateOperationDescriptor)
+        my_operations = [op for op in all_operation_entities if
+                         op.descriptor.OperationTarget == my_patient_context_entity.handle]
         self.assertEqual(len(my_operations), 1)
         my_operation = my_operations[0]
 
-        # make a proposed patient context:
-        context_service = my_client.context_service_client
-        proposed_patient = context_service.mk_proposed_context_object(my_patient_context_descriptor_container.Handle)
+        # make a proposed new patient context:
+        context_service = my_consumer.context_service_client
+        proposed_patient = my_patient_context_entity.new_state()
+        # The new state has  as a placeholder the descriptor handle as handle
+        # => provider shall create a new state
         proposed_patient.Firstname = 'Jack'
         proposed_patient.Lastname = 'Miller'
-        future = context_service.set_context_state(operation_handle=my_operation.Handle,
+        future = context_service.set_context_state(operation_handle=my_operation.handle,
                                                    proposed_context_states=[proposed_patient])
         result = future.result(timeout=5)
         self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
+        my_patient_context_entity.update()
+        # provider should have replaced the placeholder handle with a new one.
+        self.assertFalse(proposed_patient.Handle in my_patient_context_entity.states)
 
     def test_operation_handler(self):
         """This example shows how to implement own handlers for operations, and it shows multiple ways how a client can
@@ -371,14 +370,14 @@ class Test_Tutorial(unittest.TestCase):
         specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
         mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')
-        my_generic_device = createGenericDevice(my_ws_discovery,
-                                                self.my_location,
-                                                mdib_path,
-                                                specific_components=specific_components)
+        my_generic_provider = create_generic_provider(my_ws_discovery,
+                                                      self.my_location,
+                                                      mdib_path,
+                                                      specific_components=specific_components)
 
-        self.my_devices.append(my_generic_device)
+        self.my_providers.append(my_generic_provider)
 
-        # connect a client to this device:
+        # connect a consumer to this provider:
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
@@ -388,24 +387,24 @@ class Test_Tutorial(unittest.TestCase):
         self.assertEqual(len(services), 1)
 
         self.service = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
-        my_client = self.service
-        self.my_clients.append(my_client)
-        my_client.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
-        my_mdib = ConsumerMdib(my_client)
+        my_consumer = self.service
+        self.my_consumers.append(my_consumer)
+        my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
+        my_mdib = EntityConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
         sco_handle = 'sco.mds0'
-        my_product_impl = my_generic_device.product_lookup[sco_handle]
+        my_product_impl = my_generic_provider.product_lookup[sco_handle]
         # call activate operation:
         # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
-        operations = my_mdib.descriptions.coding.get(MY_CODE_1.coding)
+        operation_entities = my_mdib.entities.coding(MY_CODE_1.coding)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         self._logger.info('looking for operations with code {}', MY_CODE_1.coding)
-        op = operations[0]
+        op_entity = operation_entities[0]
         argument = 'foo'
-        self._logger.info('calling operation {}, argument = {}', op, argument)
-        future = my_client.set_service_client.activate(op.Handle, arguments=[argument])
+        self._logger.info('calling operation {}, argument = {}', op_entity.handle, argument)
+        future = my_consumer.set_service_client.activate(op_entity.handle, arguments=[argument])
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)
@@ -415,27 +414,32 @@ class Test_Tutorial(unittest.TestCase):
 
         # call set_string operation
         sco_handle = 'sco.vmd1.mds0'
-        my_product_impl = my_generic_device.product_lookup[sco_handle]
+        my_product_impl = my_generic_provider.product_lookup[sco_handle]
 
         self._logger.info('looking for operations with code {}', MY_CODE_2.coding)
-        op = my_mdib.descriptions.coding.get_one(MY_CODE_2.coding)
+        op_entities = my_mdib.entities.coding(MY_CODE_2.coding)
+        my_op = op_entities[0]
         for value in ('foo', 'bar'):
-            self._logger.info('calling operation {}, argument = {}', op, value)
-            future = my_client.set_service_client.set_string(op.Handle, value)
+            self._logger.info('calling operation {}, argument = {}', my_op.handle, value)
+            future = my_consumer.set_service_client.set_string(my_op.handle, value)
             result = future.result()
             print(result)
+            time.sleep(1)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
-            state = my_mdib.states.descriptor_handle.get_one(op.OperationTarget)
-            self.assertEqual(state.MetricValue.Value, value)
+            op_target_entity = my_mdib.entities.handle(my_op.descriptor.OperationTarget)
+            self.assertEqual(op_target_entity.state.MetricValue.Value, value)
         self.assertEqual(my_product_impl.my_provider_1.operation2_called, 2)
 
         # call setValue operation
-        state_descr = my_mdib.descriptions.coding.get_one(MY_CODE_3_TARGET.coding)
-        operations = my_mdib.get_operation_descriptors_for_descriptor_handle(state_descr.Handle)
-        op = operations[0]
-        future = my_client.set_service_client.set_numeric_value(op.Handle, Decimal('42'))
+        op_target_entities = my_mdib.entities.coding(MY_CODE_3_TARGET.coding)
+        op_target_entity = op_target_entities[0]
+
+        all_operations = my_mdib.entities.node_type(pm.SetValueOperationDescriptor)
+        my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_entity.handle]
+
+        future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal('42'))
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
-        state = my_mdib.states.descriptor_handle.get_one(op.OperationTarget)
-        self.assertEqual(state.MetricValue.Value, 42)
+        ent = my_mdib.entities.handle(op_target_entity.handle)
+        self.assertEqual(ent.state.MetricValue.Value, 42)

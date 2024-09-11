@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
 
-    from sdc11073.mdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactionsprotocol import RtDataMdibUpdateTransaction
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import ComponentActivation
@@ -23,7 +22,7 @@ class ProductProtocol:
     """
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         """Create a product."""
@@ -52,7 +51,7 @@ class WaveformProviderProtocol(Protocol):
 
     is_running: bool
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         ...
 
     def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorBase):
@@ -77,8 +76,5 @@ class WaveformProviderProtocol(Protocol):
     def set_activation_state(self, descriptor_handle: str, component_activation_state: ComponentActivation):
         """Set the activation state of waveform generator and of Metric state in mdib."""
 
-    def update_all_realtime_samples(self, transaction: RtDataMdibUpdateTransaction):
-        """Update all realtime sample states that have a waveform generator registered.
-
-        On transaction commit the mdib will call the appropriate send method of the sdc device.
-        """
+    def update_all_realtime_samples(self):
+        """Update all realtime sample states that have a waveform generator registered."""

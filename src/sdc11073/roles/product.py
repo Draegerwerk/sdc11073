@@ -14,12 +14,11 @@ from .operationprovider import OperationProvider
 from .patientcontextprovider import GenericPatientContextProvider
 
 if TYPE_CHECKING:
-    from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.transactionsprotocol import AnyTransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
-
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from .providerbase import OperationClassGetter
 
 
@@ -53,10 +52,10 @@ class ProviderRoleProtocol(Protocol):
         If a role provider needs to add operations beyond that, it can do it here.
         """
 
-    def on_pre_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
+    def on_pre_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         """Manipulate operation (e.g. add more states)."""
 
-    def on_post_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
+    def on_post_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         """Implement actions after the transaction."""
         ...
 
@@ -69,13 +68,12 @@ class BaseProduct:
     """
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         """Create a product."""
         self._sco = sco
         self._mdib = mdib
-        self._model = mdib.data_model
         self._ordered_providers: list[ProviderRoleProtocol] = []  # order matters, first come, first served
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
@@ -115,7 +113,6 @@ class BaseProduct:
                               sco_handle, all_not_registered_op_handles)
         else:
             self._logger.info('sco %s: all operations have a handler.', sco_handle)
-        self._mdib.xtra.mk_state_containers_for_all_descriptors()
         self._mdib.pre_commit_handler = self._on_pre_commit
         self._mdib.post_commit_handler = self._on_post_commit
 
@@ -158,11 +155,11 @@ class BaseProduct:
                 if operation is not None:
                     sco.register_operation(operation)
 
-    def _on_pre_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
+    def _on_pre_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         for provider in self._all_providers_sorted():
             provider.on_pre_commit(mdib, transaction)
 
-    def _on_post_commit(self, mdib: ProviderMdib, transaction: AnyTransactionManagerProtocol):
+    def _on_post_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         for provider in self._all_providers_sorted():
             provider.on_post_commit(mdib, transaction)
 
@@ -171,7 +168,7 @@ class DefaultProduct(BaseProduct):
     """Default Product."""
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)
@@ -192,7 +189,7 @@ class ExtendedProduct(DefaultProduct):
     """Add EnsembleContextProvider and LocationContextProvider."""
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)

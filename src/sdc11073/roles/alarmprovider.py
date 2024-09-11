@@ -13,10 +13,10 @@ from . import providerbase
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.transactionsprotocol import StateTransactionManagerProtocol
     from sdc11073.mdib.entityprotocol import EntityProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import OperationDefinitionBase, OperationDefinitionProtocol, ExecuteParameters
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 class AlertDelegateProvider(providerbase.ProviderRole):
     """Support alert delegation acc. to BICEPS chapter 6.2."""
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         super().__init__(mdib, log_prefix)
 
     def make_operation_instance(self,
@@ -178,7 +178,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
     WORKER_THREAD_INTERVAL = 1.0  # seconds
     self_check_safety_margin = 1.0  # how many seconds before SelfCheckInterval elapses a new self check is performed.
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         super().__init__(mdib, log_prefix)
 
         self._stop_worker = Event()
@@ -265,7 +265,7 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
     - in pre commit handler it updates present alarms list of alarm system states
     """
 
-    def on_pre_commit(self, mdib: ProviderMdib, transaction: StateTransactionManagerProtocol):
+    def on_pre_commit(self, mdib: ProviderMdibProtocol, transaction: StateTransactionManagerProtocol):
         """Manipulate the transaction.
 
         - Updates alert system states and adds them to transaction, if at least one of its alert
@@ -297,7 +297,7 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
             self._update_alert_system_states(mdib, alert_system_states, transaction)
 
     @staticmethod
-    def _update_alert_system_states(mdib: ProviderMdib,
+    def _update_alert_system_states(mdib: ProviderMdibProtocol,
                                     alert_system_states: Iterable[AbstractStateProtocol],
                                     transaction: StateTransactionManagerProtocol):
         """Update alert system states PresentTechnicalAlarmConditions and PresentPhysiologicalAlarmConditions."""
@@ -355,7 +355,7 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
     @staticmethod
     def _update_alert_signals(changed_alert_condition: AbstractStateProtocol,
                               all_alert_signal_entities: list[EntityProtocol],
-                              mdib: ProviderMdib,
+                              mdib: ProviderMdibProtocol,
                               transaction: StateTransactionManagerProtocol):
         """Handle alert signals for a changed alert condition.
 

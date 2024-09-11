@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import copy
+import uuid
 from typing import TYPE_CHECKING, Union
-from weakref import ref, ReferenceType
 
 from lxml.etree import QName
 
@@ -14,7 +14,8 @@ from sdc11073.xml_types.pm_types import CodedValue
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
     from sdc11073.mdib.statecontainers import AbstractMultiStateContainer, AbstractStateContainer
-    from .entity_mdibbase import EntityMdibBase
+    from .entity_consumermdib import EntityConsumerMdib
+    from .entity_providermdib import EntityProviderMdib
     from sdc11073.xml_utils import LxmlElement
 
 # Many types are fixed in schema. This table maps from tag in Element to its type
@@ -100,7 +101,7 @@ class XmlEntity(_XmlEntityBase):
     def is_multi_state(self) -> bool:
         return False
 
-    def mk_entity(self, mdib: EntityMdibBase) -> ConsumerEntity:
+    def mk_entity(self, mdib: EntityConsumerMdib) -> ConsumerEntity:
         """Return a corresponding entity with containers."""
         return ConsumerEntity(self, mdib)
 
@@ -121,7 +122,7 @@ class XmlMultiStateEntity(_XmlEntityBase):
     def is_multi_state(self) -> bool:
         return True
 
-    def mk_entity(self, mdib: EntityMdibBase) -> ConsumerMultiStateEntity:
+    def mk_entity(self, mdib: EntityConsumerMdib) -> ConsumerMultiStateEntity:
         """Return a corresponding entity with containers."""
         return ConsumerMultiStateEntity(self, mdib)
 
@@ -131,11 +132,9 @@ class ConsumerEntityBase:
 
     def __init__(self,
                  source: XmlEntity | XmlMultiStateEntity,
-                 mdib: EntityMdibBase,  # needed if a new state needs to be added
+                 mdib: EntityConsumerMdib,  # needed if a new state needs to be added
                  ):
-        self._source: ReferenceType[XmlEntity | XmlMultiStateEntity] = ref(source)
-        self._mdib: EntityMdibBase = mdib
-        # self.descriptor: AbstractDescriptorContainer = descriptor
+        self._mdib: EntityConsumerMdib = mdib
 
         cls = mdib.sdc_definitions.data_model.get_descriptor_container_class(source.node_type)
         if cls is None:
@@ -167,8 +166,7 @@ class ConsumerEntity(ConsumerEntityBase):
 
     def __init__(self,
                  source: XmlEntity,
-                 mdib: EntityMdibBase,  # needed if a new state needs to be added
-                 ):
+                 mdib: EntityConsumerMdib):
         super().__init__(source, mdib)
         self.state: AbstractStateContainer | None = None
         if source.state is not None:
@@ -177,7 +175,7 @@ class ConsumerEntity(ConsumerEntityBase):
             self.state.update_from_node(source.state)
 
     def update(self):
-        xml_entity: XmlEntity = self._source()
+        xml_entity = self._mdib.internal_entities.get(self.handle)
         if xml_entity is None:
             raise ValueError('entity no longer exists in mdib')
         if int(xml_entity.descriptor.get('DescriptorVersion', '0')) != self.descriptor.DescriptorVersion:
@@ -191,7 +189,7 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
 
     def __init__(self,
                  source: XmlMultiStateEntity,
-                 mdib: EntityMdibBase):
+                 mdib: EntityConsumerMdib):
         super().__init__(source, mdib)
         self.states: dict[str, AbstractMultiStateContainer] = {}
         for handle, state in source.states.items():
@@ -203,7 +201,7 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
 
     def update(self):
         """Update all containers."""
-        xml_entity: XmlMultiStateEntity = self._source()
+        xml_entity = self._mdib.internal_entities.get(self.handle)
         if xml_entity is None:
             raise ValueError('entity no longer exists in mdib')
         if int(xml_entity.descriptor.get('DescriptorVersion', '0')) != self.descriptor.DescriptorVersion:
@@ -231,8 +229,24 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
             if handle not in xml_entity.states:
                 self.states.pop(handle)
 
+    def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
+        """create a new state.
+
+        The new state has handle of descriptor container as handle.
+        If this new state is used as a proposed context state in SetContextState operation, this means a new
+        state shall be created on providers side."""
+        if state_handle in self.states:
+            raise ValueError(
+                f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
+        cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
+        state = cls(descriptor_container=self.descriptor)
+        state.Handle = state_handle or self.handle
+        self.states[state.Handle] = state
+        return state
+
 
 ConsumerEntityType = Union[ConsumerEntity, ConsumerMultiStateEntity]
+ConsumerInternalEntityType = Union[XmlEntity, XmlMultiStateEntity]
 
 
 ##############  provider ##########################
@@ -287,9 +301,9 @@ class ProviderInternalEntity(ProviderInternalEntityBase):
     def is_multi_state(self) -> bool:
         return False
 
-    def mk_entity(self) -> ProviderEntity:
+    def mk_entity(self, mdib: EntityProviderMdib) -> ProviderEntity:
         """Return a corresponding entity with containers."""
-        return ProviderEntity(self)
+        return ProviderEntity(self, mdib)
 
 
 class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
@@ -305,17 +319,18 @@ class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
     def is_multi_state(self) -> bool:
         return True
 
-    def mk_entity(self) -> ProviderMultiStateEntity:
+    def mk_entity(self, mdib: EntityProviderMdib) -> ProviderMultiStateEntity:
         """Return a corresponding entity with containers."""
-        return ProviderMultiStateEntity(self)
+        return ProviderMultiStateEntity(self, mdib)
 
 
 class ProviderEntityBase:
     """A descriptor container and a weak reference to the corresponding xml entity."""
 
     def __init__(self,
-                 source: ProviderInternalEntity | ProviderInternalMultiStateEntity):
-        self._source: ReferenceType[ProviderInternalEntity | ProviderInternalMultiStateEntity] = ref(source)
+                 source: ProviderInternalEntity | ProviderInternalMultiStateEntity,
+                 mdib: EntityProviderMdib):
+        self._mdib = mdib
         self.descriptor = copy.deepcopy(source.descriptor)
         self.source_mds = source.source_mds
 
@@ -340,8 +355,8 @@ class ProviderEntity(ProviderEntityBase):
 
     def __init__(self,
                  source: ProviderInternalEntity,
-                 ):
-        super().__init__(source)
+                 mdib: EntityProviderMdib):
+        super().__init__(source, mdib)
         self.state: AbstractStateContainer | None = None
         if source.state is not None:
             self.state = copy.deepcopy(source.state)
@@ -352,11 +367,10 @@ class ProviderEntity(ProviderEntityBase):
 
     def update(self):
         """Update from internal entity."""
-        # Todo: update same instances instead of replacing them
-        source_entity: ProviderInternalEntity = self._source()
+        source_entity = self._mdib.internal_entities.get(self.handle)
         if source_entity is None:
-            raise ValueError('entity no longer exists in mdib')
-        self.descriptor = copy.deepcopy(source_entity.descriptor)
+            raise ValueError(f'entity {self.handle} no longer exists in mdib')
+        self.descriptor.update_from_other_container(source_entity.descriptor)
         self.state = copy.deepcopy(source_entity.state)
 
 
@@ -364,8 +378,9 @@ class ProviderMultiStateEntity(ProviderEntityBase):
     """Groups descriptor container and list of multi-state containers."""
 
     def __init__(self,
-                 source: ProviderInternalMultiStateEntity):
-        super().__init__(source)
+                 source: ProviderInternalMultiStateEntity,
+                 mdib: EntityProviderMdib):
+        super().__init__(source, mdib)
         self.states: dict[str, AbstractMultiStateContainer] = copy.deepcopy(source.states)
 
     @property
@@ -374,13 +389,31 @@ class ProviderMultiStateEntity(ProviderEntityBase):
 
     def update(self):
         """Update from internal entity."""
-        # Todo: update same instances instead of replacing them
-        source_entity: ProviderInternalMultiStateEntity = self._source()
+        source_entity = self._mdib.internal_entities.get(self.handle)
         if source_entity is None:
-            raise ValueError('entity no longer exists in mdib')
-        # update always, this will overwrite modifications that the user might have made
-        self.descriptor = copy.deepcopy(source_entity.descriptor)
-        self.states = copy.deepcopy(source_entity.states)
+            raise ValueError(f'entity {self.handle} no longer exists in mdib')
+        self.descriptor.update_from_other_container(source_entity.descriptor)
+        for handle, src_state in source_entity.states.items():
+            dest_state = self.states.get(handle)
+            if dest_state is None:
+                self.states[handle] = copy.deepcopy(src_state)
+            else:
+                dest_state.update_from_other_container(src_state)
+        # remove states that are no longer present is source_entity
+        for handle in list(self.states.keys()):
+            if handle not in source_entity.states:
+                self.states.pop(handle)
+
+    def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
+        """create a new state."""
+        if state_handle in self.states:
+            raise ValueError(
+                f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
+        cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
+        state = cls(descriptor_container=self.descriptor)
+        state.Handle = state_handle or uuid.uuid4().hex
+        self.states[state.Handle] = state
+        return state
 
 
 ProviderInternalEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity]

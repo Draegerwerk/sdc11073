@@ -11,7 +11,7 @@ from .providerbase import OperationClassGetter, ProviderRole
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import OperationDefinitionBase, ExecuteParameters
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -28,7 +28,7 @@ class GenericAudioPauseProvider(ProviderRole):
     Nothing is added to the mdib. If the mdib does not contain these operations, the functionality is not available.
     """
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         super().__init__(mdib, log_prefix)
         self._set_global_audio_pause_operations = []
         self._cancel_global_audio_pause_operations = []

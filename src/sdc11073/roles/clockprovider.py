@@ -10,7 +10,7 @@ from .providerbase import OperationClassGetter, ProviderRole
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import CodedValue, SafetyClassification
@@ -24,7 +24,7 @@ class GenericSDCClockProvider(ProviderRole):
     Nothing is added to the mdib. If the mdib does not contain these operations, the functionality is not available.
     """
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         super().__init__(mdib, log_prefix)
         self._set_ntp_operations = []
         self._set_tz_operations = []

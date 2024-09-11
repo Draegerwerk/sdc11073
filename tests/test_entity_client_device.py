@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import datetime
 import logging
 import sys
@@ -12,7 +11,6 @@ from typing import TYPE_CHECKING
 from itertools import cycle
 from lxml import etree as etree_
 
-import mockstuff
 from sdc11073 import loghelper
 from sdc11073 import observableproperties
 from sdc11073.consumer import SdcConsumer
@@ -21,10 +19,6 @@ from sdc11073.dispatch import RequestDispatcher
 from sdc11073.entity_mdib.entities import ConsumerEntity, ConsumerMultiStateEntity, XmlEntity, XmlMultiStateEntity
 from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.provider.components import (default_sdc_provider_components_async)
-from sdc11073.provider.sco import AbstractScoOperationsRegistry
-from sdc11073.roles.metricprovider import GenericMetricProvider
-from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_qnames
@@ -34,10 +28,6 @@ from tests.mockstuff import SomeDeviceEntityMdib
 
 if TYPE_CHECKING:
     from sdc11073.entity_mdib.entities import ProviderMultiStateEntity
-    from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
-    from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.roles.providerbase import OperationClassGetter
-    from sdc11073.provider.operations import OperationDefinitionBase
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -45,97 +35,6 @@ NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
 default_mdib_file = 'mdib_two_mds.xml'
-# default_mdib_file = '70041_MDIB_multi.xml'
-
-class EntityMdibProduct(BaseProduct):
-
-    def __init__(self,
-                 mdib: EntityProviderMdib,
-                 sco: AbstractScoOperationsRegistry,
-                 log_prefix: str | None = None):
-        super().__init__(mdib, sco, log_prefix)
-        self.metric_provider = GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
-        self._ordered_providers.extend([  # AudioPauseProvider(mdib, log_prefix=log_prefix),
-            # GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-            # GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-            # GenericAlarmProvider(mdib, log_prefix=log_prefix),
-            self.metric_provider,
-            # OperationProvider(mdib, log_prefix=log_prefix),
-            # GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
-        ])
-
-    def _register_existing_mdib_operations(self, sco: AbstractScoOperationsRegistry):
-        operation_descriptor_entities = self._mdib.entities.parent_handle(self._sco.sco_descriptor_container.Handle)
-        for entity in operation_descriptor_entities:
-            registered_op = sco.get_operation_by_handle(entity.descriptor.Handle)
-            if registered_op is None:
-                self._logger.debug('found unregistered %s in mdib, handle=%s, code=%r target=%s',
-                                   entity.descriptor.NODETYPE.localname, entity.descriptor.Handle,
-                                   entity.descriptor.Type, entity.descriptor.OperationTarget)
-                operation = self.make_operation_instance(entity.descriptor,
-                                                         sco.operation_cls_getter)
-                if operation is not None:
-                    sco.register_operation(operation)
-
-    def make_operation_instance(self,
-                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
-                                operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
-        """Call make_operation_instance of all role providers, until the first returns not None."""
-        operation_target_handle = operation_descriptor_container.OperationTarget
-        operation_target_entity = self._mdib.entities.handle(operation_target_handle)
-        if operation_target_entity is None:
-            # this operation is incomplete, the operation target does not exist. Registration not possible.
-            self._logger.warning('Operation %s: target %s does not exist, will not register operation',
-                                 operation_descriptor_container.Handle, operation_target_handle)
-            return None
-        for role_handler in self._all_providers_sorted():
-            operation = role_handler.make_operation_instance(operation_descriptor_container, operation_cls_getter)
-            if operation is not None:
-                self._logger.debug('%s provided operation for %s',
-                                   role_handler.__class__.__name__, operation_descriptor_container)
-                return operation
-            self._logger.debug('%s: no handler for %s', role_handler.__class__.__name__, operation_descriptor_container)
-        return None
-
-    def init_operations(self):
-        """Register all actively provided operations."""
-        sco_handle = self._sco.sco_descriptor_container.Handle
-        self._logger.info('init_operations for sco %s.', sco_handle)
-
-        for role_handler in self._all_providers_sorted():
-            role_handler.init_operations(self._sco)
-
-        self._register_existing_mdib_operations(self._sco)
-
-        for role_handler in self._all_providers_sorted():
-            operations = role_handler.make_missing_operations(self._sco)
-            if operations:
-                info = ', '.join([f'{op.OP_DESCR_QNAME.localname} {op.handle}' for op in operations])
-                self._logger.info('role handler %s added operations to mdib: %s',
-                                  role_handler.__class__.__name__, info)
-            for operation in operations:
-                self._sco.register_operation(operation)
-
-        all_sco_operation_entities = self._mdib.entities.parent_handle(self._sco.sco_descriptor_container.Handle)
-        all_op_handles = [op.descriptor.Handle for op in all_sco_operation_entities]
-        all_not_registered_op_handles = [op_h for op_h in all_op_handles if
-                                         self._sco.get_operation_by_handle(op_h) is None]
-
-        if not all_op_handles:
-            self._logger.info('sco %s has no operations in mdib.', sco_handle)
-        elif all_not_registered_op_handles:
-            self._logger.info('sco %s has operations without handler! handles = %r',
-                              sco_handle, all_not_registered_op_handles)
-        else:
-            self._logger.info('sco %s: all operations have a handler.', sco_handle)
-        self._mdib.xtra.mk_state_containers_for_all_descriptors()
-        self._mdib.pre_commit_handler = self._on_pre_commit
-        self._mdib.post_commit_handler = self._on_post_commit
-
-
-my_sdc_provider_components_async = copy.deepcopy(default_sdc_provider_components_async)
-my_sdc_provider_components_async.role_provider_class = EntityMdibProduct  # no role providers
-my_sdc_provider_components_async.waveform_provider_class = mockstuff.EntityGenericWaveformProvider
 
 
 def provide_realtime_data(sdc_device):
@@ -157,21 +56,6 @@ def provide_realtime_data(sdc_device):
                                                        trigger_handle=waveform_entity.handl,
                                                        annotated_handles=[waveform_entities[0].handle]
                                                        )
-
-
-    # paw = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.01)
-    # waveform_provider.register_waveform_generator('0x34F05500', paw)
-    #
-    # flow = waveforms.SinusGenerator(min_value=-8.0, max_value=10.0, waveform_period=1.2, sample_period=0.01)
-    # waveform_provider.register_waveform_generator('0x34F05501', flow)
-    #
-    # co2 = waveforms.TriangleGenerator(min_value=0, max_value=20, waveform_period=1.0, sample_period=0.01)
-    # waveform_provider.register_waveform_generator('0x34F05506', co2)
-    # # make SinusGenerator (0x34F05501) the annotator source
-    # waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
-    #                                            trigger_handle='0x34F05501',
-    #                                            annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506']
-    #                                            )
 
 
 def runtest_basic_connect(unit_test, sdc_client):
@@ -207,7 +91,6 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
 
     def _init_provider_consumer(self, mdib_file = default_mdib_file):
         self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None, mdib_file,
-                                                             default_components=my_sdc_provider_components_async,
                                                              max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_provider.start_all(periodic_reports_interval=1.0)
@@ -256,11 +139,10 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         entities = self.sdc_provider.mdib.entities.node_type(pm.PatientContextDescriptor)
         if len(entities) != 1:
             raise ValueError(f'cannot handle {len(entities)} instances of PatientContextDescriptor')
-        # patientDescriptorContainer = self.sdc_provider.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
         entity = entities[0]
         handles = []
         for i in range(count):
-            st = self.sdc_provider.mdib.entities.new_state(entity)
+            st = entity.new_state()
             st.CoreData.Givenname = f'Max{i}'
             st.CoreData.Middlename = ['Willy']
             st.CoreData.Birthname = f'Mustermann{i}'
@@ -313,12 +195,10 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
 
         # verify that NODETYPE filter works as expected
         consumer_ent_list = consumer_mdib.entities.node_type(pm_qnames.VmdDescriptor)
-        # provider_list = self.sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.VmdDescriptor)
         provider_list = self.sdc_provider.mdib.entities.node_type(pm_qnames.VmdDescriptor)
         self.assertEqual(len(provider_list), len(consumer_ent_list))
 
         # test update method of entities
-        # metric_descriptor_handle = '0x34F00100'
         metric_entities = consumer_mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
         consumer_metric_entity = metric_entities[0]
         descriptor_version = consumer_metric_entity.descriptor.DescriptorVersion
@@ -346,7 +226,6 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         consumer_mdib.init_mdib()
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
 
-        # descriptor_handle = '0x34F00100'
         metric_entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
         provider_entity = metric_entities[0]
 
@@ -355,7 +234,6 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
 
         # set value of a metric
         first_value = Decimal(12)
-        # provider_entity = self.sdc_provider.mdib.entities.handle(descriptor_handle)
         st = provider_entity.state
         old_state_version = st.StateVersion
         if st.MetricValue is None:
@@ -367,7 +245,6 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
             # mgr automatically increases the StateVersion
             mgr.write_entity(provider_entity)
 
-        # time.sleep(1)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_entity.update()
         self.assertEqual(provider_entity.state.StateVersion, old_state_version + 1)
@@ -381,7 +258,6 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
-        # self.assertEqual(len(self.sdc_provider.mdib.descriptions.objects), len(consumer_mdib._entities))
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
 
         provider_entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.AlertConditionDescriptor)
@@ -396,10 +272,8 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
             mgr.write_entity(provider_entity)
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
-        provider_entity.update()  # aminly to get correct version counters
+        provider_entity.update()  # update to get correct version counters
         consumer_entity = consumer_mdib.entities.handle(provider_entity.handle)
-        # provider_entity = self.sdc_provider.mdib.entities.handle(descriptor_handle)
-        # provider_state = self.sdc_provider.mdib.states.descriptor_handle.get_one(descriptor_handle)
         self.assertIsNone(provider_entity.state.diff(consumer_entity.state, max_float_diff=1e-6))
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
 
@@ -433,12 +307,10 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         consumer_mdib.init_mdib()
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib._entities))
 
-        # descriptor_handle = 'SVO.37.3569'  # an Activate operation
         entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.ActivateOperationDescriptor)
         provider_entity = entities[0]
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'operation_handles')
-        # provider_entity = self.sdc_provider.mdib.entities.handle((descriptor_handle))
         provider_entity.state.OperatingMode = pm_types.OperatingMode.NA
 
         with self.sdc_provider.mdib.operational_state_transaction() as mgr:
@@ -526,11 +398,9 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
-        # metric_descriptor_handle = '0x34F00100'  # a metric
         metric_entities = consumer_mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
         consumer_entity = metric_entities[0]
 
-        # consumer_entity = consumer_mdib.entities.handle(metric_descriptor_handle)
         initial_descriptor_version = consumer_entity.descriptor.DescriptorVersion
         initial_state_version = consumer_entity.state.StateVersion
 
@@ -616,7 +486,6 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         # test creating a battery descriptor
         entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.MdsDescriptor)
         provider_mds_entity = entities[0]
-        # mds_descriptor_handle = '3569'  # a channel
 
         # coll: wait for the next DescriptionModificationReport
         coll = observableproperties.SingleValueCollector(consumer_mdib,

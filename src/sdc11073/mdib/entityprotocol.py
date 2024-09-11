@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, Union, Iterable
+from typing import TYPE_CHECKING, Protocol, Union, Iterable, ClassVar
 
 if TYPE_CHECKING:
     from lxml.etree import QName
@@ -12,10 +12,16 @@ if TYPE_CHECKING:
 class EntityProtocol(Protocol):
     descriptor: AbstractDescriptorProtocol
     state: AbstractStateProtocol
-    is_multi_state: bool
-    node_type: QName
-    handle: str
-    parent_handle: str
+    is_multi_state: ClassVar[bool]
+
+    @property
+    def handle(self) -> str: ...  # a read-only member
+
+    @property
+    def parent_handle(self) -> str: ...  # a read-only member
+
+    @property
+    def node_type(self) -> QName: ...  # a read-only member
 
     def update(self):
         ...
@@ -30,8 +36,10 @@ class MultiStateEntityProtocol(Protocol):
     parent_handle: str
 
     def update(self):
-        ...
+        """Update entity with current data in mdib."""
 
+    def new_state(self, handle: str | None = None) -> AbstractMultiStateProtocol:
+        """create a new state."""
 
 EntityTypeProtocol = Union[EntityProtocol, MultiStateEntityProtocol]
 
@@ -46,11 +54,11 @@ class EntityGetterProtocol(Protocol):
     Changing the data does not change data in the mdib.
     Use the EntityTransactionProtocol to write data back to the mdib."""
 
-    def handle(self, handle: str) -> EntityTypeProtocol:
+    def handle(self, handle: str) -> EntityTypeProtocol | None:
         """Return entity with given descriptor handle."""
         ...
 
-    def context_handle(self, handle: str) -> MultiStateEntityProtocol:
+    def context_handle(self, handle: str) -> MultiStateEntityProtocol | None:
         """Return multi state entity that contains a state with given handle."""
         ...
 
@@ -86,11 +94,4 @@ class ProviderEntityGetterProtocol(EntityGetterProtocol):
                    handle: str,
                    parent_handle: str) -> EntityTypeProtocol:
         """Create an entity."""
-        ...
-
-    def new_state(self,
-                  entity: MultiStateEntityProtocol,
-                  handle: str | None = None,
-                  ) -> AbstractMultiStateProtocol:
-        """Create a new context state."""
         ...

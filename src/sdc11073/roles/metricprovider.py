@@ -11,7 +11,7 @@ from .providerbase import ProviderRole
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sdc11073.mdib import ProviderMdib
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.transactionsprotocol import StateTransactionManagerProtocol, TransactionItem
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
@@ -27,7 +27,7 @@ class GenericMetricProvider(ProviderRole):
     - SetStringOperation on (enum) string metrics
     """
 
-    def __init__(self, mdib: ProviderMdib,
+    def __init__(self, mdib: ProviderMdibProtocol,
                  activation_state_can_remove_metric_value: bool = True,
                  log_prefix: str | None = None):
         """Create a GenericMetricProvider."""
@@ -96,7 +96,7 @@ class GenericMetricProvider(ProviderRole):
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
 
-    def on_pre_commit(self, mdib: ProviderMdib,  # noqa: ARG002
+    def on_pre_commit(self, mdib: ProviderMdibProtocol,  # noqa: ARG002
                       transaction: StateTransactionManagerProtocol):
         """Set state.MetricValue to None if state.ActivationState requires this."""
         if not self.activation_state_can_remove_metric_value:

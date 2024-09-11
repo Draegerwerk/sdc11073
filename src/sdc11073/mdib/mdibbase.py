@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import traceback
+import uuid
 from dataclasses import dataclass
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Iterable
@@ -277,6 +278,17 @@ class MultiStateEntity(_EntityBase):
         for handle in states_dict:
             if handle not in self.states:
                 self.states[handle] = states_dict[handle].mk_copy()
+
+    def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
+        """create a new state."""
+        if state_handle in self.states:
+            raise ValueError(f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
+        cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
+        state = cls(descriptor_container=self.descriptor)
+        state.Handle = state_handle or uuid.uuid4().hex
+        self.states[state.Handle] = state
+        return state
+
 
 class EntityGetter:
     def __init__(self, mdib: MdibBase):

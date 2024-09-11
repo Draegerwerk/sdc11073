@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from threading import Lock
-from typing import TYPE_CHECKING, Union
-
+from typing import TYPE_CHECKING, Union, Iterator
+import itertools
 from lxml import etree as etree_
 
 from sdc11073 import observableproperties as properties

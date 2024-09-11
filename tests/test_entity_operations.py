@@ -20,7 +20,7 @@ from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
 from tests import utils
-from tests.mockstuff import SomeDeviceEntityMdib, EntityGenericWaveformProvider
+from tests.mockstuff import SomeDeviceEntityMdib
 
 from sdc11073.roles.product import BaseProduct
 from sdc11073.roles.metricprovider import GenericMetricProvider
@@ -48,29 +48,27 @@ default_mdib_file = 'mdib_two_mds.xml'
 mdib_70041_file = '70041_MDIB_Final.xml'
 
 
-class EntityMdibProduct(BaseProduct):
+# class EntityMdibProduct(BaseProduct):
+#
+#     def __init__(self,
+#                  mdib: EntityProviderMdib,
+#                  sco: AbstractScoOperationsRegistry,
+#                  log_prefix: str | None = None):
+#         super().__init__(mdib, sco, log_prefix)
+#         self.metric_provider = GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
+#         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
+#             # GenericSDCClockProvider(mdib, log_prefix=log_prefix),
+#             # GenericPatientContextProvider(mdib, log_prefix=log_prefix),
+#             # GenericAlarmProvider(mdib, log_prefix=log_prefix),
+#             self.metric_provider,
+#             # OperationProvider(mdib, log_prefix=log_prefix),
+#             # GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
+#         ])
 
-    def __init__(self,
-                 mdib: EntityProviderMdib,
-                 sco: AbstractScoOperationsRegistry,
-                 log_prefix: str | None = None):
-        super().__init__(mdib, sco, log_prefix)
-        self.metric_provider = GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
-        self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
-            # GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-            # GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-            # GenericAlarmProvider(mdib, log_prefix=log_prefix),
-            self.metric_provider,
-            # OperationProvider(mdib, log_prefix=log_prefix),
-            # GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
-        ])
 
+# my_sdc_provider_components_async = copy.deepcopy(default_sdc_provider_components_async)
 
-my_sdc_provider_components_async = copy.deepcopy(default_sdc_provider_components_async)
-# my_sdc_provider_components_async.role_provider_class = EntityMdibProduct  # no role providers
-my_sdc_provider_components_async.waveform_provider_class = EntityGenericWaveformProvider
-
-class Test_BuiltinOperations(unittest.TestCase):
+class Test_EntityOperations(unittest.TestCase):
     """Test role providers (located in sdc11073.roles)."""
 
     def setUp(self):
@@ -84,35 +82,9 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         self._logger.info('############### setUp done %s ##############', self._testMethodName)
 
-        # self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None,
-        #                                                       default_mdib_file,
-        #                                                       default_components=my_sdc_provider_components_async)
-        # # in order to test correct handling of default namespaces, we make participant model the default namespace
-        # self.sdc_provider.start_all(periodic_reports_interval=1.0)
-        # self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        # self.sdc_provider.set_location(utils.random_location(), self._loc_validators)
-        #
-        # time.sleep(0.5)  # allow init of devices to complete
-        #
-        # x_addr = self.sdc_provider.get_xaddrs()
-        # # no deferred action handling for easier debugging
-        # specific_components = SdcConsumerComponents(
-        #     action_dispatcher_class=RequestDispatcher
-        # )
-        # sdc_consumer = SdcConsumer(x_addr[0],
-        #                               sdc_definitions=self.sdc_provider.mdib.sdc_definitions,
-        #                               ssl_context_container=None,
-        #                               validate=CLIENT_VALIDATE,
-        #                               specific_components=specific_components)
-        # sdc_consumer.start_all()
-        # time.sleep(1)
-        # self._logger.info('############### setUp done %s ##############', self._testMethodName)
-        # time.sleep(0.5)
-        # self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-
     def _init_provider_consumer(self, mdib_file = default_mdib_file):
         self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None, mdib_file,
-                                                             default_components=my_sdc_provider_components_async,
+                                                             # default_components=my_sdc_provider_components_async,
                                                              max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_provider.start_all(periodic_reports_interval=1.0)
@@ -170,22 +142,17 @@ class Test_BuiltinOperations(unittest.TestCase):
         # patient_descriptor_container = client_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
         patient_entities = client_mdib.entities.node_type(pm.PatientContextDescriptor)
         my_patient_entity = patient_entities[0]
-        # # initially the device shall not have any patient
+        # initially the device shall not have any patient
         self.assertEqual(len(my_patient_entity.states), 0)
         operation_entities = client_mdib.entities.node_type(pm.SetContextStateOperationDescriptor)
         pat_op_entities = [ ent for ent in operation_entities if ent.descriptor.OperationTarget == my_patient_entity.handle]
         self.assertEqual(len(pat_op_entities), 1)
         my_operation = pat_op_entities[0]
-        # my_operations = client_mdib.get_operation_descriptors_for_descriptor_handle(
-        #     patient_descriptor_container.Handle,
-        #     NODETYPE=pm.SetContextStateOperationDescriptor)
-        # self.assertEqual(len(my_operations), 1)
-        # operation_handle = my_operations[0].Handle
         self._logger.info('Handle for SetContextState Operation = %s', my_operation.handle)
         context = self.sdc_consumer.client('Context')
 
         # insert a new patient with wrong handle, this shall fail
-        proposed_context = context.mk_proposed_context_object(my_patient_entity.handle)
+        proposed_context = my_patient_entity.new_state()
         proposed_context.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         proposed_context.Handle = 'some_nonexisting_handle'
         proposed_context.CoreData.Givenname = 'Karl'
@@ -207,12 +174,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertIsNone(result.OperationTarget)
 
         # insert two new patients for same descriptor, both associated. This shall fail
-        proposed_context1 = context.mk_proposed_context_object(my_patient_entity.handle)
-        # proposed_context1 = context.mk_proposed_context_object(patient_descriptor_container.Handle)
-        proposed_context1.Handle = my_patient_entity.handle
+        proposed_context1 = my_patient_entity.new_state()
+
         proposed_context1.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
-        proposed_context2 = context.mk_proposed_context_object(my_patient_entity.handle)
-        proposed_context2.Handle = my_patient_entity.handle
+        proposed_context2 = my_patient_entity.new_state()
         proposed_context2.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         future = context.set_context_state(my_operation.handle, [proposed_context1, proposed_context2])
         result = future.result(timeout=SET_TIMEOUT)
@@ -234,7 +199,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         # check client side patient context, this shall have been set via notification
         consumer_entity = client_mdib.entities.handle(my_patient_entity.handle)
         patient_context_state_container = list(consumer_entity.states.values())[0]
-        # patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(pm.PatientContextState)
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karl')
         self.assertEqual(patient_context_state_container.CoreData.Middlename, ['M.'])
         self.assertEqual(patient_context_state_container.CoreData.Familyname, 'Klammer')
@@ -252,23 +216,20 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertIsNotNone(patient_context_state_container.BindingStartTime)
 
         # test update of the patient
-        proposed_context = context.mk_proposed_context_object(my_patient_entity.handle,
-                                                              handle=patient_context_state_container.Handle)
-        proposed_context.CoreData.Givenname = 'Karla'
-        future = context.set_context_state(my_operation.handle, [proposed_context])
+        patient_context_state_container.CoreData.Givenname = 'Karla'
+        future = context.set_context_state(my_operation.handle, [patient_context_state_container])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
-        self.assertEqual(result.OperationTarget, proposed_context.Handle)
-        # patient_context_state_container = client_mdib.context_states.handle.get_one(
-        #     patient_context_state_container.Handle)
+        self.assertEqual(result.OperationTarget, patient_context_state_container.Handle)
+
         consumer_entity.update()
         patient_context_state_container = list(consumer_entity.states.values())[0]
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karla')
         self.assertEqual(patient_context_state_container.CoreData.Familyname, 'Klammer')
 
         # set new patient, check binding mdib versions and context association
-        proposed_context = context.mk_proposed_context_object(my_patient_entity.handle)
+        proposed_context = my_patient_entity.new_state()
         proposed_context.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         proposed_context.CoreData.Givenname = 'Heidi'
         proposed_context.CoreData.Middlename = ['M.']
@@ -288,7 +249,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertIsNotNone(result.OperationTarget)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
-#         patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState, [])
         consumer_entity.update()
         patient_context_state_containers = list(consumer_entity.states.values())
 
@@ -302,9 +262,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         # create a patient locally on device, then test update from client
         pat_entity = self.sdc_provider.mdib.entities.handle(my_patient_entity.handle)
-        st = self.sdc_provider.mdib.entities.new_state(pat_entity)
-        pat_entity.states[st.Handle] = st
-        # st = mgr.mk_context_state(my_patient_entity.handle)
+        st = pat_entity.new_state()
         st.CoreData.Givenname = 'Max123'
         st.CoreData.Middlename = ['Willy']
         st.CoreData.Birthname = 'Mustermann'
@@ -325,21 +283,18 @@ class Test_BuiltinOperations(unittest.TestCase):
         consumer_entity.update()
         patient_context_state_containers = list(consumer_entity.states.values())
 
-        # patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState)
         my_patients = [p for p in patient_context_state_containers if p.CoreData.Givenname == 'Max123']
         self.assertEqual(len(my_patients), 1)
         my_patient = my_patients[0]
-        proposed_context = context.mk_proposed_context_object(my_patient_entity.handle, my_patient.Handle)
-        proposed_context.CoreData.Givenname = 'Karl123'
-        future = context.set_context_state(my_operation.handle, [proposed_context])
+        my_patient.CoreData.Givenname = 'Karl123'
+        future = context.set_context_state(my_operation.handle, [my_patient])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
-        # my_patient2 = self.sdc_provider.mdib.context_states.handle.get_one(my_patient.Handle)
         consumer_entity.update()
-        my_patient2 = consumer_entity.states[my_patient.Handle]
+        my_updated_patient = consumer_entity.states[my_patient.Handle]
 
-        self.assertEqual(my_patient2.CoreData.Givenname, 'Karl123')
+        self.assertEqual(my_updated_patient.CoreData.Givenname, 'Karl123')
 
     def test_location_context(self):
         # initially the device shall have one location, and the client must have it in its mdib
@@ -358,20 +313,12 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertGreater(initial_number_of_states, 0)
 
         self.assertEqual(len(dev_location_entity.states), len(cl_location_entity.states))
-        # dev_state = list(dev_location_entity.states.values())[0]
-        # cl_state = list(cl_location_entity.states.values())[0]
-        # self.assertEqual(dev_state.Handle, cl_state.Handle)
-        # self.assertEqual(cl_state.ContextAssociation, pm_types.ContextAssociation.ASSOCIATED)
-        # self.assertIsNotNone(cl_state.BindingMdibVersion)
-        # self.assertEqual(cl_state.UnbindingMdibVersion, None)
 
         for i in range(10):
             new_location = utils.random_location()
             coll = observableproperties.SingleValueCollector(client_mdib, 'context_handles')
             self.sdc_provider.set_location(new_location)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
-            # dev_locations = device_mdib.context_states.NODETYPE.get(pm.LocationContextState)
-            # cl_locations = client_mdib.context_states.NODETYPE.get(pm.LocationContextState)
             dev_location_entity = device_mdib.entities.handle(loc_context_handle)
             cl_location_entity = client_mdib.entities.handle(loc_context_handle)
             self.assertEqual(len(dev_location_entity.states), i + 1 + initial_number_of_states)
@@ -407,27 +354,11 @@ class Test_BuiltinOperations(unittest.TestCase):
         """
         # switch one alert system off
         self._init_provider_consumer(mdib_70041_file)
-        # alert_system_off = 'Asy.3208'
-        # alert_system_entities = self.sdc_provider.mdib.entities.node_type(pm.AlertSystemDescriptor)
-        # self.assertGreater(len(alert_system_entities), 0)
-        # my_alert_system_entity = alert_system_entities[0]
         alert_system_entity_off = self.sdc_provider.mdib.entities.handle('Asy.3208')
         self.assertIsNotNone(alert_system_entity_off)
         alert_system_entity_off.state.ActivationState = pm_types.AlertActivation.OFF
         with self.sdc_provider.mdib.alert_state_transaction() as mgr:
             mgr.write_entity(alert_system_entity_off)
-
-
-        # activate_entities = self.sdc_provider.mdib.entities.node_type(pm.ActivateOperationDescriptor)
-        # activate_entity = activate_entities[0]
-        # operation_target_entity = self.sdc_provider.mdib.entities.handle(activate_entity.descriptor.OperationTarget)
-        #
-        # operation_target_entity.state.ActivationState = pm_types.AlertActivation.OFF
-        # with self.sdc_provider.mdib.alert_state_transaction() as mgr:
-        #     mgr.ad_state(operation_target_entity)
-        #
-        # alert_system_entities = self.sdc_provider.mdib.entities.node_type(pm.AlertSystemDescriptor)
-        # self.assertGreater(len(alert_system_entities), 0)
 
         set_service = self.sdc_consumer.client('Set')
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
@@ -453,12 +384,6 @@ class Test_BuiltinOperations(unittest.TestCase):
                 self.assertEqual(alert_system_entity.state.SystemSignalActivation[0].State,
                                  pm_types.AlertActivation.PAUSED)
 
-        # for alert_system_entity in alert_system_entities:
-        #     state = self.sdc_consumer.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
-        #     # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
-        #     if alert_system_descriptor.Handle != alert_system_off:
-        #         self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
-
         future = set_service.activate(operation_handle=cancel_entity.handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
@@ -470,16 +395,7 @@ class Test_BuiltinOperations(unittest.TestCase):
                 self.assertEqual(alert_system_entity.state.SystemSignalActivation[0].State,
                                  pm_types.AlertActivation.ON)
 
-        # # the whole tests only makes sense if there is an alert system
-        # alert_system_descriptors = self.sdc_provider.mdib.descriptions.NODETYPE.get(pm.AlertSystemDescriptor)
-        # self.assertTrue(alert_system_descriptors is not None)
-        # self.assertGreater(len(alert_system_descriptors), 0)
-        # for alert_system_descriptor in alert_system_descriptors:
-        #     state = self.sdc_consumer.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
-        #     self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
-
         # now remove all alert systems from provider mdib and verify that operation now fails
-
         alert_system_entities = self.sdc_provider.mdib.entities.node_type(pm.AlertSystemDescriptor)
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
@@ -531,7 +447,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib.init_mdib()
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
-        # my_operation_descriptor = self.sdc_provider.mdib.descriptions.coding.get_one(coding, allow_none=True)
         operation_entities = self.sdc_provider.mdib.entities.coding(coding)
         self.assertGreater(len(operation_entities), 0)
         my_operation_entity = operation_entities[0]
@@ -556,15 +471,6 @@ class Test_BuiltinOperations(unittest.TestCase):
                     op_target_entity = clock_entities[0]
             self.assertEqual(op_target_entity.state.TimeZone, value)
 
-            # state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-            # if state.NODETYPE == pm.MdsState:
-            #     # look for the ClockState child
-            #     clock_descriptors = client_mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
-            #     clock_descriptors = [c for c in clock_descriptors if c.parent_handle == state.DescriptorHandle]
-            #     if len(clock_descriptors) == 1:
-            #         state = client_mdib.states.descriptor_handle.get_one(clock_descriptors[0].Handle)
-            # self.assertEqual(state.TimeZone, value)
-
     def test_set_metric_state(self):
         # first we need to add a set_metric_state Operation
         # sco_descriptors = self.sdc_provider.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
@@ -575,13 +481,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         metric_entities = self.sdc_provider.mdib.entities.node_type(pm.NumericMetricDescriptor)
         my_metric_entity = metric_entities[0]
 
-        # cls = self.sdc_provider.mdib.data_model.get_descriptor_container_class(pm.SetMetricStateOperationDescriptor)
         new_operation_entity = self.sdc_provider.mdib.entities.new_entity(pm.SetMetricStateOperationDescriptor,
                                                                         handle='HANDLE_FOR_MY_TEST',
                                                                         parent_handle=my_sco.handle)
-        # operation_target_handle = '0x34F001D5'
         my_code = pm_types.CodedValue('99999')
-        # my_operation_descriptor = cls('HANDLE_FOR_MY_TEST', sco_entities[0].handle)
         new_operation_entity.descriptor.Type = my_code
         new_operation_entity.descriptor.SafetyClassification = pm_types.SafetyClassification.INF
         new_operation_entity.descriptor.OperationTarget = my_metric_entity.handle
@@ -589,7 +492,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             mgr.write_entity(new_operation_entity)
 
-        # sco_handle = 'Sco.mds0'
         sco = self.sdc_provider._sco_operations_registries[my_sco.handle]
         role_provider = self.sdc_provider.product_lookup[my_sco.handle]
 
@@ -618,7 +520,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         consumer_entity.update()
-        # updated_metric_state = clientMdib.states.descriptor_handle.get_one(operation_target_handle)
         self.assertEqual(consumer_entity.state.StateVersion, before_state_version + 1)
         self.assertAlmostEqual(consumer_entity.state.LifeTimePeriod, newLifeTimePeriod)
 
@@ -626,7 +527,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         """ tests GenericSetComponentStateOperationProvider"""
         # Use a single mds mdib. This makes test easier because source_mds of channel and sco are the same.
         self._init_provider_consumer('mdib_tns.xml')
-        # operation_target_handle = '2.1.2.1'  # a channel
         channels = self.sdc_provider.mdib.entities.node_type(pm.ChannelDescriptor)
         my_channel_entity = channels[0]
         # first we need to add a set_component_state Operation
@@ -643,8 +543,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         with self.sdc_provider.mdib.descriptor_transaction() as tr:
             tr.write_entity(operation_entity)
 
-        # self.sdc_provider.mdib.descriptions.add_object(my_operation_descriptor)
-        # sco_handle = 'Sco.mds0'
         sco = self.sdc_provider._sco_operations_registries[my_sco_entity.handle]
         role_provider = self.sdc_provider.product_lookup[my_sco_entity.handle]
         op = role_provider.make_operation_instance(operation_entity.descriptor,
@@ -655,7 +553,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
 
-        # operation_handle = my_operation_descriptor.Handle
         proposed_component_state = my_channel_entity.state  #client_mdib.xtra.mk_proposed_state(my_channel_entity.handle)
         self.assertIsNone(
             proposed_component_state.OperatingHours)  # just to be sure that we know the correct intitial value
@@ -671,7 +568,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
         updated_channel_entity = self.sdc_provider.mdib.entities.handle(my_channel_entity.handle)
-        # updated_component_state = client_mdib.states.descriptor_handle.get_one(my_channel_entity.handl)
         self.assertEqual(updated_channel_entity.state.OperatingHours, new_operating_hours)
         self.assertEqual(updated_channel_entity.state.StateVersion, before_state_version + 1)
 
@@ -751,7 +647,6 @@ class Test_BuiltinOperations(unittest.TestCase):
 
         operation_entities = consumer_mdib.entities.node_type(pm.ActivateOperationDescriptor)
         my_operation_entity = operation_entities[0]
-        # operation_handle = 'SVO.37.3569'
         operation = self.sdc_provider.get_operation_by_handle(my_operation_entity.handle)
         for op_mode in (pm_types.OperatingMode.NA, pm_types.OperatingMode.ENABLED):
             operation.set_operating_mode(op_mode)
@@ -759,32 +654,6 @@ class Test_BuiltinOperations(unittest.TestCase):
             my_operation_entity.update()
             # operation_entity = consumer_mdib.states.descriptor_handle.get_one(operation_handle)
             self.assertEqual(my_operation_entity.state.OperatingMode, op_mode)
-
-    # def test_set_string_value(self):
-    #     """Verify that metricprovider instantiated an operation for SetString call.
-    #
-    #      OperationTarget of operation 0815 is an EnumStringMetricState.
-    #      """
-    #     self._init_provider_consumer()
-    #     set_service = self.sdc_consumer.client('Set')
-    #     client_mdib = EntityConsumerMdib(self.sdc_consumer)
-    #     client_mdib.init_mdib()
-    #     coding = pm_types.Coding('0815')
-    #     my_operation_descriptor = self.sdc_provider.mdib.descriptions.coding.get_one(coding, allow_none=True)
-    #
-    #     operation_handle = my_operation_descriptor.Handle
-    #     for value in ('ADULT', 'PEDIATRIC'):
-    #         self._logger.info('string value = %s', value)
-    #         future = set_service.set_string(operation_handle=operation_handle, requested_string=value)
-    #         result = future.result(timeout=SET_TIMEOUT)
-    #         state = result.InvocationInfo.InvocationState
-    #         self.assertEqual(state, msg_types.InvocationState.FINISHED)
-    #         self.assertIsNone(result.InvocationInfo.InvocationError)
-    #         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
-    #
-    #         # verify that the corresponding state has been updated
-    #         state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-    #         self.assertEqual(state.MetricValue.Value, value)
 
     def test_set_string_value(self):
         """Verify that metricprovider instantiated an operation for SetString call.
@@ -796,7 +665,6 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding('0815')
-        # my_operation_descriptor = self.sdc_provider.mdib.descriptions.coding.get_one(coding, allow_none=True)
         my_operation_entities = self.sdc_provider.mdib.entities.coding(coding)
         self.assertEqual(len(my_operation_entities), 1)
         my_operation_entity = my_operation_entities[0]
@@ -811,7 +679,6 @@ class Test_BuiltinOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            # state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
             consumer_entity = client_mdib.entities.handle(my_operation_entity.descriptor.OperationTarget)
             self.assertEqual(consumer_entity.state.MetricValue.Value, value)
 
@@ -825,11 +692,9 @@ class Test_BuiltinOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding('0815-1')
-        # my_operation_descriptor = self.sdc_provider.mdib.descriptions.coding.get_one(coding, allow_none=True)
         my_operation_entities = self.sdc_provider.mdib.entities.coding(coding)
         my_operation_entity = my_operation_entities[0]
 
-        # operation_handle = my_operation_descriptor.Handle
         for value in (Decimal(1), Decimal(42), 1.1, 10, "12"):
             self._logger.info('metric value = %s', value)
             future = set_service.set_numeric_value(operation_handle=my_operation_entity.handle,

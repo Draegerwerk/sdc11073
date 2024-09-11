@@ -4,7 +4,7 @@ import copy
 import time
 from dataclasses import dataclass
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable
 
 from lxml.etree import QName
 
@@ -22,9 +22,11 @@ from .entity_mdibbase import EntityMdibBase
 if TYPE_CHECKING:
     from sdc11073.consumer.consumerimpl import SdcConsumer
     from sdc11073.pysoap.msgreader import ReceivedMessage
-    from sdc11073.mdib.entityprotocol import EntityGetterProtocol
+    from sdc11073.mdib.entityprotocol import EntityGetterProtocol, EntityTypeProtocol
     from sdc11073.xml_types.pm_types import Coding, CodedValue
-    from .entities import ConsumerEntityType
+    from .entities import ConsumerEntityType, ConsumerInternalEntityType
+
+    XmlEntityFactory = Callable[[LxmlElement, str, str], ConsumerInternalEntityType]
 
 
 @dataclass
@@ -40,13 +42,13 @@ multi_state_q_names = (pm_qnames.PatientContextDescriptor,
                        pm_qnames.MeansContextDescriptor,
                        pm_qnames.EnsembleContextDescriptor)
 
-XmlInternalEntityType = Union[XmlEntity, XmlMultiStateEntity]
 
-XmlEntityFactory = Callable[[LxmlElement, str, str], XmlInternalEntityType]
+def _mk_xml_entity(node: LxmlElement, parent_handle: str, source_mds: str) -> ConsumerInternalEntityType:
+    """Implementation of default consumer entity factory.
 
-
-def _mk_xml_entity(node: LxmlElement, parent_handle: str, source_mds: str) -> XmlEntity | XmlMultiStateEntity:
-    """Implementation of default XmlEntityFactory."""
+    It creates one of ConsumerInternalEntityType, which are factories for ConsumerEntityType.
+    By using a different factory, the user can change this to use other classes.
+    """
     xsi_type = get_xsi_type(node)
     if xsi_type in multi_state_q_names:
         return XmlMultiStateEntity(parent_handle, source_mds, xsi_type, node, [])
@@ -63,46 +65,50 @@ class EntityGetter:
     def handle(self, handle: str) -> ConsumerEntityType | None:
         """Return entity with given handle."""
         try:
-            return self._mdib.mk_entity(handle)
+            return self._mk_entity(handle)
         except KeyError:
             return None
 
-    def node_type(self, node_type: QName) -> list[ConsumerEntityType]:
+    def node_type(self, node_type: QName) -> list[EntityTypeProtocol]:
         """Return all entities with given node type."""
         ret = []
         for handle, entity in self._entities.items():
             if entity.node_type == node_type:
-                ret.append(self._mdib.mk_entity(handle))
+                ret.append(self._mk_entity(handle))
         return ret
 
-    def parent_handle(self, parent_handle: str | None) -> list[ConsumerEntityType]:
+    def parent_handle(self, parent_handle: str | None) -> list[EntityTypeProtocol]:
         """Return all entities with given parent handle."""
         ret = []
         for handle, entity in self._entities.items():
             if entity.parent_handle == parent_handle:
-                ret.append(self._mdib.mk_entity(handle))
+                ret.append(self._mk_entity(handle))
         return ret
 
-    def coding(self, coding: Coding) -> list[ConsumerEntityType]:
+    def coding(self, coding: Coding) -> list[EntityTypeProtocol]:
         """Return all entities with given Coding."""
         ret = []
         for handle, xml_entity in self._entities.items():
-            if xml_entity.coded_value.is_equivalent(coding):
-                ret.append(self._mdib.mk_entity(handle))
+            if xml_entity.coded_value is not None and xml_entity.coded_value.is_equivalent(coding):
+                ret.append(self._mk_entity(handle))
         return ret
 
-    def coded_value(self, coded_value: CodedValue) -> list[ConsumerEntityType]:
+    def coded_value(self, coded_value: CodedValue) -> list[EntityTypeProtocol]:
         """Return all entities with given Coding."""
         ret = []
         for handle, xml_entity in self._entities.items():
             if xml_entity.coded_value.is_equivalent(coded_value):
-                ret.append(self._mdib.mk_entity(handle))
+                ret.append(self._mk_entity(handle))
         return ret
 
-    def items(self) -> Iterable[tuple[str, [ConsumerEntityType]]]:
+    def items(self) -> Iterable[tuple[str, [EntityTypeProtocol]]]:
         """Like items() of a dictionary."""
         for handle, entity in self._entities.items():
-            yield handle, self._mdib.mk_entity(handle)
+            yield handle, self._mk_entity(handle)
+
+    def _mk_entity(self, handle) -> ConsumerEntityType:
+        xml_entity = self._mdib.internal_entities[handle]
+        return xml_entity.mk_entity(self._mdib)
 
     def __len__(self) -> int:
         """Return number of entities"""
@@ -163,6 +169,11 @@ class EntityConsumerMdib(EntityMdibBase):
         return self._xtra
 
     @property
+    def internal_entities(self) -> dict[str, ConsumerInternalEntityType]:
+        """This property is needed by transactions. Do not use it otherwise."""
+        return self._entities
+
+    @property
     def sdc_client(self) -> SdcConsumer:
         """Give access to sdc client."""
         return self._sdc_client
@@ -204,13 +215,6 @@ class EntityConsumerMdib(EntityMdibBase):
             self._set_root_node(response.p_msg.msg_node)
             self._update_mdib_version_group(response.mdib_version_group)
 
-            # Todo: Is this special handling still needed?
-            # # retrieve context states only if there were none in mdib
-            # if len(self.context_states.objects) == 0:
-            #     self._get_context_states()
-            # else:
-            #     self._logger.info('found context states in GetMdib Result, will not call getContextStates')
-
             # process buffered notifications
             with self._buffered_notifications_lock:
                 self._logger.debug('got _buffered_notifications_lock')
@@ -229,10 +233,6 @@ class EntityConsumerMdib(EntityMdibBase):
                 del self._buffered_notifications[:]
                 self._state = ConsumerMdibState.initialized
             self._logger.info('reload_all done')
-
-    def mk_entity(self, handle) -> ConsumerEntityType:
-        xml_entity = self._entities[handle]
-        return xml_entity.mk_entity(self)
 
     def process_incoming_metric_states_report(self, received_message_data: ReceivedMessage):
         """Check mdib_version_group and process report it if okay."""
@@ -396,7 +396,11 @@ class EntityConsumerMdib(EntityMdibBase):
         if deleted_descriptors_handles:
             self.deleted_descriptors_handles = deleted_descriptors_handles
 
-    def _update_descriptors(self, parent_handle: str, source_mds_handle: str, descriptors: list, states: list):
+    def _update_descriptors(self,
+                            parent_handle: str,
+                            source_mds_handle: str,
+                            descriptors: list[LxmlElement],
+                            states: list[LxmlElement]) -> list[str]:
         handles = []
         for descriptor in descriptors:
             handle = descriptor.attrib['Handle']
@@ -415,13 +419,16 @@ class EntityConsumerMdib(EntityMdibBase):
             handles.append(handle)
         return handles
 
-    def _create_descriptors(self, parent_handle: str, source_mds_handle: str, descriptors: list, states: list) -> list[
-        str]:
+    def _create_descriptors(self,
+                            parent_handle: str,
+                            source_mds_handle: str,
+                            descriptors: list[LxmlElement],
+                            states: list[LxmlElement]) -> list[str]:
         handles = []
         for descriptor in descriptors:
             xsi_type = get_xsi_type(descriptor)
-            handle = descriptor.attrib['Handle']
-            current_states = [s for s in states if s.attrib['DescriptorHandle'] == handle]
+            descriptor_handle = descriptor.attrib['Handle']
+            current_states = [s for s in states if s.attrib['DescriptorHandle'] == descriptor_handle]
 
             # add states to parent (MdState node)
             for st in current_states:
@@ -431,15 +438,15 @@ class EntityConsumerMdib(EntityMdibBase):
             xml_entity = self._entity_factory(descriptor, parent_handle, source_mds_handle)
             if xml_entity.is_multi_state:
                 for st in current_states:
-                    xml_entity.states[st.Handle] = st
+                    xml_entity.states[st.attrib['Handle']] = st
             else:
                 if len(current_states) != 1:
                     self.logger.error('create descriptor: Expect one state, got %d', len(current_states))
                     # Todo: what to do in this case? add entity without state?
                 else:
                     xml_entity.state = current_states[0]
-            self._entities[handle] = xml_entity
-            handles.append(handle)
+            self._entities[descriptor_handle] = xml_entity
+            handles.append(descriptor_handle)
 
             # add descriptor to parent
             parent_xml_entity = self._entities[parent_handle]
@@ -466,7 +473,6 @@ class EntityConsumerMdib(EntityMdibBase):
                 # Insert at correct position with correct name!
                 self._insert_child(descriptor, xsi_type,
                                    parent_xml_entity.descriptor, child_order)
-
         return handles
 
     @staticmethod
