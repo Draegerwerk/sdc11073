@@ -111,13 +111,13 @@ class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProto
         """
 
     def write_entity(self,
-                       entity: EntityTypeProtocol,
-                       adjust_descriptor_version: bool = True):
+                     entity: EntityTypeProtocol,
+                     adjust_version_counter: bool = True):
         """insert or update an entity (state and descriptor)."""
 
     def write_entities(self,
                        entities: list[EntityTypeProtocol],
-                       adjust_descriptor_version: bool = True):
+                       adjust_version_counter: bool = True):
         """insert or update list of entities."""
 
     def remove_entity(self, entity: EntityTypeProtocol):
@@ -138,10 +138,14 @@ class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):
     def has_state(self, descriptor_handle: str) -> bool:
         """Check if transaction has a state with given handle."""
 
-    def write_entity(self, entity: EntityProtocol):
+    def write_entity(self,
+                     entity: EntityProtocol,
+                     adjust_version_counter: bool = True):
         """Update the state of the entity."""
 
-    def write_entities(self, entities: list[EntityProtocol]):
+    def write_entities(self,
+                       entities: list[EntityProtocol],
+                       adjust_version_counter: bool = True):
         """Update the states of entities."""
 
 
@@ -157,7 +161,7 @@ class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerPro
     """
     def write_entity(self, entity: MultiStateEntityProtocol,
                   modified_handles: list[str],
-                  adjust_state_version: bool = True):
+                  adjust_version_counter: bool = True):
         """Insert or update a context state in mdib."""
 
 

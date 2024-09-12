@@ -78,16 +78,30 @@ def _update_multi_states(mdib: EntityProviderMdib,
             tmp.StateVersion = old_state.StateVersion + 1
 
 
+def _adjust_version_counters(new_entity: ProviderInternalEntityType,
+                             old_entity: ProviderInternalEntityType,
+                             increment_descriptor_version: bool = False):
+    if increment_descriptor_version:
+        new_entity.descriptor.DescriptorVersion = old_entity.descriptor.DescriptorVersion + 1
+    if new_entity.is_multi_state:
+        for new_state in new_entity.states:
+            new_state.DescriptorVersion = new_entity.descriptor.DescriptorVersion
+            old_state = old_entity.states.get(new_state.Handle)
+            if old_state is not None:
+                new_state.StateVersion = old_state.StateVersion + 1
+    else:
+        new_entity.state.DescriptorVersion = new_entity.descriptor.DescriptorVersion
+        new_entity.state.StateVersion = old_entity.state.StateVersion + 1
+
+
 class _TransactionBase:
     def __init__(self,
                  provider_mdib: EntityProviderMdib,
-                 logger: LoggerAdapter,
-                 manage_version_counters: bool):
+                 logger: LoggerAdapter):
         self._mdib = provider_mdib
         # provide the new mdib version that the commit of this transaction will create
         self.new_mdib_version = provider_mdib.mdib_version + 1
         self._logger = logger
-        self.manage_version_counters = manage_version_counters
         self.metric_state_updates: dict[str, TransactionItem] = {}
         self.alert_state_updates: dict[str, TransactionItem] = {}
         self.component_state_updates: dict[str, TransactionItem] = {}
@@ -151,9 +165,8 @@ class DescriptorTransaction(_TransactionBase):
 
     def __init__(self,
                  provider_mdib: EntityProviderMdib,
-                 logger: LoggerAdapter,
-                 manage_version_counters: bool = True):
-        super().__init__(provider_mdib, logger, manage_version_counters)
+                 logger: LoggerAdapter):
+        super().__init__(provider_mdib, logger)
         self.descriptor_updates: dict[str, DescriptorTransactionItem] = {}
         self._new_entities: dict[str, ProviderInternalEntity | ProviderInternalMultiStateEntity] = {}
 
@@ -174,42 +187,50 @@ class DescriptorTransaction(_TransactionBase):
 
     def write_entity(self,
                      entity: ProviderEntity | ProviderMultiStateEntity,
-                     adjust_descriptor_version: bool = True):
+                     adjust_version_counter: bool = True):
         """insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Entity {descriptor_handle} already in updated set!')
-
+        tmp = copy.copy(entity)  # cannot deepcopy entity, that would deepcopy also whole mdib
+        tmp.descriptor = copy.deepcopy(entity.descriptor) # do not touch original entity of user
+        if entity.is_multi_state:
+            tmp.states = copy.deepcopy(entity.states) # do not touch original entity of user
+        else:
+            tmp.state = copy.deepcopy(entity.state) # do not touch original entity of user
         if descriptor_handle in self._mdib.internal_entities:
             # update
-            self.descriptor_updates[descriptor_handle] = DescriptorTransactionItem(entity,
+            if adjust_version_counter:
+                old_entity = self._mdib.internal_entities[descriptor_handle]
+                _adjust_version_counters(tmp, old_entity, increment_descriptor_version=True)
+            self.descriptor_updates[descriptor_handle] = DescriptorTransactionItem(tmp,
                                                                                    _Modification.update)
 
         elif descriptor_handle in self._mdib.new_entities:
             # create
-            if adjust_descriptor_version:
+            if adjust_version_counter:
                 version = self._mdib.descr_handle_version_lookup.get(descriptor_handle)
                 if version is not None:
-                    entity.descriptor.DescriptorVersion = version
-                if entity.is_multi_state:
-                    for state in entity.states.values():
+                    tmp.descriptor.DescriptorVersion = version
+                if tmp.is_multi_state:
+                    for state in tmp.states.values():
                         version = self._mdib.state_handle_version_lookup.get(state.Handle)
                         if version is not None:
                             state.StateVersion = version
                 else:
                     version = self._mdib.state_handle_version_lookup.get(descriptor_handle)
                     if version is not None:
-                        entity.state.StateVersion = version
-            self.descriptor_updates[descriptor_handle] = DescriptorTransactionItem(entity,
+                        tmp.state.StateVersion = version
+            self.descriptor_updates[descriptor_handle] = DescriptorTransactionItem(tmp,
                                                                                    _Modification.insert)
         else:
             raise ValueError(f'Entity {descriptor_handle} is not known!')
 
     def write_entities(self,
                        entities: list[ProviderEntity | ProviderMultiStateEntity],
-                       adjust_descriptor_version: bool = True):
+                       adjust_version_counter: bool = True):
         for ent in entities:
-            self.write_entity(ent, adjust_descriptor_version)
+            self.write_entity(ent, adjust_version_counter)
 
     def remove_entity(self, entity: ProviderEntity | ProviderMultiStateEntity):
         """Remove existing descriptor from mdib."""
@@ -221,8 +242,7 @@ class DescriptorTransaction(_TransactionBase):
             self.descriptor_updates[entity.handle] = DescriptorTransactionItem(internal_entity,
                                                                                _Modification.delete)
 
-    def process_transaction(self, set_determination_time: bool,
-                            manage_version_counters: bool = True) -> TransactionResultProtocol:  # noqa: ARG002
+    def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
         """Process transaction and create a TransactionResult.
 
         The parameter set_determination_time is only present in order to implement the interface correctly.
@@ -274,7 +294,7 @@ class DescriptorTransaction(_TransactionBase):
                     self._mdib.internal_entities[new_entity.handle] = internal_entity
                     del self._mdib.new_entities[new_entity.handle]
 
-                    self._update_internal_entity(new_entity, internal_entity, manage_version_counters)
+                    self._update_internal_entity(new_entity, internal_entity)
 
                     proc.descr_created.append(
                         internal_entity.descriptor)  # this will cause a Description Modification Report
@@ -288,8 +308,7 @@ class DescriptorTransaction(_TransactionBase):
                         state_update_list.append(internal_entity.state)
 
                     if (internal_entity.parent_handle is not None
-                            and internal_entity.parent_handle not in to_be_created_handles
-                            and manage_version_counters):
+                            and internal_entity.parent_handle not in to_be_created_handles):
                         self._increment_parent_descriptor_version(proc, internal_entity)
 
                 elif tr_item.modification == _Modification.delete:
@@ -321,8 +340,7 @@ class DescriptorTransaction(_TransactionBase):
                     proc.descr_deleted.extend([e.descriptor for e in all_entities])
                     # increment DescriptorVersion if a child descriptor is added or deleted.
                     if internal_entity.parent_handle is not None \
-                            and internal_entity.parent_handle not in to_be_deleted_handles \
-                            and manage_version_counters:
+                            and internal_entity.parent_handle not in to_be_deleted_handles:
                         # Todo: whole parent chain should be checked
                         # only update parent if it is not also deleted in this transaction
                         self._increment_parent_descriptor_version(proc, internal_entity)
@@ -337,7 +355,7 @@ class DescriptorTransaction(_TransactionBase):
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: update descriptor Handle={}, DescriptorVersion={}',
                         internal_entity.handle, updated_entity.descriptor.DescriptorVersion)
-                    self._update_internal_entity(updated_entity, internal_entity, manage_version_counters)
+                    self._update_internal_entity(updated_entity, internal_entity)
                     proc.descr_updated.append(
                         internal_entity.descriptor)  # this will cause a Description Modification Report
                     state_update_list = proc.get_state_updates_list(internal_entity.descriptor)
@@ -350,28 +368,21 @@ class DescriptorTransaction(_TransactionBase):
         return proc
 
     def _update_internal_entity(self, modified_entity: ProviderEntity | ProviderMultiStateEntity,
-                                internal_entity: ProviderInternalEntity | ProviderInternalMultiStateEntity,
-                                manage_version_counters: bool):
+                                internal_entity: ProviderInternalEntity | ProviderInternalMultiStateEntity):
         """Write back information into internal entity."""
         new_descriptor_version = internal_entity.descriptor.DescriptorVersion + 1
         internal_entity.descriptor.update_from_other_container(modified_entity.descriptor)
-        if manage_version_counters:
-            internal_entity.descriptor.DescriptorVersion = new_descriptor_version
 
         if modified_entity.is_multi_state:
             _update_multi_states(self._mdib,
                                  modified_entity,
                                  internal_entity,
-                                 None,
-                                 manage_version_counters)
+                                 None)
             # Todo: update context state handles in mdib
 
         else:
             new_state_version = internal_entity.state.StateVersion + 1
             internal_entity.state.update_from_other_container(modified_entity.state)
-            if manage_version_counters:
-                internal_entity.state.DescriptorVersion = internal_entity.descriptor.DescriptorVersion
-                internal_entity.state.StateVersion = new_state_version
 
     def _increment_parent_descriptor_version(self, proc: TransactionResult,
                                              entity: ProviderInternalEntityType):
@@ -412,35 +423,35 @@ class StateTransactionBase(_TransactionBase):
 
     def __init__(self,
                  provider_mdib: EntityProviderMdib,
-                 logger: LoggerAdapter,
-                 manage_version_counters: bool = True):
-        super().__init__(provider_mdib, logger, manage_version_counters)
+                 logger: LoggerAdapter):
+        super().__init__(provider_mdib, logger)
         self._state_updates = {}  # will be set to proper value in derived classes
 
     def has_state(self, descriptor_handle: str) -> bool:
         """Check if transaction has a state with given handle."""
         return descriptor_handle in self._state_updates
 
-    def write_entity(self, entity: ProviderEntity):
+    def write_entity(self, entity: ProviderEntity, adjust_version_counter: bool = True):
         """Update the state of the entity."""
         if not self._is_correct_state_type(entity.state):
             raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
         descriptor_handle = entity.state.DescriptorHandle
         old_state = self._mdib.internal_entities[descriptor_handle].state
-        tmp = copy.deepcopy(entity.state)
-        if self.manage_version_counters and old_state is not None:
+        tmp = copy.deepcopy(entity.state)  # do not touch original entity of user
+        if adjust_version_counter:
+            tmp.DescriptorVersion = old_state.DescriptorVersion
             tmp.StateVersion = old_state.StateVersion + 1
         self._state_updates[descriptor_handle] = TransactionItem(old=old_state,
                                                                  new=tmp)
 
-    def write_entities(self, entities: list[ProviderEntity]):
+    def write_entities(self, entities: list[ProviderEntity], adjust_version_counter: bool = True):
         """Update the states of entities."""
         for entity in entities:
             # check all states before writing any of them
             if not self._is_correct_state_type(entity.state):
                 raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
         for ent in entities:
-            self.write_entity(ent)
+            self.write_entity(ent, adjust_version_counter)
 
     @staticmethod
     def _is_correct_state_type(state: AbstractStateProtocol) -> bool:  # noqa: ARG004
@@ -582,14 +593,13 @@ class ContextStateTransaction(_TransactionBase):
 
     def __init__(self,
                  provider_mdib: EntityProviderMdib,
-                 logger: LoggerAdapter,
-                 manage_version_counters: bool = True):
-        super().__init__(provider_mdib, logger, manage_version_counters)
+                 logger: LoggerAdapter):
+        super().__init__(provider_mdib, logger)
         self._state_updates = self.context_state_updates
 
     def write_entity(self, entity: ProviderMultiStateEntity,
                      modified_handles: list[str],
-                     adjust_state_version: bool = True):
+                     adjust_version_counter: bool = True):
         """Insert or update a context state in mdib."""
         internal_entity = self._mdib.internal_entities[entity.descriptor.Handle]
 
@@ -607,18 +617,22 @@ class ContextStateTransaction(_TransactionBase):
                 raise ApiUsageError('Transaction only handles context states!')
 
             old_state = internal_entity.states.get(state_container.Handle)
-            tmp = copy.deepcopy(state_container)
+            tmp = copy.deepcopy(state_container)  # do not touch original entity of user
 
             if old_state is None:
                 # this is a new state
                 tmp.descriptor_container = internal_entity.descriptor
-                tmp.DescriptorVersion = internal_entity.descriptor.DescriptorVersion
-                if adjust_state_version:
+                if adjust_version_counter:
+                    tmp.DescriptorVersion = internal_entity.descriptor.DescriptorVersion
+                    # look for previously existing state with same handle
                     old_state_version = self._mdib.state_handle_version_lookup.get(tmp.Handle)
                     if old_state_version:
                         tmp.StateVersion = old_state_version + 1
-            elif self.manage_version_counters:
-                tmp.StateVersion = old_state.StateVersion + 1
+            else:
+                # update
+                if adjust_version_counter:
+                    tmp.DescriptorVersion = internal_entity.descriptor.DescriptorVersion
+                    tmp.StateVersion = old_state.StateVersion + 1
 
             self._state_updates[state_container.Handle] = TransactionItem(old=old_state, new=tmp)
 
