@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - accessing a multikey may lead to IndexError [#359](https://github.com/Draegerwerk/sdc11073/issues/359)
+- fixed a bug where `log_prefix` can only be a string [#393](https://github.com/Draegerwerk/sdc11073/issues/393)
 
 ## [1.3.2] - 2024-03-18
 
