@@ -60,7 +60,7 @@ class LoggerAdapter(object):
 
     def _process(self, msg, args, kwargs):
         try:
-            _msg = self.log_prefix + msg
+            _msg = f'{self.log_prefix}{msg}'
         except TypeError:
             _msg = msg
 

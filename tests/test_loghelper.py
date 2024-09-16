@@ -1,5 +1,8 @@
 import unittest
 import logging
+import uuid
+from unittest import mock
+
 from sdc11073 import loghelper
 
 
@@ -45,3 +48,15 @@ class TestLogWatcher(unittest.TestCase):
         records = lw2.getAllRecords()
         self.assertEqual(len(records), 1)
         self.assertRaises(loghelper.LogWatchException, lw2.check)
+
+    def test_ident_parameter(self):
+        def _test_prefix(prefix):
+            adapter = loghelper.LoggerAdapter(logger=mock.MagicMock(), prefix=prefix)
+            msg = uuid.uuid4()
+            processed_msg = adapter._process(msg, (), ())
+            self.assertEqual(f'{prefix or ""}{msg}', processed_msg)
+
+        _test_prefix(1)
+        _test_prefix('1')
+        _test_prefix(mock.MagicMock())
+        _test_prefix(None)
