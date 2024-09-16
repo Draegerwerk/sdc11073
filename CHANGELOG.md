@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed:
+
+- fixed a bug where `log_prefix` can only be a string [#393](https://github.com/Draegerwerk/sdc11073/issues/393)
+
 ## [2.1.0] - 2024-09-04
 
 ### Added
