@@ -14,13 +14,13 @@ sdc11073
    :alt: pypi downloads per month
 
 .. |img4| image:: https://img.shields.io/badge/runs%20on-ubuntu%20%7C%20windows-blue
-   :alt: runs on which operating systems
+   :alt: tested on which operating systems
 
 .. |img5| image:: https://codecov.io/gh/Draegerwerk/sdc11073/branch/master/graph/badge.svg?token=EPLCCZMWMM
    :target: https://codecov.io/gh/Draegerwerk/sdc11073
    :alt: test coverage
 
-.. image:: docs/sdc_social_preview.jpg
+.. image:: https://github.com/Draegerwerk/sdc11073/blob/master/docs/sdc_social_preview.jpg
    :alt: sdc Picture
 
 Overview
@@ -33,6 +33,8 @@ this family and is `described here <https://en.wikipedia.org/wiki/IEEE_11073_ser
 Market-oriented information on SDC from Dräger can be found `here <https://www.draeger.com/Library/Content/sdc-information-sheet-9107546-en.pdf>`__.
 
 SDC is supported by the interoperability association `OR.Net <https://ornet.org/en>`__.
+
+For this open source project the `Contributor License Agreement <https://github.com/Draegerwerk/sdc11073/blob/master/Contributor_License_Agreement.md>`__ governs all relevant activities and your contributions. By contributing to the project you agree to be bound by this Agreement and to licence your work accordingly.
 
 Getting Started
 ===============
@@ -53,7 +55,7 @@ The latest development version can be installed via::
     git clone https://github.com/Draegerwerk/sdc11073/
     pip install .
 
-you may use :code:`pip install -e .` for an `editable install <https://pip.pypa.io/en/stable/topics/local-project-installs/#editable-installs>`__.
+If you want to contribute also checkout our `contribution guideline <https://github.com/Draegerwerk/sdc11073/blob/master/CONTRIBUTING.md>`__.
 
 Tutorials
 ---------
@@ -74,16 +76,16 @@ Notices
 
 The sdc11073 python library is not intended for use in medical products, clinical trials, clinical studies, or in clinical routine.
 
+ISO 9001
+--------
+
+The sdc11073 python library was not developed according to ISO 9001.
+
 Limitations
 ===========
 
 The wsdiscovery module only works with a single ipv4 address. Publishing a device on multiple networks it not supported.
 The same is valid for searching.
-
-ISO 9001
---------
-
-The sdc11073 python library was not developed according to ISO 9001.
 
 Support
 =======
