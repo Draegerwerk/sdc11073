@@ -19,7 +19,6 @@ jobs:
       - name: Install sdc11073
         run: python -m pip install .
       - name: Write data to env
-        id:
         run: |
           ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())")
           echo ref_search_epr=$ref_search_epr >> $GITHUB_ENV
