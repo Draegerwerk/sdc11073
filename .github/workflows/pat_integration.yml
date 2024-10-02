@@ -8,7 +8,7 @@ jobs:
         branch: [ ubuntu-latest, windows-latest ]
         tls_enable: [ true, false ]
       fail-fast: false
-    runs-on:
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
