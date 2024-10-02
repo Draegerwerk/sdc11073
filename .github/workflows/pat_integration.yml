@@ -27,7 +27,6 @@ jobs:
           echo ref_ip=ref_ip >> $GITHUB_ENV
           echo ref_ip=ref_ip
       - name: Write data to env
-        id:
         run: |
           ref_ca=$(python -c "import pathlib; print(pathlib.Path('./examples/ReferenceTests/certs').absolute())")
           echo ref_ca=$ref_ca >> $GITHUB_ENV
