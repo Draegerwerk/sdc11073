@@ -46,3 +46,4 @@ jobs:
         run: python examples/ReferenceTest/reference_provider.py &
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
+        timeout-minutes: 2
