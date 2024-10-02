@@ -24,8 +24,8 @@ jobs:
           echo ref_search_epr=$ref_search_epr >> $GITHUB_ENV
           echo ref_search_epr=$ref_search_epr
           ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))")
-          echo ref_ip=ref_ip >> $GITHUB_ENV
-          echo ref_ip=ref_ip
+          echo ref_ip=$ref_ip >> $GITHUB_ENV
+          echo ref_ip=$ref_ip
       - name: Write data to env
         run: |
           ref_ca=$(python -c "import pathlib; print(pathlib.Path('./examples/ReferenceTests/certs').absolute())")
