@@ -5,7 +5,7 @@ jobs:
   sdc11073_provider_v1:
     strategy:
       matrix:
-        branch: [ ubuntu-latest, windows-latest ]
+        os: [ ubuntu-latest, windows-latest ]
         tls_enable: [ true, false ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
