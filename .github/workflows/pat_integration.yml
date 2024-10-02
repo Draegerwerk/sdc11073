@@ -1,0 +1,43 @@
+name: Run PAT tests
+on:
+  push:
+jobs:
+  sdc11073_provider_v1:
+    strategy:
+      matrix:
+        branch: [ ubuntu-latest, windows-latest ]
+        tls_enable: [ true, false ]
+      fail-fast: false
+    runs-on:
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install sdc11073
+        run: python -m pip install .
+      - name: Write data to env
+        id:
+        run: |
+          ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())")
+          echo ref_search_epr=$ref_search_epr >> $GITHUB_ENV
+          echo ref_search_epr=$ref_search_epr
+          ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))")
+          echo ref_ip=ref_ip >> $GITHUB_ENV
+          echo ref_ip=ref_ip
+      - name: Write data to env
+        id:
+        run: |
+          ref_ca=$(python -c "import pathlib; print(pathlib.Path('./examples/ReferenceTests/certs').absolute())")
+          echo ref_ca=$ref_ca >> $GITHUB_ENV
+          echo ref_ca=$ref_ca
+        if: ${{ matrix.tls_enable }}
+      - name: Start provider
+        run: python examples/ReferenceTest/reference_provider.py &
+      - name: Run consumer
+        run: python examples/ReferenceTest/reference_consumer.py
+      - name: Stop provider
+        run: jobs && kill %1
+        if: always()
