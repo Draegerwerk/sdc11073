@@ -9,7 +9,6 @@ jobs:
         tls_enable: [ true, false ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,6 +43,7 @@ jobs:
           echo ref_ssl_passwd=dummypass | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         if: ${{ matrix.tls_enable && matrix.os == 'windows-latest' }}
       - name: Start provider
-        run: python examples/ReferenceTest/reference_provider.py
+        run: python examples/ReferenceTest/reference_provider.py &
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
+        timeout-minutes: 2
