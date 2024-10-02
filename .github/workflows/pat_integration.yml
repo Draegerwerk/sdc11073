@@ -36,6 +36,3 @@ jobs:
         run: python examples/ReferenceTest/reference_provider.py &
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
-      - name: Stop provider
-        run: jobs && kill %1
-        if: always()
