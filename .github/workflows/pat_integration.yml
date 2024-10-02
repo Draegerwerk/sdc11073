@@ -13,12 +13,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set up Python 3.12
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install sdc11073
         run: python -m pip install .
-      - name: Write data to env ubuntu
+      - name: Write ref_search_epr and ref_ip to env on ubuntu
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
           ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())")
@@ -27,20 +27,20 @@ jobs:
           ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))")
           echo ref_ip=$ref_ip >> $GITHUB_ENV
           echo ref_ip=$ref_ip
-      - name: Write data to env
+      - name: Write ref_ca to env on ubuntu
         run: |
-          ref_ca=$(python -c "import pathlib; print(pathlib.Path('./examples/ReferenceTests/certs').absolute())")
-          echo ref_ca=$ref_ca >> $GITHUB_ENV
-          echo ref_ca=$ref_ca
+          echo ref_ca=./examples/ReferenceTests/certs >> $GITHUB_ENV
+          echo ref_ssl_passwd=dummypasss >> $GITHUB_ENV
         if: ${{ matrix.tls_enable && matrix.os == 'ubuntu-latest' }}
-      - name: Write data to env windows
+      - name: Write ref_search_epr and ref_ip to env on windows
         if: ${{ matrix.os == 'windows-latest' }}
         run: |
           echo ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      - name: Write data to env windows
+      - name: Write ref_ca to env on windows
         run: |
-          echo ref_ca=$(python -c "import pathlib; print(pathlib.Path('./examples/ReferenceTests/certs').absolute())") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo ref_ca=./examples/ReferenceTests/certs | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo ref_ssl_passwd=dummypasss | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         if: ${{ matrix.tls_enable && matrix.os == 'windows-latest' }}
       - name: Start provider
         run: python examples/ReferenceTest/reference_provider.py &
