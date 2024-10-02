@@ -29,7 +29,7 @@ jobs:
           echo ref_ip=$ref_ip
       - name: Write ref_ca to env on ubuntu
         run: |
-          echo ref_ca=examples/ReferenceTest/certs >> $GITHUB_ENV
+          echo ref_ca=examples/certs >> $GITHUB_ENV
           echo ref_ssl_passwd=dummypasss >> $GITHUB_ENV
         if: ${{ matrix.tls_enable && matrix.os == 'ubuntu-latest' }}
       - name: Write ref_search_epr and ref_ip to env on windows
@@ -39,7 +39,7 @@ jobs:
           echo ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Write ref_ca to env on windows
         run: |
-          echo ref_ca=examples/ReferenceTest/certs | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo ref_ca=examples/certs | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo ref_ssl_passwd=dummypasss | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         if: ${{ matrix.tls_enable && matrix.os == 'windows-latest' }}
       - name: Start provider
