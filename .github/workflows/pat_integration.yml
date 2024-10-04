@@ -45,10 +45,7 @@ jobs:
           echo ref_ssl_passwd=dummypass | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         if: ${{ matrix.tls_enable && matrix.os == 'windows-latest' }}
       - name: Start provider
-        uses: JarvusInnovations/background-action@v1
-        with:
-          run: python examples/ReferenceTest/reference_provider.py &
-          tail: true
+        run: bash python examples/ReferenceTest/reference_provider.py &
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
         timeout-minutes: 2
