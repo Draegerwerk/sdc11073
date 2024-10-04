@@ -24,7 +24,7 @@ jobs:
           ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())")
           echo ref_search_epr=$ref_search_epr >> $GITHUB_ENV
           echo ref_search_epr=$ref_search_epr
-          ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))")
+          ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if not adapter.is_loopback))")
           echo ref_ip=$ref_ip >> $GITHUB_ENV
           echo ref_ip=$ref_ip
       - name: Write ref_ca to env on posix
@@ -36,7 +36,7 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' }}
         run: |
           echo ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if not adapter.is_loopback))") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Write ref_ca to env on windows
         run: |
           echo ref_ca=examples/certs | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
