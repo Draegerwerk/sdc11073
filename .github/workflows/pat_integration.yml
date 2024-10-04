@@ -1,6 +1,11 @@
 name: Run PAT tests
 on:
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
   push:
+    branches:
+      - master
+      - v*
 jobs:
   sdc11073_provider_v1:
     strategy:
