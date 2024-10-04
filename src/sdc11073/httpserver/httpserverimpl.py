@@ -114,7 +114,7 @@ class HttpServerThreadBase(threading.Thread):
     def run(self):
         self._stop_requested = False
         try:
-            myport = int(os.getenv('SDC_PROVIDER_HTTP_SERVER_PORT', 0))  # zero means that OS selects a free port
+            myport = 0  # zero means that OS selects a free port
             self.httpd = _ThreadingHTTPServer(self.logger,
                                               (self._my_ipaddress, myport),
                                               self.chunk_size,
