@@ -47,6 +47,8 @@ jobs:
         with:
           run: python examples/ReferenceTest/reference_provider.py &
           tail: true
+          wait-on: |
+            file://pyproject.toml
           wait-for: 2m
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
