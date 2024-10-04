@@ -1,6 +1,8 @@
 name: Run PAT tests
 on:
   push:
+env:
+    SDC_PROVIDER_HTTP_SERVER_PORT: 12002
 jobs:
   sdc11073_provider_v1:
     strategy:
@@ -48,7 +50,7 @@ jobs:
           run: python examples/ReferenceTest/reference_provider.py &
           tail: true
           wait-on: |
-            file://pyproject.toml
+            tcp://${{ env.ref_ip }}:${{ env.SDC_PROVIDER_HTTP_SERVER_PORT }}
           wait-for: 2m
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
