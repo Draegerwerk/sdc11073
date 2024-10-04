@@ -49,9 +49,6 @@ jobs:
         with:
           run: python examples/ReferenceTest/reference_provider.py &
           tail: true
-          wait-on: |
-            tcp://${{ env.ref_ip }}:${{ env.SDC_PROVIDER_HTTP_SERVER_PORT }}
-          wait-for: 2m
       - name: Run consumer
         run: python examples/ReferenceTest/reference_consumer.py
         timeout-minutes: 2
