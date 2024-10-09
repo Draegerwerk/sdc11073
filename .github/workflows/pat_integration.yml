@@ -10,7 +10,7 @@ jobs:
   sdc11073_provider_v1:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
         tls_enable: [ true, false ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -26,35 +26,12 @@ jobs:
       - name: Install sdc11073
         run: python -m pip install .
 
-      - name: Generate epr
-        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
-        run: |
-          ref_search_epr=$(python -c "import uuid; print(uuid.uuid4())")
-          echo ref_search_epr=$ref_search_epr >> $GITHUB_ENV
-          echo ref_search_epr=$ref_search_epr
-
-      - name: Get ip address on ubuntu
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: |
-          ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if adapter.is_loopback))")
-          echo ref_ip=$ref_ip >> $GITHUB_ENV
-          echo ref_ip=$ref_ip
-
-      - name: Get ip address on macos
-        if: ${{ matrix.os == 'macos-latest' }}
-        run: | # macos does not support multicast on loopback adapter
-          ref_ip=$(python -c "from sdc11073 import network; print(next(adapter.ip for adapter in network.get_adapters() if not adapter.is_loopback))")
-          echo ref_ip=$ref_ip >> $GITHUB_ENV
-          echo ref_ip=$ref_ip
-
-      - name: Enable tls
-        run: |
-          echo ref_ca=examples/certs >> $GITHUB_ENV
-          echo ref_ssl_passwd=dummypass >> $GITHUB_ENV
+      - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
+        run: python examples/ReferenceTest/run.py --tls
+        timeout-minutes: 2
 
-      - name: Start provider
-        run: python examples/ReferenceTest/reference_provider.py &
-      - name: Run consumer
-        run: python examples/ReferenceTest/reference_consumer.py
+      - name: Run tests with tls disabled
+        if: ${{ !matrix.tls_enable }}
+        run: python examples/ReferenceTest/run.py
         timeout-minutes: 2
