@@ -14,7 +14,7 @@ from examples.ReferenceTest import reference_provider, reference_consumer
 
 def setup(tls: bool):
     os.environ['ref_search_epr'] = str(uuid.uuid4())
-    if platform.platform() == 'Darwin':
+    if platform.system() == 'Darwin':
         os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if not adapter.is_loopback)
     else:
         os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if adapter.is_loopback)
