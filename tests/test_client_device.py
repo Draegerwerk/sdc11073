@@ -13,6 +13,7 @@ import uuid
 from decimal import Decimal
 from itertools import product
 from http.client import NotConnected
+from threading import Event
 from lxml import etree as etree_
 
 import sdc11073.certloader
@@ -1065,7 +1066,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
-
+        self.logger.info('changing alert descriptors...')
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         # update descriptors
         with self.sdc_device.mdib.descriptor_transaction() as mgr:
@@ -1076,6 +1077,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alert_descriptor.SafetyClassification = pm_types.SafetyClassification.MED_C
             limit_alert_descriptor.SafetyClassification = pm_types.SafetyClassification.MED_B
             limit_alert_descriptor.AutoLimitSupported = True
+        self.logger.info('changing alert descriptors done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that descriptor updates are transported to client
         client_alert_descriptor = client_mdib.descriptions.handle.get_one(alert_descriptor_handle)
@@ -1087,6 +1089,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         # set alert state presence to true
         time.sleep(0.01)
+        self.logger.info('changing alert state...')
+
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
         with self.sdc_device.mdib.alert_state_transaction() as mgr:
             alert_state = mgr.get_state(alert_descriptor_handle)
@@ -1098,6 +1102,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             limit_alert_state.ActualPriority = pm_types.AlertConditionPriority.MEDIUM
             limit_alert_state.Limits = pm_types.Range(upper=Decimal('3'))
 
+        self.logger.info('changing alert state done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
         client_alert_state = client_mdib.states.descriptor_handle.get_one(alert_descriptor_handle)
@@ -1317,6 +1322,32 @@ class Test_Client_SomeDevice(unittest.TestCase):
         system_error_report = msg_types.SystemErrorReport.from_node(message.p_msg.msg_node)
         self.assertEqual(system_error_report.ReportPart[0], report_part1)
         self.assertEqual(system_error_report.ReportPart[1], report_part2)
+
+    def test_sequence_id_change(self):
+
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        ev = Event()
+        def on_mdib_id_change(flag: bool):
+            """This is a typical handler for changed sequence id or instance id"""
+            self.logger.info('new sequence_id or instance id')
+            self.sdc_client.restart()
+            cl_mdib.reload_all()
+            # this test also need info that observer has finished
+            ev.set()
+
+        # bind handler to observable
+        observableproperties.bind(cl_mdib, sequence_or_instance_id_changed_event=on_mdib_id_change)
+        time.sleep(1)
+        self.logger.info('test changes sequence id now')
+        self.sdc_device.mdib.sequence_id = uuid.uuid4().urn
+        ev_set = ev.wait(timeout=10)
+        self.assertTrue(ev_set)
+        self.assertTrue(self.sdc_client.is_connected)
+        self.assertEqual(cl_mdib.sequence_id, self.sdc_device.mdib.sequence_id)
+        self.assertEqual(len(cl_mdib.descriptions.objects), len(self.sdc_device.mdib.descriptions.objects))
+        self.assertEqual(len(cl_mdib.states.objects), len(self.sdc_device.mdib.states.objects))
+        self.assertEqual(len(cl_mdib.context_states.objects), len(self.sdc_device.mdib.context_states.objects))
 
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):
@@ -1731,3 +1762,101 @@ class TestEncryptionCombinations(unittest.TestCase):
         consumer.start_all()
         self.assertTrue(consumer.is_connected)
         self.assertTrue(consumer.is_ssl_connection)
+
+class TestQualifiedName(unittest.TestCase):
+    """Check usage of full qualified name in device and client."""
+
+    def setUp(self):
+        basic_logging_setup()
+        self.logger = get_logger_adapter('sdc.test')
+        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+
+        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd.start()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10,
+                                                    alternative_hostname=socket.getfqdn())  # shorter duration for faster tests
+        self.sdc_device.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
+
+        time.sleep(0.5)  # allow init of devices to complete
+        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.log_watcher.setPaused(True)
+        self.sdc_device.stop_all()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchError as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+
+    def test_basic_connect(self):
+        """Verify correct behavior with qualified full_qualified_name."""
+        x_addr = self.sdc_device.get_xaddrs()[0]
+        self.assertIn(socket.getfqdn(), x_addr)
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               ssl_context_container=None,
+                               alternative_hostname=socket.getfqdn())
+        try:
+            consumer.start_all()
+            self.assertTrue(consumer.is_connected)
+            for subscription in self.sdc_device._hosted_service_dispatcher._instances['StateEvent'].subscriptions_manager._subscriptions._objects:
+                # now make sure that the subscription also uses no IP
+                self.assertIn(socket.getfqdn(), subscription.notify_to_address)
+                if subscription.end_to_address:
+                    self.assertIn(socket.getfqdn(), subscription.notify_to_address)
+        finally:
+            consumer.stop_all(unsubscribe=False)
+
+
+class TestWrongQualifiedName(unittest.TestCase):
+    """Check that wrong hostnames lead to no-connection."""
+
+    def setUp(self):
+        basic_logging_setup()
+        self.logger = get_logger_adapter('sdc.test')
+        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+
+        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd.start()
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
+                                                    default_components=default_sdc_provider_components_async,
+                                                    max_subscription_duration=10,
+                                                    alternative_hostname="some_random_invalid_hostname")  # shorter duration for faster tests
+        self.sdc_device.start_all()
+        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
+
+        time.sleep(0.5)  # allow init of devices to complete
+        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        time.sleep(0.5)
+        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+
+    def tearDown(self):
+        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.log_watcher.setPaused(True)
+        self.sdc_device.stop_all()
+        try:
+            self.log_watcher.check()
+        except loghelper.LogWatchError as ex:
+            sys.stderr.write(repr(ex))
+            raise
+        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+
+    def test_no_connect(self):
+        x_addr = self.sdc_device.get_xaddrs()[0]
+        """Verify correct behavior with invalid hostname."""
+        consumer = SdcConsumer(x_addr,
+                               self.sdc_device.mdib.sdc_definitions,
+                               ssl_context_container=None)
+        # exception should be raised during try to connect,
+        # could be timeout or other exception depending on local network configuration
+        self.assertRaises(Exception, consumer.start_all)

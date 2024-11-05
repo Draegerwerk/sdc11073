@@ -199,6 +199,7 @@ class SdcConsumer:
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
                  force_ssl_connect: bool = False,
+                 alternative_hostname: str | None = None
                  ):
         """Construct a SdcConsumer.
 
@@ -216,6 +217,8 @@ class SdcConsumer:
                                   False: if ssl_context_container is provided, consumer first tries an
                                          encrypted connection, and if this raises an SSLError,
                                          it tries an unencrypted connection
+        :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical
+                                     ipv4 address (can be used to use full qualified hostname)
         """
         if not device_location.startswith('http'):
             raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
@@ -250,6 +253,8 @@ class SdcConsumer:
         self.host_description: mex_types.Metadata | None = None
         self.hosted_services = {}  # lookup by service id
         self._validate = validate
+        self._alternative_hostname = alternative_hostname
+
         try:
             self._logger.info('Using SSL is enabled. TLS 1.3 Support = {}', ssl.HAS_TLSv1_3)  # noqa: PLE1205
         except AttributeError:
@@ -294,6 +299,12 @@ class SdcConsumer:
 
         self._msg_converter = MessageConverterMiddleware(
             self.msg_reader, self.msg_factory, self._logger, self._services_dispatcher)
+
+        # parameters of start_all call, will be set later in start_all
+        self._not_subscribed_actions_param: Iterable[str] | None = None
+        self._fixed_renew_interval_param: float | None = None
+        self._shared_http_server_param: Any | None = None
+        self._check_get_service_param: bool | None = None
 
     def set_mdib(self, mdib: ConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -340,7 +351,7 @@ class SdcConsumer:
         if self._http_server is None:
             return ''
         p = urlparse(self._http_server.base_url)
-        tmp = f'{p.scheme}://{self._network_adapter.ip}:{p.port}{p.path}'
+        tmp = f'{p.scheme}://{self._alternative_hostname or self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
         tmp = f'{tmp}{sep}{self.path_prefix}/'
         return tmp
@@ -472,6 +483,10 @@ class SdcConsumer:
                which is the minimal requirement for a sdc provider.
         :return: None
         """
+        self._not_subscribed_actions_param = not_subscribed_actions
+        self._fixed_renew_interval_param = fixed_renew_interval
+        self._shared_http_server_param = shared_http_server
+        self._check_get_service_param = check_get_service
         self._logger.debug('connecting to %s', self._device_location)
         self._connect()
         self._logger.debug('reading meta data from %s', self._device_location)
@@ -567,6 +582,17 @@ class SdcConsumer:
             client.close()
         self._soap_clients = {}
         self._stop_event_sink()
+
+    def restart(self):
+        """forget existing data and restart from the beginning."""
+        mdib = self._mdib  # keep existing mdib connection
+        self.stop_all()  # with unsubscribe
+        # start with the same parameters as initially
+        self.start_all(self._not_subscribed_actions_param,
+                       self._fixed_renew_interval_param,
+                       self._shared_http_server_param,
+                       self._check_get_service_param)
+        self.set_mdib(mdib)
 
     def set_used_compression(self, *compression_methods: str):
         """Use only one of these compression methods."""

@@ -115,7 +115,8 @@ class SomeDevice(SdcProvider):
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
-                 chunk_size: int = 0):
+                 chunk_size: int = 0,
+                 alternative_hostname: str | None = None):
         model = ThisModelType(manufacturer='Example Manufacturer',
                               manufacturer_url='www.example-manufacturer.com',
                               model_name='SomeDevice',
@@ -142,7 +143,8 @@ class SomeDevice(SdcProvider):
                          log_prefix=log_prefix,
                          default_components=default_components,
                          specific_components=specific_components,
-                         chunk_size=chunk_size)
+                         chunk_size=chunk_size,
+                         alternative_hostname=alternative_hostname)
 
     @classmethod
     def from_mdib_file(cls,
@@ -155,7 +157,8 @@ class SomeDevice(SdcProvider):
                        log_prefix: str = '',
                        default_components: SdcProviderComponents | None = None,
                        specific_components: SdcProviderComponents | None = None,
-                       chunk_size: int = 0):
+                       chunk_size: int = 0,
+                       alternative_hostname: str | None = None):
         """Construct class with path to a mdib file."""
         mdib_xml_path = pathlib.Path(mdib_xml_path)
         if not mdib_xml_path.is_absolute():
@@ -164,4 +167,5 @@ class SomeDevice(SdcProvider):
                    max_subscription_duration = max_subscription_duration,
                    log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,
-                   chunk_size=chunk_size)
+                   chunk_size=chunk_size,
+                   alternative_hostname=alternative_hostname)

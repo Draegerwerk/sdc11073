@@ -5,11 +5,13 @@ import sys
 import time
 import traceback
 import typing
+import uuid
 from collections import defaultdict
 from concurrent import futures
 from decimal import Decimal
 
-from sdc11073 import commlog
+import sdc11073.certloader
+from sdc11073 import commlog, network
 from sdc11073 import observableproperties
 from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.consumer import SdcConsumer
@@ -21,15 +23,55 @@ from sdc11073.xml_types.msg_types import InvocationState
 
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
-adapter_ip = os.getenv('ref_ip') or '127.0.0.1'  # noqa: SIM112
-ca_folder = os.getenv('ref_ca')  # noqa: SIM112
-ssl_passwd = os.getenv('ref_ssl_passwd') or None  # noqa: SIM112
-search_epr = os.getenv('ref_search_epr') or 'abc'  # noqa: SIM112
 # ref_discovery_runs indicates the maximum executions of wsdiscovery search services, "0" -> run until service is found
 discovery_runs = int(os.getenv('ref_discovery_runs', 0))  # noqa: SIM112
 
 ENABLE_COMMLOG = True
 
+def get_network_adapter() -> network.NetworkAdapter:
+    """Get network adapter from environment or first loopback."""
+    if (ip := os.getenv('ref_ip')) is not None:  # noqa: SIM112
+        return network.get_adapter_containing_ip(ip)
+    # get next available loopback adapter
+    return next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
+
+
+def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
+    """Get ssl context from environment or None."""
+    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
+        return None
+    return mk_ssl_contexts_from_folder(ca_folder,
+                                       private_key='user_private_key_encrypted.pem',
+                                       certificate='user_certificate_root_signed.pem',
+                                       ca_public_key='root_certificate.pem',
+                                       cyphers_file=None,
+                                       ssl_passwd=os.getenv('ref_ssl_passwd'))  # noqa: SIM112
+
+
+def get_epr() -> uuid.UUID:
+    """Get epr from environment or default."""
+    if (epr := os.getenv('ref_search_epr')) is not None:  # noqa: SIM112
+        return uuid.UUID(epr)
+    return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
+
+class TestResult(enum.Enum):
+    """
+    Represents the overall test result.
+    """
+    PASSED = 'PASSED'
+    FAILED = 'FAILED'
+
+@dataclasses.dataclass
+class TestCollector:
+    overall_test_result: TestResult = TestResult.PASSED
+    test_messages: typing.List = dataclasses.field(default_factory=list)
+
+    def add_result(self, test_step_message: str, test_step_result: TestResult):
+        if not isinstance(test_step_result, TestResult):
+            raise ValueError("Unexpected parameter")
+        if self.overall_test_result is not TestResult.FAILED:
+            self.overall_test_result = test_step_result
+        self.test_messages.append(test_step_message)
 
 class TestResult(enum.Enum):
     """
@@ -53,9 +95,11 @@ class TestCollector:
 
 def run_ref_test() -> TestCollector:
     test_collector = TestCollector()
+    adapter_ip = get_network_adapter().ip
     print(f'using adapter address {adapter_ip}')
+    search_epr = get_epr()
     print('Test step 1: discover device which endpoint ends with "{}"'.format(search_epr))
-    wsd = WSDiscovery(adapter_ip)
+    wsd = WSDiscovery(str(adapter_ip))
     wsd.start()
     my_service = None
     discovery_counter = 0
@@ -63,7 +107,7 @@ def run_ref_test() -> TestCollector:
         services = wsd.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
         print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
-            if s.epr.endswith(search_epr):
+            if s.epr.endswith(str(search_epr)):
                 my_service = s
                 print('found service {}'.format(s.epr))
                 break
@@ -77,18 +121,8 @@ def run_ref_test() -> TestCollector:
 
     print('Test step 2: connect to device...')
     try:
-        if ca_folder:
-            ssl_context_container = mk_ssl_contexts_from_folder(ca_folder,
-                                                                cyphers_file=None,
-                                                                private_key='user_private_key_encrypted.pem',
-                                                                certificate='user_certificate_root_signed.pem',
-                                                                ca_public_key='root_certificate.pem',
-                                                                ssl_passwd=ssl_passwd,
-                                                                )
-        else:
-            ssl_context_container = None
         client = SdcConsumer.from_wsd_service(my_service,
-                                              ssl_context_container=ssl_context_container,
+                                              ssl_context_container=get_ssl_context(),
                                               validate=True)
         client.start_all()
         print('Test step 2 passed: connected to device')
@@ -273,8 +307,7 @@ def run_ref_test() -> TestCollector:
     time.sleep(2)
     return test_collector
 
-
-if __name__ == '__main__':
+def main() -> TestCollector:
     xtra_log_config = os.getenv('ref_xtra_log_cnf')  # noqa: SIM112
 
     import json
@@ -297,7 +330,12 @@ if __name__ == '__main__':
         for name in commlog.LOGGER_NAMES:
             logging.getLogger(name).setLevel(logging.DEBUG)
         comm_logger.start()
-    run_results = run_ref_test()
-    for r in run_results.test_messages:
+    results = run_ref_test()
+    for r in results.test_messages:
         print(r)
+    return results
+
+
+if __name__ == '__main__':
+    run_results = main()
     sys.exit(0 if run_results.overall_test_result is TestResult.PASSED else 1)
