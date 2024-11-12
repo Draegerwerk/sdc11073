@@ -14,7 +14,7 @@ from .serviceclientbase import GetRequestResult, HostedServiceClient
 if TYPE_CHECKING:
     from concurrent.futures import Future
 
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.mdib.statecontainers import AbstractMultiStateProtocol
@@ -92,7 +92,7 @@ class ContextServiceClient(HostedServiceClient):
         return GetRequestResult(received_message_data, report)
 
     def get_context_state_by_identification(self, identifications: list[InstanceIdentifier],
-                                            context_type: QName | None = None,
+                                            context_type: etree.QName | None = None,
                                             request_manipulator: RequestManipulatorProtocol | None = None) \
             -> GetRequestResult:
         """Send a GetContextStatesByIdentification request.

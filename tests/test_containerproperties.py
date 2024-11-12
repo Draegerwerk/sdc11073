@@ -3,7 +3,7 @@ import unittest
 from decimal import Decimal
 from enum import Enum
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.xml_types.isoduration import UTC
 from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
@@ -33,7 +33,7 @@ class DummyBase:
         return []
 
     def mk_node(self):
-        node = etree_.Element('test')
+        node = etree.Element('test')
         for prop in self.props():
             prop.update_xml_value(self, node)
         return node
@@ -59,8 +59,8 @@ class Dummy(DummyBase):
 
 
 class DummyNodeText(DummyBase):
-    node_text_mand = NodeStringProperty(etree_.QName('pref', 'node_text_mand'), default_py_value='foo', min_length=1)
-    node_text_opt = NodeStringProperty(etree_.QName('pref', 'node_text_opt'), implied_py_value='bar', is_optional=True)
+    node_text_mand = NodeStringProperty(etree.QName('pref', 'node_text_mand'), default_py_value='foo', min_length=1)
+    node_text_opt = NodeStringProperty(etree.QName('pref', 'node_text_opt'), implied_py_value='bar', is_optional=True)
 
     def props(self):
         yield self.__class__.node_text_mand
@@ -68,10 +68,10 @@ class DummyNodeText(DummyBase):
 
 
 class DummyNodeEnumText(DummyBase):
-    #node_text_mand = NodeEnumTextProperty(MyEnum, etree_.QName('pref', 'node_text_mand'), implied_py_value=MyEnum.a)
-    node_text_mand = NodeEnumTextProperty(etree_.QName('pref', 'node_text_mand'), MyEnum, default_py_value=MyEnum.a)
-    node_text_opt = NodeEnumTextProperty(etree_.QName('pref', 'node_text_opt'), MyEnum, is_optional=True)
-    node_text_mand_no_default = NodeEnumTextProperty(etree_.QName('pref', 'node_text_mand_no_default'), MyEnum)
+    # node_text_mand = NodeEnumTextProperty(MyEnum, etree.QName('pref', 'node_text_mand'), implied_py_value=MyEnum.a)
+    node_text_mand = NodeEnumTextProperty(etree.QName('pref', 'node_text_mand'), MyEnum, default_py_value=MyEnum.a)
+    node_text_opt = NodeEnumTextProperty(etree.QName('pref', 'node_text_opt'), MyEnum, is_optional=True)
+    node_text_mand_no_default = NodeEnumTextProperty(etree.QName('pref', 'node_text_mand_no_default'), MyEnum)
 
     def props(self):
         yield self.__class__.node_text_mand
@@ -80,10 +80,10 @@ class DummyNodeEnumText(DummyBase):
 
 
 class DummySubElement(DummyBase):
-    sub_elem_mand = SubElementProperty(etree_.QName('pref', 'sub_elem_mand'),
+    sub_elem_mand = SubElementProperty(etree.QName('pref', 'sub_elem_mand'),
                                        value_class=CodedValue,
                                        default_py_value=CodedValue('foo'))
-    sub_elem_opt = SubElementProperty(etree_.QName('pref', 'sub_elem_opt'),
+    sub_elem_opt = SubElementProperty(etree.QName('pref', 'sub_elem_opt'),
                                       value_class=CodedValue,
                                       is_optional=True)
 
@@ -93,7 +93,7 @@ class DummySubElement(DummyBase):
 
 
 class DummySubElementList(DummyBase):
-    sub_elem = SubElementWithSubElementListProperty(etree_.QName('pref', 'sub_elem'),
+    sub_elem = SubElementWithSubElementListProperty(etree.QName('pref', 'sub_elem'),
                                                     default_py_value=AllowedValuesType(),
                                                     value_class=AllowedValuesType)
 
@@ -279,7 +279,8 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(DummyNodeText.node_text_mand.get_actual_value(dummy), 'foo')
         self.assertEqual(DummyNodeText.node_text_opt.get_actual_value(dummy), None)
         dummy.node_text_mand = None
-        self.assertRaises(ValueError, dummy.mk_node)  # implied value does not help here, we need a real value for mand. prop.
+        self.assertRaises(ValueError,
+                          dummy.mk_node)  # implied value does not help here, we need a real value for mand. prop.
         dummy.node_text_mand = 'foo'
         node = dummy.mk_node()
         self.assertEqual(1, len(node))  # the empty optional node is not added, only the mandatory one
@@ -309,13 +310,13 @@ class TestContainerProperties(unittest.TestCase):
 
     def test_DummyNodeEnumText(self):
         dummy = DummyNodeEnumText()
-        #verify that mandatory element without value raises a ValueError
+        # verify that mandatory element without value raises a ValueError
         self.assertRaises(ValueError, dummy.mk_node)
         dummy.node_text_mand_no_default = MyEnum.c
         node = dummy.mk_node()
         self.assertEqual(dummy.node_text_mand, MyEnum.a)
         self.assertEqual(dummy.node_text_opt, None)
-        self.assertEqual(DummyNodeEnumText.node_text_mand.get_actual_value(dummy),  MyEnum.a)
+        self.assertEqual(DummyNodeEnumText.node_text_mand.get_actual_value(dummy), MyEnum.a)
         self.assertEqual(DummyNodeEnumText.node_text_opt.get_actual_value(dummy), None)
         node = dummy.mk_node()
         self.assertEqual(2, len(node))  # the empty optional node is not added, only the mandatory ones
@@ -345,7 +346,6 @@ class TestContainerProperties(unittest.TestCase):
             else:
                 raise Exception(f'dummy.node_text_mand = {value} did not raise ValueError!')
 
-
     def test_ExtensionNodeProperty(self):
         # ToDo:implement
         pass
@@ -359,7 +359,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(DummySubElement.sub_elem_opt.get_actual_value(dummy), None)
 
         dummy.sub_elem_mand = None
-        self.assertRaises(ValueError, dummy.mk_node) # mand. prop has no value
+        self.assertRaises(ValueError, dummy.mk_node)  # mand. prop has no value
 
         dummy.sub_elem_mand = CodedValue('hello_again')
         node = dummy.mk_node()

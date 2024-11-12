@@ -28,7 +28,7 @@ from .subscriptionmgr_async import SubscriptionsManagerPathAsync
 
 # pylint: disable=cyclic-import
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073 import provider
     from sdc11073.mdib.providermdib import ProviderMdib
@@ -54,7 +54,7 @@ class SdcProviderComponents:
     client_msg_reader_class: type[MessageReader] = None  # the corresponding reader for client
     xml_reader_class: type[MessageReader] = None  # needed to read xml based mdib files
     services_factory: Callable[[provider.SdcProvider, SdcProviderComponents, dict], HostedServices] = None
-    operation_cls_getter: Callable[[QName], type] = None
+    operation_cls_getter: Callable[[etree.QName], type] = None
     sco_operations_registry_class: type[AbstractScoOperationsRegistry] = None
     subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]] = None
     role_provider_class: type = None

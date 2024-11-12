@@ -11,7 +11,7 @@ from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,7 @@ class DispatchKey:
     """
 
     action: str
-    message_tag: QName | None
+    message_tag: etree.QName | None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__} action={self.action} msg={self.message_tag}'

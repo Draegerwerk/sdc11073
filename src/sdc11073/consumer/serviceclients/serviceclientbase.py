@@ -10,7 +10,7 @@ from sdc11073.exceptions import ApiUsageError
 if TYPE_CHECKING:
     from concurrent.futures import Future
 
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073.consumer.consumerimpl import SdcConsumer
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
@@ -55,7 +55,7 @@ class GetRequestResult:
         return self._received_message.action
 
     @property
-    def msg_name(self) -> QName:
+    def msg_name(self) -> etree.QName:
         """Return the QName of message body."""
         return self._received_message.q_name.localname
 
@@ -76,7 +76,7 @@ class HostedServiceClient:
     def __init__(self, sdc_consumer: SdcConsumer,
                  soap_client: SoapClientProtocol,
                  dpws_hosted: HostedServiceType,
-                 port_type: QName):
+                 port_type: etree.QName):
         """Construct a HostedServiceClient.
 
         :param sdc_consumer:

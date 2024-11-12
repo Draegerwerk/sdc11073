@@ -8,7 +8,7 @@ from threading import Thread
 from typing import TYPE_CHECKING, Any
 
 import aiohttp.client_exceptions
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073 import observableproperties
 from sdc11073.etc import apply_map
@@ -248,11 +248,11 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                 socket.timeout) as ex:
             # this is an error related to the connection => log warning and continue
             self._logger.warning('could not send notification report {} warning= {!r}: {}',  # noqa: PLE1205
-                               action, ex, subscription)
-        except etree_.DocumentInvalid as ex:
+                                 action, ex, subscription)
+        except etree.DocumentInvalid as ex:
             # this is an error related to the document, it cannot be sent to any subscriber => re-raise
             self._logger.warning('Invalid Document for action {}: {!r}\n{}',  # noqa: PLE1205
-                               action, ex, etree_.tostring(body_node))
+                                 action, ex, etree.tostring(body_node))
             raise
         except Exception:
             # this should never happen! => re-raise

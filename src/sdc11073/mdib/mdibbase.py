@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import TYPE_CHECKING, Any
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073 import multikey
 from sdc11073 import observableproperties as properties
@@ -13,7 +13,6 @@ from sdc11073.etc import apply_map
 from sdc11073.xml_types.pm_types import Coding, have_matching_codes
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.xml_types.pm_types import CodedValue
@@ -75,7 +74,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
 
     handle: multikey.UIndexDefinition[str, list[AbstractDescriptorContainer]]
     parent_handle: multikey.IndexDefinition[str, list[AbstractDescriptorContainer]]
-    NODETYPE: multikey.IndexDefinition[QName, list[AbstractDescriptorContainer]]
+    NODETYPE: multikey.IndexDefinition[etree.QName, list[AbstractDescriptorContainer]]
     coding: multikey.IndexDefinition[Coding, list[AbstractDescriptorContainer]]
     condition_signaled: multikey.IndexDefinition[str, list[AbstractDescriptorContainer]]
     source: multikey.IndexDefinition[str, list[AbstractDescriptorContainer]]
@@ -153,7 +152,7 @@ class StatesLookup(_MultikeyWithVersionLookup):
     """
 
     descriptor_handle: multikey.UIndexDefinition[str, list[AbstractDescriptorContainer]]
-    NODETYPE: multikey.IndexDefinition[QName, list[AbstractDescriptorContainer]]
+    NODETYPE: multikey.IndexDefinition[etree.QName, list[AbstractDescriptorContainer]]
 
     def __init__(self):
         super().__init__()
@@ -189,7 +188,7 @@ class MultiStatesLookup(_MultikeyWithVersionLookup):
 
     descriptor_handle: multikey.IndexDefinition[str, list[AbstractMultiStateContainer]]
     handle: multikey.UIndexDefinition[str, list[AbstractMultiStateContainer]]
-    NODETYPE: multikey.IndexDefinition[QName, list[AbstractMultiStateContainer]]
+    NODETYPE: multikey.IndexDefinition[etree.QName, list[AbstractMultiStateContainer]]
 
     def __init__(self):
         super().__init__()
@@ -337,7 +336,7 @@ class MdibBase:
                     self._logger.error('add_state_containers: {}, Handle={}; {}',  # noqa: PLE1205
                                        ex, state_container.Handle, traceback.format_exc())
                 else:
-                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}', # noqa: PLE1205
+                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}',  # noqa: PLE1205
                                        ex, state_container.DescriptorHandle, traceback.format_exc())
 
     def _reconstruct_md_description(self) -> xml_utils.LxmlElement:
@@ -345,9 +344,9 @@ class MdibBase:
         pm = self.data_model.pm_names
         doc_nsmap = self.nsmapper.ns_map
         root_containers = self.descriptions.parent_handle.get(None) or []
-        md_description_node = etree_.Element(pm.MdDescription,
-                                             attrib={'DescriptionVersion': str(self.mddescription_version)},
-                                             nsmap=doc_nsmap)
+        md_description_node = etree.Element(pm.MdDescription,
+                                            attrib={'DescriptionVersion': str(self.mddescription_version)},
+                                            nsmap=doc_nsmap)
         for root_container in root_containers:
             self.make_descriptor_node(root_container, md_description_node, tag=pm.Mds, set_xsi_type=False)
         return md_description_node
@@ -355,7 +354,7 @@ class MdibBase:
     def make_descriptor_node(self,
                              descriptor_container: AbstractDescriptorContainer,
                              parent_node: xml_utils.LxmlElement,
-                             tag: etree_.QName,
+                             tag: etree.QName,
                              set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create a lxml etree node with subtree from instance data.
 
@@ -367,10 +366,10 @@ class MdibBase:
         """
         ns_map = self.nsmapper.partial_map(self.nsmapper.PM, self.nsmapper.XSI) \
             if set_xsi_type else self.nsmapper.partial_map(self.nsmapper.PM)
-        node = etree_.SubElement(parent_node,
-                                 tag,
-                                 attrib={'Handle': descriptor_container.Handle},
-                                 nsmap=ns_map)
+        node = etree.SubElement(parent_node,
+                                tag,
+                                attrib={'Handle': descriptor_container.Handle},
+                                nsmap=ns_map)
         descriptor_container.update_node(node, self.nsmapper, set_xsi_type)  # create all
         child_list = self.descriptions.parent_handle.get(descriptor_container.Handle, [])
         # append all child containers, then bring all child elements in correct order
@@ -388,7 +387,7 @@ class MdibBase:
         pm = self.data_model.pm_names
         msg = self.data_model.msg_names
         doc_nsmap = self.nsmapper.ns_map
-        mdib_node = etree_.Element(msg.Mdib, nsmap=doc_nsmap)
+        mdib_node = etree.Element(msg.Mdib, nsmap=doc_nsmap)
         mdib_node.set('MdibVersion', str(self.mdib_version))
         mdib_node.set('SequenceId', self.sequence_id)
         if self.instance_id is not None:
@@ -397,9 +396,9 @@ class MdibBase:
         mdib_node.append(md_description_node)
 
         # add a list of states
-        md_state_node = etree_.SubElement(mdib_node, pm.MdState,
-                                          attrib={'StateVersion': str(self.mdstate_version)},
-                                          nsmap=doc_nsmap)
+        md_state_node = etree.SubElement(mdib_node, pm.MdState,
+                                         attrib={'StateVersion': str(self.mdstate_version)},
+                                         nsmap=doc_nsmap)
         tag = pm.State
         for state_container in self.states.objects:
             md_state_node.append(state_container.mk_state_node(tag, self.nsmapper))
@@ -562,7 +561,7 @@ class MdibBase:
         deleted_descriptors = {}
         deleted_states = {}
         for descriptor_container in descriptor_containers:
-            self._logger.debug('rm Descriptor node {} handle {}', # noqa: PLE1205
+            self._logger.debug('rm Descriptor node {} handle {}',  # noqa: PLE1205
                                descriptor_container.NODETYPE, descriptor_container.Handle)
             self.descriptions.remove_object(descriptor_container)
             deleted_descriptors[descriptor_container.Handle] = descriptor_container
@@ -571,7 +570,7 @@ class MdibBase:
                 if state_containers is not None:
                     # make a copy, otherwise remove_objects will manipulate same list in place
                     state_containers = state_containers[:]
-                    self._logger.debug('rm {} states(s) associated to descriptor {} ', # noqa: PLE1205
+                    self._logger.debug('rm {} states(s) associated to descriptor {} ',  # noqa: PLE1205
                                        len(state_containers), descriptor_container.Handle)
                     m_key.remove_objects(state_containers)
                     deleted_states[descriptor_container.Handle] = state_containers
