@@ -13,4 +13,4 @@ jobs:
       - uses: astral-sh/ruff-action@v1
         with:
           src: "./src"
-        continue-on-error: true  # remove when https://github.com/Draegerwerk/sdc11073/issues/156 is done
+          changed-files: "true"
