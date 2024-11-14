@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073.xml_types import wsd_types
 
@@ -15,7 +15,7 @@ class Service:
     """
 
     def __init__(self,
-                 types: list[QName] | None,
+                 types: list[etree.QName] | None,
                  scopes: wsd_types.ScopesType | None,
                  x_addrs: list[str] | None,
                  epr: str,

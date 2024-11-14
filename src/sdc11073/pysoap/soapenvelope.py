@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -25,7 +25,7 @@ class SoapResponseError(Exception):
         self.response_envelope = response_envelope
 
 
-class ExtendedDocumentInvalid(etree_.DocumentInvalid):
+class ExtendedDocumentInvalid(etree.DocumentInvalid):
     """Exception for invalid document."""
 
 
@@ -88,7 +88,7 @@ class ReceivedSoapMessage:
         self.header_info_block: HeaderInformationBlock | None = None
         try:
             self.msg_node = self.body_node[0]
-            self.msg_name = etree_.QName(self.msg_node.tag)
+            self.msg_name = etree.QName(self.msg_node.tag)
         except IndexError:  # body has no content, this can happen
             self.msg_node = None
             self.msg_name = None
@@ -122,7 +122,7 @@ class faultreason(XMLTypeBase):  # noqa: N801
 class subcode(XMLTypeBase):  # noqa: N801
     """Value is a QName."""
 
-    Value: etree_.QName = struct.NodeTextQNameProperty(ns_hlp.S12.tag('Value'))
+    Value: etree.QName = struct.NodeTextQNameProperty(ns_hlp.S12.tag('Value'))
     # optional Subcode Element intentionally omitted, it is of type subcode => recursion, bad idea!
     _props = ('Value',)
 
@@ -157,7 +157,7 @@ class Fault(MessageType):
         txt.text = text
         self.Reason.Text.append(txt)
 
-    def set_sub_code(self, sub_code: etree_.QName):
+    def set_sub_code(self, sub_code: etree.QName):
         """Set sub code."""
         self.Code.Subcode = subcode()
         self.Code.Subcode.Value = sub_code

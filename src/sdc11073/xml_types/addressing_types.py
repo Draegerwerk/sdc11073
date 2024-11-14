@@ -16,7 +16,7 @@ from sdc11073.xml_types import xml_structure as struct
 from sdc11073.xml_types.basetypes import ElementWithText, XMLTypeBase
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073 import xml_utils
 
@@ -122,7 +122,7 @@ class HeaderInformationBlock(XMLTypeBase):
         return reply_address
 
     def as_etree_node(self,
-                      q_name: QName, ns_map: dict[str, str],
+                      q_name: etree.QName, ns_map: dict[str, str],
                       parent_node: xml_utils.LxmlElement | None = None) -> xml_utils.LxmlElement:
         """Create etree Element form instance data."""
         node = super().as_etree_node(q_name, ns_map, parent_node)

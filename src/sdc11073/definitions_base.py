@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from types import ModuleType
 
-    from lxml.etree import QName
+    from lxml import etree
 
     from .mdib.descriptorcontainers import AbstractDescriptorProtocol
     from .mdib.statecontainers import AbstractStateProtocol
@@ -30,10 +30,10 @@ class AbstractDataModel(ABC):
     """Abstract base class for DataModelProtocol implementation."""
 
     @abstractmethod
-    def get_descriptor_container_class(self, type_qname: QName) -> type[AbstractDescriptorProtocol]:
+    def get_descriptor_container_class(self, type_qname: etree.QName) -> type[AbstractDescriptorProtocol]:
         """Get the class that represents a BICEPS descriptor entity with given QName."""
 
-    def mk_descriptor_container(self, type_qname: QName, handle: str, parent_descriptor: Any) -> Any:
+    def mk_descriptor_container(self, type_qname: etree.QName, handle: str, parent_descriptor: Any) -> Any:
         """Create an instance that represents a BICEPS entity with given QName."""
         cls = self.get_descriptor_container_class(type_qname)
         if parent_descriptor is not None:
@@ -44,7 +44,7 @@ class AbstractDataModel(ABC):
         return ret
 
     @abstractmethod
-    def get_state_container_class(self, type_qname: QName) -> type[AbstractStateProtocol]:
+    def get_state_container_class(self, type_qname: etree.QName) -> type[AbstractStateProtocol]:
         """Get the class that represents a BICEPS state entity with given QName."""
 
     def get_state_class_for_descriptor(
@@ -98,14 +98,14 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     """
 
     # set the following values in derived classes:
-    MedicalDeviceType: QName = None  # a QName, needed for types_match method
+    MedicalDeviceType: etree.QName = None  # a QName, needed for types_match method
     ActionsNamespace: str = None  # needed for wsdl generation
     PortTypeNamespace: str = None  # needed for wsdl generation
-    MedicalDeviceTypesFilter: tuple[QName] | None = None  # QNames that are used / expected in "types" of wsdiscovery
+    MedicalDeviceTypesFilter: tuple[etree.QName] | None = None  # QNames that are used / expected in "types" of wsdiscovery
     Actions = None
     data_model: AbstractDataModel = None
 
     @classmethod
-    def types_match(cls, types: list[QName]) -> bool:
+    def types_match(cls, types: list[etree.QName]) -> bool:
         """Check if this definition can be used for the provided types."""
         return cls.MedicalDeviceType in types

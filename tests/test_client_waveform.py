@@ -2,7 +2,7 @@ import logging
 import sys
 import unittest
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073 import definitions_sdc, loghelper
 from sdc11073.consumer import SdcConsumer
@@ -140,16 +140,15 @@ class TestClientWaveform(unittest.TestCase):
 
         client_mdib = ConsumerMdib(cl)
         client_mdib._xtra.bind_to_client_observables()
-        client_mdib._state = ConsumerMdibState.initialized # fake it, because we do not call init_mdib()
+        client_mdib._state = ConsumerMdibState.initialized  # fake it, because we do not call init_mdib()
         client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
         # create dummy descriptors
         for handle in HANDLES:
             attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
-                          etree_.QName(ns_hlp.ns_map['xsi'],
-                                       'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
+                          etree.QName(ns_hlp.ns_map['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                           'Handle': handle,
                           'DescriptorVersion': '2'}
-            element = etree_.Element('Metric', attrib=attributes, nsmap=ns_hlp.ns_map)
+            element = etree.Element('Metric', attrib=attributes, nsmap=ns_hlp.ns_map)
             descr = RealTimeSampleArrayMetricDescriptorContainer.from_node(element, None)  # None = no parent handle
             client_mdib.descriptions.add_object(descr)
             state = RealTimeSampleArrayMetricStateContainer(descr)

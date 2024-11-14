@@ -9,7 +9,7 @@ from sdc11073.provider.operations import ExecuteResult
 from . import providerbase
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.providermdib import ProviderMdib
@@ -22,7 +22,7 @@ class GenericContextProvider(providerbase.ProviderRole):
     """Handles SetContextState operations."""
 
     def __init__(self, mdib: ProviderMdib,
-                 op_target_descr_types: list[QName] | None = None,
+                 op_target_descr_types: list[etree.QName] | None = None,
                  log_prefix: str | None = None):
         super().__init__(mdib, log_prefix)
         self._op_target_descr_types = op_target_descr_types

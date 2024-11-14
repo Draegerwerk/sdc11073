@@ -6,7 +6,7 @@ import traceback
 from math import isclose
 from typing import TYPE_CHECKING
 
-from lxml import etree as etree_
+from lxml import etree
 
 from .xml_structure import NodeStringProperty, NodeTextListProperty
 
@@ -35,11 +35,11 @@ class XMLTypeBase:
         for _, prop in self.sorted_container_properties():
             prop.init_instance_data(self)
 
-    def as_etree_node(self, q_name: etree_.QName, ns_map: dict, parent_node: etree_.Element | None = None):
+    def as_etree_node(self, q_name: etree.QName, ns_map: dict, parent_node: etree.Element | None = None):
         if parent_node is not None:
-            node = etree_.SubElement(parent_node, q_name, nsmap=ns_map)
+            node = etree.SubElement(parent_node, q_name, nsmap=ns_map)
         else:
-            node = etree_.Element(q_name, nsmap=ns_map)
+            node = etree.Element(q_name, nsmap=ns_map)
         self.update_node(node)
         return node
 

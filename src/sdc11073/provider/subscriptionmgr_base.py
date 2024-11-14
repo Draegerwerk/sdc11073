@@ -10,7 +10,7 @@ from threading import Thread
 from typing import TYPE_CHECKING, Any, Protocol
 from urllib.parse import urlparse
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073 import loghelper, multikey, observableproperties, xml_utils
 from sdc11073.etc import apply_map
@@ -64,7 +64,7 @@ def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str):
 
 class SubscriptionBase:
     MAX_NOTIFY_ERRORS = 1
-    IDENT_TAG = etree_.QName('http.local.com', 'MyDevIdentifier')
+    IDENT_TAG = etree.QName('http.local.com', 'MyDevIdentifier')
 
     def __init__(self, mgr,
                  subscribe_request: evt_types.Subscribe,
@@ -124,7 +124,7 @@ class SubscriptionBase:
 
     def set_reference_parameter(self):
         """Create a ReferenceParameters instance with a reference parameter."""
-        reference_parameter = etree_.Element(self.IDENT_TAG)
+        reference_parameter = etree.Element(self.IDENT_TAG)
         reference_parameter.text = self.identifier_uuid.hex
         self.reference_parameters.append(reference_parameter)
 
@@ -470,9 +470,9 @@ class SubscriptionsManagerBase:
         except socket.timeout as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)
-        except etree_.DocumentInvalid as ex:
+        except etree.DocumentInvalid as ex:
             # this is an error related to the document, it cannot be sent to any subscriber => re-raise
-            self._logger.error('Invalid Document: {!r}\n{}', ex, etree_.tostring(body_node))
+            self._logger.error('Invalid Document: {!r}\n{}', ex, etree.tostring(body_node))
             raise
         except Exception as ex:
             # this should never happen! => re-raise

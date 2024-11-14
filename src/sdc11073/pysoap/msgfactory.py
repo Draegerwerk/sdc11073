@@ -3,7 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 from typing import Optional, Union, List, Type, TYPE_CHECKING
 
-from lxml import etree as etree_
+from lxml import etree
 
 from .msgreader import validate_node
 from .soapenvelope import Soap12Envelope
@@ -45,7 +45,7 @@ class MessageFactory:
         self._logger = logger
         self.ns_hlp = sdc_definitions.data_model.ns_helper
         self._validate = validate
-        self._xml_schema: etree_.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
+        self._xml_schema: etree.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
 
     def serialize_message(self, message: CreatedMessage, pretty=False,
                           request_manipulator=None, validate=True) -> bytes:
@@ -60,14 +60,14 @@ class MessageFactory:
         p_msg = message.p_msg
         nsh = self.ns_hlp
         tmp = BytesIO()
-        root = etree_.Element(nsh.S12.tag('Envelope'), nsmap=p_msg.nsmap)
+        root = etree.Element(nsh.S12.tag('Envelope'), nsmap=p_msg.nsmap)
 
-        header_node = etree_.SubElement(root, nsh.S12.tag('Header'))
+        header_node = etree.SubElement(root, nsh.S12.tag('Header'))
         if p_msg.header_info_block:
             info_node = p_msg.header_info_block.as_etree_node('tmp', {})
             header_node.extend(info_node[:])
         header_node.extend(p_msg.header_nodes)
-        body_node = etree_.SubElement(root, nsh.S12.tag('Body'), nsmap=p_msg.nsmap)
+        body_node = etree.SubElement(root, nsh.S12.tag('Body'), nsmap=p_msg.nsmap)
         if validate:
             self._validate_node(root)
         if p_msg.payload_element is not None:
@@ -75,7 +75,7 @@ class MessageFactory:
                 self._validate_node(p_msg.payload_element)
             body_node.append(p_msg.payload_element)
 
-        doc = etree_.ElementTree(element=root)
+        doc = etree.ElementTree(element=root)
         if hasattr(request_manipulator, 'manipulate_domtree'):
             _doc = request_manipulator.manipulate_domtree(doc)
             if _doc:

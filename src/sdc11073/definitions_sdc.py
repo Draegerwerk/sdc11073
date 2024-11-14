@@ -11,7 +11,7 @@ from .xml_types import actions, msg_qnames, msg_types, pm_qnames, pm_types
 if TYPE_CHECKING:
     from types import ModuleType
 
-    from lxml.etree import QName
+    from lxml import etree
 
     from .namespaces import NamespaceHelper
 
@@ -23,11 +23,11 @@ class V1Model(AbstractDataModel):
         super().__init__()
         self._ns_hlp = ns_hlp
 
-    def get_descriptor_container_class(self, type_qname: QName) -> type:
+    def get_descriptor_container_class(self, type_qname: etree.QName) -> type:
         """Get the class that represents a BICEPS descriptor entity with given QName."""
         return get_descriptor_container_class(type_qname)
 
-    def get_state_container_class(self, type_qname: QName) -> type:
+    def get_state_container_class(self, type_qname: etree.QName) -> type:
         """Get the class that represents a BICEPS state entity with given QName."""
         return get_state_container_class(type_qname)
 

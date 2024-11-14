@@ -8,7 +8,7 @@ import uuid
 from typing import TYPE_CHECKING, Callable, Protocol
 from urllib.parse import urlparse
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
@@ -64,7 +64,7 @@ class ConsumerSubscription:
 
     notification_msg = properties.ObservableProperty()
     notification_data = properties.ObservableProperty()
-    IDENT_TAG = etree_.QName('http.local.com', 'MyClIdentifier')
+    IDENT_TAG = etree.QName('http.local.com', 'MyClIdentifier')
     is_subscribed = properties.ObservableProperty(False)
 
     def __init__(self, msg_factory: MessageFactory,  # noqa: PLR0913
@@ -198,7 +198,7 @@ class ConsumerSubscription:
                     return self.granted_expires
                 self.is_subscribed = False
                 self._logger.warning('renew failed: {}',  # noqa: PLE1205
-                                     etree_.tostring(message_data.p_msg.body_node, pretty_print=True))
+                                     etree.tostring(message_data.p_msg.body_node, pretty_print=True))
             return 0.0
 
     def unsubscribe(self):
@@ -518,9 +518,9 @@ class ClientSubscriptionManagerReferenceParams(ConsumerSubscriptionManager):
                                             dpws_hosted, filter_type,
                                             self._notification_url,
                                             self._end_to_url, self.log_prefix)
-        subscription.notify_to_identifier = etree_.Element(ConsumerSubscription.IDENT_TAG)
+        subscription.notify_to_identifier = etree.Element(ConsumerSubscription.IDENT_TAG)
         subscription.notify_to_identifier.text = uuid.uuid4().urn
-        subscription.end_to_identifier = etree_.Element(ConsumerSubscription.IDENT_TAG)
+        subscription.end_to_identifier = etree.Element(ConsumerSubscription.IDENT_TAG)
         subscription.end_to_identifier.text = uuid.uuid4().urn
 
         filter_ = filter_type.text
