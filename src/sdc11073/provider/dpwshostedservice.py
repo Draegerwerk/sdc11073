@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing
 from io import BytesIO
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.dispatch import DispatchKey, RequestDispatcher
 from sdc11073.namespaces import EventingActions
@@ -28,8 +28,8 @@ WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. u
 
 
 def etree_from_file(path: str | pathlib.Path) -> xml_utils.LxmlElement:
-    parser = etree_.ETCompatXMLParser(resolve_entities=False)
-    doc = etree_.parse(str(path), parser=parser)
+    parser = etree.ETCompatXMLParser(resolve_entities=False)
+    doc = etree.parse(str(path), parser=parser)
     return doc.getroot()
 
 
@@ -126,11 +126,11 @@ class DPWSHostedService(_EventService):
         for port_type_impl in self.port_type_impls:
             for entry in port_type_impl.additional_namespaces:
                 my_nsmap[entry.prefix] = entry.namespace
-        wsdl_definitions = etree_.Element(etree_.QName(_wsdl_ns, 'definitions'),
-                                          nsmap=my_nsmap,
-                                          attrib={'targetNamespace': sdc_definitions.PortTypeNamespace})
+        wsdl_definitions = etree.Element(etree.QName(_wsdl_ns, 'definitions'),
+                                         nsmap=my_nsmap,
+                                         attrib={'targetNamespace': sdc_definitions.PortTypeNamespace})
 
-        types = etree_.SubElement(wsdl_definitions, etree_.QName(_wsdl_ns, 'types'))
+        types = etree.SubElement(wsdl_definitions, etree.QName(_wsdl_ns, 'types'))
         # remove annotations from schemas, this reduces wsdl size from 280kb to 100kb!
         ext_schema_ = etree_from_file(ns_hlp.EXT.local_schema_file)
         ext_schema = self._remove_annotations(ext_schema_)
@@ -148,7 +148,7 @@ class DPWSHostedService(_EventService):
             _port_type_impl.add_wsdl_port_type(wsdl_definitions)
         for _port_type_impl in self.port_type_impls:
             _port_type_impl.add_wsdl_binding(wsdl_definitions, porttype_prefix)
-        return etree_.tostring(wsdl_definitions, encoding='UTF-8', xml_declaration=True)
+        return etree.tostring(wsdl_definitions, encoding='UTF-8', xml_declaration=True)
 
     @staticmethod
     def _remove_annotations(root_node):
@@ -164,8 +164,8 @@ class DPWSHostedService(_EventService):
 
           <xsl:template match="xs:annotation" />
         </xsl:stylesheet>"""
-        remove_annotations_doc = etree_.parse(BytesIO(remove_annotations_string))
-        remove_annotations_xslt = etree_.XSLT(remove_annotations_doc)
+        remove_annotations_doc = etree.parse(BytesIO(remove_annotations_string))
+        remove_annotations_xslt = etree.XSLT(remove_annotations_doc)
         return remove_annotations_xslt(root_node).getroot()
 
     def _on_get_metadata(self, request_data):

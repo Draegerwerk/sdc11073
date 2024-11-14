@@ -1,7 +1,7 @@
 import os
 import unittest
 from dataclasses import dataclass
-from lxml.etree import QName
+from lxml import etree
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib import ProviderMdib
@@ -136,7 +136,7 @@ class TestMdibTransaction(unittest.TestCase):
         @dataclass
         class TestData:
             mdib_text: str
-            expected_qname: QName
+            expected_qname: etree.QName
 
         mdib_dummy = """<msg:GetMdibResponse 
                         xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
@@ -180,8 +180,8 @@ class TestMdibTransaction(unittest.TestCase):
         xsd_prefix = "xsd"
         delaration = 'xmlns:{0}="http://www.w3.org/2001/XMLSchema"'
         delaration_any_uri = 'xmlns:{0}="urn:oid:1.23.3.123.2"'
-        expected_qname_xsd = QName("http://www.w3.org/2001/XMLSchema", "duration")
-        expected_qname_any_uri = QName("urn:oid:1.23.3.123.2", "duration")
+        expected_qname_xsd = etree.QName("http://www.w3.org/2001/XMLSchema", "duration")
+        expected_qname_any_uri = etree.QName("urn:oid:1.23.3.123.2", "duration")
 
         mdibs = [TestData(mdib_text=mdib_dummy.format('', '', delaration.format(my_prefix), f"{my_prefix}:"),
                           expected_qname=expected_qname_xsd),

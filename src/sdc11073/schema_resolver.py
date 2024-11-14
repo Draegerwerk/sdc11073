@@ -6,7 +6,7 @@ import traceback
 from io import StringIO
 from typing import TYPE_CHECKING, Any
 
-from lxml import etree as etree_
+from lxml import etree
 from urllib import parse
 
 from . import loghelper
@@ -15,10 +15,10 @@ if TYPE_CHECKING:
     from .namespaces import NamespaceHelper, PrefixNamespace
 
 
-def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceHelper) -> etree_.XMLSchema:
+def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceHelper) -> etree.XMLSchema:
     """Create a schema validator."""
     schema_resolver = SchemaResolver(namespaces)
-    parser = etree_.XMLParser(resolve_entities=True)
+    parser = etree.XMLParser(resolve_entities=True)
     parser.resolvers.add(schema_resolver)
     prefix_enum = ns_helper.prefix_enum
     not_needed = [prefix_enum.XSD]
@@ -32,20 +32,20 @@ def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceH
     tmp.write('</xsd:schema>')
     all_included = tmp.getvalue().encode('utf-8')
 
-    elem_tree = etree_.fromstring(all_included, parser=parser, base_url='C://')
+    elem_tree = etree.fromstring(all_included, parser=parser, base_url='C://')
     # for unknown reason creating the schema fails sometimes. repeat up to 3 times.
     try:
-        return etree_.XMLSchema(etree=elem_tree)
-    except etree_.XMLSchemaParseError:
+        return etree.XMLSchema(etree=elem_tree)
+    except etree.XMLSchemaParseError:
         time.sleep(0.1)
     try:
-        return etree_.XMLSchema(etree=elem_tree)
-    except etree_.XMLSchemaParseError:
+        return etree.XMLSchema(etree=elem_tree)
+    except etree.XMLSchemaParseError:
         time.sleep(0.5)
-    return etree_.XMLSchema(etree=elem_tree)
+    return etree.XMLSchema(etree=elem_tree)
 
 
-class SchemaResolver(etree_.Resolver):
+class SchemaResolver(etree.Resolver):
     """A Resolver that uses a list of PrefixNamespace for resolving."""
 
     def __init__(self, namespaces: list[PrefixNamespace], log_prefix: str | None = None):
@@ -53,7 +53,7 @@ class SchemaResolver(etree_.Resolver):
         self.namespaces = namespaces
         self._logger = loghelper.get_logger_adapter('sdc.schema_resolver', log_prefix)
 
-    def resolve(self, system_url: str, _: Any, context: Any) -> Any: # return whatever type resolve_string returns
+    def resolve(self, system_url: str, _: Any, context: Any) -> Any:  # return whatever type resolve_string returns
         """Look for xml file location in self.namespaces."""
         self._logger.debug('try to resolve %s', system_url)
         try:

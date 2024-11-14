@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import namedtuple
 from typing import TYPE_CHECKING, ClassVar
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073 import loghelper
 from sdc11073.namespaces import PrefixesEnum
@@ -21,9 +21,9 @@ WSP_NS = PrefixesEnum.WSP.namespace
 WSDL_S12 = PrefixesEnum.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 _wsdl_ns = PrefixesEnum.WSDL.namespace
-_wsdl_message = etree_.QName(_wsdl_ns, 'message')
-_wsdl_part = etree_.QName(_wsdl_ns, 'part')
-_wsdl_operation = etree_.QName(_wsdl_ns, 'operation')
+_wsdl_message = etree.QName(_wsdl_ns, 'message')
+_wsdl_part = etree.QName(_wsdl_ns, 'part')
+_wsdl_operation = etree.QName(_wsdl_ns, 'operation')
 
 # WSDL Generation:
 # types to allow declaration of a wsdl data per service
@@ -40,7 +40,7 @@ class DPWSPortTypeBase:
     Handlers are registered in the hosting service instance.
     """
 
-    port_type_name: etree_.QName | None = None
+    port_type_name: etree.QName | None = None
     WSDLOperationBindings = ()  # overwrite in derived classes
     WSDLMessageDescriptions = ()  # overwrite in derived classes
     additional_namespaces: ClassVar[list[PrefixNamespace]] = []  # for special namespaces
@@ -81,12 +81,12 @@ class DPWSPortTypeBase:
             raise ValueError('self.port_type_name is not set, cannot create port type node')
 
         if 'dt' in parent_node.nsmap:
-            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_name.localname,
-                                                  PrefixesEnum.DPWS.tag('DiscoveryType'): 'dt:ServiceProvider'})
+            port_type = etree.SubElement(parent_node, etree.QName(_wsdl_ns, 'portType'),
+                                         attrib={'name': self.port_type_name.localname,
+                                                 PrefixesEnum.DPWS.tag('DiscoveryType'): 'dt:ServiceProvider'})
         else:
-            port_type = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'portType'),
-                                          attrib={'name': self.port_type_name.localname})
+            port_type = etree.SubElement(parent_node, etree.QName(_wsdl_ns, 'portType'),
+                                         attrib={'name': self.port_type_name.localname})
         if is_event_source:
             port_type.attrib[PrefixesEnum.WSE.tag('EventSource')] = 'true'
         return port_type
@@ -104,11 +104,11 @@ class DPWSPortTypeBase:
         :return:
         """
         for msg in self.WSDLMessageDescriptions:
-            elem = etree_.SubElement(parent_node, _wsdl_message, attrib={'name': msg.name})
+            elem = etree.SubElement(parent_node, _wsdl_message, attrib={'name': msg.name})
             for element_name in msg.parameters:
-                etree_.SubElement(elem, _wsdl_part,
-                                  attrib={'name': 'parameters',
-                                          'element': element_name})
+                etree.SubElement(elem, _wsdl_part,
+                                 attrib={'name': 'parameters',
+                                         'element': element_name})
 
     def add_wsdl_binding(self, parent_node, porttype_prefix):
         """Add wsdl:binding node to parent_node.
@@ -132,23 +132,23 @@ class DPWSPortTypeBase:
         """
         v_ref = self._sdc_device.mdib.sdc_definitions
         p_type = self.port_type_name.localname
-        wsdl_binding = etree_.SubElement(parent_node, etree_.QName(_wsdl_ns, 'binding'),
-                                         attrib={'name': p_type + 'Binding',
-                                                 'type': f'{porttype_prefix}:{p_type}'})
-        etree_.SubElement(wsdl_binding, etree_.QName(WSDL_S12, 'binding'),
-                          attrib={'style': 'document', 'transport': 'http://schemas.xmlsoap.org/soap/http'})
+        wsdl_binding = etree.SubElement(parent_node, etree.QName(_wsdl_ns, 'binding'),
+                                        attrib={'name': p_type + 'Binding',
+                                                'type': f'{porttype_prefix}:{p_type}'})
+        etree.SubElement(wsdl_binding, etree.QName(WSDL_S12, 'binding'),
+                         attrib={'style': 'document', 'transport': 'http://schemas.xmlsoap.org/soap/http'})
         _add_policy_dpws_profile(wsdl_binding)
         for wsdl_op in self.WSDLOperationBindings:
-            wsdl_operation = etree_.SubElement(wsdl_binding, etree_.QName(_wsdl_ns, 'operation'),
-                                               attrib={'name': wsdl_op.name})
-            etree_.SubElement(wsdl_operation, etree_.QName(WSDL_S12, 'operation'),
-                              attrib={'soapAction': f'{v_ref.ActionsNamespace}/{p_type}/{wsdl_op.name}'})
+            wsdl_operation = etree.SubElement(wsdl_binding, etree.QName(_wsdl_ns, 'operation'),
+                                              attrib={'name': wsdl_op.name})
+            etree.SubElement(wsdl_operation, etree.QName(WSDL_S12, 'operation'),
+                             attrib={'soapAction': f'{v_ref.ActionsNamespace}/{p_type}/{wsdl_op.name}'})
             if wsdl_op.input is not None:
-                wsdl_input = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'input'))
-                etree_.SubElement(wsdl_input, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.input})
+                wsdl_input = etree.SubElement(wsdl_operation, etree.QName(_wsdl_ns, 'input'))
+                etree.SubElement(wsdl_input, etree.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.input})
             if wsdl_op.output is not None:
-                wsdl_output = etree_.SubElement(wsdl_operation, etree_.QName(_wsdl_ns, 'output'))
-                etree_.SubElement(wsdl_output, etree_.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
+                wsdl_output = etree.SubElement(wsdl_operation, etree.QName(_wsdl_ns, 'output'))
+                etree.SubElement(wsdl_output, etree.QName(WSDL_S12, 'body'), attrib={'use': wsdl_op.output})
 
     def _mk_offered_subscriptions(self) -> list:
         """Takes action strings from sdc_definitions.Actions.
@@ -195,15 +195,15 @@ class ServiceWithOperations(DPWSPortTypeBase):
 
 
 def _mk_wsdl_operation(parent_node, operation_name, input_message_name, output_message_name) -> xml_utils.LxmlElement:
-    elem = etree_.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
+    elem = etree.SubElement(parent_node, _wsdl_operation, attrib={'name': operation_name})
     if input_message_name is not None:
-        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'input'),
-                          attrib={'message': f'tns:{input_message_name}',
-                                  })
+        etree.SubElement(elem, etree.QName(_wsdl_ns, 'input'),
+                         attrib={'message': f'tns:{input_message_name}',
+                                 })
     if output_message_name is not None:
-        etree_.SubElement(elem, etree_.QName(_wsdl_ns, 'output'),
-                          attrib={'message': f'tns:{output_message_name}',
-                                  })
+        etree.SubElement(elem, etree.QName(_wsdl_ns, 'output'),
+                         attrib={'message': f'tns:{output_message_name}',
+                                 })
     return elem
 
 
@@ -249,8 +249,8 @@ def _add_policy_dpws_profile(parent_node):
             <mdpws:Profile wsp:Optional="true"/>
           </wsp:Policy>
     """
-    wsp_policy_node = etree_.SubElement(parent_node, etree_.QName(WSP_NS, 'Policy'), attrib=None)
-    _ = etree_.SubElement(wsp_policy_node, PrefixesEnum.DPWS.tag('Profile'),
-                          attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
-    _ = etree_.SubElement(wsp_policy_node, PrefixesEnum.MDPWS.tag('Profile'),
-                          attrib={etree_.QName(WSP_NS, 'Optional'): 'true'})
+    wsp_policy_node = etree.SubElement(parent_node, etree.QName(WSP_NS, 'Policy'), attrib=None)
+    _ = etree.SubElement(wsp_policy_node, PrefixesEnum.DPWS.tag('Profile'),
+                         attrib={etree.QName(WSP_NS, 'Optional'): 'true'})
+    _ = etree.SubElement(wsp_policy_node, PrefixesEnum.MDPWS.tag('Profile'),
+                         attrib={etree.QName(WSP_NS, 'Optional'): 'true'})

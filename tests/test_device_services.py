@@ -1,6 +1,6 @@
 import unittest
 
-from lxml import etree as etree_
+from lxml import etree
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.dispatch.request import RequestData
 from sdc11073.loghelper import basic_logging_setup
@@ -44,7 +44,7 @@ class TestDeviceServices(unittest.TestCase):
         nsm = self.sdc_device.mdib.nsmapper  # shortcut
 
         action = '{}/{}/{}'.format(name_space, port_type, method)
-        body_node = etree_.Element(nsm.MSG.tag(method))
+        body_node = etree.Element(nsm.MSG.tag(method))
         soap_envelope = Soap12Envelope(nsm.partial_map(nsm.S12, nsm.WSA, nsm.MSG))
         soap_envelope.set_header_info_block(HeaderInformationBlock(action=action, addr_to=path))
         soap_envelope.payload_element = body_node
@@ -166,7 +166,7 @@ class TestDeviceServices(unittest.TestCase):
         dev = self.sdc_device
         _ns = dev.mdib.nsmapper  # shortcut
         for hosted in dev.hosted_services.dpws_hosted_services.values():
-            wsdl = etree_.fromstring(hosted._wsdl_string)
+            wsdl = etree.fromstring(hosted._wsdl_string)
             inputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("input")}', namespaces=_ns.ns_map)
             outputs = wsdl.xpath(f'//{_ns.WSDL.doc_name("output")}', namespaces=_ns.ns_map)
             self.assertGreater(len(inputs), 0)

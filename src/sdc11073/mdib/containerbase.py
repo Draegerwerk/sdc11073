@@ -4,7 +4,7 @@ import copy
 import inspect
 from typing import Any
 import math
-from lxml.etree import Element, SubElement, QName
+from lxml import etree
 
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import QN_TYPE, NamespaceHelper
@@ -14,7 +14,7 @@ from sdc11073 import xml_utils
 class ContainerBase:
     """Common base class for descriptors and states."""
 
-    NODETYPE: QName = None  # overwrite in derived classes! This is the BICEPS Type.
+    NODETYPE: etree.QName = None  # overwrite in derived classes! This is the BICEPS Type.
     node = properties.ObservableProperty()
     is_state_container = False
     is_descriptor_container = False
@@ -35,7 +35,7 @@ class ContainerBase:
         return getattr(self.__class__, attr_name).get_actual_value(self)
 
     def mk_node(self,
-                tag: QName,
+                tag: etree.QName,
                 ns_helper: NamespaceHelper,
                 parent_node: xml_utils.LxmlElement | None = None,
                 set_xsi_type: bool = False) -> xml_utils.LxmlElement:
@@ -51,9 +51,9 @@ class ContainerBase:
                                        ns_helper.MSG,
                                        ns_helper.XSI)
         if parent_node is not None:
-            node = SubElement(parent_node, tag, nsmap=ns_map)
+            node = etree.SubElement(parent_node, tag, nsmap=ns_map)
         else:
-            node = Element(tag, nsmap=ns_map)
+            node = etree.Element(tag, nsmap=ns_map)
 
         self.update_node(node, ns_helper, set_xsi_type)
         return node
