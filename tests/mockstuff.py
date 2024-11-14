@@ -7,7 +7,7 @@ from urllib.parse import SplitResult
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -68,8 +68,8 @@ class TestDevSubscription(BicepsSubscription):
     def __init__(self, filter_,
                  soap_client_pool: SoapClientPool,
                  msg_factory):
-        notify_ref_node = etree_.Element(ns_hlp.WSE.tag('References'))
-        identNode = etree_.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
+        notify_ref_node = etree.Element(ns_hlp.WSE.tag('References'))
+        identNode = etree.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
         identNode.text = self.notify_ref
         base_urls = [SplitResult('https', 'www.example.com:222', 'no_uuid', query=None, fragment=None)]
         accepted_encodings = ['foo']  # not needed here
@@ -80,8 +80,8 @@ class TestDevSubscription(BicepsSubscription):
         subscribe_request.Delivery.NotifyTo.Mode = self.mode
         max_subscription_duration = 42
         subscr_mgr = None
-        super().__init__(subscr_mgr, subscribe_request, accepted_encodings, base_urls, max_subscription_duration, soap_client_pool,
-                         msg_factory=msg_factory, log_prefix='test')
+        super().__init__(subscr_mgr, subscribe_request, accepted_encodings, base_urls, max_subscription_duration,
+                         soap_client_pool, msg_factory=msg_factory, log_prefix='test')
         self.reports = []
 
     def send_notification_report(self, body_node, action: str):
@@ -139,7 +139,7 @@ class SomeDevice(SdcProvider):
                 mdsDescriptor.MetaData.ModelNumber = '0.99'
         super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
                          ssl_context_container=ssl_context_container,
-                         max_subscription_duration = max_subscription_duration,
+                         max_subscription_duration=max_subscription_duration,
                          log_prefix=log_prefix,
                          default_components=default_components,
                          specific_components=specific_components,
@@ -151,7 +151,7 @@ class SomeDevice(SdcProvider):
                        wsdiscovery: WsDiscoveryProtocol,
                        epr: str | uuid.UUID | None,
                        mdib_xml_path: str | pathlib.Path,
-                       validate: bool =True,
+                       validate: bool = True,
                        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                        max_subscription_duration: int = 15,
                        log_prefix: str = '',
@@ -164,7 +164,7 @@ class SomeDevice(SdcProvider):
         if not mdib_xml_path.is_absolute():
             mdib_xml_path = pathlib.Path(__file__).parent.joinpath(mdib_xml_path)
         return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
-                   max_subscription_duration = max_subscription_duration,
+                   max_subscription_duration=max_subscription_duration,
                    log_prefix=log_prefix,
                    default_components=default_components, specific_components=specific_components,
                    chunk_size=chunk_size,

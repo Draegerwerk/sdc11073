@@ -5,7 +5,7 @@ import pathlib
 from enum import Enum
 from typing import Optional, Type, NamedTuple
 
-from lxml import etree as etree_
+from lxml import etree
 
 
 class PrefixNamespace(NamedTuple):
@@ -14,8 +14,8 @@ class PrefixNamespace(NamedTuple):
     schema_location_url: str | None
     local_schema_file: pathlib.Path | None
 
-    def tag(self, localname: str) -> etree_.QName:
-        return etree_.QName(self.namespace, localname)
+    def tag(self, localname: str) -> etree.QName:
+        return etree.QName(self.namespace, localname)
 
     def doc_name(self, localname: str) -> str:
         if self.prefix:
@@ -201,20 +201,20 @@ class NamespaceHelper:
             ret[p.prefix] = p.namespace
         return ret
 
-    def doc_name_from_qname(self, qname: etree_.QName) -> str:
+    def doc_name_from_qname(self, qname: etree.QName) -> str:
         """ returns the prefix:name string, or only name (if default namespace is used) """
         if qname.namespace is not None and qname.namespace == self._default_ns:
             return qname.localname
         prefix = self._prefix_map[qname.namespace]
         return f'{prefix}:{qname.localname}'
 
-    def text_to_qname(self, text: str, nsmap: dict = None) -> etree_.QName:
+    def text_to_qname(self, text: str, nsmap: dict = None) -> etree.QName:
         ns_map = nsmap or self.ns_map
         elements = text.split(':')
         prefix = None if len(elements) == 1 else elements[0]
         name = elements[-1]
         try:
-            return etree_.QName(ns_map[prefix], name)
+            return etree.QName(ns_map[prefix], name)
         except KeyError as ex:
             raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {ns_map.keys()}') from ex
 
@@ -226,7 +226,7 @@ WSA_ANONYMOUS = PrefixesEnum.WSA.namespace + '/anonymous'
 WSA_NONE = PrefixesEnum.WSA.namespace + '/none'
 
 
-def docname_from_qname(qname: etree_.QName, ns_map: dict) -> str:
+def docname_from_qname(qname: etree.QName, ns_map: dict) -> str:
     """ returns prefix:name string, or only name (if default namespace is used) """
     prefixmap = dict((v, k) for k, v in ns_map.items())
     prefix = prefixmap.get(qname.namespace)
@@ -235,17 +235,17 @@ def docname_from_qname(qname: etree_.QName, ns_map: dict) -> str:
     return f'{prefix}:{qname.localname}'
 
 
-def text_to_qname(text: str, doc_nsmap: dict) -> etree_.QName:
+def text_to_qname(text: str, doc_nsmap: dict) -> etree.QName:
     elements = text.split(':')
     prefix = None if len(elements) == 1 else elements[0]
     name = elements[-1]
     try:
-        return etree_.QName(doc_nsmap[prefix], name)
+        return etree.QName(doc_nsmap[prefix], name)
     except KeyError as ex:
         raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {doc_nsmap.keys()}') from ex
 
 
-QN_TYPE = etree_.QName(PrefixesEnum.XSI.namespace, 'type')  # frequently used QName, central definition
+QN_TYPE = etree.QName(PrefixesEnum.XSI.namespace, 'type')  # frequently used QName, central definition
 
 
 class EventingActions:

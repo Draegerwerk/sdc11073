@@ -16,7 +16,7 @@ from .containerbase import ContainerBase
 if TYPE_CHECKING:
     from decimal import Decimal
 
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073.location import SdcLocation
     from sdc11073.namespaces import NamespaceHelper
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 class AbstractStateProtocol(Protocol):
     """The common Interface of all states."""
 
-    NODETYPE: QName
+    NODETYPE: etree.QName
     is_state_container: bool
     is_realtime_sample_array_metric_state: bool
     is_metric_state: bool
@@ -87,7 +87,7 @@ class AbstractStateContainer(ContainerBase):
             self.DescriptorVersion = descriptor_container.DescriptorVersion
             # pylint: enable=invalid-name
 
-    def mk_state_node(self, tag: QName,
+    def mk_state_node(self, tag: etree.QName,
                       nsmapper: NamespaceHelper,
                       set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create an etree node from instance data."""
@@ -575,7 +575,7 @@ class AbstractMultiStateContainer(AbstractStateContainer):
                 f'Update from a node with different handle is not possible! Have "{self.Handle}", got "{other.Handle}"')
         super().update_from_other_container(other, skipped_properties)
 
-    def mk_state_node(self, tag: QName, nsmapper: NamespaceHelper, set_xsi_type: bool = True) -> xml_utils.LxmlElement:
+    def mk_state_node(self, tag: etree.QName, nsmapper: NamespaceHelper, set_xsi_type: bool = True) -> xml_utils.LxmlElement:
         """Create an etree node from instance data."""
         if self.Handle is None:
             self.Handle = uuid.uuid4().hex
@@ -710,7 +710,7 @@ classes_with_nodetype = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and 
 _state_lookup_by_type = {c.NODETYPE: c for c in classes_with_nodetype}
 
 
-def get_container_class(type_qname: QName) -> type[AbstractStateProtocol]:
+def get_container_class(type_qname: etree.QName) -> type[AbstractStateProtocol]:
     """Return class for given type.
 
     :param type_qname: the QName of the expected NODETYPE.

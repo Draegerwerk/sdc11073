@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from logging import Logger
 
-    from lxml.etree import QName
+    from lxml import etree
 
     from sdc11073.location import SdcLocation
     from sdc11073.pysoap.msgfactory import CreatedMessage
@@ -53,7 +53,7 @@ class MatchBy(str, Enum):
     strcmp = NS_D + '/strcmp0'  # "http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01/strcmp0"
 
 
-def types_info(types: Iterable[QName] | None) -> list[str] | None:
+def types_info(types: Iterable[etree.QName] | None) -> list[str] | None:
     """Make printable strings from list of QNames (helper method for logging)."""
     return [str(t) for t in types] if types else types
 
@@ -83,12 +83,12 @@ def match_scope(my_scope: str, other_scope: str, match_by: MatchBy | str | None)
     return False
 
 
-def match_type(type1: QName, type2: QName) -> bool:
+def match_type(type1: etree.QName, type2: etree.QName) -> bool:
     """Check if namespace and localname are identical."""
     return type1.namespace == type2.namespace and type1.localname == type2.localname
 
 
-def _is_type_in_list(ttype: QName, types: list[QName]) -> bool:
+def _is_type_in_list(ttype: etree.QName, types: list[etree.QName]) -> bool:
     return any(match_type(ttype, entry) for entry in types)
 
 
@@ -101,7 +101,7 @@ def _is_scope_in_list(uri: str, match_by: str, srv_sc: wsd_types.ScopesType) -> 
 
 
 def matches_filter(service: Service,
-                   types: Iterable[QName] | None,
+                   types: Iterable[etree.QName] | None,
                    scopes: wsd_types.ScopesType | None) -> bool:
     """Check if service matches the types and scopes."""
     if types is not None:
@@ -116,7 +116,7 @@ def matches_filter(service: Service,
 
 
 def filter_services(services: Iterable[Service],
-                    types: Iterable[QName] | None,
+                    types: Iterable[etree.QName] | None,
                     scopes: wsd_types.ScopesType | None) -> list[Service]:
     """Filter services that match types and scopes."""
     return [service for service in services if matches_filter(service, types, scopes)]
@@ -182,7 +182,7 @@ class WSDiscovery:
             self._server_started = False
 
     def search_services(self,
-                        types: Iterable[QName] | None = None,
+                        types: Iterable[etree.QName] | None = None,
                         scopes: wsd_types.ScopesType | None = None,
                         timeout: int | float | None = 5,
                         repeat_probe_interval: int | None = 3) -> list[Service]:
@@ -224,7 +224,7 @@ class WSDiscovery:
         return self.search_services(SdcV1Definitions.MedicalDeviceTypesFilter, scopes, timeout, repeat_probe_interval)
 
     def search_multiple_types(self,
-                              types_list: list[list[QName]],
+                              types_list: list[list[etree.QName]],
                               scopes: wsd_types.ScopesType | None = None,
                               timeout: int | float | None = 10,
                               repeat_probe_interval: int | None = 3) -> list[Service]:
@@ -265,7 +265,7 @@ class WSDiscovery:
         return sdc_location.filter_services_inside(services)
 
     def publish_service(self, epr: str,
-                        types: list[QName],
+                        types: list[etree.QName],
                         scopes: wsd_types.ScopesType,
                         x_addrs: list[str]):
         """Publish a service with the given TYPES, SCOPES and XAddrs (service addresses).
@@ -305,7 +305,7 @@ class WSDiscovery:
 
     def set_remote_service_hello_callback(self,
                                           callback: Callable,
-                                          types: list[QName] | None = None,
+                                          types: list[etree.QName] | None = None,
                                           scopes: wsd_types.ScopesType | None = None):
         """Set callback, which will be called when new service appeared online and sent Hello message.
 
@@ -547,7 +547,7 @@ class WSDiscovery:
             self._networking_thread.add_outbound_message(created_message, addr[0], addr[1],
                                                          networkingthread.UNICAST_REPEAT_PARAMS)
 
-    def _send_probe(self, types: Iterable[QName] | None = None, scopes: wsd_types.ScopesType | None = None):
+    def _send_probe(self, types: Iterable[etree.QName] | None = None, scopes: wsd_types.ScopesType | None = None):
         types = list(types) if types is not None else None  # enforce iteration
         self._logger.debug('sending probe types=%r scopes=%r', types_info(types), scopes)
         payload = wsd_types.ProbeType()

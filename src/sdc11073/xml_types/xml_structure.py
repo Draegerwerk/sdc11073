@@ -14,7 +14,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Callable
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import QN_TYPE, docname_from_qname, text_to_qname
@@ -210,7 +210,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
         :param implied_py_value: see base class doc.
         :param is_optional: see base class doc.
         """
-        if isinstance(attribute_name, etree_.QName):
+        if isinstance(attribute_name, etree.QName):
             local_var_name = f'_a_{attribute_name.localname}_{_NumberStack.unique_number()}'
         else:
             local_var_name = f'_a_{attribute_name.lower()}_{_NumberStack.unique_number()}'
@@ -248,7 +248,7 @@ class _AttributeBase(_XmlStructureBaseProperty):
 class _ElementBase(_XmlStructureBaseProperty, ABC):
     """_ElementBase represents an XML Element."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
@@ -271,7 +271,7 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
 
     @staticmethod
     def _get_element_by_child_name(node: xml_utils.LxmlElement,
-                                   sub_element_name: etree_.QName | None,
+                                   sub_element_name: etree.QName | None,
                                    create_missing_nodes: bool) -> xml_utils.LxmlElement:
         if sub_element_name is None:
             return node
@@ -279,7 +279,7 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
         if sub_node is None:
             if not create_missing_nodes:
                 raise ElementNotFoundError(f'Element {sub_element_name} not found in {node.tag}')
-            sub_node = etree_.SubElement(node, sub_element_name)  # create this node
+            sub_node = etree.SubElement(node, sub_element_name)  # create this node
         return sub_node
 
     def remove_sub_element(self, node: xml_utils.LxmlElement):
@@ -462,10 +462,10 @@ class QNameAttributeProperty(_AttributeBase):
     """
 
     def __init__(self, attribute_name: str,
-                 default_py_value: etree_.QName | None = None,
-                 implied_py_value: etree_.QName | None = None,
+                 default_py_value: etree.QName | None = None,
+                 implied_py_value: etree.QName | None = None,
                  is_optional: bool = True):
-        super().__init__(attribute_name, value_converter=ClassCheckConverter(etree_.QName),
+        super().__init__(attribute_name, value_converter=ClassCheckConverter(etree.QName),
                          default_py_value=default_py_value, implied_py_value=implied_py_value, is_optional=is_optional)
 
     def get_py_value_from_node(self, instance: Any,  # noqa: ARG002
@@ -597,7 +597,7 @@ class NodeTextProperty(_ElementBase):
     Python representation depends on value converter.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  value_converter: DataConverterProtocol,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -656,7 +656,7 @@ class NodeStringProperty(NodeTextProperty):
     if the xml element that should contain the text does not exist, the python value is None.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None = None,  # noqa: PLR0913
                  default_py_value: str | None = None,
                  implied_py_value: str | None = None,
                  is_optional: bool = False,
@@ -679,7 +679,7 @@ class NodeEnumTextProperty(NodeTextProperty):
     Python representation is an enum.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  enum_cls: Any,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -695,7 +695,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
     Python representation is an Enum of QName, XML is prefix:localname.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  enum_cls: Any,
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -710,7 +710,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
             prefix, localname = sub_node.text.split(':')
             namespace = node.nsmap[prefix]
-            q_name = etree_.QName(namespace, localname)
+            q_name = etree.QName(namespace, localname)
             return self._converter.to_py(q_name)
         except ElementNotFoundError:
             return self._default_py_value
@@ -748,7 +748,7 @@ class NodeEnumQNameProperty(NodeTextProperty):
 class NodeIntProperty(NodeTextProperty):
     """Python representation is an int."""
 
-    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None = None,  # noqa: PLR0913
                  default_py_value: int | None = None,
                  implied_py_value: int | None = None,
                  is_optional: bool = False,
@@ -756,10 +756,11 @@ class NodeIntProperty(NodeTextProperty):
         super().__init__(sub_element_name, IntegerConverter, default_py_value, implied_py_value,
                          is_optional, min_length)
 
+
 class NodeDecimalProperty(NodeTextProperty):
     """Python representation is an int."""
 
-    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None = None,  # noqa: PLR0913
                  default_py_value: Decimal | None = None,
                  implied_py_value: Decimal | None = None,
                  is_optional: bool = False,
@@ -767,10 +768,11 @@ class NodeDecimalProperty(NodeTextProperty):
         super().__init__(sub_element_name, DecimalConverter, default_py_value, implied_py_value,
                          is_optional, min_length)
 
+
 class NodeDurationProperty(NodeTextProperty):
     """Python representation is an int."""
 
-    def __init__(self, sub_element_name: etree_.QName | None = None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None = None,  # noqa: PLR0913
                  default_py_value: isoduration.DurationType | None = None,
                  implied_py_value: isoduration.DurationType | None = None,
                  is_optional: bool = False,
@@ -782,10 +784,10 @@ class NodeDurationProperty(NodeTextProperty):
 class NodeTextQNameProperty(_ElementBase):
     """The handled data is a single qualified name in the text of an element in the form prefix:localname."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,
-                 default_py_value: etree_.QName | None = None,
+    def __init__(self, sub_element_name: etree.QName | None,
+                 default_py_value: etree.QName | None = None,
                  is_optional: bool = False):
-        super().__init__(sub_element_name, ClassCheckConverter(etree_.QName), default_py_value,
+        super().__init__(sub_element_name, ClassCheckConverter(etree.QName), default_py_value,
                          is_optional=is_optional)
 
     def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
@@ -836,8 +838,8 @@ def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement
         return False
 
     # ignore comments
-    left_children = [child for child in left if not isinstance(child, etree_._Comment)]
-    right_children = [child for child in right if not isinstance(child, etree_._Comment)]
+    left_children = [child for child in left if not isinstance(child, etree._Comment)]
+    right_children = [child for child in right if not isinstance(child, etree._Comment)]
 
     if len(left_children) != len(right_children):  # compare children count
         return False
@@ -848,7 +850,6 @@ def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement
 
 
 class ExtensionLocalValue(list[xml_utils.LxmlElement]):
-
     compare_method: Callable[[xml_utils.LxmlElement, xml_utils.LxmlElement], bool] = _compare_extension
     """may be overwritten by user if a custom comparison behaviour is required"""
 
@@ -856,7 +857,7 @@ class ExtensionLocalValue(list[xml_utils.LxmlElement]):
         try:
             if len(self) != len(other):
                 return False
-        except TypeError: # len of other cannot be determined
+        except TypeError:  # len of other cannot be determined
             return False
         return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
 
@@ -870,7 +871,7 @@ class ExtensionNodeProperty(_ElementBase):
     The python representation is an ExtensionLocalValue with list of elements.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None, default_py_value: Any | None = None):
+    def __init__(self, sub_element_name: etree.QName | None, default_py_value: Any | None = None):
         super().__init__(sub_element_name, ClassCheckConverter(ExtensionLocalValue), default_py_value,
                          is_optional=True)
 
@@ -918,7 +919,7 @@ class ExtensionNodeProperty(_ElementBase):
 class AnyEtreeNodeProperty(_ElementBase):
     """Represents an Element that contains xml tree of any kind."""
 
-    def __init__(self, sub_element_name: etree_.QName | None, is_optional: bool = False):
+    def __init__(self, sub_element_name: etree.QName | None, is_optional: bool = False):
         super().__init__(sub_element_name, NullConverter, default_py_value=None,
                          is_optional=is_optional)
 
@@ -946,7 +947,7 @@ class AnyEtreeNodeProperty(_ElementBase):
                 raise ValueError(f'mandatory value {self._sub_element_name} missing')
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-            if isinstance(py_value, etree_._Element):  # noqa: SLF001
+            if isinstance(py_value, etree._Element):  # noqa: SLF001
                 sub_node.append(py_value)
             else:
                 sub_node.extend(py_value)
@@ -955,7 +956,7 @@ class AnyEtreeNodeProperty(_ElementBase):
 class SubElementProperty(_ElementBase):
     """Uses a value that has an "as_etree_node" method."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  value_class: type[XMLTypeBase],
                  default_py_value: Any | None = None,
                  implied_py_value: Any | None = None,
@@ -986,7 +987,7 @@ class SubElementProperty(_ElementBase):
             if not self.is_optional:
                 if MANDATORY_VALUE_CHECKING and not self.is_optional:
                     raise ValueError(f'mandatory value {self._sub_element_name} missing')
-                etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
+                etree.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
         else:
             sub_node = py_value.as_etree_node(self._sub_element_name, node.nsmap, node)
             if hasattr(py_value, 'NODETYPE') and hasattr(self.value_class, 'NODETYPE') \
@@ -998,9 +999,9 @@ class SubElementProperty(_ElementBase):
 class ContainerProperty(_ElementBase):
     """ContainerProperty supports xsi:type information from xml and instantiates value accordingly."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  value_class: type[ContainerBase],
-                 cls_getter: Callable[[etree_.QName], type],
+                 cls_getter: Callable[[etree.QName], type],
                  ns_helper: NamespaceHelper,
                  is_optional: bool = False):
         """Construct a ContainerProperty.
@@ -1043,7 +1044,7 @@ class ContainerProperty(_ElementBase):
             if not self.is_optional:
                 if MANDATORY_VALUE_CHECKING and not self.is_optional:
                     raise ValueError(f'mandatory value {self._sub_element_name} missing')
-                etree_.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
+                etree.SubElement(node, self._sub_element_name, nsmap=node.nsmap)
         else:
             self.remove_sub_element(node)
             sub_node = py_value.mk_node(self._sub_element_name, self._ns_helper, node)
@@ -1090,7 +1091,7 @@ class SubElementListProperty(_ElementListProperty):
     Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  value_class: type[XMLTypeBase],
                  is_optional: bool = True):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
@@ -1134,9 +1135,9 @@ class ContainerListProperty(_ElementListProperty):
     Used if maxOccurs="Unbounded" in BICEPS_ParticipantModel.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,  # noqa: PLR0913
+    def __init__(self, sub_element_name: etree.QName | None,  # noqa: PLR0913
                  value_class: type[ContainerBase],
-                 cls_getter: Callable[[etree_.QName], type],
+                 cls_getter: Callable[[etree.QName], type],
                  ns_helper: NamespaceHelper,
                  is_optional: bool = True):
         """Construct a list of Containers.
@@ -1198,7 +1199,7 @@ class SubElementTextListProperty(_ElementListProperty):
     On xml side every string is a text of a sub element.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  value_class: Any,
                  is_optional: bool = True):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
@@ -1229,7 +1230,7 @@ class SubElementTextListProperty(_ElementListProperty):
             node.remove(_node)
         # ... and create new ones
         for val in py_value:
-            child = etree_.SubElement(node, self._sub_element_name)
+            child = etree.SubElement(node, self._sub_element_name)
             try:
                 child.text = val
             except TypeError as ex:
@@ -1246,7 +1247,7 @@ class SubElementStringListProperty(SubElementTextListProperty):
     On xml side every string is a text of a sub element.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  is_optional: bool = True):
         super().__init__(sub_element_name, str, is_optional=is_optional)
 
@@ -1261,7 +1262,7 @@ class SubElementWithSubElementListProperty(SubElementProperty):
     value_class must have an is_empty method.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  default_py_value: Any,
                  value_class: type[XMLTypeBase]):
         assert hasattr(value_class, 'is_empty')
@@ -1291,7 +1292,7 @@ class SubElementWithSubElementListProperty(SubElementProperty):
 class AnyEtreeNodeListProperty(_ElementListProperty):
     """class represents a list of lxml elements."""
 
-    def __init__(self, sub_element_name: etree_.QName | None, is_optional: bool = True):
+    def __init__(self, sub_element_name: etree.QName | None, is_optional: bool = True):
         super().__init__(sub_element_name,
                          ListConverter(ClassCheckConverter(xml_utils.LxmlElement)),
                          is_optional=is_optional)
@@ -1329,7 +1330,7 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
 class NodeTextListProperty(_ElementListProperty):
     """The handled data is a list of words (string without whitespace). The xml text is the joined list of words."""
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  value_class: Any,
                  is_optional: bool = False):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)),
@@ -1380,9 +1381,9 @@ class NodeTextQNameListProperty(_ElementListProperty):
     The xml text is the joined list of qnames in the form prefix:localname.
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  is_optional: bool = False):
-        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(etree_.QName)),
+        super().__init__(sub_element_name, ListConverter(ClassCheckConverter(etree.QName)),
                          is_optional=is_optional)
 
     def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
@@ -1452,7 +1453,7 @@ class DateOfBirthProperty(_ElementBase):
     or datetime.Datetime (with time point attribute).
     """
 
-    def __init__(self, sub_element_name: etree_.QName | None,
+    def __init__(self, sub_element_name: etree.QName | None,
                  default_py_value: Any = None,
                  implied_py_value: Any = None,
                  is_optional: bool = True):

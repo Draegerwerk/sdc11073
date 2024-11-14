@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .subscriptionmgr_base import ActionBasedSubscription, SubscriptionsManagerBase
 from sdc11073 import observableproperties
@@ -12,7 +11,6 @@ from sdc11073.xml_types import eventing_types as evt_types
 from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 
 if TYPE_CHECKING:
-    from lxml import etree as etree_
     from sdc11073.dispatch import RequestData
     from sdc11073 import xml_utils
 
@@ -20,6 +18,7 @@ if TYPE_CHECKING:
 class BicepsSubscription(ActionBasedSubscription):
     """ This extends ActionBasedSubscription with the ability to send notifications.
     The class is used by ActionBasedSubscriptionsManager."""
+
     def send_notification_report(self, body_node: xml_utils.LxmlElement, action: str):
         if not self.is_valid:
             return

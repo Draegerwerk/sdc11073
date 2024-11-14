@@ -15,7 +15,7 @@ from http.client import (
 from threading import Lock
 from typing import TYPE_CHECKING, Protocol
 
-from lxml.etree import XMLSyntaxError
+from lxml import etree
 
 from sdc11073 import commlog, observableproperties
 from sdc11073.httpserver.compression import CompressionHandler
@@ -346,7 +346,7 @@ class SoapClient:
                 self._netloc, path, response.status, content.decode('utf-8'))
             try:
                 tmp = self._msg_reader.read_received_message(content)
-            except XMLSyntaxError as ex:
+            except etree.XMLSyntaxError as ex:
                 raise HTTPReturnCodeError(response.status, response.reason, None) from ex
             else:
                 soap_fault = Fault.from_node(tmp.p_msg.msg_node)
