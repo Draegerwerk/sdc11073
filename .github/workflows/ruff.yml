@@ -10,5 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: chartboost/ruff-action@v1
-        continue-on-error: true  # remove when https://github.com/Draegerwerk/sdc11073/issues/156 is done
+      - uses: astral-sh/ruff-action@v1
+        with:
+          changed-files: "true"
