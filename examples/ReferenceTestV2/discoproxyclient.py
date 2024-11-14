@@ -313,7 +313,7 @@ class DiscoProxyClient:
 if __name__ == "__main__":
 
     def mk_provider(
-        wsd: DiscoProxyClient, mdib_path: str, uuid_str: str, ssl_contexts: SSLContextContainer
+        wsd: DiscoProxyClient, mdib_path: str, uuid_str: str, ssl_contexts: SSLContextContainer,
     ) -> SdcProvider:
         """Create sdc provider."""
         my_mdib = ProviderMdib.from_mdib_file(mdib_path)
@@ -357,9 +357,9 @@ if __name__ == "__main__":
         disco_ip = "192.168.30.5:33479"
         my_ip = "192.168.30.106"
         my_uuid_str = "12345678-6f55-11ea-9697-123456789bcd"
-        mdib_path = os.getenv("ref_mdib") or str(
-            pathlib.Path(__file__).parent.joinpath("mdib_test_sequence_2_v4(temp).xml")
-        )  # noqa:SIM112
+        mdib_path = os.getenv("ref_mdib") or str(  # noqa:SIM112
+            pathlib.Path(__file__).parent.joinpath("mdib_test_sequence_2_v4(temp).xml"),
+        )
         ref_fac = os.getenv("ref_fac") or "r_fac"  # noqa:SIM112
         ref_poc = os.getenv("ref_poc") or "r_poc"  # noqa:SIM112
         ref_bed = os.getenv("ref_bed") or "r_bed"  # noqa:SIM112
