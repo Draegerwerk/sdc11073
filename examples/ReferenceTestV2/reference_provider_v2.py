@@ -180,7 +180,8 @@ def provide_realtime_data(sdc_provider: SdcProvider):
         waveform_provider.register_waveform_generator(waveform.Handle, wf_generator)
 
 
-def run_provider():
+def run_provider():  # noqa: PLR0915, PLR0912, C901
+    """Run provider until KeyboardError is raised."""
     with pathlib.Path(__file__).parent.joinpath("logging_default.json").open() as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
@@ -263,7 +264,7 @@ def run_provider():
     if enable_6e:
         sdc_provider.get_operation_by_handle("set_metric_0.sco.vmd_1.mds_0").delayed_processing = False
 
-    validators = [pm_types.InstanceIdentifier("Validator", extension_string="System")]
+    validators = [pm_types.InstanceIdentifier("Validator", extension_string="System")]  # noqa: F823
     sdc_provider.set_location(loc, validators)
     if enable_4f:
         provide_realtime_data(sdc_provider)
@@ -289,7 +290,6 @@ def run_provider():
     alert_condition = None
     alert_signal = None
     battery_descriptor = None
-    activate_operation = None
     string_operation = None
     value_operation = None
 
@@ -471,6 +471,7 @@ def run_provider():
             sleep(5)
     except KeyboardInterrupt:
         print("Exiting...")
+
 
 if __name__ == "__main__":
     run_provider()
