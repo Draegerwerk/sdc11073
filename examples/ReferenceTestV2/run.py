@@ -44,4 +44,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     run_results = main(tls=args.tls)
     run_results.print_summary()
-    sys.exit(bool(results.failed_count))
+    sys.exit(bool(run_results.failed_count))
