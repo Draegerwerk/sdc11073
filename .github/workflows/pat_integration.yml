@@ -7,7 +7,7 @@ on:
       - master
       - v*
 jobs:
-  sdc11073_provider_v1:
+  sdc11073_provider_v2:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]

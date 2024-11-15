@@ -33,7 +33,7 @@ from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenc
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import pm_qnames, pm_types
+from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
@@ -264,12 +264,12 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
     if enable_6e:
         sdc_provider.get_operation_by_handle("set_metric_0.sco.vmd_1.mds_0").delayed_processing = False
 
-    validators = [pm_types.InstanceIdentifier("Validator", extension_string="System")]  # noqa: F823
+    pm = my_mdib.data_model.pm_names
+    pm_types = my_mdib.data_model.pm_types
+    validators = [pm_types.InstanceIdentifier("Validator", extension_string="System")]
     sdc_provider.set_location(loc, validators)
     if enable_4f:
         provide_realtime_data(sdc_provider)
-    pm = my_mdib.data_model.pm_names
-    pm_types = my_mdib.data_model.pm_types
     patient_descriptor_handle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
     with my_mdib.context_state_transaction() as mgr:
         patient_container = mgr.mk_context_state(patient_descriptor_handle)
