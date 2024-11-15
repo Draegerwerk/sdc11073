@@ -304,7 +304,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     results_collector.log_result(max(durations) <= 15, step, info)  # noqa: PLR2004
     step = "2b.2"
     info = "the Reference Provider grants subscriptions of at most 15 seconds (renew)"
-    subscription = next(client.subscription_mgr.subscriptions.values())
+    subscription = list(client.subscription_mgr.subscriptions.values())[0]  # noqa: RUF015
     granted = subscription.renew(30000)
     print(f"renew granted = {granted}")
     results_collector.log_result(max(durations) <= 15, step, info)  # noqa: PLR2004

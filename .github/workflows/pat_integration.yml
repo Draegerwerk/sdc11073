@@ -28,10 +28,10 @@ jobs:
 
       - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
-        run: python -m examples.ReferenceTest.run --tls
+        run: python -m examples.ReferenceTestV2.run --tls
         timeout-minutes: 2
 
       - name: Run tests with tls disabled
         if: ${{ !matrix.tls_enable }}
-        run: python -m examples.ReferenceTest.run
+        run: python -m examples.ReferenceTestV2.run
         timeout-minutes: 2

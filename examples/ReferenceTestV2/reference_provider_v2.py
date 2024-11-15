@@ -180,8 +180,8 @@ def provide_realtime_data(sdc_provider: SdcProvider):
         waveform_provider.register_waveform_generator(waveform.Handle, wf_generator)
 
 
-if __name__ == "__main__":
-    with pathlib.Path(__file__).parent.joinpath("logging_default.json") as f:
+def run_provider():
+    with pathlib.Path(__file__).parent.joinpath("logging_default.json").open() as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     xtra_log_config = os.getenv("ref_xtra_log_cnf")  # noqa:SIM112
@@ -471,3 +471,6 @@ if __name__ == "__main__":
             sleep(5)
     except KeyboardInterrupt:
         print("Exiting...")
+
+if __name__ == "__main__":
+    run_provider()
