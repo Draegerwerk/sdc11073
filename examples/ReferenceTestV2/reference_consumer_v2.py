@@ -803,7 +803,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
         print(traceback.format_exc())
         results_collector.log_result(False, step, info, ex)
     time.sleep(2)
-    return results
+    return results_collector
 
 
 if __name__ == "__main__":
