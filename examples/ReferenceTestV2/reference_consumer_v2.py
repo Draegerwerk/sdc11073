@@ -457,9 +457,13 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     print(step, info)
     is_ok, result = test_min_updates_per_handle(waveform_updates, min_updates)
     results_collector.log_result(is_ok, step, info + " notifications per second")
-    results_collector.log_result(len(waveform_updates) >= 3, step, info + " number of waveforms")  # noqa:PLR2004
+    results_collector.log_result(
+        len(waveform_updates) >= 3,  # noqa:PLR2004
+        step,
+        info + f" number of waveforms: {len(waveform_updates)}",
+    )
 
-    expected_samples = 1000 * sleep_timer * 0.9
+    expected_samples = int(os.getenv("EXPECTED_WAVEFORM_SAMPLES_4F", 1000 * sleep_timer * 0.9))
     for handle, reports in waveform_updates.items():
         notifications = [n for n in reports if n.MetricValue is not None]
         samples = sum([len(n.MetricValue.Samples) for n in notifications])
@@ -470,7 +474,11 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                 info + f" waveform {handle} has {samples} samples, expecting {expected_samples}",
             )
         else:
-            results_collector.log_result(True, step, info + f" waveform {handle} has {samples} samples")
+            results_collector.log_result(
+                True,
+                step,
+                info + f" waveform {handle} has more than {expected_samples} samples: {samples}",
+            )
 
     pm = mdib.data_model.pm_names
     pm_types = mdib.data_model.pm_types

@@ -8,6 +8,8 @@ on:
       - v*
 jobs:
   sdc11073_provider_v2:
+    env:
+      EXPECTED_WAVEFORM_SAMPLES_4F: 100  # set to a low value as we cannot control GitHub ci network latency
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]

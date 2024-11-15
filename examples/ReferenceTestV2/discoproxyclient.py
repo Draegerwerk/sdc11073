@@ -313,7 +313,10 @@ class DiscoProxyClient:
 if __name__ == "__main__":
 
     def mk_provider(
-        wsd: DiscoProxyClient, mdib_path: str, uuid_str: str, ssl_contexts: SSLContextContainer,
+        wsd: DiscoProxyClient,
+        mdib_path: str,
+        uuid_str: str,
+        ssl_contexts: SSLContextContainer,
     ) -> SdcProvider:
         """Create sdc provider."""
         my_mdib = ProviderMdib.from_mdib_file(mdib_path)
