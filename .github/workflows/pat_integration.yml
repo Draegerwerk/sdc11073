@@ -7,7 +7,9 @@ on:
       - master
       - v*
 jobs:
-  sdc11073_provider_v1:
+  sdc11073_provider_v2:
+    env:
+      EXPECTED_WAVEFORM_SAMPLES_4F: 100  # set to a low value as we cannot control GitHub ci network latency
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
@@ -28,10 +30,10 @@ jobs:
 
       - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
-        run: python -m examples.ReferenceTest.run --tls
+        run: python -m examples.ReferenceTestV2.run --tls
         timeout-minutes: 2
 
       - name: Run tests with tls disabled
         if: ${{ !matrix.tls_enable }}
-        run: python -m examples.ReferenceTest.run
+        run: python -m examples.ReferenceTestV2.run
         timeout-minutes: 2
