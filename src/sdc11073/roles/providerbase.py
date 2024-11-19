@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from lxml.etree import QName
+from lxml import etree
 
 from sdc11073 import loghelper
 from sdc11073.provider.operations import OperationDefinitionBase
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import CodedValue, SafetyClassification
 
-OperationClassGetter = Callable[[QName], type[OperationDefinitionBase]]
+OperationClassGetter = Callable[[etree.QName], type[OperationDefinitionBase]]
 
 
 class ProviderRole:

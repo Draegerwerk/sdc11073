@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from lxml import etree as etree_
+from lxml import etree
 
 import sdc11073.certloader
 from sdc11073 import commlog, loghelper, network, xml_utils
@@ -100,7 +100,7 @@ class HostedServiceDescription:
                 encoding = 'UTF-8'
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
             logging.getLogger(commlog.WSDL).debug(self.wsdl_string)
-        except etree_.XMLSyntaxError as ex:
+        except etree.XMLSyntaxError as ex:
             self._logger.error(  # noqa: PLE1205
                 'could not read wsdl from {}: error={}, data=\n{}', actual_path, ex, self.wsdl_bytes)
 

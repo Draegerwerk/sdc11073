@@ -169,7 +169,7 @@ class EntityProviderMdib(EntityMdibBase):
                  log_prefix: str | None = None,
                  extra_functionality: type | None = None,
                  transaction_factory: Callable[[EntityProviderMdib, TransactionType, LoggerAdapter],
-                 AnyEntityTransactionManagerProtocol] | None = None,
+                                                AnyEntityTransactionManagerProtocol] | None = None,
                  ):
         """Construct a ProviderMdib.
 

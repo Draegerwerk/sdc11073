@@ -12,7 +12,7 @@ from sdc11073.exceptions import ApiUsageError
 from sdc11073.xml_types import pm_qnames as pm
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
@@ -63,8 +63,8 @@ class OperationDefinitionBase:
     current_request = properties.ObservableProperty(fire_only_on_changed_value=False)
     current_argument = properties.ObservableProperty(fire_only_on_changed_value=False)
     on_timeout = properties.ObservableProperty(fire_only_on_changed_value=False)
-    OP_DESCR_QNAME: QName | None = None  # to be defined in derived classes
-    OP_STATE_QNAME: QName | None = None # to be defined in derived classes
+    OP_DESCR_QNAME: etree.QName | None = None  # to be defined in derived classes
+    OP_STATE_QNAME: etree.QName | None = None # to be defined in derived classes
 
     def __init__(self,  # noqa: PLR0913
                  handle: str,
@@ -249,6 +249,6 @@ _classes_with_qname = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME')
 _operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_qname}
 
 
-def get_operation_class(q_name: QName) -> type[OperationDefinitionBase]:
+def get_operation_class(q_name: etree.QName) -> type[OperationDefinitionBase]:
     """:param q_name: a QName instance"""
     return _operation_lookup_by_type.get(q_name)

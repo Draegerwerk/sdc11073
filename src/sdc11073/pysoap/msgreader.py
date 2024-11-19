@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import TYPE_CHECKING
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.exceptions import ValidationError
 from sdc11073.namespaces import QN_TYPE, default_ns_helper, text_to_qname
@@ -27,13 +27,13 @@ if TYPE_CHECKING:
     from sdc11073 import xml_utils
 
 
-def validate_node(node: xml_utils.LxmlElement, xml_schema: etree_.XMLSchema, logger: LoggerAdapter):
+def validate_node(node: xml_utils.LxmlElement, xml_schema: etree.XMLSchema, logger: LoggerAdapter):
     """Let xml_schema instance validate the node."""
     try:
         xml_schema.assertValid(node)
-    except etree_.DocumentInvalid as ex:
+    except etree.DocumentInvalid as ex:
         logger.warning(traceback.format_exc())
-        logger.warning(etree_.tostring(node, pretty_print=True).decode('utf-8'))
+        logger.warning(etree.tostring(node, pretty_print=True).decode('utf-8'))
         fault = Fault()
         fault.Code.Value = faultcodeEnum.SENDER
         fault.set_sub_code(default_ns_helper.WSE.tag('InvalidMessage'))
@@ -42,7 +42,7 @@ def validate_node(node: xml_utils.LxmlElement, xml_schema: etree_.XMLSchema, log
         raise ValidationError(reason='document invalid', soap_fault=fault) from ex
 
 
-def _get_text(node: xml_utils.LxmlElement, q_name: etree_.QName) -> str | None:
+def _get_text(node: xml_utils.LxmlElement, q_name: etree.QName) -> str | None:
     if node is None:
         return None
     tmp = node.find(q_name)
@@ -84,9 +84,8 @@ class ReceivedMessage:
     msg_reader: MessageReader
     p_msg: ReceivedSoapMessage
     action: str | None
-    q_name: etree_.QName
+    q_name: etree.QName
     mdib_version_group: MdibVersionGroupReader
-
 
 
 class MessageReader:
@@ -103,7 +102,7 @@ class MessageReader:
         self._data_model = sdc_definitions.data_model
         self.ns_hlp = sdc_definitions.data_model.ns_helper
         self._validate = validate
-        self._xml_schema: etree_.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
+        self._xml_schema: etree.XMLSchema = mk_schema_validator(self.schema_specs, self.ns_hlp)
 
     @property
     def msg_names(self) -> ModuleType:
@@ -125,20 +124,20 @@ class MessageReader:
         """Return a module with message model types."""
         return self._data_model.msg_types
 
-    def get_descriptor_container_class(self, qname: etree_.QName) -> type[AbstractDescriptorProtocol]:
+    def get_descriptor_container_class(self, qname: etree.QName) -> type[AbstractDescriptorProtocol]:
         """Get the class that represents a BICEPS descriptor entity with given QName."""
         return self._data_model.get_descriptor_container_class(qname)
 
-    def get_state_container_class(self, qname: etree_.QName) -> type[AbstractStateProtocol]:
+    def get_state_container_class(self, qname: etree.QName) -> type[AbstractStateProtocol]:
         """Return the class that represents a BICEPS state entity with given QName."""
         return self._data_model.get_state_container_class(qname)
 
     def read_received_message(self, xml_text: bytes, validate: bool = True) -> ReceivedMessage:
         """Read complete message with addressing, message_id, payload,..."""
-        parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        parser = etree.ETCompatXMLParser(resolve_entities=False)
         try:
-            doc_root = etree_.fromstring(xml_text, parser=parser)
-        except etree_.XMLSyntaxError as ex:
+            doc_root = etree.fromstring(xml_text, parser=parser)
+        except etree.XMLSyntaxError as ex:
             self._logger.warning('Error reading response ex=%r xml=%s', ex, xml_text.decode('utf-8'))
             raise
         if validate:
@@ -159,13 +158,13 @@ class MessageReader:
                                message.msg_name, mdib_version_group)
 
     def read_get_mdib_response(self, received_message_data: ReceivedMessage) -> tuple[
-    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
+        list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib of received message."""
         mdib_node = received_message_data.p_msg.msg_node[0]
         return self.read_get_mdib_payload(mdib_node)
 
     def read_get_mdib_payload(self, mdib_node: xml_utils.LxmlElement) -> tuple[
-    list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
+        list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib."""
         descriptors = []
         states = []
@@ -180,16 +179,16 @@ class MessageReader:
     def read_mdib_xml(self, xml_text: bytes) -> tuple[list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib."""
         payload = self.read_xml_text(xml_text)
-        q_name = etree_.QName(payload.tag)
+        q_name = etree.QName(payload.tag)
         if q_name == self.msg_names.GetMdibResponse:
             return self.read_get_mdib_payload(payload[0])
         return self.read_get_mdib_payload(payload)
 
     def read_xml_text(self, xml_text: bytes) -> xml_utils.LxmlElement:
         """Parse imput, return a node."""
-        parser = etree_.ETCompatXMLParser(resolve_entities=False)
+        parser = etree.ETCompatXMLParser(resolve_entities=False)
         try:
-            node = etree_.fromstring(xml_text, parser=parser)
+            node = etree.fromstring(xml_text, parser=parser)
         except Exception as ex:
             print(f'load error "{ex}" in "{xml_text}"')
             raise
@@ -226,12 +225,12 @@ class MessageReader:
     def _mk_descriptor_container_from_node(self, node: xml_utils.LxmlElement,
                                            parent_handle: str | None) -> AbstractDescriptorProtocol:
         node_type = node.get(QN_TYPE)
-        node_type = text_to_qname(node_type, node.nsmap) if node_type is not None else etree_.QName(node.tag)
+        node_type = text_to_qname(node_type, node.nsmap) if node_type is not None else etree.QName(node.tag)
         descr_cls = self.get_descriptor_container_class(node_type)
         return descr_cls.from_node(node, parent_handle)
 
     def _mk_state_container_from_node(self, node: xml_utils.LxmlElement,
-                                      forced_type: etree_.QName | None = None) -> AbstractStateProtocol:
+                                      forced_type: etree.QName | None = None) -> AbstractStateProtocol:
         """Create a state container from a node.
 
         :param node: an etree node
@@ -262,6 +261,6 @@ class MessageReader:
             validate_node(node, self._xml_schema, self._logger)
 
     @staticmethod
-    def read_wsdl(wsdl_text: bytes) -> etree_.ElementTree:
+    def read_wsdl(wsdl_text: bytes) -> etree.ElementTree:
         """Make am ElementTree instance."""
-        return etree_.parse(BytesIO(wsdl_text), parser=etree_.ETCompatXMLParser(resolve_entities=False))
+        return etree.parse(BytesIO(wsdl_text), parser=etree.ETCompatXMLParser(resolve_entities=False))

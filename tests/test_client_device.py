@@ -14,7 +14,7 @@ from decimal import Decimal
 from itertools import product
 from http.client import NotConnected
 from threading import Event
-from lxml import etree as etree_
+from lxml import etree
 
 import sdc11073.certloader
 import sdc11073.definitions_sdc
@@ -466,6 +466,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
 # this is a comment
 secret_ciphers_string
 ignored"""
+
         read_text_mock.side_effect = _read_text
         sdc11073.certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
         mk_ssl_contexts_mock.assert_called_once()
@@ -482,8 +483,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
-                                                    max_subscription_duration=10,
-                                                    log_prefix=f'{self._testMethodName}: ')  # shorter duration for faster tests
+                                                    max_subscription_duration=10,  # shorter duration for faster tests
+                                                    log_prefix=f'{self._testMethodName}: ')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -618,7 +619,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
         for s in all_subscriptions:
             self.assertIsNotNone(s.unsubscribed_at)
 
-
     def test_device_stop(self):
         """Verify that sockets get closed."""
         cl_mdib = ConsumerMdib(self.sdc_client)
@@ -727,7 +727,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cl_get_service = self.sdc_client.client('Get')
         message_data = cl_get_service.get_md_description(['not_existing_handle'])
         node = message_data.p_msg.msg_node
-        print(etree_.tostring(node, pretty_print=True))
+        print(etree.tostring(node, pretty_print=True))
         descriptors = list(node[0])  # that is /m:GetMdDescriptionResponse/m:MdDescription/*
         self.assertEqual(len(descriptors), 0)
         existing_handle = '0x34F05500'
@@ -1261,7 +1261,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertFalse(self.sdc_client.is_connected)
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
-
     def test_invalid_request(self):
         self.log_watcher.setPaused(True)
         self.sdc_client.get_service_client._validate = False  # want to send an invalid request
@@ -1281,8 +1280,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
         else:
             self.fail('HTTPReturnCodeError not raised')
 
-    def _mk_get_method_message(self, addr_to, action: str, method: etree_.QName, params=None) -> CreatedMessage:
-        get_node = etree_.Element(method)
+    def _mk_get_method_message(self, addr_to, action: str, method: etree.QName, params=None) -> CreatedMessage:
+        get_node = etree.Element(method)
         soap_envelope = Soap12Envelope(default_ns_helper.partial_map(default_ns_helper.MSG))
         soap_envelope.set_header_info_block(HeaderInformationBlock(action=action, addr_to=addr_to))
         if params:
@@ -1293,6 +1292,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
     def test_extension(self):
         """Verify that all Extension Elements of descriptors are identical on provider and consumer."""
+
         def are_equivalent(node1, node2):
             if node1.tag != node2.tag or node1.attrib != node2.attrib or node1.text != node2.text:
                 return False
@@ -1330,6 +1330,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         ev = Event()
+
         def on_mdib_id_change(flag: bool):
             """This is a typical handler for changed sequence id or instance id"""
             self.logger.info('new sequence_id or instance id')
@@ -1376,7 +1377,6 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 
         self.sdc_device_1 = SomeDevice.from_mdib_file(self.wsd,
                                                       'device1',
-
                                                       mdib_70041,
                                                       log_prefix=f'{self._testMethodName}1: ')
         self.sdc_device_1.start_all(shared_http_server=self.httpserver)
@@ -1699,10 +1699,11 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     default_components=default_sdc_provider_components_async,
                                                     max_subscription_duration=10)  # shorter duration for faster tests
-        self.sdc_device_ssl = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
-                                                    default_components=default_sdc_provider_components_async,
-                                                    max_subscription_duration=10,  # shorter duration for faster tests
-                                                    ssl_context_container=self.ssl_context_container)
+        self.sdc_device_ssl = SomeDevice.from_mdib_file(
+            self.wsd, None, mdib_70041,
+            default_components=default_sdc_provider_components_async,
+            max_subscription_duration=10,  # shorter duration for faster tests
+            ssl_context_container=self.ssl_context_container)
 
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -1767,7 +1768,6 @@ class TestEncryptionCombinations(unittest.TestCase):
                                force_ssl_connect=False)
         self.assertRaises(NotConnected, consumer.start_all)
 
-
         # verify that connect with certificates works
         consumer = SdcConsumer(x_addr,
                                self.sdc_device.mdib.sdc_definitions,
@@ -1776,6 +1776,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         consumer.start_all()
         self.assertTrue(consumer.is_connected)
         self.assertTrue(consumer.is_ssl_connection)
+
 
 class TestQualifiedName(unittest.TestCase):
     """Check usage of full qualified name in device and client."""
@@ -1787,11 +1788,12 @@ class TestQualifiedName(unittest.TestCase):
 
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
-                                                    default_components=default_sdc_provider_components_async,
-                                                    max_subscription_duration=10,
-                                                    alternative_hostname=socket.getfqdn(),
-                                                    log_prefix=f'{self._testMethodName}: ')  # shorter duration for faster tests
+        self.sdc_device = SomeDevice.from_mdib_file(
+            self.wsd, None, mdib_70041,
+            default_components=default_sdc_provider_components_async,
+            max_subscription_duration=10,  # shorter duration for faster tests
+            alternative_hostname=socket.getfqdn(),
+            log_prefix=f'{self._testMethodName}: ')
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
@@ -1823,7 +1825,8 @@ class TestQualifiedName(unittest.TestCase):
         try:
             consumer.start_all()
             self.assertTrue(consumer.is_connected)
-            for subscription in self.sdc_device._hosted_service_dispatcher._instances['StateEvent'].subscriptions_manager._subscriptions._objects:
+            for subscription in (self.sdc_device._hosted_service_dispatcher._instances['StateEvent']
+                    .subscriptions_manager._subscriptions._objects):
                 # now make sure that the subscription also uses no IP
                 self.assertIn(socket.getfqdn(), subscription.notify_to_address)
                 if subscription.end_to_address:
@@ -1842,11 +1845,13 @@ class TestWrongQualifiedName(unittest.TestCase):
 
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
-                                                    default_components=default_sdc_provider_components_async,
-                                                    max_subscription_duration=10, # shorter duration for faster tests
-                                                    alternative_hostname="some_random_invalid_hostname",
-                                                    log_prefix=f'{self._testMethodName}: ')
+        self.sdc_device = SomeDevice.from_mdib_file(
+            self.wsd, None, mdib_70041,
+            default_components=default_sdc_provider_components_async,
+            max_subscription_duration=10,   # shorter duration for faster tests
+            alternative_hostname="some_random_invalid_hostname",
+            log_prefix=f'{self._testMethodName}: '
+        )
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)

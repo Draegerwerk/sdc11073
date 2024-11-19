@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from decimal import Decimal
 
-    from lxml import etree as etree_
+    from lxml import etree
 
     from sdc11073 import xml_utils
     from sdc11073.xml_types.isoduration import DurationType
@@ -33,8 +33,8 @@ class ChildDescriptorMapping:
     pm.Metric for all classes derived from AbstractMetricDescriptor.
     """
 
-    child_qname: etree_.QName
-    node_types: tuple[etree_.QName, ...] = None
+    child_qname: etree.QName
+    node_types: tuple[etree.QName, ...] = None
 
     def __repr__(self) -> str:
         if self.node_types is None:
@@ -58,8 +58,8 @@ def sorted_child_data(obj: Any, member_name: str):
 class AbstractDescriptorProtocol(Protocol):
     """The common Interface of all descriptors."""
 
-    NODETYPE: etree_.QName
-    STATE_QNAME: etree_.QName
+    NODETYPE: etree.QName
+    STATE_QNAME: etree.QName
     is_descriptor_container: bool
     is_system_context_descriptor: bool
     is_realtime_sample_array_metric_descriptor: bool
@@ -124,7 +124,7 @@ class AbstractDescriptorContainer(ContainerBase):
     _props = ('Handle', 'DescriptorVersion', 'SafetyClassification', 'Extension', 'Type')
     _child_elements_order = (ext.Extension, pm_qnames.Type)  # child elements in BICEPS order
     STATE_QNAME = None
-    extension_class_lookup: ClassVar[dict[etree_.QName, type[pm_types.PropertyBasedPMType]]] = {
+    extension_class_lookup: ClassVar[dict[etree.QName, type[pm_types.PropertyBasedPMType]]] = {
         msg.Retrievability: pm_types.Retrievability
     }
 
@@ -204,7 +204,7 @@ class AbstractDescriptorContainer(ContainerBase):
                     ret.append(f'parent_handle={my_value}, other={other_value}')
         return None if len(ret) == 0 else ret
 
-    def tag_name_for_child_descriptor(self, node_type: etree_.QName) -> (etree_.QName, bool):
+    def tag_name_for_child_descriptor(self, node_type: etree.QName) -> (etree.QName, bool):
         """Determine the tag name of a child descriptor.
 
         This isneeded when the xml tree of the descriptor is created.
@@ -795,6 +795,6 @@ _name_class_xtra_lookup = {
 _name_class_lookup.update(_name_class_xtra_lookup)
 
 
-def get_container_class(qname: etree_.QName) -> type[AbstractDescriptorContainer]:
+def get_container_class(qname: etree.QName) -> type[AbstractDescriptorContainer]:
     """:param qname: a QName instance"""
     return _name_class_lookup.get(qname)

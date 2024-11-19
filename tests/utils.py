@@ -4,7 +4,7 @@ import random
 import string
 import uuid
 
-import lxml.etree
+from lxml import etree
 
 from sdc11073 import location
 from sdc11073.xml_types import wsd_types
@@ -34,10 +34,10 @@ def random_location() -> location.SdcLocation:
                                 rm=get_random_RFC3986_string_of_length(7))
 
 
-def random_qname() -> lxml.etree.QName:
+def random_qname() -> etree.QName:
     """Create random qname."""
-    return lxml.etree.QName(f'{"".join(random.choices(list(string.ascii_letters), k=1))}{uuid.uuid4().hex}',
-                            f'{"".join(random.choices(list(string.ascii_letters), k=1))}{uuid.uuid4().hex}')
+    return etree.QName(f'{"".join(random.choices(list(string.ascii_letters), k=1))}{uuid.uuid4().hex}',
+                       f'{"".join(random.choices(list(string.ascii_letters), k=1))}{uuid.uuid4().hex}')
 
 
 def random_scope() -> wsd_types.ScopesType:

@@ -16,7 +16,7 @@ from . import xml_structure as cp
 from .basetypes import StringEnum, XMLTypeBase
 
 if TYPE_CHECKING:
-    from lxml.etree import QName
+    from lxml import etree
     from sdc11073 import xml_utils
 
     from sdc11073.xml_types.isoduration import DateTypeUnion, DurationType
@@ -790,10 +790,10 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
     """Represents BICEPS AbstractSetStateOperationDescriptor/Argument."""
 
     ArgName: CodedValue = cp.SubElementProperty(pm.ArgName, value_class=CodedValue, is_optional=False)
-    Arg: QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
+    Arg: etree.QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
     _props = ('ArgName', 'Arg')
 
-    def __init__(self, arg_name: CodedValue | None = None, arg: QName | None = None):
+    def __init__(self, arg_name: CodedValue | None = None, arg: etree.QName | None = None):
         super().__init__()
         self.ArgName = arg_name
         self.Arg = arg
@@ -1437,7 +1437,7 @@ _classes = [c[1] for c in classes if hasattr(c[1], 'NODETYPE') and c[1].NODETYPE
 _name_class_lookup = {c.NODETYPE: c for c in _classes}
 
 
-def _get_pmtypes_class(qname: QName) -> type[PropertyBasedPMType]:
+def _get_pmtypes_class(qname: etree.QName) -> type[PropertyBasedPMType]:
     """Find class in _name_class_lookup."""
     try:
         return _name_class_lookup[qname]

@@ -1,17 +1,19 @@
 import unittest
 
-from lxml import etree as etree_
+from lxml import etree
 
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.xml_types import pm_types, msg_qnames as msg
 from sdc11073.mdib import descriptorcontainers
 from tests.mockstuff import dec_list
+
 test_tag = ns_hlp.PM.tag('MyDescriptor')
+
 
 class TestDescriptorContainers(unittest.TestCase):
 
     def setUp(self):
-        self.ns_mapper =ns_hlp
+        self.ns_mapper = ns_hlp
 
     def test_AbstractDescriptorContainer(self):
         dc = descriptorcontainers.AbstractDescriptorContainer(handle='123', parent_handle='456')
@@ -35,15 +37,15 @@ class TestDescriptorContainers(unittest.TestCase):
         dc.SafetyClassification = pm_types.SafetyClassification.MED_A
         dc.Type = pm_types.CodedValue('abc', 'def')
 
-        ext_node = etree_.Element(ns_hlp.MSG.tag('Whatever'))
-        etree_.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
-        etree_.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
+        ext_node = etree.Element(ns_hlp.MSG.tag('Whatever'))
+        etree.SubElement(ext_node, 'foo', attrib={'some_attr': 'some_value'})
+        etree.SubElement(ext_node, 'bar', attrib={'another_attr': 'different_value'})
         dc.Extension.append(ext_node)
         retrievability = pm_types.Retrievability([pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.GET),
-                                                 pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.PERIODIC,
-                                                                            update_period=42.0),
-                                                 ],
-                                                )
+                                                  pm_types.RetrievabilityInfo(pm_types.RetrievabilityMethod.PERIODIC,
+                                                                              update_period=42.0),
+                                                  ],
+                                                 )
         dc.Extension.append(retrievability.as_etree_node(msg.Retrievability, {}))
 
         dc2.update_from_other_container(dc)
@@ -65,8 +67,6 @@ class TestDescriptorContainers(unittest.TestCase):
         self.assertEqual(dc3.coding_system, 'def')
         self.assertEqual(dc3.Extension[0].tag, ext_node.tag)
         self.assertEqual(dc3.get_retrievability(), [retrievability])
-
-
 
     def test_AbstractMetricDescriptorContainer(self):
         dc = descriptorcontainers.AbstractMetricDescriptorContainer(handle='123', parent_handle='456')
@@ -182,14 +182,14 @@ class TestDescriptorContainers(unittest.TestCase):
             self.assertEqual(_dc.Retriggerable, _dc2.Retriggerable)
 
         dc = descriptorcontainers.ActivateOperationDescriptorContainer(handle='123', parent_handle='456')
-        dc.OperationTarget= 'my_handle'
+        dc.OperationTarget = 'my_handle'
         # create copy with default values
         node = dc.mk_node(test_tag, self.ns_mapper)
         dc2 = descriptorcontainers.ActivateOperationDescriptorContainer.from_node(node=node, parent_handle='456')
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 
         dc.Argument = [pm_types.ActivateOperationDescriptorArgument(arg_name=pm_types.CodedValue('abc', 'def'),
-                                                                   arg=ns_hlp.PM.tag('foo'))]
+                                                                    arg=ns_hlp.PM.tag('foo'))]
         dc2.update_from_other_container(dc)
         _cmp_ActivateOperationDescriptorContainer(dc, dc2)
 

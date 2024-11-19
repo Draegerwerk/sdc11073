@@ -4,16 +4,16 @@ import copy
 import sys
 from typing import Callable
 
-from lxml.etree import Element, _Element
+from lxml import etree
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 
-    LxmlElement: TypeAlias = _Element
+    LxmlElement: TypeAlias = etree._Element
 else:
     from typing_extensions import TypeAlias
 
-    LxmlElement: TypeAlias = _Element
+    LxmlElement: TypeAlias = etree._Element
 
 
 def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:
@@ -52,7 +52,7 @@ def copy_node_wo_parent(node: LxmlElement, method: Callable[[LxmlElement], LxmlE
     :param method: method that copies an etree element
     :return: new node
     """
-    new_node = Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
+    new_node = etree.Element(node.tag, attrib=node.attrib, nsmap=node.nsmap)
     new_node.text = node.text
     new_node.tail = node.tail
     new_node.extend(method(child) for child in node)

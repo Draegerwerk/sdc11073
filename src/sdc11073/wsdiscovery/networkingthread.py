@@ -16,7 +16,7 @@ import time
 import traceback
 from typing import TYPE_CHECKING
 
-from lxml.etree import XMLSyntaxError
+from lxml import etree
 
 from sdc11073 import commlog
 from sdc11073.exceptions import ValidationError
@@ -199,7 +199,7 @@ class NetworkingThread:
                 try:
                     try:
                         received_message = message_reader.read_received_message(data, validate=True)
-                    except (XMLSyntaxError, ValidationError) as ex:
+                    except (etree.XMLSyntaxError, ValidationError) as ex:
                         self._logger.info('_run_q_read: received invalid message from %r, ignoring it (error=%s)', addr,
                                           ex)
                     else:
