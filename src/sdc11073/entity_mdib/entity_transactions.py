@@ -1,3 +1,4 @@
+"""The module implements transactions for EntityProviderMdib."""
 from __future__ import annotations
 
 import copy
@@ -7,7 +8,6 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Union
 
 from sdc11073.exceptions import ApiUsageError
-from sdc11073.mdib.statecontainers import AbstractMultiStateProtocol
 from sdc11073.mdib.transactionsprotocol import (
     AnyTransactionManagerProtocol,
     TransactionItem,
@@ -17,11 +17,15 @@ from sdc11073.mdib.transactionsprotocol import (
 
 if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
-
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
-    from sdc11073.mdib.statecontainers import AbstractStateProtocol
-    from .entities import ProviderEntity, ProviderMultiStateEntity, ProviderInternalEntity, \
-        ProviderInternalMultiStateEntity
+    from sdc11073.mdib.statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
+
+    from .entities import (
+        ProviderEntity,
+        ProviderInternalEntity,
+        ProviderInternalMultiStateEntity,
+        ProviderMultiStateEntity,
+    )
     from .entity_providermdib import EntityProviderMdib, ProviderInternalEntityType
 
     AnyProviderEntity = Union[
@@ -37,11 +41,12 @@ class _Modification(Enum):
 @dataclass(frozen=True)
 class DescriptorTransactionItem:
     """Transaction Item with old and new container."""
+
     entity: ProviderEntity | ProviderMultiStateEntity | ProviderInternalEntity | ProviderInternalMultiStateEntity
     modification: _Modification
 
 
-def _update_multi_states(mdib: EntityProviderMdib,
+def _update_multi_states(mdib: EntityProviderMdib, # noqa: C901
                          new: ProviderMultiStateEntity,
                          old: ProviderMultiStateEntity,
                          modified_handles: list[str] | None = None,
@@ -84,7 +89,7 @@ def _adjust_version_counters(new_entity: ProviderInternalEntityType,
     if increment_descriptor_version:
         new_entity.descriptor.DescriptorVersion = old_entity.descriptor.DescriptorVersion + 1
     if new_entity.is_multi_state:
-        for new_state in new_entity.states:
+        for new_state in new_entity.states.values():
             new_state.DescriptorVersion = new_entity.descriptor.DescriptorVersion
             old_state = old_entity.states.get(new_state.Handle)
             if old_state is not None:
@@ -185,10 +190,10 @@ class DescriptorTransaction(_TransactionBase):
             return tr_container.entity
         return None
 
-    def write_entity(self,
+    def write_entity(self, # noqa: PLR0912, C901
                      entity: ProviderEntity | ProviderMultiStateEntity,
                      adjust_version_counter: bool = True):
-        """insert or update an entity."""
+        """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Entity {descriptor_handle} already in updated set!')
@@ -224,13 +229,43 @@ class DescriptorTransaction(_TransactionBase):
             self.descriptor_updates[descriptor_handle] = DescriptorTransactionItem(tmp,
                                                                                    _Modification.insert)
         else:
-            raise ValueError(f'Entity {descriptor_handle} is not known!')
+            # create without having internal entity
+            tmp_entity = self._mdib.entities.new_entity(entity.node_type, entity.handle, entity.parent_handle)
+            # replace descriptor and state in tmp_entity with values from tmp, but keep existing version counters
+            descriptor_version = tmp_entity.descriptor.DescriptorVersion
+            tmp_entity.descriptor = tmp.descriptor
+            tmp_entity.descriptor.DescriptorVersion = descriptor_version
+            if entity.is_multi_state:
+                tmp_entity.states = tmp.states
+                # change state versions if they were deleted before
+                for handle, state in tmp_entity.states.items():
+                    if handle in self._mdib.state_handle_version_lookup:
+                        state.StateVersion = self._mdib.state_handle_version_lookup[handle] + 1
+            else:
+                state_version = tmp_entity.state.StateVersion
+                tmp_entity.state = tmp.state
+                tmp_entity.state.StateVersion = state_version
+                tmp_entity.state.DescriptorVersion = descriptor_version
+            self.descriptor_updates[descriptor_handle] = DescriptorTransactionItem(tmp_entity,
+                                                                                   _Modification.insert)
 
     def write_entities(self,
                        entities: list[ProviderEntity | ProviderMultiStateEntity],
                        adjust_version_counter: bool = True):
-        for ent in entities:
-            self.write_entity(ent, adjust_version_counter)
+        """Write entities in order parents first."""
+        written_handles = []
+        ent_dict = {ent.handle: ent for ent in entities}
+        while len(written_handles) < len(ent_dict):
+            for handle, ent in ent_dict.items():
+                write_now = True
+                if (ent.parent_handle is not None
+                        and ent.parent_handle in ent_dict
+                        and ent.parent_handle not in written_handles):
+                        # it has a parent, and parent has not been written yet
+                        write_now = False
+                if write_now and handle not in written_handles:
+                    self.write_entity(ent, adjust_version_counter)
+                    written_handles.append(handle)
 
     def remove_entity(self, entity: ProviderEntity | ProviderMultiStateEntity):
         """Remove existing descriptor from mdib."""
@@ -242,7 +277,7 @@ class DescriptorTransaction(_TransactionBase):
             self.descriptor_updates[entity.handle] = DescriptorTransactionItem(internal_entity,
                                                                                _Modification.delete)
 
-    def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
+    def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002, PLR0915, PLR0912, C901
         """Process transaction and create a TransactionResult.
 
         The parameter set_determination_time is only present in order to implement the interface correctly.
@@ -276,7 +311,7 @@ class DescriptorTransaction(_TransactionBase):
             # This simplifies handling a lot!
             types = [l for l in (to_be_deleted_handles, to_be_created_handles, to_be_updated_handles) if l]
             if not types:
-                return  # nothing changed
+                return proc  # nothing changed
             if len(types) > 1:
                 raise ValueError('this transaction can only handle one of insert, update, delete!')
 
@@ -320,7 +355,7 @@ class DescriptorTransaction(_TransactionBase):
                     if internal_entity is None:
                         self._logger.debug(  # noqa: PLE1205
                             'transaction_manager: cannot remove unknown descriptor Handle={}', handle)
-                        return
+                        return None
 
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: rm descriptor Handle={}', handle)
@@ -360,7 +395,7 @@ class DescriptorTransaction(_TransactionBase):
                         internal_entity.descriptor)  # this will cause a Description Modification Report
                     state_update_list = proc.get_state_updates_list(internal_entity.descriptor)
                     if updated_entity.is_multi_state:
-                        state_update_list.extend(internal_entity.states)
+                        state_update_list.extend(internal_entity.states.values())
                         # Todo: update context state handles in mdib
 
                     else:
@@ -381,14 +416,14 @@ class DescriptorTransaction(_TransactionBase):
             # Todo: update context state handles in mdib
 
         else:
-            new_state_version = internal_entity.state.StateVersion + 1
             internal_entity.state.update_from_other_container(modified_entity.state)
 
     def _increment_parent_descriptor_version(self, proc: TransactionResult,
                                              entity: ProviderInternalEntityType):
         """Increment version counter of descriptor and state.
 
-        Add both to transaction result."""
+        Add both to transaction result.
+        """
         parent_entity = self._mdib.internal_entities.get(entity.parent_handle)
         updates_list = proc.get_state_updates_list(parent_entity.descriptor)
 
@@ -628,11 +663,10 @@ class ContextStateTransaction(_TransactionBase):
                     old_state_version = self._mdib.state_handle_version_lookup.get(tmp.Handle)
                     if old_state_version:
                         tmp.StateVersion = old_state_version + 1
-            else:
-                # update
-                if adjust_version_counter:
-                    tmp.DescriptorVersion = internal_entity.descriptor.DescriptorVersion
-                    tmp.StateVersion = old_state.StateVersion + 1
+            # update
+            elif adjust_version_counter:
+                tmp.DescriptorVersion = internal_entity.descriptor.DescriptorVersion
+                tmp.StateVersion = old_state.StateVersion + 1
 
             self._state_updates[state_container.Handle] = TransactionItem(old=old_state, new=tmp)
 
@@ -679,7 +713,8 @@ class TransactionResult:
         return self.metric_updates + self.alert_updates + self.comp_updates + self.ctxt_updates \
             + self.op_updates + self.rt_updates
 
-    def get_state_updates_list(self, descriptor: AbstractDescriptorProtocol):
+    def get_state_updates_list(self, descriptor: AbstractDescriptorProtocol) -> list:
+        """Return the list that stores updated states of this descriptor."""
         if descriptor.is_context_descriptor:
             return self.ctxt_updates
         if descriptor.is_alert_descriptor:

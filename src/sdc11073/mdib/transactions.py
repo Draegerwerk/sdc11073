@@ -1,8 +1,9 @@
+"""The module contains the implementations of transactions for ProviderMdib."""
 from __future__ import annotations
 
+import copy
 import time
 import uuid
-import copy
 from typing import TYPE_CHECKING, cast
 
 from sdc11073.exceptions import ApiUsageError
@@ -19,9 +20,9 @@ if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
 
     from .descriptorcontainers import AbstractDescriptorProtocol
+    from .mdibbase import Entity, MultiStateEntity
     from .providermdib import ProviderMdib
     from .statecontainers import AbstractStateProtocol
-    from .mdibbase import Entity, MultiStateEntity
 
 class _TransactionBase:
     def __init__(self,
@@ -196,10 +197,10 @@ class DescriptorTransaction(_TransactionBase):
                 self._mdib.states.set_version(state_container)
         updates_dict[key] = TransactionItem(None, state_container)
 
-    def write_entity(self,
+    def write_entity(self, # noqa: PLR0912, C901
                      entity: Entity | MultiStateEntity,
                      adjust_version_counter: bool = True):
-        """insert or update an entity."""
+        """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
         if descriptor_handle in self.descriptor_updates:
             raise ValueError(f'Entity {descriptor_handle} already in updated set!')
@@ -238,24 +239,36 @@ class DescriptorTransaction(_TransactionBase):
                 self.context_state_updates[handle] = TransactionItem(del_state, None)
         else:
             tmp_state = copy.deepcopy(entity.state)
+            tmp_state.descriptor_container = tmp_descriptor
             old_state = self._mdib.states.descriptor_handle.get_one(descriptor_handle, allow_none=True)
             if adjust_version_counter:
-                tmp_state.DescriptorVersion = tmp_descriptor.DescriptorVersion
                 if old_state is not None:
                     tmp_state.StateVersion = old_state.StateVersion + 1
                 else:
                     self._mdib.states.set_version(tmp_state)
 
             state_updates_dict = self._get_states_update(tmp_state)
-            state_updates_dict[entity.state.DescriptorHandle] = TransactionItem(old_state, entity.state)
+            state_updates_dict[entity.state.DescriptorHandle] = TransactionItem(old_state, tmp_state)
 
     def write_entities(self, entities: list[Entity | MultiStateEntity], adjust_version_counter: bool = True):
-        for ent in entities:
-            self.write_entity(ent, adjust_version_counter)
+        """Write entities in order parents first."""
+        written_handles = []
+        ent_dict = {ent.handle: ent for ent in entities}
+        while len(written_handles) < len(ent_dict):
+            for handle, ent in ent_dict.items():
+                write_now = True
+                if (ent.parent_handle is not None
+                        and ent.parent_handle in ent_dict
+                        and ent.parent_handle not in written_handles):
+                        # it has a parent, and parent has not been written yet
+                        write_now = False
+                if write_now and handle not in written_handles:
+                    self.write_entity(ent, adjust_version_counter)
+                    written_handles.append(handle)
 
     def remove_entity(self, entity: Entity | MultiStateEntity):
         """Remove existing entity from mdib."""
-        return self.remove_descriptor(entity.handle)
+        self.remove_descriptor(entity.handle)
 
     def process_transaction(self, set_determination_time: bool) -> TransactionResultProtocol:  # noqa: ARG002
         """Process transaction and create a TransactionResult.
@@ -342,7 +355,7 @@ class DescriptorTransaction(_TransactionBase):
                 if state_update is not None:
                     # the state has also been updated directly in transaction.
                     # update descriptor version
-                    old_state, new_state = state_update
+                    old_state, new_state = state_update.old, state_update.new
                 else:
                     old_state = context_state
                     new_state = old_state.mk_copy()
@@ -365,7 +378,7 @@ class DescriptorTransaction(_TransactionBase):
                     descriptor_container.Handle, allow_none=True)
                 if old_state is not None:
                     new_state = old_state.mk_copy()
-                    new_state.descriptor_container = descriptor_container  #
+                    new_state.descriptor_container = descriptor_container
                     new_state.DescriptorVersion = descriptor_container.DescriptorVersion
                     new_state.increment_state_version()
                     updates_dict[descriptor_container.Handle] = TransactionItem(old_state, new_state)
@@ -438,6 +451,7 @@ class StateTransactionBase(_TransactionBase):
         return self._mdib.descriptions.handle.get_one(descriptor_handle)
 
     def write_entity(self, entity: Entity, adjust_version_counter: bool = True):
+        """Insert or update an entity."""
         if entity.is_multi_state:
             raise ApiUsageError(f'Transaction {self.__class__.__name__} does not handle multi state entities!')
 
@@ -460,6 +474,7 @@ class StateTransactionBase(_TransactionBase):
         self._state_updates[descriptor_handle] = TransactionItem(old=old_state, new=tmp_state)
 
     def write_entities(self, entities: list[Entity | MultiStateEntity], adjust_version_counter: bool = True):
+        """Write entities in order parents first."""
         for entity in entities:
             # check all states before writing any of them
             if entity.is_multi_state:
@@ -711,8 +726,6 @@ class ContextStateTransaction(_TransactionBase):
                   modified_handles: list[str],
                   adjust_version_counter: bool = True):
         """Insert or update a context state in mdib."""
-        # internal_entity = self._mdib._entities[entity.descriptor.Handle]
-
         for handle in modified_handles:
             state_container = entity.states.get(handle)
             old_state = self._mdib.context_states.handle.get_one(handle, allow_none=True)
@@ -735,9 +748,8 @@ class ContextStateTransaction(_TransactionBase):
                 tmp.DescriptorVersion = entity.descriptor.DescriptorVersion
                 if adjust_version_counter:
                     self._mdib.context_states.set_version(tmp)
-            else:
-                if adjust_version_counter:
-                    tmp.StateVersion = old_state.StateVersion + 1
+            elif adjust_version_counter:
+                tmp.StateVersion = old_state.StateVersion + 1
 
             self._state_updates[state_container.Handle] = TransactionItem(old=old_state, new=tmp)
 

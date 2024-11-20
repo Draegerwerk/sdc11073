@@ -1,33 +1,44 @@
+"""The module contains protocol definitions for the entity interface of mdib."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, Union, Iterable, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Protocol, Union
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from lxml.etree import QName
+
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
-    from sdc11073.mdib.statecontainers import AbstractStateProtocol, AbstractMultiStateProtocol
-    from sdc11073.xml_types.pm_types import Coding, CodedValue
+    from sdc11073.mdib.statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
+    from sdc11073.xml_types.pm_types import CodedValue, Coding
 
 
 class EntityProtocol(Protocol):
+    """The protocol defines the interface of single-state entities."""
+
     descriptor: AbstractDescriptorProtocol
     state: AbstractStateProtocol
     is_multi_state: ClassVar[bool]
 
     @property
-    def handle(self) -> str: ...  # a read-only member
+    def handle(self) -> str:
+        """Return the parent handle of the descriptor."""
 
     @property
-    def parent_handle(self) -> str: ...  # a read-only member
+    def parent_handle(self) -> str:
+        """Return the parent handle of the descriptor."""
 
     @property
-    def node_type(self) -> QName: ...  # a read-only member
+    def node_type(self) -> QName:
+        """Return the node type of the descriptor."""
 
     def update(self):
-        ...
+        """Update entity with current mdib data."""
 
 
 class MultiStateEntityProtocol(Protocol):
+    """The protocol defines the interface of multi-state entities."""
+
     descriptor: AbstractDescriptorProtocol
     states: dict[str, AbstractMultiStateProtocol]  # key is the Handle member of state
     is_multi_state: bool
@@ -39,7 +50,7 @@ class MultiStateEntityProtocol(Protocol):
         """Update entity with current data in mdib."""
 
     def new_state(self, handle: str | None = None) -> AbstractMultiStateProtocol:
-        """create a new state."""
+        """Create a new state."""
 
 EntityTypeProtocol = Union[EntityProtocol, MultiStateEntityProtocol]
 
@@ -47,12 +58,13 @@ EntityTypeProtocol = Union[EntityProtocol, MultiStateEntityProtocol]
 # Todo: should node_type be QName (this assumes that we talk XML) or just Any to be generic?
 
 class EntityGetterProtocol(Protocol):
-    """This protocol defines a way to access mdib data as entities.
+    """The protocol defines a way to access mdib data as entities.
 
     This representation is independent of the internal mdib organization.
     The entities returned by the provided getter methods contain copies of the internal mdib data.
     Changing the data does not change data in the mdib.
-    Use the EntityTransactionProtocol to write data back to the mdib."""
+    Use the EntityTransactionProtocol to write data back to the mdib.
+    """
 
     def handle(self, handle: str) -> EntityTypeProtocol | None:
         """Return entity with given descriptor handle."""
@@ -79,19 +91,19 @@ class EntityGetterProtocol(Protocol):
         ...
 
     def items(self) -> Iterable[tuple[str, EntityTypeProtocol]]:
-        """Like items() of a dictionary."""
+        """Return items of a dictionary."""
         ...
 
     def __len__(self) -> int:
-        """Return number of entities"""
+        """Return number of entities."""
         ...
 
 
 class ProviderEntityGetterProtocol(EntityGetterProtocol):
+    """The protocol adds the new_entity method to EntityGetterProtocol."""
 
     def new_entity(self,
                    node_type: QName,
                    handle: str,
-                   parent_handle: str) -> EntityTypeProtocol:
+                   parent_handle: str | None) -> EntityTypeProtocol:
         """Create an entity."""
-        ...

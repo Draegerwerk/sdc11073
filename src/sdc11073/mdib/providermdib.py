@@ -1,3 +1,4 @@
+"""The module contains the implementation of ProviderMdib with ProviderEntityGetter Protocol."""
 from __future__ import annotations
 
 import uuid
@@ -20,28 +21,31 @@ from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
 
 if TYPE_CHECKING:
     from lxml.etree import QName
+
     from sdc11073.definitions_base import BaseDefinitions
+
+    from .entityprotocol import ProviderEntityGetterProtocol
     from .transactionsprotocol import (
         ContextStateTransactionManagerProtocol,
         DescriptorTransactionManagerProtocol,
         StateTransactionManagerProtocol,
-        TransactionResultProtocol
+        TransactionResultProtocol,
     )
-    from .entityprotocol import ProviderEntityGetterProtocol
 
 TransactionFactory = Callable[[mdibbase.MdibBase, TransactionType, LoggerAdapter],
                               AnyTransactionManagerProtocol]
 
 
 class ProviderEntityGetter(mdibbase.EntityGetter):
+    """Implementation of ProviderEntityGetterProtocol."""
 
     def new_entity(self,
             node_type: QName,
             handle: str,
-            parent_handle: str) -> mdibbase.Entity | mdibbase.MultiStateEntity:
+            parent_handle: str | None) -> mdibbase.Entity | mdibbase.MultiStateEntity:
         """Create an entity."""
-        if (handle in self._mdib.descriptions.handle.keys()
-                or handle in self._mdib.context_states.handle.keys()
+        if (handle in self._mdib.descriptions.handle
+                or handle in self._mdib.context_states.handle
                 # or handle in self._new_entities
         ):
             raise ValueError('Handle already exists')
@@ -51,7 +55,7 @@ class ProviderEntityGetter(mdibbase.EntityGetter):
         descr_cls = self._mdib.data_model.get_descriptor_container_class(node_type)
         descriptor_container = descr_cls(handle=handle, parent_handle=parent_handle)
         parent_descriptor = self._mdib.descriptions.handle.get_one(parent_handle)
-        if parent_descriptor.NODETYPE == self._mdib.data_model.pm_names.MdsDescriptor:
+        if self._mdib.data_model.pm_names.MdsDescriptor == parent_descriptor.NODETYPE:
             descriptor_container.set_source_mds(parent_descriptor.Handle)
         else:
             descriptor_container.set_source_mds(parent_descriptor.source_mds)
@@ -116,7 +120,7 @@ class ProviderMdib(mdibbase.MdibBase):
         return self._xtra
 
     @contextmanager
-    def _transaction_manager(self,
+    def _transaction_manager(self, #  noqa: PLR0912, C901
                              transaction_type: TransactionType,
                              set_determination_time: bool = True) -> AbstractContextManager[
         AnyTransactionManagerProtocol]:
