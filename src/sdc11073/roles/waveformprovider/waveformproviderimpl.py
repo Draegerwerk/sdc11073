@@ -1,3 +1,4 @@
+"""The module implements a waveform provider."""
 from __future__ import annotations
 
 import time
@@ -14,8 +15,8 @@ from .realtimesamples import Annotator, RtSampleArray
 
 if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel
-    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.entityprotocol import EntityProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
     from sdc11073.xml_types.pm_types import ComponentActivation
 

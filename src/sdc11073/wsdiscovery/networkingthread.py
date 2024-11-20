@@ -20,7 +20,7 @@ from lxml import etree
 
 from sdc11073 import commlog
 from sdc11073.exceptions import ValidationError
-from sdc11073.wsdiscovery.common import MULTICAST_IPV4_ADDRESS, MULTICAST_OUT_TTL, message_reader
+from sdc11073.wsdiscovery.common import MULTICAST_IPV4_ADDRESS, message_reader
 
 if TYPE_CHECKING:
     from logging import Logger

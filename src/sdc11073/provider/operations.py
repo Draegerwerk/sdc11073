@@ -1,3 +1,7 @@
+"""The module implements the different kinds of BICEPS operations.
+
+These operations are the instances inside a provider that perform an operation by changing the mdib content.
+"""
 from __future__ import annotations
 
 import inspect
@@ -13,6 +17,7 @@ from sdc11073.xml_types import pm_qnames as pm
 
 if TYPE_CHECKING:
     from lxml import etree
+
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
@@ -85,8 +90,6 @@ class OperationDefinitionBase:
         self._logger = loghelper.get_logger_adapter(f'sdc.device.op.{self.__class__.__name__}', log_prefix)
         self._mdib: ProviderMdib | None = None
         self._operation_entity = None
-        # self._descriptor_container = None
-        # self._operation_state_container = None
         self.handle: str = handle
         self.operation_target_handle: str = operation_target_handle
         # documentation of operation_target_handle:
@@ -144,7 +147,6 @@ class OperationDefinitionBase:
         self._mdib = mdib
         self._logger.log_prefix = mdib.log_prefix  # use same prefix as mdib for logging
         self._operation_entity = self._mdib.entities.handle(self.handle)
-        # self._descriptor_container = self._mdib.descriptions.handle.get_one(self.handle, allow_none=True)
         if self._operation_entity is not None:
             # there is already a descriptor
             self._logger.debug('descriptor for operation "%s" is already present, re-using it', self.handle)
@@ -152,21 +154,9 @@ class OperationDefinitionBase:
             self._operation_entity = self._mdib.entities.new_entity(self.OP_DESCR_QNAME,
                                                                     self.handle,
                                                                     parent_descriptor_handle )
-            # cls = mdib.data_model.get_descriptor_container_class(self.OP_DESCR_QNAME)
-            # self._descriptor_container = cls(self.handle, parent_descriptor_handle)
             self._init_operation_descriptor_container()
-            # ToDo: transaction context for flexibility to add operations at runtime
             with self._mdib.descriptor_transaction() as mgr:
                 mgr.write_entity(self._operation_entity)
-            # mdib.descriptions.add_object(self._descriptor_container)
-
-        # self._operation_state_container = self._mdib.states.descriptor_handle.get_one(self.handle, allow_none=True)
-        # if self._operation_state_container is not None:
-        #     self._logger.debug('operation state for operation "%s" is already present, re-using it', self.handle)
-        # else:
-        #     cls = mdib.data_model.get_state_container_class(self.OP_STATE_QNAME)
-        #     self._operation_state_container = cls(self._descriptor_container)
-        #     mdib.states.add_object(self._operation_state_container)
 
     def _init_operation_descriptor_container(self):
         self._operation_entity.descriptor.OperationTarget = self.operation_target_handle
@@ -181,10 +171,6 @@ class OperationDefinitionBase:
         with self._mdib.operational_state_transaction() as mgr:
             mgr.write_entity(entity)
 
-    # def __str__(self):
-    #     code = None if self._descriptor_container is None else self._descriptor_container.Type
-    #     return (f'{self.__class__.__name__} handle={self.handle} code={code} '
-    #            f'operation-target={self.operation_target_handle}')
     def __str__(self):
         code = None if self._operation_entity is None else self._operation_entity.descriptor.Type
         return (f'{self.__class__.__name__} handle={self.handle} code={code} '

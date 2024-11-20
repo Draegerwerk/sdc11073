@@ -1,3 +1,4 @@
+"""The module contains the implementation of Consumermdib."""
 from __future__ import annotations
 
 import enum
@@ -12,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
+
 from . import mdibbase
 from .consumermdibxtra import ConsumerMdibMethods
 
@@ -31,10 +33,13 @@ if TYPE_CHECKING:
         OperationInvokedReport,
     )
 
-    from .statecontainers import (AbstractStateContainer,
-                                  AbstractContextStateContainer,
-                                  RealTimeSampleArrayMetricStateContainer)
     from .entityprotocol import EntityGetterProtocol
+    from .mdibbase import MdibVersionGroup
+    from .statecontainers import (
+        AbstractContextStateContainer,
+        AbstractStateContainer,
+        RealTimeSampleArrayMetricStateContainer,
+    )
 
 
 @dataclass
@@ -141,6 +146,7 @@ class _BufferedData:
 
 class ConsumerMdibState(enum.Enum):
     """ConsumerMdib can be in one of these states."""
+
     initializing = enum.auto()  # the state during reload_all()
     initialized = enum.auto()  # the state when mdib is in sync with provider
     invalid = enum.auto()  # the state when mdib is not in sync with provider
@@ -235,8 +241,8 @@ class ConsumerMdib(mdibbase.MdibBase):
 
             mdib_version_group = response.mdib_version_group
             self.mdib_version = mdib_version_group.mdib_version
-            self._logger.info('setting initial mdib version to {}',
-                              mdib_version_group.mdib_version)  # noqa: PLE1205
+            self._logger.info('setting initial mdib version to %d',
+                              mdib_version_group.mdib_version)
             self.sequence_id = mdib_version_group.sequence_id
             self._logger.info('setting initial sequence id to {}', mdib_version_group.sequence_id)  # noqa: PLE1205
             if mdib_version_group.instance_id != self.instance_id:
@@ -320,13 +326,14 @@ class ConsumerMdib(mdibbase.MdibBase):
         # it is possible to receive multiple notifications with the same mdib version => compare ">="
         return new_mdib_version >= self.mdib_version
 
-    def _check_sequence_or_instance_id_changed(self, mdib_version_group):
+    def _check_sequence_or_instance_id_changed(self, mdib_version_group: MdibVersionGroup):
         """Check if sequence id and instance id are still the same.
 
         If not,
         - set state member to invalid
         - set the observable "sequence_or_instance_id_changed_event" in a thread.
-          This allows to implement an observer that can directly call reload_all without blocking the consumer."""
+          This allows to implement an observer that can directly call reload_all without blocking the consumer.
+        """
         if mdib_version_group.sequence_id == self.sequence_id and mdib_version_group.instance_id == self.instance_id:
             return
         if self._state == ConsumerMdibState.initialized:
@@ -443,10 +450,13 @@ class ConsumerMdib(mdibbase.MdibBase):
     def _process_incoming_metric_states_report(self,
                                                mdib_version_group: MdibVersionGroupReader,
                                                report: EpisodicMetricReport):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         states_by_handle = {}
         try:
             if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'metric states'):
@@ -466,10 +476,13 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _process_incoming_alert_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                               report: EpisodicAlertReport):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         states_by_handle = {}
         try:
             if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'alert states'):
@@ -489,10 +502,13 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _process_incoming_operational_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                                     report: OperationInvokedReport):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         states_by_handle = {}
         try:
             if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'operational states'):
@@ -512,10 +528,13 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _process_incoming_context_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                                 report: EpisodicContextReport):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         states_by_handle = {}
         try:
             if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'context states'):
@@ -535,10 +554,13 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _process_incoming_component_states_report(self, mdib_version_group: MdibVersionGroupReader,
                                                   report: EpisodicComponentReport):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         states_by_handle = {}
         try:
             if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'component states'):
@@ -548,7 +570,7 @@ class ConsumerMdib(mdibbase.MdibBase):
             self.component_by_handle = states_by_handle  # update observable
 
     def process_incoming_waveform_states(self, mdib_version_group: MdibVersionGroupReader,
-                                         state_containers: list[RealTimeSampleArrayMetricStateContainer]
+                                         state_containers: list[RealTimeSampleArrayMetricStateContainer],
                                          ) -> dict[str, RealTimeSampleArrayMetricStateContainer] | None:
         """Check mdib_version_group and process state_containers it if okay."""
         if not self._pre_check_report_ok(mdib_version_group, state_containers,
@@ -559,10 +581,13 @@ class ConsumerMdib(mdibbase.MdibBase):
 
     def _process_incoming_waveform_states(self, mdib_version_group: MdibVersionGroupReader,
                                           state_containers: list[RealTimeSampleArrayMetricStateContainer]):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         states_by_handle = {}
         try:
             if self._can_accept_mdib_version(mdib_version_group.mdib_version, 'waveform states'):
@@ -611,12 +636,16 @@ class ConsumerMdib(mdibbase.MdibBase):
         with self.mdib_lock:
             self._process_incoming_description_modifications(mdib_version_group, report)
 
-    def _process_incoming_description_modifications(self, mdib_version_group: MdibVersionGroupReader,
+    def _process_incoming_description_modifications(self, #  noqa: PLR0915, PLR0912, C901
+                                                    mdib_version_group: MdibVersionGroupReader,
                                                     report: DescriptionModificationReport):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observables
-        Call this method only if mdib_lock is already acquired."""
+         - update observables.
+        Call this method only if mdib_lock is already acquired.
+        """
 
         def multi_key(st_container: AbstractStateContainer) -> mdibbase.StatesLookup | mdibbase.MultiStatesLookup:
             return self.context_states if st_container.is_context_state else self.states

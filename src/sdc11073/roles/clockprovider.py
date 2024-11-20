@@ -1,3 +1,4 @@
+"""Implementation of clock provider functionality."""
 from __future__ import annotations
 
 import uuid

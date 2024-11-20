@@ -1,3 +1,4 @@
+"""Async implementation of subscriptions manager."""
 from __future__ import annotations
 
 import asyncio
@@ -22,14 +23,15 @@ from .subscriptionmgr_base import ActionBasedSubscription, RoundTripData, Subscr
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Iterable
+    from logging import LoggerAdapter
 
+    from sdc11073 import xml_utils
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.dispatch import RequestData
     from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.msgreader import ReceivedMessage
     from sdc11073.pysoap.soapclientpool import SoapClientPool
-    from sdc11073 import xml_utils
 
 
 def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str) -> tuple[str | None, str]:
@@ -107,7 +109,6 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('exception async send subscription end to {}, subscription = {}',  # noqa: PLE1205
                               url, self)
-            pass
         except Exception:  # noqa: BLE001
             self._logger.error(traceback.format_exc())
         finally:
@@ -117,7 +118,7 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
 class AsyncioEventLoopThread(Thread):
     """Central event loop for provider."""
 
-    def __init__(self, name: str, logger ):
+    def __init__(self, name: str, logger: LoggerAdapter ):
         super().__init__(name=name)
         self._logger = logger
         self.daemon = True
@@ -125,7 +126,8 @@ class AsyncioEventLoopThread(Thread):
         self._running = False
 
     @property
-    def running(self):
+    def running(self) -> bool:
+        """Return True if the event loop is running."""
         return self._running
 
     def run(self):
@@ -164,15 +166,15 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                  sdc_definitions: BaseDefinitions,
                  msg_factory: MessageFactory,
                  soap_client_pool: SoapClientPool,
-                 max_subscription_duration: [float, None] = None,
-                 log_prefix: str = None,
+                 max_subscription_duration: float | None = None,
+                 log_prefix: str | None = None,
                  ):
         super().__init__(sdc_definitions, msg_factory, soap_client_pool, max_subscription_duration, log_prefix)
         if soap_client_pool.async_loop_subscr_mgr is None:
             thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr', logger=self._logger)
             soap_client_pool.async_loop_subscr_mgr = thr
             thr.start()
-            for i in range(10):
+            for _i in range(10):
                 if not thr.running:
                     time.sleep(0.1)
                 else:

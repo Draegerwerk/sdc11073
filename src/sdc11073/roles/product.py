@@ -1,10 +1,14 @@
+"""Implementation of products.
+
+A product is a set of role providers that handle operations and other tasks.
+"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
 from sdc11073 import loghelper
 
-from .alarmprovider import AlertDelegateProvider, AlertSystemStateMaintainer, AlertPreCommitHandler
+from .alarmprovider import AlertDelegateProvider, AlertPreCommitHandler, AlertSystemStateMaintainer
 from .audiopauseprovider import AudioPauseProvider
 from .clockprovider import GenericSDCClockProvider
 from .componentprovider import GenericSetComponentStateOperationProvider
@@ -15,10 +19,11 @@ from .patientcontextprovider import GenericPatientContextProvider
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.transactionsprotocol import AnyTransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
-    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+
     from .providerbase import OperationClassGetter
 
 
@@ -100,7 +105,6 @@ class BaseProduct:
             for operation in operations:
                 self._sco.register_operation(operation)
 
-        # all_sco_operations = self._mdib.descriptions.parent_handle.get(self._sco.sco_descriptor_container.Handle, [])
         all_sco_operations = self._mdib.entities.parent_handle(self._sco.sco_descriptor_container.Handle)
         all_op_handles = [op.handle for op in all_sco_operations]
         all_not_registered_op_handles = [op_h for op_h in all_op_handles if

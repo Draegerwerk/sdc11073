@@ -1,9 +1,8 @@
+"""The module implements the base class for consumer and provider specific mdib implementations."""
 from __future__ import annotations
 
 from threading import Lock
-from typing import TYPE_CHECKING, Union, Iterator
-import itertools
-from lxml import etree as etree_
+from typing import TYPE_CHECKING
 
 from sdc11073 import observableproperties as properties
 from sdc11073.mdib.mdibbase import MdibVersionGroup
@@ -11,9 +10,12 @@ from sdc11073.mdib.mdibbase import MdibVersionGroup
 if TYPE_CHECKING:
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
+    from sdc11073.xml_utils import LxmlElement
 
 
 class EntityMdibBase:
+    """Base class for consumer and provider specific mdib implementations."""
+
     metric_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     waveform_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
     alert_handles = properties.ObservableProperty(fire_only_on_changed_value=False)
@@ -41,10 +43,10 @@ class EntityMdibBase:
         self.log_prefix = ''
         self.mdib_lock = Lock()
 
-        self._get_mdib_response_node: Union[etree_.Element, None] = None
-        self._mdib_node: Union[etree_.Element, None] = None
-        self._md_description_node: Union[etree_.Element, None] = None
-        self._md_state_node: Union[etree_.Element, None] = None
+        self._get_mdib_response_node: LxmlElement | None = None
+        self._mdib_node: LxmlElement | None = None
+        self._md_description_node: LxmlElement | None = None
+        self._md_state_node :LxmlElement | None = None
 
     @property
     def mdib_version_group(self) -> MdibVersionGroup:

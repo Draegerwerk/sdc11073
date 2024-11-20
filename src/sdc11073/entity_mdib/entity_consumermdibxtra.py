@@ -1,18 +1,18 @@
+"""The module contains extensions to the functionality of the EntityConsumerMdib."""
 from __future__ import annotations
 
-
 from typing import TYPE_CHECKING
-from sdc11073 import observableproperties as properties
 
+from sdc11073 import observableproperties as properties
 
 if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
-    from .entity_consumermdib import EntityConsumerMdib
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
-class EntityConsumerMdibMethods:
-    """Extra methods for consumer mdib tht are not core functionality."""
+    from .entity_consumermdib import EntityConsumerMdib
 
+class EntityConsumerMdibMethods:
+    """Extra methods for consumer mdib that are not part of core functionality."""
 
     def __init__(self, consumer_mdib: EntityConsumerMdib, logger: LoggerAdapter):
         self._mdib = consumer_mdib

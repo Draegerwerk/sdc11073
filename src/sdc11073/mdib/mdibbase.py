@@ -1,3 +1,4 @@
+"""The module contains the implementation of MdibBase plus entity interface."""
 from __future__ import annotations
 
 import copy
@@ -5,7 +6,7 @@ import traceback
 import uuid
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Any
 
 from lxml import etree
 
@@ -15,10 +16,14 @@ from sdc11073.etc import apply_map
 from sdc11073.xml_types.pm_types import Coding, have_matching_codes
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from lxml.etree import QName
+
+    from sdc11073 import xml_utils
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.xml_types.pm_types import CodedValue
-    from sdc11073 import xml_utils
 
     from .descriptorcontainers import AbstractDescriptorContainer, AbstractOperationDescriptorContainer
     from .statecontainers import AbstractMultiStateContainer, AbstractStateContainer
@@ -228,6 +233,7 @@ class _EntityBase:
         return self.descriptor.NODETYPE
 
     def update(self):
+        """Update the entity from current data in mdib."""
         orig = self._mdib.descriptions.get_one(self.handle)
         self.descriptor.update_from_other_container(orig)
 
@@ -241,9 +247,11 @@ class Entity(_EntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return False because this is not a multi state entity."""
         return False
 
     def update(self):
+        """Update the entity from current data in mdib."""
         super().update()
         orig = self._mdib.states.get_one(self.handle)
         self.state.update_from_other_container(orig)
@@ -259,9 +267,11 @@ class MultiStateEntity(_EntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return True because this is a multi state entity."""
         return True
 
     def update(self):
+        """Update the entity from current data in mdib."""
         super().update()
 
         all_orig_states = self._mdib.context_states.descriptor_handle.get(self.handle)
@@ -279,7 +289,7 @@ class MultiStateEntity(_EntityBase):
                 self.states[handle] = states_dict[handle].mk_copy()
 
     def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
-        """create a new state."""
+        """Create a new state."""
         if state_handle in self.states:
             raise ValueError(f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
@@ -290,6 +300,8 @@ class MultiStateEntity(_EntityBase):
 
 
 class EntityGetter:
+    """Implementation of EntityGetterProtocol for MdibBase."""
+
     def __init__(self, mdib: MdibBase):
         self._mdib = mdib
 
@@ -306,18 +318,21 @@ class EntityGetter:
         return [self._mk_entity(d) for d in descriptors]
 
     def parent_handle(self, parent_handle: str | None) -> list[Entity | MultiStateEntity]:
+        """Return all entities with descriptors parent_handle == provided parent_handle."""
         descriptors = self._mdib.descriptions.parent_handle.get(parent_handle, [])
         return [self._mk_entity(d) for d in descriptors]
 
     def coding(self, coding: Coding) -> list[Entity | MultiStateEntity]:
+        """Return all entities with descriptors type are equivalent to codeding."""
         descriptors = [d for d in self._mdib.descriptions.objects if d.Type.is_equivalent(coding)]
         return [self._mk_entity(d) for d in descriptors]
 
     def coded_value(self, coded_value: CodedValue) -> list[Entity | MultiStateEntity]:
+        """Return all entities with descriptors type are equivalent to coded_value."""
         descriptors = [d for d in self._mdib.descriptions.objects if d.Type.is_equivalent(coded_value)]
         return [self._mk_entity(d) for d in descriptors]
 
-    def _mk_entity(self, descriptor) -> Entity | MultiStateEntity:
+    def _mk_entity(self, descriptor: AbstractDescriptorContainer) -> Entity | MultiStateEntity:
         if descriptor.is_context_descriptor:
             states = self._mdib.context_states.descriptor_handle.get(descriptor.Handle, [])
             return MultiStateEntity(self._mdib,copy.deepcopy(descriptor), copy.deepcopy(states))
@@ -325,12 +340,12 @@ class EntityGetter:
         return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
 
     def items(self) -> Iterable[tuple[str, [Entity | MultiStateEntity]]]:
-        """Like items() of a dictionary."""
+        """Return the items of a dictionary."""
         for descriptor in self._mdib.descriptions.objects:
             yield descriptor.Handle, self._mk_entity(descriptor)
 
     def __len__(self) -> int:
-        """Return number of entities"""
+        """Return number of entities."""
         return len(self._mdib.descriptions.objects)
 
 
@@ -623,6 +638,7 @@ class MdibBase:
         It is not necessary that path starts at the top of a mds, it can start anywhere.
         :param codings: each element can be a string (which is handled as a Coding with DEFAULT_CODING_SYSTEM),
                          a Coding or a CodedValue.
+
         """
         selected_objects = self.descriptions.objects  # start with all objects
         for counter, coding in enumerate(codings):

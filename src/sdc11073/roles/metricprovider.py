@@ -1,3 +1,4 @@
+"""Implementation of metric provider functionality."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
@@ -11,8 +12,8 @@ from .providerbase import ProviderRole
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.transactionsprotocol import StateTransactionManagerProtocol, TransactionItem
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
@@ -52,7 +53,7 @@ class GenericMetricProvider(ProviderRole):
         op_target_entity = self._mdib.entities.handle(operation_target_handle)
 
         if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:  # noqa: SIM300
-            if op_target_entity.node_type == pm_names.NumericMetricDescriptor:  # noqa: SIM300
+            if op_target_entity.node_type == pm_names.NumericMetricDescriptor:
                 op_cls = operation_cls_getter(pm_names.SetValueOperationDescriptor)
                 return op_cls(operation_descriptor_container.Handle,
                               operation_target_handle,

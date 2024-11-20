@@ -1,3 +1,4 @@
+"""The module contains extensions to the functionality of the ProviderMdib."""
 from __future__ import annotations
 
 import time
@@ -17,9 +18,9 @@ if TYPE_CHECKING:
     )
 
     from .descriptorcontainers import AbstractDescriptorProtocol
+    from .entityprotocol import MultiStateEntityProtocol
     from .providermdib import ProviderMdib
     from .statecontainers import AbstractStateProtocol
-    from .entityprotocol import MultiStateEntityProtocol
 
 class ProviderMdibMethods:
     """Extra methods for provider mdib tht are not core functionality."""
@@ -40,7 +41,7 @@ class ProviderMdibMethods:
         for system_context_descriptor in system_context_descriptors:
             child_location_descriptors = [d for d in location_context_descriptors
                                           if d.parent_handle == system_context_descriptor.Handle
-                                          and d.NODETYPE == pm.LocationContextDescriptor]
+                                          and pm.LocationContextDescriptor == d.NODETYPE]
             if not child_location_descriptors:
                 descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
                 descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
@@ -57,7 +58,7 @@ class ProviderMdibMethods:
         for system_context_descriptor in system_context_descriptors:
             child_location_descriptors = [d for d in patient_context_descriptors
                                           if d.parent_handle == system_context_descriptor.Handle
-                                          and d.NODETYPE == pm.PatientContextDescriptor]
+                                          and pm.PatientContextDescriptor == d.NODETYPE]
             if not child_location_descriptors:
                 descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
                 descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
@@ -138,7 +139,7 @@ class ProviderMdibMethods:
 
         for state in self._mdib.states.objects:
             descriptor = self._mdib.descriptions.handle.get_one(state.DescriptorHandle)
-            if descriptor.NODETYPE == pm_names.AlertSystemDescriptor:
+            if pm_names.AlertSystemDescriptor == descriptor.NODETYPE:
                 # alert systems are active
                 state.ActivationState = pm_types.AlertActivation.ON
                 state.SystemSignalActivation.append(
@@ -229,7 +230,7 @@ class ProviderMdibMethods:
         """
         pm_types = self._mdib.data_model.pm_types
         disassociated_state_handles = []
-        for handle, state in entity.states.items():
+        for state in entity.states.values():
             if state.Handle == ignored_handle:
                 # If state is already part of this transaction leave it also untouched, accept what the user wanted.
                 continue

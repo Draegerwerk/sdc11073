@@ -1,3 +1,7 @@
+"""The module declares several protocols that are implemented by transactions.
+
+Only these protocols shall be used, the old way of transactions in mdib.transactions should no longer be used.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,7 +13,7 @@ from .statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
 if TYPE_CHECKING:
 
     from .descriptorcontainers import AbstractDescriptorProtocol
-    from .entityprotocol import EntityTypeProtocol, EntityProtocol, MultiStateEntityProtocol
+    from .entityprotocol import EntityProtocol, EntityTypeProtocol, MultiStateEntityProtocol
 
 class TransactionType(Enum):
     """The different kinds of transactions.
@@ -113,12 +117,12 @@ class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProto
     def write_entity(self,
                      entity: EntityTypeProtocol,
                      adjust_version_counter: bool = True):
-        """insert or update an entity (state and descriptor)."""
+        """Insert or update an entity (state and descriptor)."""
 
     def write_entities(self,
                        entities: list[EntityTypeProtocol],
                        adjust_version_counter: bool = True):
-        """insert or update list of entities."""
+        """Insert or update list of entities."""
 
     def remove_entity(self, entity: EntityTypeProtocol):
         """Remove existing descriptor from mdib."""
@@ -159,6 +163,7 @@ class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerPro
         2. Manipulate the copied states as required
         3. Create a descriptor transaction context and write entity data back to mdib with write_entity method
     """
+
     def write_entity(self, entity: MultiStateEntityProtocol,
                   modified_handles: list[str],
                   adjust_version_counter: bool = True):
@@ -189,7 +194,6 @@ class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerPro
 
         In all cases: when the transaction context is left, all before retrieved data is written back to mdib.
     """
-
 
     def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""

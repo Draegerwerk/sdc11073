@@ -1,3 +1,4 @@
+"""Implementation of context provider functionality."""
 from __future__ import annotations
 
 import time
@@ -6,6 +7,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from sdc11073.provider.operations import ExecuteResult
+
 from . import providerbase
 
 if TYPE_CHECKING:
@@ -46,7 +48,7 @@ class GenericContextProvider(providerbase.ProviderRole):
                                                                 operation_handler=self._set_context_state)
         return None
 
-    def _set_context_state(self, params: ExecuteParameters) -> ExecuteResult:
+    def _set_context_state(self, params: ExecuteParameters) -> ExecuteResult: # noqa: C901, PLR0912
         """Execute the operation itself (ExecuteHandler).
 
         If the proposed context is a new context and ContextAssociation == pm_types.ContextAssociation.ASSOCIATED,

@@ -1,3 +1,7 @@
+"""The module declares the components of a provider.
+
+This serves as dependency injection.
+"""
 from __future__ import annotations
 
 import copy
@@ -32,9 +36,9 @@ if TYPE_CHECKING:
 
     from sdc11073 import provider
     from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.namespaces import PrefixNamespace
     from sdc11073.provider.servicesfactory import HostedServices
     from sdc11073.xml_types.wsd_types import ScopesType
-    from sdc11073.namespaces import PrefixNamespace
 
     from .sco import AbstractScoOperationsRegistry
     from .subscriptionmgr_base import SubscriptionManagerProtocol

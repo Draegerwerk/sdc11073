@@ -3,29 +3,30 @@ from __future__ import annotations
 import logging
 import pathlib
 import threading
-from urllib.parse import SplitResult
 from decimal import Decimal
 from typing import TYPE_CHECKING
+from urllib.parse import SplitResult
 
 from lxml import etree
 
+from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
-
 from sdc11073.provider.subscriptionmgr import BicepsSubscription
-from sdc11073.xml_types import pm_types, pm_qnames as pm
+from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types import pm_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.xml_types.dpws_types import ThisModelType, ThisDeviceType
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.eventing_types import Subscribe
 
-from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 if TYPE_CHECKING:
-    import sdc11073.certloader
     import uuid
-    from sdc11073.pysoap.soapclientpool import SoapClientPool
-    from sdc11073.provider.providerimpl import WsDiscoveryProtocol
+
+    import sdc11073.certloader
     from sdc11073.provider.components import SdcProviderComponents
+    from sdc11073.provider.providerimpl import WsDiscoveryProtocol
+    from sdc11073.pysoap.soapclientpool import SoapClientPool
 
 ports_lock = threading.Lock()
 _ports = 10000
@@ -45,7 +46,7 @@ def _findServer(netloc):
     for key, srv in _mockhttpservers.items():
         if tuple(key) == dev_addr:
             return srv
-    raise KeyError('{} is not in {}'.format(dev_addr, _mockhttpservers.keys()))
+    raise KeyError(f'{dev_addr} is not in {_mockhttpservers.keys()}')
 
 
 class MockWsDiscovery:
@@ -56,11 +57,12 @@ class MockWsDiscovery:
         return [self._ipaddress]
 
     def clear_service(self, epr):
-        _logger.info('clear_service "{}"'.format(epr))
+        _logger.info(f'clear_service "{epr}"')
 
 
 class TestDevSubscription(BicepsSubscription):
-    """ Can be used instead of real Subscription objects"""
+    """Can be used instead of real Subscription objects"""
+
     mode = 'SomeMode'
     notify_to = 'http://self.com:123'
     identifier = '0815'

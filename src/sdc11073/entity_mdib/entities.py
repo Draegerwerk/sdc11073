@@ -1,3 +1,4 @@
+"""Implementation of entities for EntityProviderMdib."""
 from __future__ import annotations
 
 import copy
@@ -6,17 +7,17 @@ from typing import TYPE_CHECKING, Union
 
 from lxml.etree import QName
 
-from sdc11073.namespaces import QN_TYPE
-from sdc11073.namespaces import text_to_qname
+from sdc11073.namespaces import QN_TYPE, text_to_qname
 from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.pm_types import CodedValue
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
     from sdc11073.mdib.statecontainers import AbstractMultiStateContainer, AbstractStateContainer
+    from sdc11073.xml_utils import LxmlElement
+
     from .entity_consumermdib import EntityConsumerMdib
     from .entity_providermdib import EntityProviderMdib
-    from sdc11073.xml_utils import LxmlElement
 
 # Many types are fixed in schema. This table maps from tag in Element to its type
 _static_type_lookup = {
@@ -45,12 +46,11 @@ def get_xsi_type(element: LxmlElement) -> QName:
 
     if xsi_type_str:
         return text_to_qname(xsi_type_str, element.nsmap)
-    else:
-        _xsi_type = QName(element.tag)
-        try:
-            return _static_type_lookup[_xsi_type]
-        except KeyError:
-            raise KeyError(str(_xsi_type))
+    _xsi_type = QName(element.tag)
+    try:
+        return _static_type_lookup[_xsi_type]
+    except KeyError as err:
+        raise KeyError(str(_xsi_type)) from err
 
 
 class _XmlEntityBase:
@@ -73,7 +73,7 @@ class _XmlEntityBase:
         return self._descriptor
 
     @descriptor.setter
-    def descriptor(self, new_descriptor):
+    def descriptor(self, new_descriptor: LxmlElement):
         self._descriptor = new_descriptor
         type_node = self.descriptor.find(pm_qnames.Type)
         if type_node is not None:
@@ -99,6 +99,7 @@ class XmlEntity(_XmlEntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return False because this is not a multi state entity."""
         return False
 
     def mk_entity(self, mdib: EntityConsumerMdib) -> ConsumerEntity:
@@ -120,6 +121,7 @@ class XmlMultiStateEntity(_XmlEntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return True because this is a multi state entity."""
         return True
 
     def mk_entity(self, mdib: EntityConsumerMdib) -> ConsumerMultiStateEntity:
@@ -138,7 +140,7 @@ class ConsumerEntityBase:
 
         cls = mdib.sdc_definitions.data_model.get_descriptor_container_class(source.node_type)
         if cls is None:
-            raise ValueError(f'do not know how to make container from {str(source.node_type)}')
+            raise ValueError(f'do not know how to make container from {source.node_type!s}')
         handle = source.descriptor.get('Handle')
         self.descriptor: AbstractDescriptorContainer = cls(handle, parent_handle=source.parent_handle)
         self.descriptor.update_from_node(source.descriptor)
@@ -147,14 +149,17 @@ class ConsumerEntityBase:
 
     @property
     def handle(self) -> str:
+        """Return the handle of the descriptor."""
         return self.descriptor.Handle
 
     @property
     def parent_handle(self) -> str | None:
+        """Return the parent handle of the descriptor."""
         return self.descriptor.parent_handle
 
     @property
     def node_type(self) -> QName:
+        """Return the node type of the descriptor."""
         return self.descriptor.NODETYPE
 
     def __str__(self):
@@ -175,6 +180,7 @@ class ConsumerEntity(ConsumerEntityBase):
             self.state.update_from_node(source.state)
 
     def update(self):
+        """Update the entity from current data in mdib."""
         xml_entity = self._mdib.internal_entities.get(self.handle)
         if xml_entity is None:
             raise ValueError('entity no longer exists in mdib')
@@ -200,7 +206,7 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
             self.states[handle] = state_container
 
     def update(self):
-        """Update all containers."""
+        """Update the entity from current data in mdib."""
         xml_entity = self._mdib.internal_entities.get(self.handle)
         if xml_entity is None:
             raise ValueError('entity no longer exists in mdib')
@@ -230,11 +236,12 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
                 self.states.pop(handle)
 
     def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
-        """create a new state.
+        """Create a new state.
 
         The new state has handle of descriptor container as handle.
         If this new state is used as a proposed context state in SetContextState operation, this means a new
-        state shall be created on providers side."""
+        state shall be created on providers side.
+        """
         if state_handle in self.states:
             raise ValueError(
                 f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
@@ -259,18 +266,22 @@ class ProviderInternalEntityBase:
 
     @property
     def handle(self) -> str:
+        """Return the handle of the descriptor."""
         return self.descriptor.Handle
 
     @property
     def parent_handle(self) -> str | None:
+        """Return the parent handle of the descriptor."""
         return self.descriptor.parent_handle
 
     @property
     def source_mds(self) -> str:
+        """Return the source mds of the descriptor."""
         return self.descriptor.source_mds
 
     @property
     def node_type(self) -> QName:
+        """Return the node type of the descriptor."""
         return self.descriptor.NODETYPE
 
     def __str__(self):
@@ -290,6 +301,7 @@ class ProviderInternalEntity(ProviderInternalEntityBase):
 
     @property
     def state(self) -> AbstractStateContainer | None:
+        """Return the state member of the entity."""
         return self._state
 
     @state.setter
@@ -299,6 +311,7 @@ class ProviderInternalEntity(ProviderInternalEntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return False because this is not a multi state entity."""
         return False
 
     def mk_entity(self, mdib: EntityProviderMdib) -> ProviderEntity:
@@ -317,6 +330,7 @@ class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return True because this is a multi state entity."""
         return True
 
     def mk_entity(self, mdib: EntityProviderMdib) -> ProviderMultiStateEntity:
@@ -336,14 +350,17 @@ class ProviderEntityBase:
 
     @property
     def handle(self) -> str:
+        """Return the handle of the descriptor."""
         return self.descriptor.Handle
 
     @property
     def parent_handle(self) -> str | None:
+        """Return the parent handle of the descriptor."""
         return self.descriptor.parent_handle
 
     @property
     def node_type(self) -> QName:
+        """Return the node type of the descriptor."""
         return self.descriptor.NODETYPE
 
     def __str__(self):
@@ -363,6 +380,7 @@ class ProviderEntity(ProviderEntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return False because this is not a multi state entity."""
         return False
 
     def update(self):
@@ -385,6 +403,7 @@ class ProviderMultiStateEntity(ProviderEntityBase):
 
     @property
     def is_multi_state(self) -> bool:
+        """Return True because this is a multi state entity."""
         return True
 
     def update(self):
@@ -405,7 +424,7 @@ class ProviderMultiStateEntity(ProviderEntityBase):
                 self.states.pop(handle)
 
     def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
-        """create a new state."""
+        """Create a new state."""
         if state_handle in self.states:
             raise ValueError(
                 f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')

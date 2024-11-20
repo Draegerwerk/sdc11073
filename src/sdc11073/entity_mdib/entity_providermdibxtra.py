@@ -1,3 +1,4 @@
+"""The module contains extensions to the functionality of the EntityProviderMdib."""
 from __future__ import annotations
 
 import time
@@ -7,15 +8,19 @@ from typing import TYPE_CHECKING
 from sdc11073.etc import apply_map
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.xml_types.pm_types import RetrievabilityMethod
-from .entities import ProviderEntity, ProviderMultiStateEntity
 
 if TYPE_CHECKING:
     from sdc11073.location import SdcLocation
+    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
+    from sdc11073.mdib.statecontainers import AbstractStateContainer
     from sdc11073.xml_types.pm_types import InstanceIdentifier
+
+    from .entities import ProviderEntity, ProviderMultiStateEntity
     from .entity_providermdib import EntityProviderMdib
 
 
 class EntityProviderMdibMethods:
+    """Extra methods for provider mdib that are not part of core functionality."""
 
     def __init__(self, provider_mdib: EntityProviderMdib):
         self._mdib = provider_mdib
@@ -29,7 +34,7 @@ class EntityProviderMdibMethods:
         for d in descriptor_containers:
             dict_by_parent_handle[d.parent_handle].append(d)
 
-        def tag_tree(source_mds_handle, descriptor_container):
+        def tag_tree(source_mds_handle: str, descriptor_container: AbstractDescriptorContainer):
             descriptor_container.set_source_mds(source_mds_handle)
             children = dict_by_parent_handle[descriptor_container.Handle]
             for ch in children:
@@ -79,14 +84,16 @@ class EntityProviderMdibMethods:
             handles.append(new_location.Handle)
             mgr.write_entity(location_entity, handles)
 
-    def set_initial_content(self, descriptor_containers, state_containers):
-        """Add states """
+    def set_initial_content(self,
+                            descriptor_containers: list[AbstractDescriptorContainer],
+                            state_containers: list[AbstractStateContainer]):
+        """Add states."""
         if self._mdib.is_initialized:
             raise ApiUsageError('method "set_initial_content" can not be called when mdib is already initialized')
         for d in descriptor_containers:
             states = [s for s in state_containers if s.DescriptorHandle == d.Handle]
             entity = self._mdib.entity_factory(d, states)
-            self._mdib._entities[d.Handle] = entity
+            self._mdib.internal_entities[d.Handle] = entity
 
         self.set_all_source_mds()
         self.mk_state_containers_for_all_descriptors()
@@ -174,7 +181,7 @@ class EntityProviderMdibMethods:
 
     def get_all_entities_in_subtree(self, root_entity: ProviderEntity | ProviderMultiStateEntity,
                                     depth_first: bool = True,
-                                    include_root: bool = True
+                                    include_root: bool = True,
                                     ) -> list[ProviderEntity | ProviderMultiStateEntity]:
         """Return the tree below descriptor_container as a flat list."""
         result = []
@@ -206,7 +213,7 @@ class EntityProviderMdibMethods:
         """
         pm_types = self._mdib.data_model.pm_types
         disassociated_state_handles = []
-        for handle, state in entity.states.items():
+        for state in entity.states.values():
             if state.Handle == ignored_handle:
                 # If state is already part of this transaction leave it also untouched, accept what the user wanted.
                 continue

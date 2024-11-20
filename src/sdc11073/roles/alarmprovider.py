@@ -1,3 +1,4 @@
+"""Implementation of alarm provider functionality."""
 from __future__ import annotations
 
 import time
@@ -8,16 +9,17 @@ from typing import TYPE_CHECKING, cast
 from sdc11073.mdib.descriptorcontainers import AbstractSetStateOperationDescriptorContainer
 from sdc11073.mdib.statecontainers import AbstractStateProtocol, AlertConditionStateContainer
 from sdc11073.provider.operations import ExecuteResult
+
 from . import providerbase
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactionsprotocol import StateTransactionManagerProtocol
     from sdc11073.mdib.entityprotocol import EntityProtocol
     from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
-    from sdc11073.provider.operations import OperationDefinitionBase, OperationDefinitionProtocol, ExecuteParameters
+    from sdc11073.mdib.transactionsprotocol import StateTransactionManagerProtocol
+    from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase, OperationDefinitionProtocol
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
     from .providerbase import OperationClassGetter
@@ -216,7 +218,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
                 with self._mdib.alert_state_transaction() as mgr:
                     self._update_alert_system_states(entities_needing_update)
                     mgr.write_entities(entities_needing_update)
-        except Exception:
+        except Exception: # noqa: BLE001
             self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())
 
     def _get_alert_system_entities_needing_update(self) -> list[EntityProtocol]:
@@ -231,7 +233,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
                         last_self_check = alert_system_entity.state.LastSelfCheck or 0.0
                         if time.time() - last_self_check >= self_check_period - self.self_check_safety_margin:
                             entities_needing_update.append(alert_system_entity)
-        except Exception:
+        except Exception: # noqa: BLE001
             self._logger.error('_get_alert_system_entities_needing_update: %s', traceback.format_exc())
         return entities_needing_update
 

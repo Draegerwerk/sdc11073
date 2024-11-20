@@ -1,24 +1,24 @@
+"""The module implements the function mk_scopes."""
 from urllib.parse import quote_plus
 
 from sdc11073.location import SdcLocation
+from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
 
-def mk_scopes(mdib) -> ScopesType:
-    """ scopes factory
+def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
+    """Return a ScopesType instance.
+
     This method creates the scopes for publishing in wsdiscovery.
-    :param mdib:
-    :return: wsdiscovery.Scope
     """
     pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scope = ScopesType()
-    # locations = mdib.context_states.NODETYPE.get(pm_names.LocationContextState, [])
     loc_entities = mdib.entities.node_type(pm_names.LocationContextDescriptor)
     assoc_loc = []
     for ent in loc_entities:
-        assoc_loc.extend([loc for loc in ent.states.values() if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED])
-    # assoc_loc = [loc for loc in locations if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
+        assoc_loc.extend([loc for loc in ent.states.values() if
+                          loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED])
     if len(assoc_loc) == 1:
         loc = assoc_loc[0]
         det = loc.LocationDetail
@@ -30,7 +30,6 @@ def mk_scopes(mdib) -> ScopesType:
                              (pm_names.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
                              (pm_names.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
                              (pm_names.MeansContextDescriptor, 'sdc.ctxt.mns')):
-        # descriptors = mdib.descriptions.NODETYPE.get(nodetype, [])
         entities = mdib.entities.node_type(nodetype)
         for entity in entities:
             states = entity.states
@@ -43,14 +42,15 @@ def mk_scopes(mdib) -> ScopesType:
     scope.text.append('sdc.mds.pkp:1.2.840.10004.20701.1.1')  # key purpose Service provider
     return scope
 
-def _get_device_component_based_scopes(mdib):
-    """
+def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
+    """Return a set of scope strings.
+
     SDC: For every instance derived from pm:AbstractComplexDeviceComponentDescriptor in the MDIB an
     SDC SERVICE PROVIDER SHOULD include a URI-encoded pm:AbstractComplexDeviceComponentDescriptor/pm:Type
     as dpws:Scope of the MDPWS discovery messages. The URI encoding conforms to the given Extended Backus-Naur Form.
     E.G.  sdc.cdc.type:///69650, sdc.cdc.type:/urn:oid:1.3.6.1.4.1.3592.2.1.1.0//DN_VMD
     After discussion with David: use only MDSDescriptor, VmdDescriptor makes no sense.
-    :return: a set of scopes
+    :return: a set of scope strings
     """
     pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names

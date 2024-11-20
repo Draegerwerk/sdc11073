@@ -1,3 +1,4 @@
+"""Implementation of audio pause functionality."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -12,7 +13,7 @@ from .providerbase import OperationClassGetter, ProviderRole
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
-    from sdc11073.provider.operations import OperationDefinitionBase, ExecuteParameters
+    from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
 # coded values for SDC audio pause
@@ -186,7 +187,6 @@ class AudioPauseProvider(GenericAudioPauseProvider):
         ops = []
         # in this case only the top level sco shall have the additional operations.
         # Check if this is the top level sco (parent is mds)
-        # parent_descriptor = self._mdib.descriptions.handle.get_one(sco.sco_descriptor_container.parent_handle)
         parent_entity = self._mdib.entities.handle(sco.sco_descriptor_container.parent_handle)
         if pm_names.MdsDescriptor != parent_entity.descriptor.NODETYPE:
             return ops

@@ -309,7 +309,8 @@ class DescriptorTransaction(_TransactionBase):
 
             # Restrict transaction to only insert, update or delete stuff. No mixes!
             # This simplifies handling a lot!
-            types = [l for l in (to_be_deleted_handles, to_be_created_handles, to_be_updated_handles) if l]
+            types = [handle for handle in (to_be_deleted_handles, to_be_created_handles, to_be_updated_handles)
+                     if handle]
             if not types:
                 return proc  # nothing changed
             if len(types) > 1:
@@ -396,8 +397,6 @@ class DescriptorTransaction(_TransactionBase):
                     state_update_list = proc.get_state_updates_list(internal_entity.descriptor)
                     if updated_entity.is_multi_state:
                         state_update_list.extend(internal_entity.states.values())
-                        # Todo: update context state handles in mdib
-
                     else:
                         state_update_list.append(internal_entity.state)
         return proc
@@ -405,9 +404,7 @@ class DescriptorTransaction(_TransactionBase):
     def _update_internal_entity(self, modified_entity: ProviderEntity | ProviderMultiStateEntity,
                                 internal_entity: ProviderInternalEntity | ProviderInternalMultiStateEntity):
         """Write back information into internal entity."""
-        new_descriptor_version = internal_entity.descriptor.DescriptorVersion + 1
         internal_entity.descriptor.update_from_other_container(modified_entity.descriptor)
-
         if modified_entity.is_multi_state:
             _update_multi_states(self._mdib,
                                  modified_entity,

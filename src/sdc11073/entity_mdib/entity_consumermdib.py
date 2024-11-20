@@ -1,12 +1,11 @@
+"""The module contains the implementation of the EntityConsumerMdib."""
 from __future__ import annotations
 
 import copy
 import time
 from dataclasses import dataclass
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Iterable
-
-from lxml.etree import QName
+from typing import TYPE_CHECKING, Any, Callable
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
@@ -14,16 +13,23 @@ from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib.consumermdib import ConsumerMdibState
 from sdc11073.namespaces import QN_TYPE, default_ns_helper
 from sdc11073.xml_types import msg_qnames, pm_qnames
-from sdc11073.xml_utils import LxmlElement
+
 from .entities import XmlEntity, XmlMultiStateEntity, get_xsi_type
 from .entity_consumermdibxtra import EntityConsumerMdibMethods
 from .entity_mdibbase import EntityMdibBase
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from lxml.etree import QName
+
     from sdc11073.consumer.consumerimpl import SdcConsumer
-    from sdc11073.pysoap.msgreader import ReceivedMessage
     from sdc11073.mdib.entityprotocol import EntityGetterProtocol, EntityTypeProtocol
-    from sdc11073.xml_types.pm_types import Coding, CodedValue
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
+    from sdc11073.pysoap.msgreader import ReceivedMessage
+    from sdc11073.xml_types.pm_types import CodedValue, Coding
+    from sdc11073.xml_utils import LxmlElement
+
     from .entities import ConsumerEntityType, ConsumerInternalEntityType
 
     XmlEntityFactory = Callable[[LxmlElement, str, str], ConsumerInternalEntityType]
@@ -44,8 +50,9 @@ multi_state_q_names = (pm_qnames.PatientContextDescriptor,
 
 
 def _mk_xml_entity(node: LxmlElement, parent_handle: str, source_mds: str) -> ConsumerInternalEntityType:
-    """Implementation of default consumer entity factory.
+    """Return a new XmlEntity or XmlMultiStateEntity.
 
+    This is the default consumer entity factory.
     It creates one of ConsumerInternalEntityType, which are factories for ConsumerEntityType.
     By using a different factory, the user can change this to use other classes.
     """
@@ -56,7 +63,7 @@ def _mk_xml_entity(node: LxmlElement, parent_handle: str, source_mds: str) -> Co
 
 
 class EntityGetter:
-    """Implements entityprotocol.EntityGetterProtocol"""
+    """Implementation of EntityGetterProtocol."""
 
     def __init__(self, entities: dict[str, XmlEntity | XmlMultiStateEntity], mdib: EntityConsumerMdib):
         self._entities = entities
@@ -102,16 +109,16 @@ class EntityGetter:
         return ret
 
     def items(self) -> Iterable[tuple[str, [EntityTypeProtocol]]]:
-        """Like items() of a dictionary."""
-        for handle, entity in self._entities.items():
+        """Return items of a dictionary."""
+        for handle in self._entities:
             yield handle, self._mk_entity(handle)
 
-    def _mk_entity(self, handle) -> ConsumerEntityType:
+    def _mk_entity(self, handle: str) -> ConsumerEntityType:
         xml_entity = self._mdib.internal_entities[handle]
         return xml_entity.mk_entity(self._mdib)
 
     def __len__(self) -> int:
-        """Return number of entities"""
+        """Return number of entities."""
         return len(self._entities)
 
 
@@ -170,7 +177,7 @@ class EntityConsumerMdib(EntityMdibBase):
 
     @property
     def internal_entities(self) -> dict[str, ConsumerInternalEntityType]:
-        """This property is needed by transactions. Do not use it otherwise."""
+        """The property is needed by transactions. Do not use it otherwise."""
         return self._entities
 
     @property
@@ -243,10 +250,13 @@ class EntityConsumerMdib(EntityMdibBase):
             self._process_incoming_metric_states_report(received_message_data)
 
     def _process_incoming_metric_states_report(self, received_message: ReceivedMessage):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         self.metric_handles = self._process_incoming_state_report(received_message,
                                                                   msg_qnames.MetricState)
 
@@ -259,10 +269,13 @@ class EntityConsumerMdib(EntityMdibBase):
             self._process_incoming_alert_states_report(received_message_data)
 
     def _process_incoming_alert_states_report(self, received_message: ReceivedMessage):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         self.alert_handles = self._process_incoming_state_report(received_message,
                                                                  msg_qnames.AlertState)
 
@@ -275,10 +288,13 @@ class EntityConsumerMdib(EntityMdibBase):
             self._process_incoming_component_report(received_message_data)
 
     def _process_incoming_component_report(self, received_message: ReceivedMessage):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         self.component_handles = self._process_incoming_state_report(received_message,
                                                                      msg_qnames.ComponentState)
 
@@ -291,10 +307,13 @@ class EntityConsumerMdib(EntityMdibBase):
             self._process_incoming_operational_state_report(received_message_data)
 
     def _process_incoming_operational_state_report(self, received_message: ReceivedMessage):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         self.operation_handles = self._process_incoming_state_report(received_message,
                                                                      msg_qnames.OperationState)
 
@@ -307,10 +326,13 @@ class EntityConsumerMdib(EntityMdibBase):
             self._process_incoming_context_report(received_message_data)
 
     def _process_incoming_context_report(self, received_message: ReceivedMessage):
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'component states'):
             self._update_mdib_version_group(received_message.mdib_version_group)
 
@@ -321,7 +343,8 @@ class EntityConsumerMdib(EntityMdibBase):
                     handle = state_node.attrib['Handle']
                     descriptor_handle = state_node.attrib['DescriptorHandle']
                     xml_entity = self._entities[descriptor_handle]
-                    state_node = copy.deepcopy(state_node)  # we modify state_node, but only in a deep copy
+                    # modify state_node, but only in a deep copy
+                    state_node = copy.deepcopy(state_node)  # noqa: PLW2901
                     state_node.tag = pm_qnames.State  # xml_entity.state.tag  # keep old tag
 
                     # replace state in parent
@@ -342,6 +365,7 @@ class EntityConsumerMdib(EntityMdibBase):
         self.context_handles = handles  # update observable
 
     def process_incoming_waveform_states(self, received_message_data: ReceivedMessage):
+        """Check mdib_version_group and process report it if okay."""
         if not self._pre_check_report_ok(received_message_data,
                                          self._process_incoming_waveform_states):
             return
@@ -359,6 +383,7 @@ class EntityConsumerMdib(EntityMdibBase):
         self.waveform_handles = handles  # update observable
 
     def process_incoming_description_modification_report(self, received_message: ReceivedMessage):
+        """Check mdib_version_group and process report it if okay."""
         if not self._pre_check_report_ok(received_message,
                                          self._process_incoming_metric_states_report):
             return
@@ -439,12 +464,11 @@ class EntityConsumerMdib(EntityMdibBase):
             if xml_entity.is_multi_state:
                 for st in current_states:
                     xml_entity.states[st.attrib['Handle']] = st
+            elif len(current_states) != 1:
+                self.logger.error('create descriptor: Expect one state, got %d', len(current_states))
+                # Todo: what to do in this case? add entity without state?
             else:
-                if len(current_states) != 1:
-                    self.logger.error('create descriptor: Expect one state, got %d', len(current_states))
-                    # Todo: what to do in this case? add entity without state?
-                else:
-                    xml_entity.state = current_states[0]
+                xml_entity.state = current_states[0]
             self._entities[descriptor_handle] = xml_entity
             handles.append(descriptor_handle)
 
@@ -476,7 +500,11 @@ class EntityConsumerMdib(EntityMdibBase):
         return handles
 
     @staticmethod
-    def _insert_child(child_node, child_xsi_type, parent_node, child_order: Iterable[tuple[QName, QName]]):
+    def _insert_child(child_node: LxmlElement,
+                      child_xsi_type: QName,
+                      parent_node:
+                      LxmlElement,
+                      child_order: Iterable[tuple[QName, QName]]):
         """Rename child_node to correct name acc. to BICEPS schema and insert at correct position."""
         # rename child_node to correct name required by BICEPS schema
         add_before_q_names = []
@@ -493,13 +521,13 @@ class EntityConsumerMdib(EntityMdibBase):
         if not existing_children or not add_before_q_names:
             parent_node.append(child_node)
             return
-        for i, tmp_child_node in enumerate(existing_children):
+        for tmp_child_node in existing_children:
             if tmp_child_node.tag in add_before_q_names:
                 tmp_child_node.addprevious(child_node)
                 return
         raise RuntimeError('this should not happen')
 
-    def _delete_descriptors(self, descriptors: list[LxmlElement]):
+    def _delete_descriptors(self, descriptors: list[LxmlElement]) -> list[str]:
         handles = []
         for descriptor in descriptors:
             handle = descriptor.attrib['Handle']
@@ -529,10 +557,13 @@ class EntityConsumerMdib(EntityMdibBase):
             self._delete_entity(e, deleted_handles)
 
     def _process_incoming_state_report(self, received_message: ReceivedMessage, expected_q_name: QName) -> list[str]:
-        """Check mdib version, if okay:
+        """Check mdib version.
+
+        If okay:
          - update mdib.
-         - update observable
-        Call this method only if mdib_lock is already acquired."""
+         - update observable.
+        Call this method only if mdib_lock is already acquired.
+        """
         if self._can_accept_mdib_version(received_message.mdib_version_group.mdib_version, 'state'):
             self._update_mdib_version_group(received_message.mdib_version_group)
 
@@ -543,8 +574,8 @@ class EntityConsumerMdib(EntityMdibBase):
                     handles.append(self._update_state(state))  # replace states in self._get_mdib_response_node
         return handles  # update observable
 
-    def _update_state(self, state_node, xsi_type: QName | None = None) -> str:
-        """Replace state in DOM tree and entity"""
+    def _update_state(self, state_node: LxmlElement, xsi_type: QName | None = None) -> str:
+        """Replace state in DOM tree and entity."""
         descriptor_handle = state_node.attrib['DescriptorHandle']
         xml_entity = self._entities[descriptor_handle]
         state_node = copy.deepcopy(state_node)  # we modify state_node, but only in a deep copy
@@ -560,12 +591,10 @@ class EntityConsumerMdib(EntityMdibBase):
         xml_entity.state = state_node
         return descriptor_handle
 
-    def _update_descriptor_states(self, descriptor_node, state_nodes) -> str:
-        """Replace state in DOM tree and entity"""
-        # state_nodes = [copy.deepcopy(s) for s in state_nodes] # we modify state_nodes, but only in a deep copy
+    def _update_descriptor_states(self, descriptor_node: LxmlElement, state_nodes: list[LxmlElement]) -> str:
+        """Replace state in DOM tree and entity."""
         for state_node in state_nodes:
             state_node.tag = pm_qnames.State  # rename in order to have a valid tag acc. to participant model
-        # descriptor_node = copy.deepcopy(descriptor_node)  # we modify descriptor_node, but only in a deep copy
 
         descriptor_handle = descriptor_node.attrib['Handle']
         xml_entity = self._entities[descriptor_handle]
@@ -592,14 +621,13 @@ class EntityConsumerMdib(EntityMdibBase):
 
             # replace state_nodes in xml_entity
             xml_entity.states = state_nodes
+        elif len(state_nodes) != 1:
+            self.logger.error('update descriptor: Expect one state, got %d', len(state_nodes))
+            # Todo: what to do in this case? add entity without state?
         else:
-            if len(state_nodes) != 1:
-                self.logger.error('update descriptor: Expect one state, got %d', len(state_nodes))
-                # Todo: what to do in this case? add entity without state?
-            else:
-                state_parent = xml_entity.state.getparent()
-                state_parent.replace(xml_entity.state, state_nodes[0])
-                xml_entity.state = state_nodes[0]
+            state_parent = xml_entity.state.getparent()
+            state_parent.replace(xml_entity.state, state_nodes[0])
+            xml_entity.state = state_nodes[0]
         return descriptor_handle
 
     def _pre_check_report_ok(self, received_message_data: ReceivedMessage,
@@ -638,13 +666,14 @@ class EntityConsumerMdib(EntityMdibBase):
         # it is possible to receive multiple notifications with the same mdib version => compare ">="
         return new_mdib_version >= self.mdib_version
 
-    def _check_sequence_or_instance_id_changed(self, mdib_version_group):
+    def _check_sequence_or_instance_id_changed(self, mdib_version_group: MdibVersionGroup):
         """Check if sequence id and instance id are still the same.
 
         If not,
         - set state member to invalid
         - set the observable "sequence_or_instance_id_changed_event" in a thread.
-          This allows to implement an observer that can directly call reload_all without blocking the consumer."""
+          This allows to implement an observer that can directly call reload_all without blocking the consumer.
+        """
         if mdib_version_group.sequence_id == self.sequence_id and mdib_version_group.instance_id == self.instance_id:
             return
         if self._state == ConsumerMdibState.initialized:
@@ -664,10 +693,10 @@ class EntityConsumerMdib(EntityMdibBase):
             thr = Thread(target=_set_observable)
             thr.start()
 
-    def _set_root_node(self, root_node: LxmlElement):
-        """Set member and create xml entities"""
+    def _set_root_node(self, root_node: LxmlElement): # noqa: C901
+        """Set member and create xml entities."""
         if root_node.tag != msg_qnames.GetMdibResponse:
-            raise ValueError(f'root node must be {str(msg_qnames.GetMdibResponse)}, got {str(root_node.tag)}')
+            raise ValueError(f'root node must be {msg_qnames.GetMdibResponse!s}, got {root_node.tag!s}')
         self._get_mdib_response_node = root_node
         self._mdib_node = root_node[0]
         self._entities.clear()
@@ -677,7 +706,7 @@ class EntityConsumerMdib(EntityMdibBase):
             if child_element.tag == pm_qnames.MdDescription:
                 self._md_description_node = child_element
 
-        def register_children_with_handle(parent_node, source_mds=None):
+        def register_children_with_handle(parent_node: LxmlElement, source_mds: str | None = None):
             parent_handle = parent_node.attrib.get('Handle')
             for child_node in parent_node[:]:
                 child_handle = child_node.attrib.get('Handle')

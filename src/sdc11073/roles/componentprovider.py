@@ -1,3 +1,4 @@
+"""Implementation of component provider functionality."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -8,8 +9,7 @@ from . import providerbase
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.provider.operations import OperationDefinitionBase
-    from sdc11073.provider.operations import ExecuteParameters
+    from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
     from .providerbase import OperationClassGetter
 
