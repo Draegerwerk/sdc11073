@@ -1,3 +1,4 @@
+"""The module contains example how to use sdc provider and consumer."""
 from __future__ import annotations
 
 import os
@@ -30,7 +31,9 @@ from tests import utils
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
+    from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.roles.providerbase import OperationClassGetter
 
 loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
@@ -38,11 +41,14 @@ loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter
 SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 seconds is a good value.
 # Here this short timeout is used to accelerate the test.
 
-here = os.path.dirname(__file__)
-my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')
+here = os.path.dirname(__file__)  # noqa: PTH120
+my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')  # noqa: PTH118
 
 
-def create_generic_provider(wsdiscovery_instance, location, mdib_path, specific_components=None):
+def create_generic_provider(wsdiscovery_instance: WSDiscovery,
+                            location: str,
+                            mdib_path: str,
+                            specific_components: SdcProviderComponents | None = None) -> SdcProvider:
     my_mdib = EntityProviderMdib.from_mdib_file(mdib_path)
     my_epr = uuid.uuid4().hex
     this_model = ThisModelType(manufacturer='Draeger',
@@ -78,12 +84,14 @@ MY_CODE_3_TARGET = CodedValue('196274')  # this is the operation target for MY_C
 
 
 class MyProvider1(ProviderRole):
-    """This provider handles operations with code == MY_CODE_1 and MY_CODE_2.
+    """The provider handles operations with code == MY_CODE_1 and MY_CODE_2.
 
     Operations with these codes already exist in the mdib that is used for this test.
     """
 
-    def __init__(self, mdib, log_prefix):
+    def __init__(self,
+                 mdib: ProviderMdibProtocol,
+                 log_prefix: str):
         super().__init__(mdib, log_prefix)
         self.operation1_called = 0
         self.operation1_args = None
@@ -93,7 +101,9 @@ class MyProvider1(ProviderRole):
     def make_operation_instance(self,
                                 operation_descriptor_container: AbstractOperationDescriptorProtocol,
                                 operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
-        """If the role provider is responsible for handling of calls to this operation_descriptor_container,
+        """Create an operation instance if operation_descriptor_container matches this operation.
+
+        If the role provider is responsible for handling of calls to this operation_descriptor_container,
         it creates an operation instance and returns it, otherwise it returns None.
         """
         if operation_descriptor_container.coding == MY_CODE_1.coding:
@@ -103,31 +113,29 @@ class MyProvider1(ProviderRole):
             #
             # The following line shows how to provide your callback (in this case self._handle_operation_1).
             # This callback is called when a consumer calls the operation.
-            operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                     operation_cls_getter,
-                                                                     self._handle_operation_1)
-            return operation
+            return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                operation_cls_getter,
+                                                                self._handle_operation_1)
         if operation_descriptor_container.coding == MY_CODE_2.coding:
-            operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                     operation_cls_getter,
-                                                                     self._handle_operation_2)
-            return operation
+            return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                operation_cls_getter,
+                                                                self._handle_operation_2)
         return None
 
     def _handle_operation_1(self, params: ExecuteParameters) -> ExecuteResult:
-        """This operation does not manipulate the mdib at all, it only registers the call."""
+        """Do not manipulate the mdib at all, it only increment the call counter."""
         argument = params.operation_request.argument
         self.operation1_called += 1
         self.operation1_args = argument
-        self._logger.info('_handle_operation_1 called arg={}', argument)
+        self._logger.info('_handle_operation_1 called arg=%r', argument)
         return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
     def _handle_operation_2(self, params: ExecuteParameters) -> ExecuteResult:
-        """This operation manipulate it operation target, and only registers the call."""
+        """Manipulate the operation target, and increments the call counter."""
         argument = params.operation_request.argument
         self.operation2_called += 1
         self.operation2_args = argument
-        self._logger.info('_handle_operation_2 called arg={}', argument)
+        self._logger.info('_handle_operation_2 called arg=%r', argument)
         op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
         if op_target_entity.state.MetricValue is None:
             op_target_entity.state.mk_metric_value()
@@ -138,11 +146,12 @@ class MyProvider1(ProviderRole):
 
 
 class MyProvider2(ProviderRole):
-    """This provider handles operations with code == MY_CODE_3.
+    """The provider handles operations with code == MY_CODE_3.
+
     Operations with these codes already exist in the mdib that is used for this test.
     """
 
-    def __init__(self, mdib, log_prefix):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         super().__init__(mdib, log_prefix)
         self.operation3_args = None
         self.operation3_called = 0
@@ -152,18 +161,15 @@ class MyProvider2(ProviderRole):
                                 operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
 
         if operation_descriptor_container.coding == MY_CODE_3.coding:
-            self._logger.info(
-                'instantiating operation 3 from existing descriptor handle={}'.format(
-                    operation_descriptor_container.Handle))
-            operation = self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                     operation_cls_getter,
-                                                                     self._handle_operation_3)
-            return operation
-        else:
-            return None
+            self._logger.info('instantiating operation 3 from existing descriptor handle=%s',
+                              operation_descriptor_container.Handle)
+            return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
+                                                                operation_cls_getter,
+                                                                self._handle_operation_3)
+        return None
 
     def _handle_operation_3(self, params: ExecuteParameters) -> ExecuteResult:
-        """This operation manipulate it operation target, and only registers the call."""
+        """Manipulate the operation target, and increments the call counter."""
         self.operation3_called += 1
         argument = params.operation_request.argument
         self.operation3_args = argument
@@ -178,13 +184,17 @@ class MyProvider2(ProviderRole):
 
 
 class MyProductImpl(BaseProduct):
-    """This class provides all handlers of the fictional product.
+    """The class provides all handlers of the fictional product.
+
     It instantiates 2 role providers.
     The number of role providers does not matter, it is a question of how the code is organized.
     Each role provider should handle one specific role, e.g. audio pause provider, clock provider, ...
     """
 
-    def __init__(self, mdib, sco, log_prefix=None):
+    def __init__(self,
+                 mdib: ProviderMdibProtocol,
+                 sco: AbstractScoOperationsRegistry,
+                 log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)
         self.my_provider_1 = MyProvider1(mdib, log_prefix=log_prefix)
         self._ordered_providers.append(self.my_provider_1)
@@ -192,7 +202,7 @@ class MyProductImpl(BaseProduct):
         self._ordered_providers.append(self.my_provider_2)
 
 
-class Test_Tutorial(unittest.TestCase):
+class TestTutorial(unittest.TestCase):
     """run tutorial examples as unit tests, so that broken examples are automatically detected."""
 
     def setUp(self) -> None:
@@ -210,13 +220,13 @@ class Test_Tutorial(unittest.TestCase):
     def tearDown(self) -> None:
         self._logger.info('###### tearDown ... ##########')
         for consumer in self.my_consumers:
-            self._logger.info('stopping {}', consumer)
+            self._logger.info('stopping %r', consumer)
             consumer.stop_all()
         for provider in self.my_providers:
-            self._logger.info('stopping {}', provider)
+            self._logger.info('stopping %r', provider)
             provider.stop_all()
         for discovery in self.my_ws_discoveries:
-            self._logger.info('stopping {}', discovery)
+            self._logger.info('stopping %r', discovery)
             discovery.stop()
 
     def test_create_provider(self):
@@ -358,8 +368,9 @@ class Test_Tutorial(unittest.TestCase):
         self.assertFalse(proposed_patient.Handle in my_patient_context_entity.states)
 
     def test_operation_handler(self):
-        """This example shows how to implement own handlers for operations, and it shows multiple ways how a client can
-        find the desired operation.
+        """The example shows how to implement own handlers for operations.
+
+        It shows multiple ways how a client can find the desired operation.
         """
         # Create a device like in the examples above, but provide an own role provider.
         # This role provider is used instead of the default one.
@@ -369,7 +380,7 @@ class Test_Tutorial(unittest.TestCase):
 
         specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
-        mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')
+        mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')  # noqa: PTH118
         my_generic_provider = create_generic_provider(my_ws_discovery,
                                                       self.my_location,
                                                       mdib_path,
@@ -400,10 +411,10 @@ class Test_Tutorial(unittest.TestCase):
         # Handles are random values without any meaning, they are only unique id's in the mdib.
         operation_entities = my_mdib.entities.coding(MY_CODE_1.coding)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
-        self._logger.info('looking for operations with code {}', MY_CODE_1.coding)
+        self._logger.info('looking for operations with code %r', MY_CODE_1.coding)
         op_entity = operation_entities[0]
         argument = 'foo'
-        self._logger.info('calling operation {}, argument = {}', op_entity.handle, argument)
+        self._logger.info('calling operation %s, argument = %r', op_entity.handle, argument)
         future = my_consumer.set_service_client.activate(op_entity.handle, arguments=[argument])
         result = future.result()
         print(result)
@@ -416,11 +427,11 @@ class Test_Tutorial(unittest.TestCase):
         sco_handle = 'sco.vmd1.mds0'
         my_product_impl = my_generic_provider.product_lookup[sco_handle]
 
-        self._logger.info('looking for operations with code {}', MY_CODE_2.coding)
+        self._logger.info('looking for operations with code %r', MY_CODE_2.coding)
         op_entities = my_mdib.entities.coding(MY_CODE_2.coding)
         my_op = op_entities[0]
         for value in ('foo', 'bar'):
-            self._logger.info('calling operation {}, argument = {}', my_op.handle, value)
+            self._logger.info('calling operation %s, argument = %r', my_op.handle, value)
             future = my_consumer.set_service_client.set_string(my_op.handle, value)
             result = future.result()
             print(result)

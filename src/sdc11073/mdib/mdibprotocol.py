@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     )
 
 
-class ProviderMdibProtocol(Protocol):
+class ProviderMdibProtocol(Protocol): # pragma: no cover
     """The interface of a provider mdib.
 
     This interface only expects the ProviderEntityGetterProtocol.

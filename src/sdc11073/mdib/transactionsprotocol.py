@@ -30,7 +30,7 @@ class TransactionType(Enum):
     rt_sample = 7
 
 
-class TransactionResultProtocol(Protocol):
+class TransactionResultProtocol(Protocol): # pragma: no cover
     """TransactionResult contains all state and descriptors that were modified in the transaction.
 
     The states and descriptors are used to create the notification(s) that keep the consumers up to date.
@@ -52,7 +52,7 @@ class TransactionResultProtocol(Protocol):
     def all_states(self) -> list[AbstractStateProtocol]:
         """Return all states in this transaction."""
 
-class TransactionItemProtocol(Protocol):
+class TransactionItemProtocol(Protocol): # pragma: no cover
     """A container for the old and the new version of a state or descriptor.
 
     If old is None, this is an object that is added to mdib.
@@ -74,7 +74,7 @@ class TransactionItem:
 
 
 
-class AbstractTransactionManagerProtocol(Protocol):
+class AbstractTransactionManagerProtocol(Protocol): # pragma: no cover
     """Interface of a TransactionManager."""
 
     new_mdib_version: int
@@ -93,7 +93,7 @@ class AbstractTransactionManagerProtocol(Protocol):
     error: bool
 
 
-class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol):
+class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol): # pragma: no cover
     """Entity based transaction manager for modification of descriptors (and associated states).
 
     The entity based transaction manager protocol can only be used with EntityGetter methods!
@@ -128,7 +128,7 @@ class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProto
         """Remove existing descriptor from mdib."""
 
 
-class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):
+class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol): # pragma: no cover
     """Entity based transaction manager for modification of states.
 
     The entity based transaction manager protocol can only be used with EntityGetter methods!
@@ -153,7 +153,7 @@ class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):
         """Update the states of entities."""
 
 
-class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):
+class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerProtocol): # pragma: no cover
     """Entity based transaction manager for modification of context states.
 
     The entity based transaction manager protocol can only be used with EntityGetter methods!
@@ -170,7 +170,7 @@ class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerPro
         """Insert or update a context state in mdib."""
 
 
-class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerProtocol):
+class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerProtocol): # pragma: no cover
     """The classic Interface of a TransactionManager that modifies descriptors.
 
     The classic transaction manager protocol can not be used with EntityGetter methods!
@@ -232,7 +232,7 @@ class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerPro
         """Create a new ContextStateContainer."""
 
 
-class StateTransactionManagerProtocol(EntityStateTransactionManagerProtocol):
+class StateTransactionManagerProtocol(EntityStateTransactionManagerProtocol): # pragma: no cover
     """The classic Interface of a TransactionManager that modifies states (except context states).
 
     The classic transaction manager protocol can not be used with EntityGetter methods!
@@ -257,7 +257,7 @@ class StateTransactionManagerProtocol(EntityStateTransactionManagerProtocol):
         """Read a state from mdib and add it to the transaction."""
 
 
-class ContextStateTransactionManagerProtocol(EntityContextStateTransactionManagerProtocol):
+class ContextStateTransactionManagerProtocol(EntityContextStateTransactionManagerProtocol): # pragma: no cover
     """The classic Interface of a TransactionManager that modifies context states.
 
     The classic transaction manager protocol can not be used with EntityGetter methods!

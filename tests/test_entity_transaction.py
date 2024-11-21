@@ -13,7 +13,7 @@ mdib_file = str(pathlib.Path(__file__).parent.joinpath('mdib_tns.xml'))
 class TestEntityTransactions(unittest.TestCase):
     """Test all kinds of transactions for entity interface of EntityProviderMdib."""
 
-    def setUp(self):   # noqa: D102
+    def setUp(self):
         self._mdib = EntityProviderMdib.from_mdib_file(mdib_file,
                                                  protocol_definition=SdcV1Definitions)
 
@@ -183,7 +183,7 @@ class TestEntityTransactions(unittest.TestCase):
         """Verify that removing descriptors / states and adding them later again results in correct versions."""
         # remove all root descriptors
         all_entities = {}
-        for handle in self._mdib._entities: # noqa: SLF001
+        for handle in self._mdib._entities:
             all_entities[handle] = self._mdib.entities.handle(handle) # get external representation
 
         root_entities = self._mdib.entities.parent_handle(None)
@@ -191,7 +191,7 @@ class TestEntityTransactions(unittest.TestCase):
             for ent in root_entities:
                 mgr.remove_entity(ent)
 
-        self.assertEqual(0, len(self._mdib._entities)) # noqa: SLF001
+        self.assertEqual(0, len(self._mdib._entities))
 
         # add all entities again
         with self._mdib.descriptor_transaction() as mgr:

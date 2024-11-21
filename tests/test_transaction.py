@@ -17,10 +17,10 @@ mdib_file = str(pathlib.Path(__file__).parent.joinpath('mdib_tns.xml'))
 class TestTransactions(unittest.TestCase):
     """Test all kinds of transactions."""
 
-    def setUp(self): # noqa: D102
+    def setUp(self):
         self._mdib = ProviderMdib.from_mdib_file(mdib_file,
                                                  protocol_definition=SdcV1Definitions)
-        self._mdib._transaction_factory = mk_transaction # noqa: SLF001
+        self._mdib._transaction_factory = mk_transaction
 
     def test_alert_state_update(self):
         """Verify that alert_state_transaction works as expected.
@@ -271,7 +271,7 @@ class TestTransactions(unittest.TestCase):
 class TestEntityTransactions(unittest.TestCase):
     """Test all kinds of transactions for entity interface of ProviderMdib."""
 
-    def setUp(self): # noqa: D102
+    def setUp(self):
         self._mdib = ProviderMdib.from_mdib_file(mdib_file,
                                                  protocol_definition=SdcV1Definitions)
 

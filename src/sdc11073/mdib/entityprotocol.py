@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.pm_types import CodedValue, Coding
 
 
-class EntityProtocol(Protocol):
+class EntityProtocol(Protocol): # pragma: no cover
     """The protocol defines the interface of single-state entities."""
 
     descriptor: AbstractDescriptorProtocol
@@ -36,7 +36,7 @@ class EntityProtocol(Protocol):
         """Update entity with current mdib data."""
 
 
-class MultiStateEntityProtocol(Protocol):
+class MultiStateEntityProtocol(Protocol): # pragma: no cover
     """The protocol defines the interface of multi-state entities."""
 
     descriptor: AbstractDescriptorProtocol
@@ -57,7 +57,7 @@ EntityTypeProtocol = Union[EntityProtocol, MultiStateEntityProtocol]
 
 # Todo: should node_type be QName (this assumes that we talk XML) or just Any to be generic?
 
-class EntityGetterProtocol(Protocol):
+class EntityGetterProtocol(Protocol): # pragma: no cover
     """The protocol defines a way to access mdib data as entities.
 
     This representation is independent of the internal mdib organization.
@@ -99,7 +99,7 @@ class EntityGetterProtocol(Protocol):
         ...
 
 
-class ProviderEntityGetterProtocol(EntityGetterProtocol):
+class ProviderEntityGetterProtocol(EntityGetterProtocol): # pragma: no cover
     """The protocol adds the new_entity method to EntityGetterProtocol."""
 
     def new_entity(self,
