@@ -1,36 +1,24 @@
+"""The module tests operations with provider and consumer that use entity mdibs."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 import datetime
 import logging
 import time
-import copy
 import unittest
 from decimal import Decimal
 
-from sdc11073 import commlog
-from sdc11073 import loghelper
-from sdc11073 import observableproperties
-from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
-from sdc11073.loghelper import basic_logging_setup
-from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
-from sdc11073.roles.nomenclature import NomenclatureCodes
+from sdc11073 import commlog, loghelper, observableproperties
 from sdc11073.consumer import SdcConsumer
-from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
+from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
+from sdc11073.loghelper import basic_logging_setup
+from sdc11073.roles.nomenclature import NomenclatureCodes
+from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDeviceEntityMdib
-
-from sdc11073.roles.product import BaseProduct
-from sdc11073.roles.metricprovider import GenericMetricProvider
-from sdc11073.provider.components import (default_sdc_provider_components_async)
-from sdc11073.roles.audiopauseprovider import AudioPauseProvider
-
-if TYPE_CHECKING:
-    from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
-    from sdc11073.provider.sco import AbstractScoOperationsRegistry
-
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
@@ -48,27 +36,7 @@ default_mdib_file = 'mdib_two_mds.xml'
 mdib_70041_file = '70041_MDIB_Final.xml'
 
 
-# class EntityMdibProduct(BaseProduct):
-#
-#     def __init__(self,
-#                  mdib: EntityProviderMdib,
-#                  sco: AbstractScoOperationsRegistry,
-#                  log_prefix: str | None = None):
-#         super().__init__(mdib, sco, log_prefix)
-#         self.metric_provider = GenericMetricProvider(mdib, log_prefix=log_prefix)  # needed in a test
-#         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
-#             # GenericSDCClockProvider(mdib, log_prefix=log_prefix),
-#             # GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-#             # GenericAlarmProvider(mdib, log_prefix=log_prefix),
-#             self.metric_provider,
-#             # OperationProvider(mdib, log_prefix=log_prefix),
-#             # GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
-#         ])
-
-
-# my_sdc_provider_components_async = copy.deepcopy(default_sdc_provider_components_async)
-
-class Test_EntityOperations(unittest.TestCase):
+class TestEntityOperations(unittest.TestCase):
     """Test role providers (located in sdc11073.roles)."""
 
     def setUp(self):
@@ -82,10 +50,11 @@ class Test_EntityOperations(unittest.TestCase):
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         self._logger.info('############### setUp done %s ##############', self._testMethodName)
 
-    def _init_provider_consumer(self, mdib_file = default_mdib_file):
-        self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None, mdib_file,
-                                                             # default_components=my_sdc_provider_components_async,
-                                                             max_subscription_duration=10)  # shorter duration for faster tests
+    def _init_provider_consumer(self, mdib_file: str = default_mdib_file):
+        self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(
+            self.wsd, None,
+            mdib_file,
+            max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_provider.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -94,7 +63,7 @@ class Test_EntityOperations(unittest.TestCase):
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher
+            action_dispatcher_class=RequestDispatcher,
         )
 
         x_addr = self.sdc_provider.get_xaddrs()
@@ -122,9 +91,11 @@ class Test_EntityOperations(unittest.TestCase):
         self._logger.info('############### tearDown %s done ##############\n', self._testMethodName)
 
     def test_set_patient_context_operation(self):
-        """client calls corresponding operation of GenericContextProvider.
+        """Client calls corresponding operation of GenericContextProvider.
+
         - verify that operation is successful.
-         verify that a notification device->client also updates the client mdib."""
+        - verify that a notification device->client also updates the consumer mdib.
+        """
         self._init_provider_consumer()
 
         # delete possible existing states
@@ -139,7 +110,6 @@ class Test_EntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
 
-        # patient_descriptor_container = client_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
         patient_entities = client_mdib.entities.node_type(pm.PatientContextDescriptor)
         my_patient_entity = patient_entities[0]
         # initially the device shall not have any patient
@@ -198,7 +168,7 @@ class Test_EntityOperations(unittest.TestCase):
 
         # check client side patient context, this shall have been set via notification
         consumer_entity = client_mdib.entities.handle(my_patient_entity.handle)
-        patient_context_state_container = list(consumer_entity.states.values())[0]
+        patient_context_state_container = list(consumer_entity.states.values())[0]  # noqa: RUF015
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karl')
         self.assertEqual(patient_context_state_container.CoreData.Middlename, ['M.'])
         self.assertEqual(patient_context_state_container.CoreData.Familyname, 'Klammer')
@@ -224,7 +194,7 @@ class Test_EntityOperations(unittest.TestCase):
         self.assertEqual(result.OperationTarget, patient_context_state_container.Handle)
 
         consumer_entity.update()
-        patient_context_state_container = list(consumer_entity.states.values())[0]
+        patient_context_state_container = list(consumer_entity.states.values())[0]  # noqa: RUF015
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karla')
         self.assertEqual(patient_context_state_container.CoreData.Familyname, 'Klammer')
 
@@ -349,9 +319,7 @@ class Test_EntityOperations(unittest.TestCase):
                 self.assertEqual(loc.UnbindingMdibVersion, cl_locations[j + 1].BindingMdibVersion)
 
     def test_activate(self):
-        """Tests AudioPauseProvider
-
-        """
+        """Test AudioPauseProvider."""
         # switch one alert system off
         self._init_provider_consumer(mdib_70041_file)
         alert_system_entity_off = self.sdc_provider.mdib.entities.handle('Asy.3208')
@@ -464,7 +432,6 @@ class Test_EntityOperations(unittest.TestCase):
             op_target_entity = client_mdib.entities.handle(my_operation_entity.descriptor.OperationTarget)
             if op_target_entity.node_type == pm.MdsState:
                 # look for the ClockState child
-                # clock_descriptors = client_mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
                 clock_entities = client_mdib.entities.node_type(pm.ClockDescriptor)
                 clock_entities = [c for c in clock_entities if c.parent_handle == op_target_entity.handle]
                 if len(clock_entities) == 1:
@@ -473,7 +440,6 @@ class Test_EntityOperations(unittest.TestCase):
 
     def test_set_metric_state(self):
         # first we need to add a set_metric_state Operation
-        # sco_descriptors = self.sdc_provider.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
         self._init_provider_consumer()
         sco_entities = self.sdc_provider.mdib.entities.node_type(pm.ScoDescriptor)
         my_sco = sco_entities[0]
@@ -499,21 +465,21 @@ class Test_EntityOperations(unittest.TestCase):
             new_operation_entity.descriptor, sco.operation_cls_getter)
         sco.register_operation(op)
         self.sdc_provider.mdib.xtra.mk_state_containers_for_all_descriptors()
-        setService = self.sdc_consumer.client('Set')
-        clientMdib = EntityConsumerMdib(self.sdc_consumer)
-        clientMdib.init_mdib()
+        set_service = self.sdc_consumer.client('Set')
+        consumer_mdib = EntityConsumerMdib(self.sdc_consumer)
+        consumer_mdib.init_mdib()
 
-        consumer_entity = clientMdib.entities.handle(my_metric_entity.handle)
+        consumer_entity = consumer_mdib.entities.handle(my_metric_entity.handle)
         self.assertIsNotNone(consumer_entity)
 
         # modify entity.state as new proposed state
         before_state_version = consumer_entity.state.StateVersion
 
         operation_handle = new_operation_entity.handle
-        newLifeTimePeriod = 42.5
-        consumer_entity.state.LifeTimePeriod = newLifeTimePeriod
-        future = setService.set_metric_state(operation_handle=operation_handle,
-                                             proposed_metric_states=[consumer_entity.state])
+        new_lifetime_period = 42.5
+        consumer_entity.state.LifeTimePeriod = new_lifetime_period
+        future = set_service.set_metric_state(operation_handle=operation_handle,
+                                              proposed_metric_states=[consumer_entity.state])
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
@@ -521,10 +487,10 @@ class Test_EntityOperations(unittest.TestCase):
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
         consumer_entity.update()
         self.assertEqual(consumer_entity.state.StateVersion, before_state_version + 1)
-        self.assertAlmostEqual(consumer_entity.state.LifeTimePeriod, newLifeTimePeriod)
+        self.assertAlmostEqual(consumer_entity.state.LifeTimePeriod, new_lifetime_period)
 
     def test_set_component_state(self):
-        """ tests GenericSetComponentStateOperationProvider"""
+        """Test GenericSetComponentStateOperationProvider."""
         # Use a single mds mdib. This makes test easier because source_mds of channel and sco are the same.
         self._init_provider_consumer('mdib_tns.xml')
         channels = self.sdc_provider.mdib.entities.node_type(pm.ChannelDescriptor)
@@ -652,14 +618,13 @@ class Test_EntityOperations(unittest.TestCase):
             operation.set_operating_mode(op_mode)
             time.sleep(1)
             my_operation_entity.update()
-            # operation_entity = consumer_mdib.states.descriptor_handle.get_one(operation_handle)
             self.assertEqual(my_operation_entity.state.OperatingMode, op_mode)
 
     def test_set_string_value(self):
-        """Verify that metricprovider instantiated an operation for SetString call.
+        """Verify that metric provider instantiated an operation for SetString call.
 
-         OperationTarget of operation 0815 is an EnumStringMetricState.
-         """
+        OperationTarget of operation 0815 is an EnumStringMetricState.
+        """
         self._init_provider_consumer(mdib_70041_file)
         set_service = self.sdc_consumer.client('Set')
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
@@ -683,10 +648,10 @@ class Test_EntityOperations(unittest.TestCase):
             self.assertEqual(consumer_entity.state.MetricValue.Value, value)
 
     def test_set_metric_value(self):
-        """Verify that metricprovider instantiated an operation for SetNumericValue call.
+        """Verify that metric provider instantiated an operation for SetNumericValue call.
 
-         OperationTarget of operation 0815-1 is a NumericMetricState.
-         """
+        OperationTarget of operation 0815-1 is a NumericMetricState.
+        """
         self._init_provider_consumer(mdib_70041_file)
         set_service = self.sdc_consumer.client('Set')
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
