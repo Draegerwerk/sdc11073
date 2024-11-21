@@ -1,3 +1,4 @@
+"""The module tests functionality between consumer and provider, both using entity based mdibs."""
 from __future__ import annotations
 
 import datetime
@@ -7,12 +8,12 @@ import time
 import traceback
 import unittest.mock
 from decimal import Decimal
-from typing import TYPE_CHECKING
 from itertools import cycle
+from typing import TYPE_CHECKING
+
 from lxml import etree as etree_
 
-from sdc11073 import loghelper
-from sdc11073 import observableproperties
+from sdc11073 import loghelper, observableproperties
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
@@ -21,13 +22,14 @@ from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import pm_qnames
-from sdc11073.xml_types import pm_types, pm_qnames as pm
+from sdc11073.xml_types import pm_qnames, pm_types
+from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDeviceEntityMdib
 
 if TYPE_CHECKING:
     from sdc11073.entity_mdib.entities import ProviderMultiStateEntity
+    from sdc11073.provider import SdcProvider
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -37,14 +39,14 @@ NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 default_mdib_file = 'mdib_two_mds.xml'
 
 
-def provide_realtime_data(sdc_device):
-    waveform_provider = sdc_device.waveform_provider
+def provide_realtime_data(sdc_provider: SdcProvider):
+    waveform_provider = sdc_provider.waveform_provider
     if waveform_provider is None:
         return
     iterator = cycle([waveforms.SawtoothGenerator,
                      waveforms.SinusGenerator,
                      waveforms.TriangleGenerator])
-    waveform_entities = sdc_device.mdib.entities.node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)
+    waveform_entities = sdc_provider.mdib.entities.node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)
     for i, waveform_entity in enumerate(waveform_entities):
         cls = iterator.__next__()
         gen = cls(min_value=1, max_value=i+10, waveform_period=1.1, sample_period=0.01)
@@ -53,43 +55,24 @@ def provide_realtime_data(sdc_device):
         if i == 2:
             # make this generator the annotator source
             waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
-                                                       trigger_handle=waveform_entity.handl,
-                                                       annotated_handles=[waveform_entities[0].handle]
+                                                       trigger_handle=waveform_entity.handle,
+                                                       annotated_handles=[waveform_entities[0].handle],
                                                        )
 
 
-def runtest_basic_connect(unit_test, sdc_client):
-    # simply check that correct top node is returned
-    cl_get_service = sdc_client.client('Get')
-    get_result = cl_get_service.get_mdib()
-    descriptor_containers, state_containers = get_result.result
-    unit_test.assertGreater(len(descriptor_containers), 0)
-    unit_test.assertGreater(len(state_containers), 0)
-
-    get_result = cl_get_service.get_md_description()
-    unit_test.assertGreater(len(get_result.result.MdDescription.Mds), 0)
-
-    get_result = cl_get_service.get_md_state()
-    unit_test.assertGreater(len(get_result.result.MdState.State), 0)
-
-    context_service = sdc_client.client('Context')
-    get_result = context_service.get_context_states()
-    unit_test.assertGreater(len(get_result.result.ContextState), 0)
-
-
-class Test_Client_SomeDeviceXml(unittest.TestCase):
+class TestClientSomeDeviceXml(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n'.format())
+        self.logger.info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_provider: SomeDeviceEntityMdib | None = None
         self.sdc_consumer: SdcConsumer | None = None
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
-    def _init_provider_consumer(self, mdib_file = default_mdib_file):
+    def _init_provider_consumer(self, mdib_file: str = default_mdib_file):
         self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None, mdib_file,
                                                              max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
@@ -101,7 +84,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher
+            action_dispatcher_class=RequestDispatcher,
         )
 
         x_addr = self.sdc_provider.get_xaddrs()
@@ -112,12 +95,12 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
                                         specific_components=specific_components)
         self.sdc_consumer.start_all()  # with periodic reports and system error report
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
+        self.logger.info('############### setUp done %s ##############', self._testMethodName)
         time.sleep(0.5)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         try:
             if self.sdc_provider:
@@ -132,7 +115,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def add_random_patient(self, count: int = 1) -> [ProviderMultiStateEntity, list]:
         new_states = []
@@ -183,13 +166,13 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
 
-        for handle, xml_entity in consumer_mdib._entities.items():
+        for xml_entity in consumer_mdib._entities.values():
             self.assertIsInstance(xml_entity, (XmlEntity, XmlMultiStateEntity))
             self.assertIsInstance(xml_entity.node_type, etree_.QName)
             self.assertIsInstance(xml_entity.source_mds, str)
 
         # needed?
-        for handle in consumer_mdib._entities.keys():
+        for handle in consumer_mdib._entities:
             ent = consumer_mdib.entities.handle(handle)
             self.assertIsInstance(ent, (ConsumerEntity, ConsumerMultiStateEntity))
 
@@ -358,8 +341,10 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         self.assertEqual(state_versions, self.sdc_provider.mdib.state_handle_version_lookup)
 
     def test_set_patient_context_on_device(self):
-        """device updates patient.
-         verify that a notification device->client updates the client mdib."""
+        """Verify that device updates patient.
+
+        Verify that a notification device->client updates the client mdib.
+        """
         self._init_provider_consumer()
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
@@ -472,7 +457,7 @@ class Test_Client_SomeDeviceXml(unittest.TestCase):
         self.assertRaises(ValueError, self.sdc_provider.mdib.entities.new_entity,
                           pm.NumericMetricDescriptor,
                           new_handle,
-                          channel_descriptor_handle
+                          channel_descriptor_handle,
                           )
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:

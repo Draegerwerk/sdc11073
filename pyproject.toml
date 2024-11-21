@@ -168,11 +168,21 @@ suppress-none-returning = true # https://docs.astral.sh/ruff/settings/#suppress-
 [tool.ruff.lint.flake8-comprehensions]
 allow-dict-calls-with-keyword-arguments = true  # https://docs.astral.sh/ruff/settings/#allow-dict-calls-with-keyword-arguments
 
+
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 120 # https://docs.astral.sh/ruff/settings/#max-doc-length
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["D104"]
+"tests/*" = [
+    "SLF001",  # Private member accessed
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "PLR0915",  # Too many statements
+    "PLR2004",  # Magic value used in comparison
+    "E722",  # Do not use bare `except`
+]
 
 [tool.mypy]
 python_version = "3.9" # https://mypy.readthedocs.io/en/stable/config_file.html#confval-python_version
