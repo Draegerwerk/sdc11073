@@ -51,9 +51,9 @@ def _update_multi_states(mdib: EntityProviderMdib, # noqa: C901
                          old: ProviderMultiStateEntity,
                          modified_handles: list[str] | None = None,
                          adjust_state_version: bool = True):
-    if not (new.is_multi_state and old.is_multi_state):
+    if not (new.is_multi_state and old.is_multi_state):  # pragma: no cover
         raise ApiUsageError('_update_multi_states only handles context states!')
-    if new.handle != old.handle:
+    if new.handle != old.handle:  # pragma: no cover
         raise ApiUsageError(f'_update_multi_states found different handles! new={new.handle}, old = {old.handle}')
     if not modified_handles:
         modified_handles = new.states.keys()
@@ -148,7 +148,7 @@ class _TransactionBase:
 
         :param handle: the Handle of a context state or the DescriptorHandle in all other cases
         """
-        if not handle:
+        if not handle:  # pragma: no cover
             raise ValueError('No handle for state specified')
         for lookup in (self.metric_state_updates,
                        self.alert_state_updates,
@@ -181,7 +181,7 @@ class DescriptorTransaction(_TransactionBase):
         The descriptor can already be part of the transaction, and e.g. in pre_commit handlers of role providers
         it can be necessary to have access to it.
         """
-        if not descriptor_handle:
+        if not descriptor_handle:  # pragma: no cover
             raise ValueError('No handle for descriptor specified')
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
@@ -195,7 +195,7 @@ class DescriptorTransaction(_TransactionBase):
                      adjust_version_counter: bool = True):
         """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
-        if descriptor_handle in self.descriptor_updates:
+        if descriptor_handle in self.descriptor_updates:  # pragma: no cover
             raise ValueError(f'Entity {descriptor_handle} already in updated set!')
         tmp = copy.copy(entity)  # cannot deepcopy entity, that would deepcopy also whole mdib
         tmp.descriptor = copy.deepcopy(entity.descriptor) # do not touch original entity of user
@@ -269,7 +269,7 @@ class DescriptorTransaction(_TransactionBase):
 
     def remove_entity(self, entity: ProviderEntity | ProviderMultiStateEntity):
         """Remove existing descriptor from mdib."""
-        if entity.handle in self.descriptor_updates:
+        if entity.handle in self.descriptor_updates: # pragma: no cover
             raise ValueError(f'Descriptor {entity.handle} already in updated set!')
 
         internal_entity = self._mdib.internal_entities.get(entity.handle)
@@ -313,7 +313,7 @@ class DescriptorTransaction(_TransactionBase):
                      if handle]
             if not types:
                 return proc  # nothing changed
-            if len(types) > 1:
+            if len(types) > 1:  # pragma: no cover
                 raise ValueError('this transaction can only handle one of insert, update, delete!')
 
             for tr_item in self.descriptor_updates.values():
@@ -432,22 +432,6 @@ class DescriptorTransaction(_TransactionBase):
             # Todo: why make a copy?
             proc.descr_updated.append(parent_entity.descriptor.mk_copy())
             updates_list.append(parent_entity.state.mk_copy())
-
-    def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
-        if getattr(container, 'is_realtime_sample_array_metric_state', False) \
-                or getattr(container, 'is_realtime_sample_array_metric_descriptor', False):
-            return self.rt_sample_state_updates
-        if getattr(container, 'is_metric_state', False) or getattr(container, 'is_metric_descriptor', False):
-            return self.metric_state_updates
-        if getattr(container, 'is_alert_state', False) or getattr(container, 'is_alert_descriptor', False):
-            return self.alert_state_updates
-        if getattr(container, 'is_component_state', False) or getattr(container, 'is_component_descriptor', False):
-            return self.component_state_updates
-        if getattr(container, 'is_operational_state', False) or getattr(container, 'is_operational_descriptor', False):
-            return self.operational_state_updates
-        if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
-            return self.context_state_updates
-        raise NotImplementedError(f'Unhandled case {container}')
 
 
 class StateTransactionBase(_TransactionBase):

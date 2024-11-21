@@ -49,7 +49,7 @@ def get_xsi_type(element: LxmlElement) -> QName:
     _xsi_type = QName(element.tag)
     try:
         return _static_type_lookup[_xsi_type]
-    except KeyError as err:
+    except KeyError as err:   # pragma: no cover
         raise KeyError(str(_xsi_type)) from err
 
 
@@ -139,7 +139,7 @@ class ConsumerEntityBase:
         self._mdib: EntityConsumerMdib = mdib
 
         cls = mdib.sdc_definitions.data_model.get_descriptor_container_class(source.node_type)
-        if cls is None:
+        if cls is None:  # pragma: no cover
             raise ValueError(f'do not know how to make container from {source.node_type!s}')
         handle = source.descriptor.get('Handle')
         self.descriptor: AbstractDescriptorContainer = cls(handle, parent_handle=source.parent_handle)
@@ -242,7 +242,7 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
         If this new state is used as a proposed context state in SetContextState operation, this means a new
         state shall be created on providers side.
         """
-        if state_handle in self.states:
+        if state_handle in self.states:  # pragma: no cover
             raise ValueError(
                 f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
@@ -409,7 +409,7 @@ class ProviderMultiStateEntity(ProviderEntityBase):
     def update(self):
         """Update from internal entity."""
         source_entity = self._mdib.internal_entities.get(self.handle)
-        if source_entity is None:
+        if source_entity is None:  # pragma: no cover
             raise ValueError(f'entity {self.handle} no longer exists in mdib')
         self.descriptor.update_from_other_container(source_entity.descriptor)
         for handle, src_state in source_entity.states.items():

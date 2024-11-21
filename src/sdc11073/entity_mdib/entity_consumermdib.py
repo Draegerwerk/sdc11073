@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 @dataclass
 class _BufferedData:
     received_message_data: ReceivedMessage
-    handler: callable
+    handler: Callable
 
 
 multi_state_q_names = (pm_qnames.PatientContextDescriptor,

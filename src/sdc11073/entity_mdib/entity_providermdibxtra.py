@@ -88,7 +88,7 @@ class EntityProviderMdibMethods:
                             descriptor_containers: list[AbstractDescriptorContainer],
                             state_containers: list[AbstractStateContainer]):
         """Add states."""
-        if self._mdib.is_initialized:
+        if self._mdib.is_initialized:  # pragma: no cover
             raise ApiUsageError('method "set_initial_content" can not be called when mdib is already initialized')
         for d in descriptor_containers:
             states = [s for s in state_containers if s.DescriptorHandle == d.Handle]
