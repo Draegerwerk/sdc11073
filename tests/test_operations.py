@@ -4,17 +4,16 @@ import time
 import unittest
 from decimal import Decimal
 
-from sdc11073 import commlog
-from sdc11073 import loghelper
-from sdc11073 import observableproperties
-from sdc11073.xml_types import pm_types, msg_types, pm_qnames as pm
+from sdc11073 import commlog, loghelper, observableproperties
+from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.dispatch import RequestDispatcher
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.roles.nomenclature import NomenclatureCodes
-from sdc11073.consumer import SdcConsumer
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.consumer.components import SdcConsumerComponents
-from sdc11073.dispatch import RequestDispatcher
+from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDevice
 
@@ -51,7 +50,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher
+            action_dispatcher_class=RequestDispatcher,
         )
         self.sdc_client = SdcConsumer(x_addr[0],
                                       sdc_definitions=self.sdc_device.mdib.sdc_definitions,
@@ -80,9 +79,10 @@ class Test_BuiltinOperations(unittest.TestCase):
         self._logger.info('############### tearDown %s done ##############\n', self._testMethodName)
 
     def test_set_patient_context_operation(self):
-        """client calls corresponding operation of GenericContextProvider.
+        """Client calls corresponding operation of GenericContextProvider.
         - verify that operation is successful.
-         verify that a notification device->client also updates the client mdib."""
+         verify that a notification device->client also updates the client mdib.
+        """
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
         patient_descriptor_container = client_mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
@@ -360,7 +360,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher
+            action_dispatcher_class=RequestDispatcher,
         )
         sdc_client2 = SdcConsumer(x_addr[0],
                                   sdc_definitions=self.sdc_device.mdib.sdc_definitions,
@@ -427,7 +427,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
             # verify that the corresponding state has been updated
             state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-            if state.NODETYPE == pm.MdsState:
+            if pm.MdsState == state.NODETYPE:
                 # look for the ClockState child
                 clock_descriptors = client_mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
                 clock_descriptors = [c for c in clock_descriptors if c.descriptor_handle == state.descriptor_handle]
@@ -455,7 +455,7 @@ class Test_BuiltinOperations(unittest.TestCase):
 
             # verify that the corresponding state has been updated
             state = client_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
-            if state.NODETYPE == pm.MdsState:
+            if pm.MdsState == state.NODETYPE:
                 # look for the ClockState child
                 clock_descriptors = client_mdib.descriptions.NODETYPE.get(pm.ClockDescriptor, [])
                 clock_descriptors = [c for c in clock_descriptors if c.parent_handle == state.DescriptorHandle]
@@ -510,7 +510,7 @@ class Test_BuiltinOperations(unittest.TestCase):
         self.assertAlmostEqual(updated_metric_state.LifeTimePeriod, newLifeTimePeriod)
 
     def test_set_component_state(self):
-        """ tests GenericSetComponentStateOperationProvider"""
+        """Tests GenericSetComponentStateOperationProvider"""
         operation_target_handle = '2.1.2.1'  # a channel
         # first we need to add a set_component_state Operation
         sco_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
@@ -635,8 +635,8 @@ class Test_BuiltinOperations(unittest.TestCase):
     def test_set_string_value(self):
         """Verify that metricprovider instantiated an operation for SetString call.
 
-         OperationTarget of operation 0815 is an EnumStringMetricState.
-         """
+        OperationTarget of operation 0815 is an EnumStringMetricState.
+        """
         set_service = self.sdc_client.client('Set')
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
@@ -660,8 +660,8 @@ class Test_BuiltinOperations(unittest.TestCase):
     def test_set_metric_value(self):
         """Verify that metricprovider instantiated an operation for SetNumericValue call.
 
-         OperationTarget of operation 0815-1 is a NumericMetricState.
-         """
+        OperationTarget of operation 0815-1 is a NumericMetricState.
+        """
         set_service = self.sdc_client.client('Set')
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
