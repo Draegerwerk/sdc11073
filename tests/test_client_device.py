@@ -48,6 +48,8 @@ from sdc11073.namespaces import default_ns_helper
 from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
 
+# ruff: noqa
+
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
     comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
