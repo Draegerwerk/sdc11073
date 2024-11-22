@@ -12,6 +12,7 @@ from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.pm_types import CodedValue
 
 if TYPE_CHECKING:
+    from sdc11073.mdib.containerbase import ContainerBase
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
     from sdc11073.mdib.statecontainers import AbstractMultiStateContainer, AbstractStateContainer
     from sdc11073.xml_utils import LxmlElement
@@ -49,7 +50,7 @@ def get_xsi_type(element: LxmlElement) -> QName:
     _xsi_type = QName(element.tag)
     try:
         return _static_type_lookup[_xsi_type]
-    except KeyError as err:   # pragma: no cover
+    except KeyError as err:  # pragma: no cover
         raise KeyError(str(_xsi_type)) from err
 
 
@@ -338,6 +339,14 @@ class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
         return ProviderMultiStateEntity(self, mdib)
 
 
+def _mk_copy(original: ContainerBase) -> ContainerBase:
+    """Return a deep copy of original without node member."""
+    node, original.node = original.node, None
+    copied = copy.deepcopy(original)
+    original.node = node
+    return copied
+
+
 class ProviderEntityBase:
     """A descriptor container and a weak reference to the corresponding xml entity."""
 
@@ -345,7 +354,7 @@ class ProviderEntityBase:
                  source: ProviderInternalEntity | ProviderInternalMultiStateEntity,
                  mdib: EntityProviderMdib):
         self._mdib = mdib
-        self.descriptor = copy.deepcopy(source.descriptor)
+        self.descriptor = _mk_copy(source.descriptor)
         self.source_mds = source.source_mds
 
     @property
@@ -376,7 +385,7 @@ class ProviderEntity(ProviderEntityBase):
         super().__init__(source, mdib)
         self.state: AbstractStateContainer | None = None
         if source.state is not None:
-            self.state = copy.deepcopy(source.state)
+            self.state = _mk_copy(source.state)
 
     @property
     def is_multi_state(self) -> bool:
@@ -389,7 +398,7 @@ class ProviderEntity(ProviderEntityBase):
         if source_entity is None:
             raise ValueError(f'entity {self.handle} no longer exists in mdib')
         self.descriptor.update_from_other_container(source_entity.descriptor)
-        self.state = copy.deepcopy(source_entity.state)
+        self.state = _mk_copy(source_entity.state)
 
 
 class ProviderMultiStateEntity(ProviderEntityBase):
@@ -399,7 +408,7 @@ class ProviderMultiStateEntity(ProviderEntityBase):
                  source: ProviderInternalMultiStateEntity,
                  mdib: EntityProviderMdib):
         super().__init__(source, mdib)
-        self.states: dict[str, AbstractMultiStateContainer] = copy.deepcopy(source.states)
+        self.states: dict[str, AbstractMultiStateContainer] = {st.Handle: _mk_copy(st) for st in source.states.values()}
 
     @property
     def is_multi_state(self) -> bool:
@@ -415,7 +424,7 @@ class ProviderMultiStateEntity(ProviderEntityBase):
         for handle, src_state in source_entity.states.items():
             dest_state = self.states.get(handle)
             if dest_state is None:
-                self.states[handle] = copy.deepcopy(src_state)
+                self.states[handle] = _mk_copy(src_state)
             else:
                 dest_state.update_from_other_container(src_state)
         # remove states that are no longer present is source_entity
