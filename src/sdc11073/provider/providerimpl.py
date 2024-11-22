@@ -248,7 +248,7 @@ class SdcProvider:
         cls = self._components.sco_operations_registry_class
         pm_names = self._mdib.data_model.pm_names
 
-        entities = self._mdib.entities.node_type(pm_names.ScoDescriptor)
+        entities = self._mdib.entities.by_node_type(pm_names.ScoDescriptor)
         for entity in entities:
             sco_operations_registry = cls(self.hosted_services.set_service,
                                           self._components.operation_cls_getter,

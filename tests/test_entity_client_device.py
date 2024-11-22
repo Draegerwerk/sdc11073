@@ -46,7 +46,7 @@ def provide_realtime_data(sdc_provider: SdcProvider):
     iterator = cycle([waveforms.SawtoothGenerator,
                      waveforms.SinusGenerator,
                      waveforms.TriangleGenerator])
-    waveform_entities = sdc_provider.mdib.entities.node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)
+    waveform_entities = sdc_provider.mdib.entities.by_node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)
     for i, waveform_entity in enumerate(waveform_entities):
         cls = iterator.__next__()
         gen = cls(min_value=1, max_value=i+10, waveform_period=1.1, sample_period=0.01)
@@ -119,7 +119,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
     def add_random_patient(self, count: int = 1) -> [ProviderMultiStateEntity, list]:
         new_states = []
-        entities = self.sdc_provider.mdib.entities.node_type(pm.PatientContextDescriptor)
+        entities = self.sdc_provider.mdib.entities.by_node_type(pm.PatientContextDescriptor)
         if len(entities) != 1:
             raise ValueError(f'cannot handle {len(entities)} instances of PatientContextDescriptor')
         entity = entities[0]
@@ -173,16 +173,16 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         # needed?
         for handle in consumer_mdib._entities:
-            ent = consumer_mdib.entities.handle(handle)
+            ent = consumer_mdib.entities.by_handle(handle)
             self.assertIsInstance(ent, (ConsumerEntity, ConsumerMultiStateEntity))
 
         # verify that NODETYPE filter works as expected
-        consumer_ent_list = consumer_mdib.entities.node_type(pm_qnames.VmdDescriptor)
-        provider_list = self.sdc_provider.mdib.entities.node_type(pm_qnames.VmdDescriptor)
+        consumer_ent_list = consumer_mdib.entities.by_node_type(pm_qnames.VmdDescriptor)
+        provider_list = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.VmdDescriptor)
         self.assertEqual(len(provider_list), len(consumer_ent_list))
 
         # test update method of entities
-        metric_entities = consumer_mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
+        metric_entities = consumer_mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         consumer_metric_entity = metric_entities[0]
         descriptor_version = consumer_metric_entity.descriptor.DescriptorVersion
         state_version = consumer_metric_entity.state.StateVersion
@@ -198,7 +198,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         # same for multi state entity
         context_descriptor_handle = patient_descriptor_entity.descriptor.Handle
-        context_consumer_entity = consumer_mdib.entities.handle(context_descriptor_handle)
+        context_consumer_entity = consumer_mdib.entities.by_handle(context_descriptor_handle)
         del consumer_mdib._entities[context_descriptor_handle]
         self.assertRaises(ValueError, context_consumer_entity.update)
 
@@ -209,7 +209,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         consumer_mdib.init_mdib()
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
 
-        metric_entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
+        metric_entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         provider_entity = metric_entities[0]
 
         coll = observableproperties.SingleValueCollector(consumer_mdib,
@@ -231,7 +231,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_entity.update()
         self.assertEqual(provider_entity.state.StateVersion, old_state_version + 1)
-        consumer_entity = consumer_mdib.entities.handle(provider_entity.handle)
+        consumer_entity = consumer_mdib.entities.by_handle(provider_entity.handle)
         self.assertIsNone(provider_entity.state.diff(consumer_entity.state, max_float_diff=1e-6))
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
 
@@ -243,7 +243,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
 
-        provider_entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.AlertConditionDescriptor)
+        provider_entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.AlertConditionDescriptor)
         provider_entity = provider_entities[0]
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'alert_handles')
@@ -256,7 +256,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_entity.update()  # update to get correct version counters
-        consumer_entity = consumer_mdib.entities.handle(provider_entity.handle)
+        consumer_entity = consumer_mdib.entities.by_handle(provider_entity.handle)
         self.assertIsNone(provider_entity.state.diff(consumer_entity.state, max_float_diff=1e-6))
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
 
@@ -266,7 +266,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
-        channel_entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.ChannelDescriptor)
+        channel_entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.ChannelDescriptor)
         provider_channel_entity = channel_entities[0]
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'component_handles')
@@ -279,7 +279,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_channel_entity.update()
         self.assertEqual(provider_channel_entity.state.StateVersion, old_state_version + 1)
-        consumer_channel_entity = consumer_mdib.entities.handle(provider_channel_entity.handle)
+        consumer_channel_entity = consumer_mdib.entities.by_handle(provider_channel_entity.handle)
         self.assertIsNone(provider_channel_entity.state.diff(consumer_channel_entity.state, max_float_diff=1e-6))
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
 
@@ -290,7 +290,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         consumer_mdib.init_mdib()
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib._entities))
 
-        entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.ActivateOperationDescriptor)
+        entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.ActivateOperationDescriptor)
         provider_entity = entities[0]
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'operation_handles')
@@ -301,7 +301,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
-        consumer_entity = consumer_mdib.entities.handle(provider_entity.handle)
+        consumer_entity = consumer_mdib.entities.by_handle(provider_entity.handle)
         provider_entity.update()
 
         self.assertIsNone(provider_entity.state.diff(consumer_entity.state, max_float_diff=1e-6))
@@ -327,7 +327,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         # now remove all
         coll = observableproperties.SingleValueCollector(consumer_mdib, 'deleted_descriptors_handles')
-        mds_entities = self.sdc_provider.mdib.entities.node_type(pm.MdsDescriptor)
+        mds_entities = self.sdc_provider.mdib.entities.by_node_type(pm.MdsDescriptor)
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             for entity in mds_entities:
                 mgr.remove_entity(entity)
@@ -349,7 +349,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
-        entities = self.sdc_provider.mdib.entities.node_type(pm.PatientContextDescriptor)
+        entities = self.sdc_provider.mdib.entities.by_node_type(pm.PatientContextDescriptor)
         self.assertEqual(len(entities), 1)
         coll = observableproperties.SingleValueCollector(consumer_mdib, 'context_handles')
         provider_entity, states = self.add_random_patient(1)  # this runs a transaction
@@ -357,7 +357,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         provider_entity.update()
         provider_state = provider_entity.states[st_handle]
-        consumer_entity = consumer_mdib.entities.handle(provider_entity.descriptor.Handle)
+        consumer_entity = consumer_mdib.entities.by_handle(provider_entity.descriptor.Handle)
         consumer_state = consumer_entity.states[st_handle]
         self.assertIsNone(consumer_state.diff(provider_state, max_float_diff=1e-6))
 
@@ -383,7 +383,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
-        metric_entities = consumer_mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
+        metric_entities = consumer_mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         consumer_entity = metric_entities[0]
 
         initial_descriptor_version = consumer_entity.descriptor.DescriptorVersion
@@ -394,7 +394,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
                                                          'updated_descriptors_handles')
 
         new_determination_period = 3.14159
-        provider_entity = self.sdc_provider.mdib.entities.handle(consumer_entity.handle)
+        provider_entity = self.sdc_provider.mdib.entities.by_handle(consumer_entity.handle)
         provider_entity.descriptor.DeterminationPeriod = new_determination_period
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             mgr.write_entity(provider_entity)
@@ -411,11 +411,11 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         # now update a channel descriptor and wait for the next DescriptionModificationReport
         channel_descriptor_handle = consumer_entity.descriptor.parent_handle  #'2.1.6.1'  # a channel
-        consumer_entity = consumer_mdib.entities.handle(channel_descriptor_handle)
+        consumer_entity = consumer_mdib.entities.by_handle(channel_descriptor_handle)
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'updated_descriptors_handles')
         new_concept_description = 'foo bar'
-        provider_entity = self.sdc_provider.mdib.entities.handle(channel_descriptor_handle)
+        provider_entity = self.sdc_provider.mdib.entities.by_handle(channel_descriptor_handle)
         provider_entity.descriptor.Type.ConceptDescription[0].text = new_concept_description
         initial_descriptor_version = provider_entity.descriptor.DescriptorVersion
         initial_state_version = provider_entity.state.StateVersion
@@ -464,12 +464,12 @@ class TestClientSomeDeviceXml(unittest.TestCase):
             mgr.write_entity(new_entity)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
 
-        new_consumer_entity = consumer_mdib.entities.handle(new_handle)
+        new_consumer_entity = consumer_mdib.entities.by_handle(new_handle)
         self.assertEqual(new_consumer_entity.descriptor.Resolution, Decimal('0.42'))
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
 
         # test creating a battery descriptor
-        entities = self.sdc_provider.mdib.entities.node_type(pm_qnames.MdsDescriptor)
+        entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.MdsDescriptor)
         provider_mds_entity = entities[0]
 
         # coll: wait for the next DescriptionModificationReport
@@ -486,7 +486,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
             mgr.write_entity(new_entity)
         # long timeout, sometimes high load on jenkins makes these tests fail
         coll.result(timeout=NOTIFICATION_TIMEOUT)
-        consumer_entity = consumer_mdib.entities.handle(new_battery_handle)
+        consumer_entity = consumer_mdib.entities.by_handle(new_battery_handle)
 
         msg_reader._validate_node(consumer_mdib._get_mdib_response_node)
 
@@ -495,10 +495,10 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         # test deleting a descriptor
         coll = observableproperties.SingleValueCollector(consumer_mdib,
                                                          'deleted_descriptors_handles')
-        provider_channel_entity = self.sdc_provider.mdib.entities.handle(channel_descriptor_handle)
+        provider_channel_entity = self.sdc_provider.mdib.entities.by_handle(channel_descriptor_handle)
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             mgr.remove_entity(provider_channel_entity)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
-        entity = consumer_mdib.entities.handle(new_handle)
+        entity = consumer_mdib.entities.by_handle(new_handle)
         self.assertIsNone(entity)

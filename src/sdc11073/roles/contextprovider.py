@@ -38,7 +38,7 @@ class GenericContextProvider(providerbase.ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         if pm_names.SetContextStateOperationDescriptor == operation_descriptor_container.NODETYPE:
-            op_target_entity = self._mdib.entities.handle( operation_descriptor_container.OperationTarget)
+            op_target_entity = self._mdib.entities.by_handle( operation_descriptor_container.OperationTarget)
 
             if (not self._op_target_descr_types) or (
                     op_target_entity.descriptor.NODETYPE not in self._op_target_descr_types):
@@ -72,7 +72,7 @@ class GenericContextProvider(providerbase.ProviderRole):
         modified_entities = []
         with self._mdib.context_state_transaction() as mgr:
             for proposed_st in proposed_context_states:
-                entity = self._mdib.entities.handle(proposed_st.DescriptorHandle)
+                entity = self._mdib.entities.by_handle(proposed_st.DescriptorHandle)
                 modified_entities.append(entity)
                 old_state_container = None
                 if proposed_st.DescriptorHandle != proposed_st.Handle:

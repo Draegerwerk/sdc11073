@@ -146,7 +146,7 @@ class OperationDefinitionBase:
             raise ApiUsageError('Mdib is already set')
         self._mdib = mdib
         self._logger.log_prefix = mdib.log_prefix  # use same prefix as mdib for logging
-        self._operation_entity = self._mdib.entities.handle(self.handle)
+        self._operation_entity = self._mdib.entities.by_handle(self.handle)
         if self._operation_entity is not None:
             # there is already a descriptor
             self._logger.debug('descriptor for operation "%s" is already present, re-using it', self.handle)
@@ -165,7 +165,7 @@ class OperationDefinitionBase:
 
     def set_operating_mode(self, mode: OperatingMode):
         """Set OperatingMode member in state in transaction context."""
-        entity = self._mdib.entities.handle(self.handle)
+        entity = self._mdib.entities.by_handle(self.handle)
         entity.state.OperatingMode = mode
 
         with self._mdib.operational_state_transaction() as mgr:

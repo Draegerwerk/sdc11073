@@ -44,7 +44,7 @@ class AlertDelegateProvider(providerbase.ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         op_target_handle = operation_descriptor_container.OperationTarget
-        op_target_entity = self._mdib.entities.handle(op_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(op_target_handle)
         if pm_names.SetAlertStateOperationDescriptor == operation_descriptor_container.NODETYPE:
             if (pm_names.AlertSignalDescriptor == op_target_entity.node_type
                     and op_target_entity.descriptor.SignalDelegationSupported):
@@ -77,10 +77,10 @@ class AlertDelegateProvider(providerbase.ProviderRole):
         value = params.operation_request.argument
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
-        all_alert_signal_entities = self._mdib.entities.node_type(pm_names.AlertSignalDescriptor)
+        all_alert_signal_entities = self._mdib.entities.by_node_type(pm_names.AlertSignalDescriptor)
 
         operation_target_handle = params.operation_instance.operation_target_handle
-        op_target_entity = self._mdib.entities.handle(operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
         self._logger.info('delegate alert signal %s of %s from %s to %s', operation_target_handle,
                           op_target_entity.state, op_target_entity.state.ActivationState, value.ActivationState)
@@ -108,9 +108,9 @@ class AlertDelegateProvider(providerbase.ProviderRole):
         pm_names = self._mdib.data_model.pm_names
 
         operation_target_handle = operation_instance.operation_target_handle
-        op_target_entity = self._mdib.entities.handle(operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
-        all_alert_signal_entities = self._mdib.entities.node_type(pm_names.AlertSignalDescriptor)
+        all_alert_signal_entities = self._mdib.entities.by_node_type(pm_names.AlertSignalDescriptor)
         self._logger.info('timeout alert signal delegate operation=%s target=%s',
                           operation_instance.handle, operation_target_handle)
         op_target_entity.state.ActivationState = pm_types.AlertActivation.OFF
@@ -225,7 +225,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
         pm_names = self._mdib.data_model.pm_names
         entities_needing_update = []
         try:
-            all_alert_system_entities = self._mdib.entities.node_type(pm_names.AlertSystemDescriptor)
+            all_alert_system_entities = self._mdib.entities.by_node_type(pm_names.AlertSystemDescriptor)
             for alert_system_entity in all_alert_system_entities:
                 if alert_system_entity.state is not None:
                     self_check_period = alert_system_entity.descriptor.SelfCheckPeriod
@@ -242,7 +242,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
         pm_types = self._mdib.data_model.pm_types
 
         for alert_system_entity in alert_system_entities:
-            all_child_entities = self._mdib.entities.parent_handle(alert_system_entity.handle)
+            all_child_entities = self._mdib.entities.by_parent_handle(alert_system_entity.handle)
             all_alert_condition_entities = [d for d in all_child_entities if d.descriptor.is_alert_condition_descriptor]
             # select all state containers with technical alarms present
             all_tech_entities = [d for d in all_alert_condition_entities if
@@ -282,7 +282,7 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
             # nothing to do
             return
 
-        all_alert_signal_entities = self._mdib.entities.node_type(self._mdib.data_model.pm_names.AlertSignalDescriptor)
+        all_alert_signal_entities = self._mdib.entities.by_node_type(self._mdib.data_model.pm_names.AlertSignalDescriptor)
         changed_alert_condition_states = self._get_changed_alert_condition_states(transaction)
         # change AlertSignal Settings in order to be compliant with changed Alert Conditions
         for changed_alert_condition_state in changed_alert_condition_states:
@@ -321,7 +321,7 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
                 write_entity = False
             else:
                 alert_system_state = _alert_system_state
-            all_child_entities = mdib.entities.parent_handle(alert_system_state.DescriptorHandle)
+            all_child_entities = mdib.entities.by_parent_handle(alert_system_state.DescriptorHandle)
             all_alert_condition_entities = [d for d in all_child_entities if d.descriptor.is_alert_condition_descriptor]
             # select all state containers with technical alarms present
             all_tech_entities = [d for d in all_alert_condition_entities if
@@ -407,8 +407,8 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
         # find all alert systems for the changed alert conditions
         alert_system_states = set()
         for tmp in changed_alert_conditions:
-            alert_condition_entity = self._mdib.entities.handle(tmp.DescriptorHandle)
-            alert_system_entity = self._mdib.entities.handle(alert_condition_entity.parent_handle)
+            alert_condition_entity = self._mdib.entities.by_handle(tmp.DescriptorHandle)
+            alert_system_entity = self._mdib.entities.by_handle(alert_condition_entity.parent_handle)
 
             if alert_system_entity.handle not in transaction.alert_state_updates:
                 transaction.write_entity(alert_system_entity)

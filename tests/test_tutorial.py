@@ -136,7 +136,7 @@ class MyProvider1(ProviderRole):
         self.operation2_called += 1
         self.operation2_args = argument
         self._logger.info('_handle_operation_2 called arg=%r', argument)
-        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
         if op_target_entity.state.MetricValue is None:
             op_target_entity.state.mk_metric_value()
         op_target_entity.state.MetricValue.Value = argument
@@ -174,7 +174,7 @@ class MyProvider2(ProviderRole):
         argument = params.operation_request.argument
         self.operation3_args = argument
         self._logger.info('_handle_operation_3 called')
-        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
         if op_target_entity.state.MetricValue is None:
             op_target_entity.state.mk_metric_value()
         op_target_entity.state.MetricValue.Value = argument
@@ -311,7 +311,7 @@ class TestTutorial(unittest.TestCase):
         # mdib has three lookups: descriptions, states and context_states
         # each lookup can be searched by different keys,
         # e.g. looking for a descriptor by type looks like this:
-        location_context_entities = my_mdib.entities.node_type(pm.LocationContextDescriptor)
+        location_context_entities = my_mdib.entities.by_node_type(pm.LocationContextDescriptor)
         self.assertEqual(len(location_context_entities), 1)
         self.assertEqual(len(location_context_entities[0].states), 1)
 
@@ -343,10 +343,10 @@ class TestTutorial(unittest.TestCase):
 
         # we want to set a patient.
         # first we must find the operation that has PatientContextDescriptor as operation target
-        patient_context_entities = my_mdib.entities.node_type(pm.PatientContextDescriptor)
+        patient_context_entities = my_mdib.entities.by_node_type(pm.PatientContextDescriptor)
         self.assertEqual(len(patient_context_entities), 1)
         my_patient_context_entity = patient_context_entities[0]
-        all_operation_entities = my_mdib.entities.node_type(pm.SetContextStateOperationDescriptor)
+        all_operation_entities = my_mdib.entities.by_node_type(pm.SetContextStateOperationDescriptor)
         my_operations = [op for op in all_operation_entities if
                          op.descriptor.OperationTarget == my_patient_context_entity.handle]
         self.assertEqual(len(my_operations), 1)
@@ -409,7 +409,7 @@ class TestTutorial(unittest.TestCase):
         # call activate operation:
         # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
-        operation_entities = my_mdib.entities.coding(MY_CODE_1.coding)
+        operation_entities = my_mdib.entities.by_coding(MY_CODE_1.coding)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         self._logger.info('looking for operations with code %r', MY_CODE_1.coding)
         op_entity = operation_entities[0]
@@ -428,7 +428,7 @@ class TestTutorial(unittest.TestCase):
         my_product_impl = my_generic_provider.product_lookup[sco_handle]
 
         self._logger.info('looking for operations with code %r', MY_CODE_2.coding)
-        op_entities = my_mdib.entities.coding(MY_CODE_2.coding)
+        op_entities = my_mdib.entities.by_coding(MY_CODE_2.coding)
         my_op = op_entities[0]
         for value in ('foo', 'bar'):
             self._logger.info('calling operation %s, argument = %r', my_op.handle, value)
@@ -437,20 +437,20 @@ class TestTutorial(unittest.TestCase):
             print(result)
             time.sleep(1)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
-            op_target_entity = my_mdib.entities.handle(my_op.descriptor.OperationTarget)
+            op_target_entity = my_mdib.entities.by_handle(my_op.descriptor.OperationTarget)
             self.assertEqual(op_target_entity.state.MetricValue.Value, value)
         self.assertEqual(my_product_impl.my_provider_1.operation2_called, 2)
 
         # call setValue operation
-        op_target_entities = my_mdib.entities.coding(MY_CODE_3_TARGET.coding)
+        op_target_entities = my_mdib.entities.by_coding(MY_CODE_3_TARGET.coding)
         op_target_entity = op_target_entities[0]
 
-        all_operations = my_mdib.entities.node_type(pm.SetValueOperationDescriptor)
+        all_operations = my_mdib.entities.by_node_type(pm.SetValueOperationDescriptor)
         my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_entity.handle]
 
         future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal('42'))
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
-        ent = my_mdib.entities.handle(op_target_entity.handle)
+        ent = my_mdib.entities.by_handle(op_target_entity.handle)
         self.assertEqual(ent.state.MetricValue.Value, 42)

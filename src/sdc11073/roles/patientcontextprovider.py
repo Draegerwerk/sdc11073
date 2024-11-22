@@ -30,7 +30,7 @@ class GenericPatientContextProvider(GenericContextProvider):
         """Find the PatientContextDescriptor."""
         super().init_operations(sco)
         pm_names = self._mdib.data_model.pm_names
-        entities = self._mdib.entities.node_type(pm_names.PatientContextDescriptor)
+        entities = self._mdib.entities.by_node_type(pm_names.PatientContextDescriptor)
         # Todo: what to do in multi mds case?
         if len(entities) == 1:
             self._patient_context_entity = entities[0]

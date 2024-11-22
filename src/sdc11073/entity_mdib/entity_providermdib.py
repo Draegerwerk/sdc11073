@@ -73,58 +73,65 @@ class ProviderEntityGetter:
                  mdib: EntityProviderMdib):
         self._mdib = mdib
 
-    def handle(self, handle: str) -> ProviderEntityType | None:
+    def by_handle(self, handle: str) -> ProviderEntityType | None:
         """Return entity with given handle."""
-        try:
-            internal_entity = self._mdib.internal_entities[handle]
-            return internal_entity.mk_entity(self._mdib)
-        except KeyError:
-            return None
-
-    def context_handle(self, handle: str) -> ProviderMultiStateEntity | None:
-        """Return multi state entity that contains a state with given handle."""
-        for internal_entity in self._mdib.internal_entities.values():
-            if internal_entity.is_multi_state and handle in internal_entity.states:
+        with self._mdib.mdib_lock:
+            try:
+                internal_entity = self._mdib.internal_entities[handle]
                 return internal_entity.mk_entity(self._mdib)
+            except KeyError:
+                return None
+
+    def by_context_handle(self, handle: str) -> ProviderMultiStateEntity | None:
+        """Return multi state entity that contains a state with given handle."""
+        with self._mdib.mdib_lock:
+            for internal_entity in self._mdib.internal_entities.values():
+                if internal_entity.is_multi_state and handle in internal_entity.states:
+                    return internal_entity.mk_entity(self._mdib)
         return None
 
-    def node_type(self, node_type: QName) -> list[ProviderEntityType]:
+    def by_node_type(self, node_type: QName) -> list[ProviderEntityType]:
         """Return all entities with given node type."""
         ret = []
-        for internal_entity in self._mdib.internal_entities.values():
-            if node_type == internal_entity.descriptor.NODETYPE:
-                ret.append(internal_entity.mk_entity(self._mdib))
+        with self._mdib.mdib_lock:
+            for internal_entity in self._mdib.internal_entities.values():
+                if node_type == internal_entity.descriptor.NODETYPE:
+                    ret.append(internal_entity.mk_entity(self._mdib))
         return ret
 
-    def parent_handle(self, parent_handle: str | None) -> list[ProviderEntityType]:
+    def by_parent_handle(self, parent_handle: str | None) -> list[ProviderEntityType]:
         """Return all entities with given parent handle."""
         ret = []
-        for internal_entity in self._mdib.internal_entities.values():
-            if internal_entity.descriptor.parent_handle == parent_handle:
-                ret.append(internal_entity.mk_entity(self._mdib))
+        with self._mdib.mdib_lock:
+            for internal_entity in self._mdib.internal_entities.values():
+                if internal_entity.descriptor.parent_handle == parent_handle:
+                    ret.append(internal_entity.mk_entity(self._mdib))
         return ret
 
-    def coding(self, coding: Coding) -> list[ProviderEntityType]:
+    def by_coding(self, coding: Coding) -> list[ProviderEntityType]:
         """Return all entities with given Coding."""
         ret = []
-        for internal_entity in self._mdib.internal_entities.values():
-            if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(coding):
-                ret.append(internal_entity.mk_entity(self._mdib))
+        with self._mdib.mdib_lock:
+            for internal_entity in self._mdib.internal_entities.values():
+                if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(coding):
+                    ret.append(internal_entity.mk_entity(self._mdib))
         return ret
 
-    def coded_value(self, coded_value: CodedValue) -> list[ProviderEntityType]:
+    def by_coded_value(self, coded_value: CodedValue) -> list[ProviderEntityType]:
         """Return all entities with given Coding."""
         ret = []
-        for internal_entity in self._mdib.internal_entities.values():
-            if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(
-                    coded_value):
-                ret.append(internal_entity.mk_entity(self._mdib))
+        with self._mdib.mdib_lock:
+            for internal_entity in self._mdib.internal_entities.values():
+                if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(
+                        coded_value):
+                    ret.append(internal_entity.mk_entity(self._mdib))
         return ret
 
     def items(self) -> Iterable[tuple[str, [ProviderEntityType]]]:
         """Return the items."""
-        for handle, internal_entity in self._mdib.internal_entities.items():
-            yield handle, internal_entity.mk_entity(self._mdib)
+        with self._mdib.mdib_lock:
+            for handle, internal_entity in self._mdib.internal_entities.items():
+                yield handle, internal_entity.mk_entity(self._mdib)
 
     def new_entity(self,
                    node_type: QName,
@@ -377,7 +384,7 @@ class EntityProviderMdib(EntityMdibBase):
                           attrib={'Handle': descriptor_container.Handle},
                           nsmap=ns_map)
         descriptor_container.update_node(node, self.nsmapper, set_xsi_type)  # create all
-        child_entities = self.entities.parent_handle(descriptor_container.Handle)
+        child_entities = self.entities.by_parent_handle(descriptor_container.Handle)
         # append all child containers, then bring all child elements in correct order
         for child_entity in child_entities:
             child_tag, set_xsi = descriptor_container.tag_name_for_child_descriptor(child_entity.descriptor.NODETYPE)
@@ -441,7 +448,7 @@ class EntityProviderMdib(EntityMdibBase):
         """Build dom tree of descriptors from current data."""
         pm = self.data_model.pm_names
         doc_nsmap = self.nsmapper.ns_map
-        root_entities = self.entities.parent_handle(None)
+        root_entities = self.entities.by_parent_handle(None)
         if root_entities:
             md_description_node = Element(pm.MdDescription,
                                           attrib={'DescriptionVersion': str(self.mddescription_version)},

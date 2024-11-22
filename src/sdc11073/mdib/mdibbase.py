@@ -305,29 +305,29 @@ class EntityGetter:
     def __init__(self, mdib: MdibBase):
         self._mdib = mdib
 
-    def handle(self, handle: str) ->  Entity | MultiStateEntity | None:
+    def by_handle(self, handle: str) ->  Entity | MultiStateEntity | None:
         """Return entity with given handle."""
         descriptor = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
         if descriptor is None:
             return None
         return self._mk_entity(descriptor)
 
-    def node_type(self, node_type: QName) -> list[Entity | MultiStateEntity]:
+    def by_node_type(self, node_type: QName) -> list[Entity | MultiStateEntity]:
         """Return all entities with given node type."""
         descriptors = self._mdib.descriptions.NODETYPE.get(node_type, [])
         return [self._mk_entity(d) for d in descriptors]
 
-    def parent_handle(self, parent_handle: str | None) -> list[Entity | MultiStateEntity]:
+    def by_parent_handle(self, parent_handle: str | None) -> list[Entity | MultiStateEntity]:
         """Return all entities with descriptors parent_handle == provided parent_handle."""
         descriptors = self._mdib.descriptions.parent_handle.get(parent_handle, [])
         return [self._mk_entity(d) for d in descriptors]
 
-    def coding(self, coding: Coding) -> list[Entity | MultiStateEntity]:
+    def by_coding(self, coding: Coding) -> list[Entity | MultiStateEntity]:
         """Return all entities with descriptors type are equivalent to codeding."""
         descriptors = [d for d in self._mdib.descriptions.objects if d.Type.is_equivalent(coding)]
         return [self._mk_entity(d) for d in descriptors]
 
-    def coded_value(self, coded_value: CodedValue) -> list[Entity | MultiStateEntity]:
+    def by_coded_value(self, coded_value: CodedValue) -> list[Entity | MultiStateEntity]:
         """Return all entities with descriptors type are equivalent to coded_value."""
         descriptors = [d for d in self._mdib.descriptions.objects if d.Type.is_equivalent(coded_value)]
         return [self._mk_entity(d) for d in descriptors]

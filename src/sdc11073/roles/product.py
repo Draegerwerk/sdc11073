@@ -105,7 +105,7 @@ class BaseProduct:
             for operation in operations:
                 self._sco.register_operation(operation)
 
-        all_sco_operations = self._mdib.entities.parent_handle(self._sco.sco_descriptor_container.Handle)
+        all_sco_operations = self._mdib.entities.by_parent_handle(self._sco.sco_descriptor_container.Handle)
         all_op_handles = [op.handle for op in all_sco_operations]
         all_not_registered_op_handles = [op_h for op_h in all_op_handles if
                                          self._sco.get_operation_by_handle(op_h) is None]
@@ -130,7 +130,7 @@ class BaseProduct:
                                 operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
         """Call make_operation_instance of all role providers, until the first returns not None."""
         operation_target_handle = operation_descriptor_container.OperationTarget
-        operation_target_entity = self._mdib.entities.handle(operation_target_handle)
+        operation_target_entity = self._mdib.entities.by_handle(operation_target_handle)
         if operation_target_entity is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warning('Operation %s: target %s does not exist, will not register operation',
@@ -146,7 +146,7 @@ class BaseProduct:
         return None
 
     def _register_existing_mdib_operations(self, sco: AbstractScoOperationsRegistry):
-        operation_entities = self._mdib.entities.parent_handle(self._sco.sco_descriptor_container.Handle)
+        operation_entities = self._mdib.entities.by_parent_handle(self._sco.sco_descriptor_container.Handle)
         for operation_entity in operation_entities:
             registered_op = sco.get_operation_by_handle(operation_entity.handle)
             if registered_op is None:

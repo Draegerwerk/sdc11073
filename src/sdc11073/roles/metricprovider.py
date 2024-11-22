@@ -50,7 +50,7 @@ class GenericMetricProvider(ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_entity = self._mdib.entities.handle(operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
         if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:  # noqa: SIM300
             if op_target_entity.node_type == pm_names.NumericMetricDescriptor:
@@ -85,7 +85,7 @@ class GenericMetricProvider(ProviderRole):
 
         with self._mdib.metric_state_transaction() as mgr:
             for proposed_state in proposed_states:
-                target_entity = self._mdib.entities.handle(proposed_state.DescriptorHandle)
+                target_entity = self._mdib.entities.by_handle(proposed_state.DescriptorHandle)
                 if target_entity.state.is_metric_state:
                     self._logger.info('updating %s with proposed metric state', target_entity.state)
                     target_entity.state.update_from_other_container(proposed_state,
@@ -132,7 +132,7 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
-        entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
         state = cast(MetricStateProtocol, entity.state)
         if state.MetricValue is None:
             state.mk_metric_value()
@@ -155,7 +155,7 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
-        entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
         state = cast(MetricStateProtocol, entity.state)
         if state.MetricValue is None:
             state.mk_metric_value()

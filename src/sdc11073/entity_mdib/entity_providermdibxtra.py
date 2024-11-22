@@ -62,9 +62,9 @@ class EntityProviderMdibMethods:
 
         if location_context_descriptor_handle is None:
             # assume there is only one descriptor in mdib, user has not provided a handle.
-            location_entity = mdib.entities.node_type(pm.LocationContextDescriptor)[0]
+            location_entity = mdib.entities.by_node_type(pm.LocationContextDescriptor)[0]
         else:
-            location_entity = mdib.entities.handle(location_context_descriptor_handle)
+            location_entity = mdib.entities.by_handle(location_context_descriptor_handle)
 
         new_location = location_entity.new_state()
         new_location.update_from_sdc_location(sdc_location)

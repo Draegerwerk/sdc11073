@@ -99,7 +99,7 @@ class TestEntityOperations(unittest.TestCase):
         self._init_provider_consumer()
 
         # delete possible existing states
-        patient_entities = self.sdc_provider.mdib.entities.node_type(pm.PatientContextDescriptor)
+        patient_entities = self.sdc_provider.mdib.entities.by_node_type(pm.PatientContextDescriptor)
         with self.sdc_provider.mdib.context_state_transaction() as tr:
             for ent in patient_entities:
                 handles = list(ent.states.keys())
@@ -110,11 +110,11 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
 
-        patient_entities = client_mdib.entities.node_type(pm.PatientContextDescriptor)
+        patient_entities = client_mdib.entities.by_node_type(pm.PatientContextDescriptor)
         my_patient_entity = patient_entities[0]
         # initially the device shall not have any patient
         self.assertEqual(len(my_patient_entity.states), 0)
-        operation_entities = client_mdib.entities.node_type(pm.SetContextStateOperationDescriptor)
+        operation_entities = client_mdib.entities.by_node_type(pm.SetContextStateOperationDescriptor)
         pat_op_entities = [ ent for ent in operation_entities if ent.descriptor.OperationTarget == my_patient_entity.handle]
         self.assertEqual(len(pat_op_entities), 1)
         my_operation = pat_op_entities[0]
@@ -167,7 +167,7 @@ class TestEntityOperations(unittest.TestCase):
         self.assertIsNotNone(result.OperationTarget)
 
         # check client side patient context, this shall have been set via notification
-        consumer_entity = client_mdib.entities.handle(my_patient_entity.handle)
+        consumer_entity = client_mdib.entities.by_handle(my_patient_entity.handle)
         patient_context_state_container = list(consumer_entity.states.values())[0]  # noqa: RUF015
         self.assertEqual(patient_context_state_container.CoreData.Givenname, 'Karl')
         self.assertEqual(patient_context_state_container.CoreData.Middlename, ['M.'])
@@ -231,7 +231,7 @@ class TestEntityOperations(unittest.TestCase):
         self.assertEqual(new_patient.ContextAssociation, pm_types.ContextAssociation.ASSOCIATED)
 
         # create a patient locally on device, then test update from client
-        pat_entity = self.sdc_provider.mdib.entities.handle(my_patient_entity.handle)
+        pat_entity = self.sdc_provider.mdib.entities.by_handle(my_patient_entity.handle)
         st = pat_entity.new_state()
         st.CoreData.Givenname = 'Max123'
         st.CoreData.Middlename = ['Willy']
@@ -273,11 +273,11 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
 
-        dev_location_entities = device_mdib.entities.node_type(pm.LocationContextDescriptor)
+        dev_location_entities = device_mdib.entities.by_node_type(pm.LocationContextDescriptor)
         self.assertEqual(len(dev_location_entities), 1)
         dev_location_entity = dev_location_entities[0]
         loc_context_handle = dev_location_entity.handle
-        cl_location_entity = client_mdib.entities.handle(loc_context_handle)
+        cl_location_entity = client_mdib.entities.by_handle(loc_context_handle)
         self.assertIsNotNone(cl_location_entity)
         initial_number_of_states = len(dev_location_entity.states)
         self.assertGreater(initial_number_of_states, 0)
@@ -289,8 +289,8 @@ class TestEntityOperations(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(client_mdib, 'context_handles')
             self.sdc_provider.set_location(new_location)
             coll.result(timeout=NOTIFICATION_TIMEOUT)
-            dev_location_entity = device_mdib.entities.handle(loc_context_handle)
-            cl_location_entity = client_mdib.entities.handle(loc_context_handle)
+            dev_location_entity = device_mdib.entities.by_handle(loc_context_handle)
+            cl_location_entity = client_mdib.entities.by_handle(loc_context_handle)
             self.assertEqual(len(dev_location_entity.states), i + 1 + initial_number_of_states)
             self.assertEqual(len(cl_location_entity.states), i + 1 + initial_number_of_states)
 
@@ -322,7 +322,7 @@ class TestEntityOperations(unittest.TestCase):
         """Test AudioPauseProvider."""
         # switch one alert system off
         self._init_provider_consumer(mdib_70041_file)
-        alert_system_entity_off = self.sdc_provider.mdib.entities.handle('Asy.3208')
+        alert_system_entity_off = self.sdc_provider.mdib.entities.by_handle('Asy.3208')
         self.assertIsNotNone(alert_system_entity_off)
         alert_system_entity_off.state.ActivationState = pm_types.AlertActivation.OFF
         with self.sdc_provider.mdib.alert_state_transaction() as mgr:
@@ -332,9 +332,9 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
-        operation_pause_entities = self.sdc_provider.mdib.entities.coding(coding)
+        operation_pause_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
-        operation_cancel_entities = self.sdc_provider.mdib.entities.coding(coding)
+        operation_cancel_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         self.assertEqual(len(operation_pause_entities), 1)
         self.assertEqual(len(operation_cancel_entities), 1)
 
@@ -346,7 +346,7 @@ class TestEntityOperations(unittest.TestCase):
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
         time.sleep(0.5)  # allow notifications to arrive
-        alert_system_entities = self.sdc_provider.mdib.entities.node_type(pm.AlertSystemDescriptor)
+        alert_system_entities = self.sdc_provider.mdib.entities.by_node_type(pm.AlertSystemDescriptor)
         for alert_system_entity in alert_system_entities:
             if alert_system_entity.handle != alert_system_entity_off.handle:
                 self.assertEqual(alert_system_entity.state.SystemSignalActivation[0].State,
@@ -364,7 +364,7 @@ class TestEntityOperations(unittest.TestCase):
                                  pm_types.AlertActivation.ON)
 
         # now remove all alert systems from provider mdib and verify that operation now fails
-        alert_system_entities = self.sdc_provider.mdib.entities.node_type(pm.AlertSystemDescriptor)
+        alert_system_entities = self.sdc_provider.mdib.entities.by_node_type(pm.AlertSystemDescriptor)
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             for ent in alert_system_entities:
@@ -385,7 +385,7 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
-        operation_entities = self.sdc_provider.mdib.entities.coding(coding)
+        operation_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         self.assertGreater(len(operation_entities), 0)
         my_operation_entity = operation_entities[0]
         operation_handle = my_operation_entity.handle
@@ -399,10 +399,10 @@ class TestEntityOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            op_target_entity = client_mdib.entities.handle(my_operation_entity.descriptor.OperationTarget)
+            op_target_entity = client_mdib.entities.by_handle(my_operation_entity.descriptor.OperationTarget)
             if op_target_entity.node_type == pm.MdsState:
                 # look for the ClockState child
-                clock_entities = client_mdib.entities.node_type(pm.ClockDescriptor)
+                clock_entities = client_mdib.entities.by_node_type(pm.ClockDescriptor)
                 clock_entities = [c for c in clock_entities if c.parent_handle == op_target_entity.handle]
                 if len(clock_entities) == 1:
                     op_target_entity = clock_entities[0]
@@ -415,7 +415,7 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib.init_mdib()
 
         coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
-        operation_entities = self.sdc_provider.mdib.entities.coding(coding)
+        operation_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         self.assertGreater(len(operation_entities), 0)
         my_operation_entity = operation_entities[0]
         operation_handle = my_operation_entity.handle
@@ -429,10 +429,10 @@ class TestEntityOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            op_target_entity = client_mdib.entities.handle(my_operation_entity.descriptor.OperationTarget)
+            op_target_entity = client_mdib.entities.by_handle(my_operation_entity.descriptor.OperationTarget)
             if op_target_entity.node_type == pm.MdsState:
                 # look for the ClockState child
-                clock_entities = client_mdib.entities.node_type(pm.ClockDescriptor)
+                clock_entities = client_mdib.entities.by_node_type(pm.ClockDescriptor)
                 clock_entities = [c for c in clock_entities if c.parent_handle == op_target_entity.handle]
                 if len(clock_entities) == 1:
                     op_target_entity = clock_entities[0]
@@ -441,10 +441,10 @@ class TestEntityOperations(unittest.TestCase):
     def test_set_metric_state(self):
         # first we need to add a set_metric_state Operation
         self._init_provider_consumer()
-        sco_entities = self.sdc_provider.mdib.entities.node_type(pm.ScoDescriptor)
+        sco_entities = self.sdc_provider.mdib.entities.by_node_type(pm.ScoDescriptor)
         my_sco = sco_entities[0]
 
-        metric_entities = self.sdc_provider.mdib.entities.node_type(pm.NumericMetricDescriptor)
+        metric_entities = self.sdc_provider.mdib.entities.by_node_type(pm.NumericMetricDescriptor)
         my_metric_entity = metric_entities[0]
 
         new_operation_entity = self.sdc_provider.mdib.entities.new_entity(pm.SetMetricStateOperationDescriptor,
@@ -469,7 +469,7 @@ class TestEntityOperations(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer)
         consumer_mdib.init_mdib()
 
-        consumer_entity = consumer_mdib.entities.handle(my_metric_entity.handle)
+        consumer_entity = consumer_mdib.entities.by_handle(my_metric_entity.handle)
         self.assertIsNotNone(consumer_entity)
 
         # modify entity.state as new proposed state
@@ -493,10 +493,10 @@ class TestEntityOperations(unittest.TestCase):
         """Test GenericSetComponentStateOperationProvider."""
         # Use a single mds mdib. This makes test easier because source_mds of channel and sco are the same.
         self._init_provider_consumer('mdib_tns.xml')
-        channels = self.sdc_provider.mdib.entities.node_type(pm.ChannelDescriptor)
+        channels = self.sdc_provider.mdib.entities.by_node_type(pm.ChannelDescriptor)
         my_channel_entity = channels[0]
         # first we need to add a set_component_state Operation
-        sco_entities = self.sdc_provider.mdib.entities.node_type(pm.ScoDescriptor)
+        sco_entities = self.sdc_provider.mdib.entities.by_node_type(pm.ScoDescriptor)
         my_sco_entity = sco_entities[0]
 
         operation_entity = self.sdc_provider.mdib.entities.new_entity(pm.SetComponentStateOperationDescriptor,
@@ -533,7 +533,7 @@ class TestEntityOperations(unittest.TestCase):
         self.assertIsNone(result.InvocationInfo.InvocationError)
         self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
-        updated_channel_entity = self.sdc_provider.mdib.entities.handle(my_channel_entity.handle)
+        updated_channel_entity = self.sdc_provider.mdib.entities.by_handle(my_channel_entity.handle)
         self.assertEqual(updated_channel_entity.state.OperatingHours, new_operating_hours)
         self.assertEqual(updated_channel_entity.state.StateVersion, before_state_version + 1)
 
@@ -567,7 +567,7 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
-        entities = self.sdc_provider.mdib.entities.coding(coding)
+        entities = self.sdc_provider.mdib.entities.by_coding(coding)
         self.assertEqual(len(entities), 1)
         my_operation_entity = entities[0]
 
@@ -611,7 +611,7 @@ class TestEntityOperations(unittest.TestCase):
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer)
         consumer_mdib.init_mdib()
 
-        operation_entities = consumer_mdib.entities.node_type(pm.ActivateOperationDescriptor)
+        operation_entities = consumer_mdib.entities.by_node_type(pm.ActivateOperationDescriptor)
         my_operation_entity = operation_entities[0]
         operation = self.sdc_provider.get_operation_by_handle(my_operation_entity.handle)
         for op_mode in (pm_types.OperatingMode.NA, pm_types.OperatingMode.ENABLED):
@@ -630,7 +630,7 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding('0815')
-        my_operation_entities = self.sdc_provider.mdib.entities.coding(coding)
+        my_operation_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         self.assertEqual(len(my_operation_entities), 1)
         my_operation_entity = my_operation_entities[0]
         operation_handle = my_operation_entity.handle
@@ -644,7 +644,7 @@ class TestEntityOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            consumer_entity = client_mdib.entities.handle(my_operation_entity.descriptor.OperationTarget)
+            consumer_entity = client_mdib.entities.by_handle(my_operation_entity.descriptor.OperationTarget)
             self.assertEqual(consumer_entity.state.MetricValue.Value, value)
 
     def test_set_metric_value(self):
@@ -657,7 +657,7 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
         coding = pm_types.Coding('0815-1')
-        my_operation_entities = self.sdc_provider.mdib.entities.coding(coding)
+        my_operation_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         my_operation_entity = my_operation_entities[0]
 
         for value in (Decimal(1), Decimal(42), 1.1, 10, "12"):
@@ -671,5 +671,5 @@ class TestEntityOperations(unittest.TestCase):
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
 
             # verify that the corresponding state has been updated
-            ent = client_mdib.entities.handle(my_operation_entity.descriptor.OperationTarget)
+            ent = client_mdib.entities.by_handle(my_operation_entity.descriptor.OperationTarget)
             self.assertEqual(ent.state.MetricValue.Value, Decimal(str(value)))

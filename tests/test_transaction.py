@@ -285,17 +285,17 @@ class TestEntityTransactions(unittest.TestCase):
         - ApiUsageError is thrown if state of wrong kind is added,
         """
         mdib_version = self._mdib.mdib_version
-        old_ac_entity = self._mdib.entities.node_type(pm_qnames.AlertConditionDescriptor)[0]
+        old_ac_entity = self._mdib.entities.by_node_type(pm_qnames.AlertConditionDescriptor)[0]
         old_ac_entity.state.Presence = True
         with self._mdib.alert_state_transaction() as mgr:
             mgr.write_entity(old_ac_entity)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         self.assertEqual(len(self._mdib.transaction.alert_updates), 1)  # this causes an EpisodicAlertReport
 
-        new_ac_entity = self._mdib.entities.handle(old_ac_entity.handle)
+        new_ac_entity = self._mdib.entities.by_handle(old_ac_entity.handle)
         self.assertEqual(new_ac_entity.state.StateVersion, old_ac_entity.state.StateVersion + 1)
 
-        metric_entities = self._mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
+        metric_entities = self._mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         with self._mdib.alert_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.write_entity, metric_entities[0])
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
@@ -310,17 +310,17 @@ class TestEntityTransactions(unittest.TestCase):
         - ApiUsageError is thrown if state of wrong kind is added,
         """
         mdib_version = self._mdib.mdib_version
-        old_metric_entity = self._mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)[0]
+        old_metric_entity = self._mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)[0]
         old_metric_entity.state.LifeTimePeriod = 2
         with self._mdib.metric_state_transaction() as mgr:
             mgr.write_entity(old_metric_entity)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         self.assertEqual(len(self._mdib.transaction.metric_updates), 1)
 
-        new_metric_entity = self._mdib.entities.handle(old_metric_entity.handle)
+        new_metric_entity = self._mdib.entities.by_handle(old_metric_entity.handle)
         self.assertEqual(new_metric_entity.state.StateVersion, old_metric_entity.state.StateVersion + 1)
 
-        ac_entities = self._mdib.entities.node_type(pm_qnames.AlertConditionDescriptor)
+        ac_entities = self._mdib.entities.by_node_type(pm_qnames.AlertConditionDescriptor)
         with self._mdib.metric_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.write_entity, ac_entities[0])
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
@@ -335,7 +335,7 @@ class TestEntityTransactions(unittest.TestCase):
         - ApiUsageError is thrown if state of wrong kind is added,
         """
         mdib_version = self._mdib.mdib_version
-        old_op_entity = self._mdib.entities.node_type(pm_qnames.SetAlertStateOperationDescriptor)[0]
+        old_op_entity = self._mdib.entities.by_node_type(pm_qnames.SetAlertStateOperationDescriptor)[0]
         old_op_entity.state.OperationMode = pm_types.OperatingMode.DISABLED
         with self._mdib.operational_state_transaction() as mgr:
             mgr.write_entity(old_op_entity)
@@ -343,10 +343,10 @@ class TestEntityTransactions(unittest.TestCase):
         self.assertEqual(len(self._mdib.transaction.op_updates), 1)
         self.assertTrue(old_op_entity.handle in self._mdib.operation_by_handle)
 
-        new_op_entity = self._mdib.entities.handle(old_op_entity.handle)
+        new_op_entity = self._mdib.entities.by_handle(old_op_entity.handle)
         self.assertEqual(new_op_entity.state.StateVersion, old_op_entity.state.StateVersion + 1)
 
-        metric_entities = self._mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
+        metric_entities = self._mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         with self._mdib.alert_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.write_entity, metric_entities[0])
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
@@ -362,7 +362,7 @@ class TestEntityTransactions(unittest.TestCase):
         - ApiUsageError is thrown if state of wrong kind is added
         """
         mdib_version = self._mdib.mdib_version
-        old_pat_entity = self._mdib.entities.node_type(pm_qnames.PatientContextDescriptor)[0]
+        old_pat_entity = self._mdib.entities.by_node_type(pm_qnames.PatientContextDescriptor)[0]
         new_state = old_pat_entity.new_state()
         self.assertIsNotNone(new_state.Handle)
         new_state.CoreData.Givenname = 'foo'
@@ -374,7 +374,7 @@ class TestEntityTransactions(unittest.TestCase):
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         self.assertEqual(len(self._mdib.transaction.ctxt_updates), 1)
 
-        new_pat_entity = self._mdib.entities.handle(old_pat_entity.handle)
+        new_pat_entity = self._mdib.entities.by_handle(old_pat_entity.handle)
         self.assertEqual(new_pat_entity.states[context_handle].StateVersion,0)
         self.assertEqual(new_pat_entity.states[context_handle].CoreData.Givenname,'foo')
         self.assertEqual(new_pat_entity.states[context_handle].CoreData.Familyname,'bar')
@@ -384,11 +384,11 @@ class TestEntityTransactions(unittest.TestCase):
         with self._mdib.context_state_transaction() as mgr:
             mgr.write_entity(new_pat_entity, [context_handle])
 
-        newest_pat_entity =  self._mdib.entities.handle(old_pat_entity.handle)
+        newest_pat_entity =  self._mdib.entities.by_handle(old_pat_entity.handle)
         self.assertEqual(newest_pat_entity.states[context_handle].StateVersion,1)
         self.assertEqual(newest_pat_entity.states[context_handle].CoreData.Familyname,'foobar')
 
-        metric_entities = self._mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)
+        metric_entities = self._mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         with self._mdib.alert_state_transaction() as mgr:
             self.assertRaises(ApiUsageError, mgr.write_entity, metric_entities[0])
         self.assertEqual(mdib_version + 2, self._mdib.mdib_version)
@@ -402,12 +402,12 @@ class TestEntityTransactions(unittest.TestCase):
         - ApiUsageError is thrown if data of wrong kind is requested
         """
         mdib_version = self._mdib.mdib_version
-        old_ac_entity = self._mdib.entities.node_type(pm_qnames.AlertConditionDescriptor)[0]
-        old_metric_entity = self._mdib.entities.node_type(pm_qnames.NumericMetricDescriptor)[0]
-        old_op_entity = self._mdib.entities.node_type(pm_qnames.SetAlertStateOperationDescriptor)[0]
-        old_comp_entity = self._mdib.entities.node_type(pm_qnames.ChannelDescriptor)[0]
-        old_rt_entity = self._mdib.entities.node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)[0]
-        old_ctx_entity = self._mdib.entities.node_type(pm_qnames.PatientContextDescriptor)[0]
+        old_ac_entity = self._mdib.entities.by_node_type(pm_qnames.AlertConditionDescriptor)[0]
+        old_metric_entity = self._mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)[0]
+        old_op_entity = self._mdib.entities.by_node_type(pm_qnames.SetAlertStateOperationDescriptor)[0]
+        old_comp_entity = self._mdib.entities.by_node_type(pm_qnames.ChannelDescriptor)[0]
+        old_rt_entity = self._mdib.entities.by_node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)[0]
+        old_ctx_entity = self._mdib.entities.by_node_type(pm_qnames.PatientContextDescriptor)[0]
 
         with self._mdib.descriptor_transaction() as mgr:
             # verify that updating descriptors of different kinds and accessing corresponding states works
@@ -442,9 +442,9 @@ class TestEntityTransactions(unittest.TestCase):
         # remove all root descriptors
         all_entities = {}
         for descr in  self._mdib.descriptions.objects:
-            all_entities[descr.Handle] = self._mdib.entities.handle(descr.Handle) # get external representation
+            all_entities[descr.Handle] = self._mdib.entities.by_handle(descr.Handle) # get external representation
 
-        root_entities = self._mdib.entities.parent_handle(None)
+        root_entities = self._mdib.entities.by_parent_handle(None)
         with self._mdib.descriptor_transaction() as mgr:
             for ent in root_entities:
                 mgr.remove_entity(ent)
@@ -461,7 +461,7 @@ class TestEntityTransactions(unittest.TestCase):
         # verify that all descriptors and states have incremented version counters
         # for current_ent in self._mdib.internal_entities.values():
         for handle in all_entities:
-            current_ent = self._mdib.entities.handle(handle)
+            current_ent = self._mdib.entities.by_handle(handle)
             old_ent = all_entities[current_ent.handle]
             self.assertEqual(current_ent.descriptor.DescriptorVersion, old_ent.descriptor.DescriptorVersion + 1)
             if current_ent.is_multi_state:

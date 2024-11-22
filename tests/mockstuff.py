@@ -217,7 +217,7 @@ class SomeDeviceEntityMdib(SdcProvider):
         device_mdib_container = EntityProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
         device_mdib_container.instance_id = 1  # set the optional value
         # set Metadata
-        mds_entities = device_mdib_container.entities.parent_handle(None)
+        mds_entities = device_mdib_container.entities.by_parent_handle(None)
         # Todo: write that meta data back to dom tree
         for mds_entity in mds_entities:
             mds_descriptor = mds_entity.descriptor

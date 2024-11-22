@@ -115,7 +115,7 @@ class GenericWaveformProvider:
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sample_period
-        entity = self._mdib.entities.handle(descriptor_handle)
+        entity = self._mdib.entities.by_handle(descriptor_handle)
         if entity.descriptor.SamplePeriod != sample_period:
             # we must inform subscribers
             entity.descriptor.SamplePeriod = sample_period
@@ -176,7 +176,7 @@ class GenericWaveformProvider:
         updated_entities = []
         for descriptor_handle, wf_generator in self._waveform_generators.items():
             if wf_generator.is_active:
-                entity = self._mdib.entities.handle(descriptor_handle)
+                entity = self._mdib.entities.by_handle(descriptor_handle)
                 self._update_rt_samples(entity.state)
                 updated_entities.append(entity)
         self._add_all_annotations()
@@ -194,7 +194,7 @@ class GenericWaveformProvider:
         :return: list of handles of created generators
         """
         pm_name = self._mdib.data_model.pm_names.RealTimeSampleArrayMetricDescriptor
-        all_waveform_entities = self._mdib.entities.node_type(pm_name)
+        all_waveform_entities = self._mdib.entities.by_node_type(pm_name)
         if max_waveforms:
             all_waveform_entities = all_waveform_entities[:max_waveforms]
         for entity in all_waveform_entities:

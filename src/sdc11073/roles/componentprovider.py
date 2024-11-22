@@ -28,7 +28,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_entity = self._mdib.entities.handle(operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
         if operation_descriptor_container.NODETYPE == pm_names.SetComponentStateOperationDescriptor:  # noqa: SIM300
             if op_target_entity.node_type in (pm_names.MdsDescriptor,
@@ -64,7 +64,7 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
         params.operation_instance.current_value = value
         with self._mdib.component_state_transaction() as mgr:
             for proposed_state in value:
-                entity = self._mdib.entities.handle(proposed_state.DescriptorHandle)
+                entity = self._mdib.entities.by_handle(proposed_state.DescriptorHandle)
                 if entity.state.is_component_state:
                     self._logger.info('updating %s with proposed component state', entity.state)
                     entity.state.update_from_other_container(

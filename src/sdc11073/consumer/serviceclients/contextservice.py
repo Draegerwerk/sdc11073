@@ -42,7 +42,7 @@ class ContextServiceClient(HostedServiceClient):
         mdib = self._mdib_wref()
         if mdib is None:
             raise ApiUsageError('no mdib information')
-        context_entity = mdib.entities.handle(descriptor_handle)
+        context_entity = mdib.entities.by_handle(descriptor_handle)
         if handle is None:
             cls = data_model.get_state_container_class(context_entity.descriptor.STATE_QNAME)
             obj = cls(descriptor_container=context_entity.descriptor)

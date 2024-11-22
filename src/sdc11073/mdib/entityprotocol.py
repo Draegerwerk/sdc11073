@@ -66,27 +66,27 @@ class EntityGetterProtocol(Protocol): # pragma: no cover
     Use the EntityTransactionProtocol to write data back to the mdib.
     """
 
-    def handle(self, handle: str) -> EntityTypeProtocol | None:
+    def by_handle(self, handle: str) -> EntityTypeProtocol | None:
         """Return entity with given descriptor handle."""
         ...
 
-    def context_handle(self, handle: str) -> MultiStateEntityProtocol | None:
+    def by_context_handle(self, handle: str) -> MultiStateEntityProtocol | None:
         """Return multi state entity that contains a state with given handle."""
         ...
 
-    def node_type(self, node_type: QName) -> list[EntityTypeProtocol]:
+    def by_node_type(self, node_type: QName) -> list[EntityTypeProtocol]:
         """Return all entities with given node type."""
         ...
 
-    def parent_handle(self, parent_handle: str | None) -> list[EntityTypeProtocol]:
+    def by_parent_handle(self, parent_handle: str | None) -> list[EntityTypeProtocol]:
         """Return all entities with given parent handle."""
         ...
 
-    def coding(self, coding: Coding) -> list[EntityTypeProtocol]:
+    def by_coding(self, coding: Coding) -> list[EntityTypeProtocol]:
         """Return all entities with equivalent Coding."""
         ...
 
-    def coded_value(self, coded_value: CodedValue) -> list[EntityTypeProtocol]:
+    def by_coded_value(self, coded_value: CodedValue) -> list[EntityTypeProtocol]:
         """Return all entities with equivalent CodedValue."""
         ...
 

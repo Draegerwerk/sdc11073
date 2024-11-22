@@ -1,7 +1,7 @@
 """The module implements the base class for consumer and provider specific mdib implementations."""
 from __future__ import annotations
 
-from threading import Lock
+from threading import RLock
 from typing import TYPE_CHECKING
 
 from sdc11073 import observableproperties as properties
@@ -41,7 +41,7 @@ class EntityMdibBase:
         self.sequence_id = ''  # needs to be set to a reasonable value by derived class
         self.instance_id = None  # None or an unsigned int
         self.log_prefix = ''
-        self.mdib_lock = Lock()
+        self.mdib_lock = RLock()
 
         self._get_mdib_response_node: LxmlElement | None = None
         self._mdib_node: LxmlElement | None = None

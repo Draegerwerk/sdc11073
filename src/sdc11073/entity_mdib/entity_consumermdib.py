@@ -69,14 +69,14 @@ class EntityGetter:
         self._entities = entities
         self._mdib = mdib
 
-    def handle(self, handle: str) -> ConsumerEntityType | None:
+    def by_handle(self, handle: str) -> ConsumerEntityType | None:
         """Return entity with given handle."""
         try:
             return self._mk_entity(handle)
         except KeyError:
             return None
 
-    def node_type(self, node_type: QName) -> list[EntityTypeProtocol]:
+    def by_node_type(self, node_type: QName) -> list[EntityTypeProtocol]:
         """Return all entities with given node type."""
         ret = []
         for handle, entity in self._entities.items():
@@ -84,7 +84,7 @@ class EntityGetter:
                 ret.append(self._mk_entity(handle))
         return ret
 
-    def parent_handle(self, parent_handle: str | None) -> list[EntityTypeProtocol]:
+    def by_parent_handle(self, parent_handle: str | None) -> list[EntityTypeProtocol]:
         """Return all entities with given parent handle."""
         ret = []
         for handle, entity in self._entities.items():
@@ -92,7 +92,7 @@ class EntityGetter:
                 ret.append(self._mk_entity(handle))
         return ret
 
-    def coding(self, coding: Coding) -> list[EntityTypeProtocol]:
+    def by_coding(self, coding: Coding) -> list[EntityTypeProtocol]:
         """Return all entities with given Coding."""
         ret = []
         for handle, xml_entity in self._entities.items():
@@ -100,7 +100,7 @@ class EntityGetter:
                 ret.append(self._mk_entity(handle))
         return ret
 
-    def coded_value(self, coded_value: CodedValue) -> list[EntityTypeProtocol]:
+    def by_coded_value(self, coded_value: CodedValue) -> list[EntityTypeProtocol]:
         """Return all entities with given Coding."""
         ret = []
         for handle, xml_entity in self._entities.items():

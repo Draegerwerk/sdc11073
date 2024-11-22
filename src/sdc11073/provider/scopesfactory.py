@@ -14,7 +14,7 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
     pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scope = ScopesType()
-    loc_entities = mdib.entities.node_type(pm_names.LocationContextDescriptor)
+    loc_entities = mdib.entities.by_node_type(pm_names.LocationContextDescriptor)
     assoc_loc = []
     for ent in loc_entities:
         assoc_loc.extend([loc for loc in ent.states.values() if
@@ -30,7 +30,7 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                              (pm_names.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
                              (pm_names.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
                              (pm_names.MeansContextDescriptor, 'sdc.ctxt.mns')):
-        entities = mdib.entities.node_type(nodetype)
+        entities = mdib.entities.by_node_type(nodetype)
         for entity in entities:
             states = entity.states
             assoc_st = [s for s in states if s.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
@@ -55,7 +55,7 @@ def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
     pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scopes = set()
-    entities = mdib.entities.node_type(pm_names.MdsDescriptor)
+    entities = mdib.entities.by_node_type(pm_names.MdsDescriptor)
     for entity in entities:
         if entity.descriptor.Type is not None:
             coding_systems = '' if entity.descriptor.Type.CodingSystem == pm_types.DEFAULT_CODING_SYSTEM \

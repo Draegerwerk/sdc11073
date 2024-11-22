@@ -77,7 +77,7 @@ class GenericAudioPauseProvider(ProviderRole):
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
 
-        alert_system_entities = self._mdib.entities.node_type(pm_names.AlertSystemDescriptor)
+        alert_system_entities = self._mdib.entities.by_node_type(pm_names.AlertSystemDescriptor)
         if len(alert_system_entities) == 0:
             self._logger.warning('_set_global_audio_pause called, but no AlertSystemDescriptor in mdib found')
             return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
@@ -99,7 +99,7 @@ class GenericAudioPauseProvider(ProviderRole):
                                       as_entity.handle)
 
                     # handle all audible alert signals of this alert system
-                    all_alert_signal_entities = self._mdib.entities.node_type(
+                    all_alert_signal_entities = self._mdib.entities.by_node_type(
                         pm_names.AlertSignalDescriptor)
                     child_alert_signals = [d for d in all_alert_signal_entities if d.parent_handle == as_entity.handle]
                     audible_child_alert_signals = [d for d in child_alert_signals if
@@ -131,7 +131,7 @@ class GenericAudioPauseProvider(ProviderRole):
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
         with self._mdib.alert_state_transaction() as mgr:
-            alert_system_entities = self._mdib.entities.node_type(pm_names.AlertSystemDescriptor)
+            alert_system_entities = self._mdib.entities.by_node_type(pm_names.AlertSystemDescriptor)
             if len(alert_system_entities) == 0:
                 self._logger.warning('_cancel_global_audio_pause called, but no AlertSystemDescriptor in mdib found')
                 return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FAILED)
@@ -150,13 +150,13 @@ class GenericAudioPauseProvider(ProviderRole):
                         ssa.State = pm_types.AlertActivation.ON
                     self._logger.info('_cancel_global_audio_pause: set alert system "%s" to ON', as_entity.handle)
                     # handle all audible alert signals of this alert system
-                    all_alert_signal_entities = self._mdib.entities.node_type(pm_names.AlertSignalDescriptor)
+                    all_alert_signal_entities = self._mdib.entities.by_node_type(pm_names.AlertSignalDescriptor)
                     child_alert_signals = [e for e in all_alert_signal_entities if
                                                    e.parent_handle == as_entity.handle]
                     audible_child_alert_signals = [d for d in child_alert_signals if
                                                    d.descriptor.Manifestation == pm_types.AlertSignalManifestation.AUD]
                     for aud_signal in audible_child_alert_signals:
-                        alert_condition_entity = self._mdib.entities.handle(aud_signal.descriptor.ConditionSignaled)
+                        alert_condition_entity = self._mdib.entities.by_handle(aud_signal.descriptor.ConditionSignaled)
                         if alert_condition_entity.state.Presence:
                             # set signal back to 'ON'
                             if aud_signal.state.ActivationState == pm_types.AlertActivation.PAUSED:
@@ -187,12 +187,12 @@ class AudioPauseProvider(GenericAudioPauseProvider):
         ops = []
         # in this case only the top level sco shall have the additional operations.
         # Check if this is the top level sco (parent is mds)
-        parent_entity = self._mdib.entities.handle(sco.sco_descriptor_container.parent_handle)
+        parent_entity = self._mdib.entities.by_handle(sco.sco_descriptor_container.parent_handle)
         if pm_names.MdsDescriptor != parent_entity.descriptor.NODETYPE:
             return ops
         operation_cls_getter = sco.operation_cls_getter
         # find mds for this sco
-        mds_entity = self._mdib.entities.handle(parent_entity.descriptor.source_mds)
+        mds_entity = self._mdib.entities.by_handle(parent_entity.descriptor.source_mds)
         if mds_entity is None:
             raise ValueError(f"no source mds found for entity {parent_entity.handle}")
 

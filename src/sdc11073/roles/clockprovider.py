@@ -39,9 +39,9 @@ class GenericSDCClockProvider(ProviderRole):
         super().init_operations(sco)
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
-        clock_entities = self._mdib.entities.node_type(pm_names.ClockDescriptor)
+        clock_entities = self._mdib.entities.by_node_type(pm_names.ClockDescriptor)
         if len(clock_entities) == 0:
-            mds_entities = self._mdib.entities.node_type(pm_names.MdsDescriptor)
+            mds_entities = self._mdib.entitiesby_.node_type(pm_names.MdsDescriptor)
             if len(mds_entities) == 0:
                 self._logger.info('empty mdib, cannot create a clock descriptor')
                 return
@@ -92,11 +92,11 @@ class GenericSDCClockProvider(ProviderRole):
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
 
-        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
 
         # look for clock entities that are a direct child of this mds
         mds_handle = op_target_entity.descriptor.source_mds or op_target_entity.handle
-        clock_entities = self._mdib.entities.node_type(pm_names.ClockDescriptor)
+        clock_entities = self._mdib.entities.by_node_type(pm_names.ClockDescriptor)
         clock_entities = [c for c in clock_entities if c.parent_handle == mds_handle]
 
         if len(clock_entities) == 0:
@@ -119,11 +119,11 @@ class GenericSDCClockProvider(ProviderRole):
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
 
-        op_target_entity = self._mdib.entities.handle(params.operation_instance.operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
 
         # look for clock entities that are a direct child of this mds
         mds_handle = op_target_entity.descriptor.source_mds or op_target_entity.handle
-        clock_entities = self._mdib.entities.node_type(pm_names.ClockDescriptor)
+        clock_entities = self._mdib.entities.by_node_type(pm_names.ClockDescriptor)
         clock_entities = [c for c in clock_entities if c.parent_handle == mds_handle]
 
         if len(clock_entities) == 0:
