@@ -22,9 +22,6 @@ from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.namespaces import WSA_ANONYMOUS
 from sdc11073.pysoap.soapclientpool import SoapClientPool
-
-# import ProductProtocol, WaveformProviderProtocol here for code cov. :(
-from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol  # noqa: TCH001
 from sdc11073.xml_types import mex_types
 from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
@@ -42,6 +39,7 @@ if TYPE_CHECKING:
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
+    from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol
     from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.pm_types import InstanceIdentifier
     from sdc11073.xml_types.wsd_types import ScopesType

@@ -282,9 +282,9 @@ class MultiStateEntity(_EntityBase):
                 orig = states_dict[state.Handle]
                 state.update_from_other_container(orig)
             except KeyError:
-                self.states.pop(state.handle)
+                self.states.pop(state.Handle)
         # add new states
-        for handle in states_dict:
+        for handle, _ in states_dict.items():
             if handle not in self.states:
                 self.states[handle] = states_dict[handle].mk_copy()
 

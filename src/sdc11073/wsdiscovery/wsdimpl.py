@@ -347,7 +347,7 @@ class WSDiscovery:
         already_known_service = self._remote_services.get(service.epr)
         if not already_known_service:
             self._remote_services[service.epr] = service
-            self._logger.info('new remote %r', service)
+            self._logger.info('new remote epr="%s" x_addrs=%r', service.epr, service.x_addrs)
             return
 
         if service.metadata_version == already_known_service.metadata_version:
