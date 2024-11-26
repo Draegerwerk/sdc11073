@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success() || failure()  # upload artifacts also if test stage failed
         with:
-          name: unittest_reports
+          name: unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           retention-days: 5
 
@@ -110,7 +110,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success() || failure()  # upload artifacts also if test stage failed
         with:
-          name: pytest_logs
+          name: pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
           path: pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
           retention-days: 5
 
