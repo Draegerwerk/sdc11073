@@ -408,13 +408,14 @@ class SdcClient(object):
                 subscribe_actions = set(available_actions) - notSubscribedActionsSet
                 if not subscribe_periodic_reports:
                     subscribe_actions -= set(periodic_actions)
-                try:
-                    self._subscribe(dpwsHosted, subscribe_actions,
-                                    self._onAnyStateEventReport)
-                except Exception as ex:
-                    self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
-                    self._logger.error('startAll: could not subscribe: error = {}, actions= {}',
-                                       traceback.format_exc(), subscribe_actions)
+                if subscribe_actions:
+                    try:
+                        self._subscribe(dpwsHosted, subscribe_actions,
+                                        self._onAnyStateEventReport)
+                    except Exception as ex:
+                        self.all_subscribed = False  # => do not log errors when mdib versions are missing in notifications
+                        self._logger.error('startAll: could not subscribe: error = {}, actions= {}',
+                                           traceback.format_exc(), subscribe_actions)
 
         # connect self.isConnected observable to allSubscriptionsOkay observable in subscriptionsmanager
         def setIsConnected(isOk):
