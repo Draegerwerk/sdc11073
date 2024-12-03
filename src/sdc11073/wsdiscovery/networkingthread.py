@@ -20,7 +20,7 @@ from lxml import etree
 
 from sdc11073 import commlog
 from sdc11073.exceptions import ValidationError
-from sdc11073.wsdiscovery.common import MULTICAST_IPV4_ADDRESS, MULTICAST_OUT_TTL, message_reader
+from sdc11073.wsdiscovery.common import MULTICAST_IPV4_ADDRESS, message_reader
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -208,6 +208,8 @@ class NetworkingThread:
                             self._logger.debug('incoming message already known: %s (from %r, Id %s).',
                                                received_message.action, addr, mid)
                             continue
+                        self._logger.debug('new incoming message: %s (from %r, Id %s).',
+                                           received_message.action, addr, mid)
                         self._known_message_ids.appendleft(mid)
                         self._wsd.handle_received_message(received_message, addr)
                 except Exception:  # noqa: BLE001
