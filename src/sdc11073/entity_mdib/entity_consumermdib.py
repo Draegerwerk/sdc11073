@@ -144,7 +144,7 @@ class EntityConsumerMdib(EntityMdibBase):
 
     def __init__(self,
                  sdc_client: SdcConsumer,
-                 extras_cls: type | None = None,
+                 extras_cls: Callable[[EntityConsumerMdib, loghelper.LoggerAdapter], Any] | None = None,
                  max_realtime_samples: int = 100):
         """Construct a ConsumerMdib instance.
 
