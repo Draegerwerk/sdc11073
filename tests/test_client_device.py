@@ -22,6 +22,7 @@ from sdc11073 import loghelper
 from sdc11073 import namespaces
 from sdc11073 import observableproperties
 from sdc11073 import pmtypes
+from sdc11073.definitions_sdc import SDC_v1_Definitions
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import ClientMdibContainer
 from sdc11073.mdib import clientmdib
@@ -1755,6 +1756,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             else:
                 self.assertTrue(False, 'HTTPReturnCodeError not raised')
+
+    def test_subscribe_not_all(self):
+        self.sdcClient_Final.stopAll()
+        with mock.patch.object(self.sdcClient_Final._logger, 'warning') as mock_logger:
+            self.sdcClient_Final.startAll(notSubscribedActions=[SDC_v1_Definitions.Actions.OperationInvokedReport])
+        self.assertFalse(self.sdcClient_Final.all_subscribed)
+        mock_logger.assert_any_call('startAll: no actions to subscribe for service_id = {}', 'SetService')
 
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):

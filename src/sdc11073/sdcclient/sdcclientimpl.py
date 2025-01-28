@@ -408,6 +408,9 @@ class SdcClient(object):
                 subscribe_actions = set(available_actions) - notSubscribedActionsSet
                 if not subscribe_periodic_reports:
                     subscribe_actions -= set(periodic_actions)
+                if not subscribe_actions:
+                    self._logger.warning('startAll: no actions to subscribe for service_id = {}', service_id)
+                    continue
                 try:
                     self._subscribe(dpwsHosted, subscribe_actions,
                                     self._onAnyStateEventReport)
