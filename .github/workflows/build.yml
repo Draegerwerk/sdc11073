@@ -79,7 +79,7 @@ jobs:
         run: pip install ${{ matrix.distribution }}[test]
 
       - name: Detect suffix on ubuntu
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-22.04' }}
         run: |
           echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
 
