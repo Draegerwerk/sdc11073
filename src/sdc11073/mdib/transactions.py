@@ -256,13 +256,11 @@ class DescriptorTransaction(_TransactionBase):
         ent_dict = {ent.handle: ent for ent in entities}
         while len(written_handles) < len(ent_dict):
             for handle, ent in ent_dict.items():
-                write_now = True
-                if (ent.parent_handle is not None
-                        and ent.parent_handle in ent_dict
-                        and ent.parent_handle not in written_handles):
-                        # it has a parent, and parent has not been written yet
-                        write_now = False
+                write_now = not(ent.parent_handle is not None
+                                and ent.parent_handle in ent_dict
+                                and ent.parent_handle not in written_handles)
                 if write_now and handle not in written_handles:
+                    # it has a parent, and parent has not been written yet
                     self.write_entity(ent, adjust_version_counter)
                     written_handles.append(handle)
 
@@ -731,7 +729,7 @@ class ContextStateTransaction(_TransactionBase):
             old_state = self._mdib.context_states.handle.get_one(handle, allow_none=True)
             if state_container is None:
                 # a deleted state : this cannot be communicated via notification.
-                # delete it internal_entity anf that is all
+                # delete in internal_entity, and that is all
                 if old_state is not None:
                     self._state_updates[handle] = TransactionItem(old=old_state, new=None)
                 else:

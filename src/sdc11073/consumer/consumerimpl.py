@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
     from sdc11073.dispatch.request import RequestData
     from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
     from sdc11073.pysoap.soapclient import SoapClientProtocol
@@ -306,7 +307,7 @@ class SdcConsumer:
         self._shared_http_server_param: Any | None = None
         self._check_get_service_param: bool | None = None
 
-    def set_mdib(self, mdib: ConsumerMdib | None):
+    def set_mdib(self, mdib: ConsumerMdib | EntityConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise ApiUsageError('SdcConsumer has already an registered mdib')

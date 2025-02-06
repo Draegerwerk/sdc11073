@@ -274,7 +274,7 @@ class MultiStateEntity(_EntityBase):
         """Update the entity from current data in mdib."""
         super().update()
 
-        all_orig_states = self._mdib.context_states.descriptor_handle.get(self.handle)
+        all_orig_states = self._mdib.context_states.descriptor_handle.get(self.handle, [])
         states_dict = { st.Handle: st for st in all_orig_states}
         # update existing states, remove deleted ones
         for state in list(self.states.values()):
@@ -339,7 +339,7 @@ class EntityGetter:
         state = self._mdib.states.descriptor_handle.get_one(descriptor.Handle)
         return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
 
-    def items(self) -> Iterable[tuple[str, [Entity | MultiStateEntity]]]:
+    def items(self) -> Iterable[tuple[str, Entity | MultiStateEntity]]:
         """Return the items of a dictionary."""
         for descriptor in self._mdib.descriptions.objects:
             yield descriptor.Handle, self._mk_entity(descriptor)

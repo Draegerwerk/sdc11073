@@ -148,7 +148,7 @@ class AbstractDescriptorContainer(ContainerBase):
         return self.Type.CodingSystem if self.Type is not None else None  # pylint:disable=no-member
 
     @property
-    def parent_handle(self) -> str:  # noqa: D102
+    def parent_handle(self) -> str | None:  # noqa: D102
         return self._parent_handle
 
     @parent_handle.setter

@@ -168,7 +168,6 @@ suppress-none-returning = true # https://docs.astral.sh/ruff/settings/#suppress-
 [tool.ruff.lint.flake8-comprehensions]
 allow-dict-calls-with-keyword-arguments = true  # https://docs.astral.sh/ruff/settings/#allow-dict-calls-with-keyword-arguments
 
-
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 120 # https://docs.astral.sh/ruff/settings/#max-doc-length
 

@@ -10,7 +10,6 @@ from sdc11073.mdib.mdibbase import MdibVersionGroup
 if TYPE_CHECKING:
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
-    from sdc11073.xml_utils import LxmlElement
 
 
 class EntityMdibBase:
@@ -43,31 +42,10 @@ class EntityMdibBase:
         self.log_prefix = ''
         self.mdib_lock = RLock()
 
-        self._get_mdib_response_node: LxmlElement | None = None
-        self._mdib_node: LxmlElement | None = None
-        self._md_description_node: LxmlElement | None = None
-        self._md_state_node :LxmlElement | None = None
-
     @property
     def mdib_version_group(self) -> MdibVersionGroup:
         """"Get current version data."""
         return MdibVersionGroup(self.mdib_version, self.sequence_id, self.instance_id)
-
-    def _update_mdib_version_group(self, mdib_version_group: MdibVersionGroup):
-        """Set members and update entries in DOM tree."""
-        mdib_node = self._get_mdib_response_node[0]
-        if mdib_version_group.mdib_version != self.mdib_version:
-            self.mdib_version = mdib_version_group.mdib_version
-            self._get_mdib_response_node.set('MdibVersion', str(mdib_version_group.mdib_version))
-            mdib_node.set('MdibVersion', str(mdib_version_group.mdib_version))
-        if mdib_version_group.sequence_id != self.sequence_id:
-            self.sequence_id = mdib_version_group.sequence_id
-            self._get_mdib_response_node.set('SequenceId', str(mdib_version_group.sequence_id))
-            mdib_node.set('SequenceId', str(mdib_version_group.sequence_id))
-        if mdib_version_group.instance_id != self.instance_id:
-            self.instance_id = mdib_version_group.instance_id
-            self._get_mdib_response_node.set('InstanceId', str(mdib_version_group.instance_id))
-            mdib_node.set('InstanceId', str(mdib_version_group.instance_id))
 
     @property
     def logger(self) -> LoggerAdapter:

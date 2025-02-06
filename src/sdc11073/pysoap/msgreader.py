@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.namespaces import PrefixNamespace
     from sdc11073 import xml_utils
 

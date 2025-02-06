@@ -231,13 +231,12 @@ class ProviderMdibMethods:
         pm_types = self._mdib.data_model.pm_types
         disassociated_state_handles = []
         for state in entity.states.values():
-            if state.Handle == ignored_handle:
+            if state.Handle == ignored_handle or state.ContextAssociation == pm_types.ContextAssociation.NO_ASSOCIATION:
                 # If state is already part of this transaction leave it also untouched, accept what the user wanted.
+                # If state is not associated, also do not touch it.
                 continue
             if state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
                     or state.UnbindingMdibVersion is None:
-                # self._logger.info('disassociate %s, handle=%s', state.NODETYPE.localname,
-                #                   state.Handle)
                 state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
                 if state.UnbindingMdibVersion is None:
                     state.UnbindingMdibVersion = unbinding_mdib_version

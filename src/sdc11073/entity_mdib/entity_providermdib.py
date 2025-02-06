@@ -6,7 +6,7 @@ from collections import defaultdict
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Protocol
 
 from lxml.etree import Element, SubElement
 
@@ -127,7 +127,7 @@ class ProviderEntityGetter:
                     ret.append(internal_entity.mk_entity(self._mdib))
         return ret
 
-    def items(self) -> Iterable[tuple[str, [ProviderEntityType]]]:
+    def items(self) -> Iterable[tuple[str, ProviderEntityType]]:
         """Return the items."""
         with self._mdib.mdib_lock:
             for handle, internal_entity in self._mdib.internal_entities.items():
@@ -159,7 +159,7 @@ class ProviderEntityGetter:
         new_internal_entity = self._mdib.entity_factory(descriptor_container, [])
         if handle in self._mdib.descr_handle_version_lookup:
             # This handle existed before. Use last descriptor version + 1
-            new_internal_entity.descriptor.DescriptorVersion =  self._mdib.descr_handle_version_lookup[handle] + 1
+            new_internal_entity.descriptor.DescriptorVersion = self._mdib.descr_handle_version_lookup[handle] + 1
         if not new_internal_entity.is_multi_state:
             # create a state
             state_cls = self._mdib.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
@@ -174,6 +174,14 @@ class ProviderEntityGetter:
         return len(self._mdib.internal_entities)
 
 
+class ProviderXtraProtocol(Protocol):
+    """Functionality expected by EntityProviderMdib."""
+    def set_initial_content(self,
+                            descriptor_containers: list[AbstractDescriptorContainer],
+                            state_containers: list[AbstractStateContainer]):
+        ...
+
+
 class EntityProviderMdib(EntityMdibBase):
     """Device side implementation of a mdib.
 
@@ -184,12 +192,10 @@ class EntityProviderMdib(EntityMdibBase):
     transaction: TransactionResultProtocol | None = ObservableProperty(fire_only_on_changed_value=False)
     rt_updates = ObservableProperty(fire_only_on_changed_value=False)  # different observable for performance
 
-    # ToDo: keep track of DescriptorVersions and StateVersion in order to allow correct StateVersion after delete/create
-    # new version must be bigger then old version
     def __init__(self,
                  sdc_definitions: type[BaseDefinitions] | None = None,
                  log_prefix: str | None = None,
-                 extra_functionality: type | None = None,
+                 extra_functionality: Callable[[EntityProviderMdib], ProviderXtraProtocol] | None = None,
                  transaction_factory: Callable[[EntityProviderMdib, TransactionType, LoggerAdapter],
                                                 AnyEntityTransactionManagerProtocol] | None = None,
                  ):
@@ -392,7 +398,7 @@ class EntityProviderMdib(EntityMdibBase):
         descriptor_container.sort_child_nodes(node)
         return node
 
-    def reconstruct_mdib(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
+    def reconstruct_mdib(self) -> tuple[xml_utils.LxmlElement, MdibVersionGroup]:
         """Build dom tree from current data.
 
         This method does not include context states!
@@ -400,7 +406,7 @@ class EntityProviderMdib(EntityMdibBase):
         with self.mdib_lock:
             return self._reconstruct_mdib(add_context_states=False), self.mdib_version_group
 
-    def reconstruct_mdib_with_context_states(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
+    def reconstruct_mdib_with_context_states(self) -> tuple[xml_utils.LxmlElement, MdibVersionGroup]:
         """Build dom tree from current data.
 
         This method includes the context states.
@@ -408,7 +414,7 @@ class EntityProviderMdib(EntityMdibBase):
         with self.mdib_lock:
             return self._reconstruct_mdib(add_context_states=True), self.mdib_version_group
 
-    def reconstruct_md_description(self) -> (xml_utils.LxmlElement, MdibVersionGroup):
+    def reconstruct_md_description(self) -> tuple[xml_utils.LxmlElement, MdibVersionGroup]:
         """Build dom tree of descriptors from current data."""
         with self.mdib_lock:
             node = self._reconstruct_md_description()
@@ -449,12 +455,11 @@ class EntityProviderMdib(EntityMdibBase):
         pm = self.data_model.pm_names
         doc_nsmap = self.nsmapper.ns_map
         root_entities = self.entities.by_parent_handle(None)
-        if root_entities:
-            md_description_node = Element(pm.MdDescription,
-                                          attrib={'DescriptionVersion': str(self.mddescription_version)},
-                                          nsmap=doc_nsmap)
-            for root_entity in root_entities:
-                self.make_descriptor_node(root_entity.descriptor, md_description_node, tag=pm.Mds, set_xsi_type=False)
+        md_description_node = Element(pm.MdDescription,
+                                      attrib={'DescriptionVersion': str(self.mddescription_version)},
+                                      nsmap=doc_nsmap)
+        for root_entity in root_entities:
+            self.make_descriptor_node(root_entity.descriptor, md_description_node, tag=pm.Mds, set_xsi_type=False)
         return md_description_node
 
     @classmethod
@@ -482,7 +487,7 @@ class EntityProviderMdib(EntityMdibBase):
     def from_string(cls,
                     xml_text: bytes,
                     protocol_definition: type[BaseDefinitions] | None = None,
-                    xml_reader_class: type[MessageReader] | None = MessageReader,
+                    xml_reader_class: type[MessageReader] = MessageReader,
                     log_prefix: str | None = None) -> EntityProviderMdib:
         """Construct mdib from a string.
 

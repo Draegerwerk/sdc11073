@@ -107,7 +107,7 @@ class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProto
     def get_state_transaction_item(self, handle: str) -> TransactionItem | None:
         """If transaction has a state with given handle, return the transaction-item, otherwise None."""
 
-    def transaction__entity(self, descriptor_handle: str) -> EntityTypeProtocol | None:
+    def transaction_entity(self, descriptor_handle: str) -> EntityTypeProtocol | None:
         """Return the entity in open transaction if it exists.
 
         The descriptor can already be part of the transaction, and e.g. in pre_commit handlers of role providers

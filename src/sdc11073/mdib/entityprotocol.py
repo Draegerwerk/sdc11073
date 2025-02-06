@@ -22,10 +22,10 @@ class EntityProtocol(Protocol): # pragma: no cover
 
     @property
     def handle(self) -> str:
-        """Return the parent handle of the descriptor."""
+        """Return the handle of the descriptor."""
 
     @property
-    def parent_handle(self) -> str:
+    def parent_handle(self) -> str | None:
         """Return the parent handle of the descriptor."""
 
     @property
@@ -49,7 +49,7 @@ class MultiStateEntityProtocol(Protocol): # pragma: no cover
     def update(self):
         """Update entity with current data in mdib."""
 
-    def new_state(self, handle: str | None = None) -> AbstractMultiStateProtocol:
+    def new_state(self, state_handle: str | None = None) -> AbstractMultiStateProtocol:
         """Create a new state."""
 
 EntityTypeProtocol = Union[EntityProtocol, MultiStateEntityProtocol]

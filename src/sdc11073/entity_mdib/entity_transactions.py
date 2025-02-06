@@ -26,10 +26,10 @@ if TYPE_CHECKING:
         ProviderInternalMultiStateEntity,
         ProviderMultiStateEntity,
     )
-    from .entity_providermdib import EntityProviderMdib, ProviderInternalEntityType
+    from .entity_providermdib import EntityProviderMdib, ProviderEntityType, ProviderInternalEntityType
 
-    AnyProviderEntity = Union[
-        ProviderEntity, ProviderMultiStateEntity, ProviderInternalEntity, ProviderInternalMultiStateEntity]
+    AnyProviderEntity = Union[ProviderEntity, ProviderMultiStateEntity,
+                              ProviderInternalEntity, ProviderInternalMultiStateEntity]
 
 
 class _Modification(Enum):
@@ -42,7 +42,7 @@ class _Modification(Enum):
 class DescriptorTransactionItem:
     """Transaction Item with old and new container."""
 
-    entity: ProviderEntity | ProviderMultiStateEntity | ProviderInternalEntity | ProviderInternalMultiStateEntity
+    entity: AnyProviderEntity
     modification: _Modification
 
 
@@ -83,7 +83,7 @@ def _update_multi_states(mdib: EntityProviderMdib, # noqa: C901
             tmp.StateVersion = old_state.StateVersion + 1
 
 
-def _adjust_version_counters(new_entity: ProviderInternalEntityType,
+def _adjust_version_counters(new_entity: ProviderEntityType,
                              old_entity: ProviderInternalEntityType,
                              increment_descriptor_version: bool = False):
     if increment_descriptor_version:
@@ -173,9 +173,10 @@ class DescriptorTransaction(_TransactionBase):
                  logger: LoggerAdapter):
         super().__init__(provider_mdib, logger)
         self.descriptor_updates: dict[str, DescriptorTransactionItem] = {}
-        self._new_entities: dict[str, ProviderInternalEntity | ProviderInternalMultiStateEntity] = {}
+        self._new_entities: dict[str, ProviderInternalEntityType] = {}
 
-    def transaction__entity(self, descriptor_handle: str) -> ProviderEntity | ProviderMultiStateEntity | None:
+    def transaction_entity(self,
+                           descriptor_handle: str) -> AnyProviderEntity | None:
         """Return the entity in open transaction if it exists.
 
         The descriptor can already be part of the transaction, and e.g. in pre_commit handlers of role providers
@@ -191,7 +192,7 @@ class DescriptorTransaction(_TransactionBase):
         return None
 
     def write_entity(self, # noqa: PLR0912, C901
-                     entity: ProviderEntity | ProviderMultiStateEntity,
+                     entity: ProviderEntityType,
                      adjust_version_counter: bool = True):
         """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
@@ -250,24 +251,22 @@ class DescriptorTransaction(_TransactionBase):
                                                                                    _Modification.insert)
 
     def write_entities(self,
-                       entities: list[ProviderEntity | ProviderMultiStateEntity],
+                       entities: list[ProviderEntityType],
                        adjust_version_counter: bool = True):
         """Write entities in order parents first."""
         written_handles = []
         ent_dict = {ent.handle: ent for ent in entities}
         while len(written_handles) < len(ent_dict):
             for handle, ent in ent_dict.items():
-                write_now = True
-                if (ent.parent_handle is not None
-                        and ent.parent_handle in ent_dict
-                        and ent.parent_handle not in written_handles):
-                        # it has a parent, and parent has not been written yet
-                        write_now = False
+                write_now = not (ent.parent_handle is not None
+                                 and ent.parent_handle in ent_dict
+                                 and ent.parent_handle not in written_handles)
                 if write_now and handle not in written_handles:
+                    # it has a parent, and parent has not been written yet
                     self.write_entity(ent, adjust_version_counter)
                     written_handles.append(handle)
 
-    def remove_entity(self, entity: ProviderEntity | ProviderMultiStateEntity):
+    def remove_entity(self, entity: ProviderEntityType):
         """Remove existing descriptor from mdib."""
         if entity.handle in self.descriptor_updates: # pragma: no cover
             raise ValueError(f'Descriptor {entity.handle} already in updated set!')
@@ -309,11 +308,10 @@ class DescriptorTransaction(_TransactionBase):
 
             # Restrict transaction to only insert, update or delete stuff. No mixes!
             # This simplifies handling a lot!
-            types = [handle for handle in (to_be_deleted_handles, to_be_created_handles, to_be_updated_handles)
-                     if handle]
-            if not types:
+            filled_lists = [lst for lst in (to_be_deleted_handles, to_be_created_handles, to_be_updated_handles) if lst]
+            if not filled_lists:
                 return proc  # nothing changed
-            if len(types) > 1:  # pragma: no cover
+            if len(filled_lists) > 1:  # pragma: no cover
                 raise ValueError('this transaction can only handle one of insert, update, delete!')
 
             for tr_item in self.descriptor_updates.values():
@@ -338,8 +336,6 @@ class DescriptorTransaction(_TransactionBase):
 
                     if internal_entity.is_multi_state:
                         state_update_list.extend(internal_entity.states)
-                        # Todo: update context state handles in mdib
-
                     else:
                         state_update_list.append(internal_entity.state)
 
@@ -349,14 +345,12 @@ class DescriptorTransaction(_TransactionBase):
 
                 elif tr_item.modification == _Modification.delete:
                     # this is a delete operation
-
-                    # Todo: is tr_item.entity always an internal entity?
                     handle = tr_item.entity.descriptor.Handle
                     internal_entity = self._mdib.internal_entities.get(handle)
                     if internal_entity is None:
-                        self._logger.debug(  # noqa: PLE1205
+                        self._logger.info(  # noqa: PLE1205
                             'transaction_manager: cannot remove unknown descriptor Handle={}', handle)
-                        return None
+                        continue
 
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: rm descriptor Handle={}', handle)
@@ -401,8 +395,8 @@ class DescriptorTransaction(_TransactionBase):
                         state_update_list.append(internal_entity.state)
         return proc
 
-    def _update_internal_entity(self, modified_entity: ProviderEntity | ProviderMultiStateEntity,
-                                internal_entity: ProviderInternalEntity | ProviderInternalMultiStateEntity):
+    def _update_internal_entity(self, modified_entity: ProviderEntityType,
+                                internal_entity: ProviderInternalEntityType):
         """Write back information into internal entity."""
         internal_entity.descriptor.update_from_other_container(modified_entity.descriptor)
         if modified_entity.is_multi_state:
@@ -435,7 +429,7 @@ class DescriptorTransaction(_TransactionBase):
 
 
 class StateTransactionBase(_TransactionBase):
-    """Base Class for all transactions that modify states."""
+    """Base Class for all transactions that modify states (except ContextStateTransaction)."""
 
     def __init__(self,
                  provider_mdib: EntityProviderMdib,
@@ -449,6 +443,8 @@ class StateTransactionBase(_TransactionBase):
 
     def write_entity(self, entity: ProviderEntity, adjust_version_counter: bool = True):
         """Update the state of the entity."""
+        if entity.is_multi_state:
+            raise ApiUsageError(f'Multi-state entity not in {self.__class__.__name__}!')
         if not self._is_correct_state_type(entity.state):
             raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
         descriptor_handle = entity.state.DescriptorHandle
@@ -462,6 +458,9 @@ class StateTransactionBase(_TransactionBase):
 
     def write_entities(self, entities: list[ProviderEntity], adjust_version_counter: bool = True):
         """Update the states of entities."""
+        for entity in entities:
+            if entity.is_multi_state:
+                raise ApiUsageError(f'Multi-state entity not in {self.__class__.__name__}!')
         for entity in entities:
             # check all states before writing any of them
             if not self._is_correct_state_type(entity.state):

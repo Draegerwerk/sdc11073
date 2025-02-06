@@ -239,7 +239,7 @@ class ProviderMdib(mdibbase.MdibBase):
     def from_string(cls,
                     xml_text: bytes,
                     protocol_definition: type[BaseDefinitions] | None = None,
-                    xml_reader_class: type[MessageReader] | None = MessageReader,
+                    xml_reader_class: type[MessageReader] = MessageReader,
                     log_prefix: str | None = None) -> ProviderMdib:
         """Construct mdib from a string.
 

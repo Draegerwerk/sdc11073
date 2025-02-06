@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import copy
 import uuid
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, TypeVar
 
 from lxml.etree import QName
 
+from sdc11073.mdib.containerbase import ContainerBase
 from sdc11073.namespaces import QN_TYPE, text_to_qname
 from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.pm_types import CodedValue
+from ..mdib.entityprotocol import EntityProtocol, MultiStateEntityProtocol
 
 if TYPE_CHECKING:
-    from sdc11073.mdib.containerbase import ContainerBase
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
     from sdc11073.mdib.statecontainers import AbstractMultiStateContainer, AbstractStateContainer
     from sdc11073.xml_utils import LxmlElement
@@ -65,7 +66,7 @@ class _XmlEntityBase:
         self.parent_handle = parent_handle
         self.source_mds = source_mds
         self.node_type = node_type  # name of descriptor type
-        self._descriptor = None
+        self._descriptor = descriptor
         self.coded_value: CodedValue | None = None
         self.descriptor = descriptor  # setter updates self._descriptor and self.coded_value
 
@@ -145,7 +146,8 @@ class ConsumerEntityBase:
         handle = source.descriptor.get('Handle')
         self.descriptor: AbstractDescriptorContainer = cls(handle, parent_handle=source.parent_handle)
         self.descriptor.update_from_node(source.descriptor)
-        self.descriptor.set_source_mds(source.source_mds)
+        if source.source_mds is not None:
+            self.descriptor.set_source_mds(source.source_mds)
         self.source_mds = source.source_mds
 
     @property
@@ -167,7 +169,7 @@ class ConsumerEntityBase:
         return f'{self.__class__.__name__} {self.node_type} handle={self.handle}'
 
 
-class ConsumerEntity(ConsumerEntityBase):
+class ConsumerEntity(ConsumerEntityBase, EntityProtocol):
     """Groups descriptor container and state container."""
 
     def __init__(self,
@@ -176,9 +178,7 @@ class ConsumerEntity(ConsumerEntityBase):
         super().__init__(source, mdib)
         self.state: AbstractStateContainer | None = None
         if source.state is not None:
-            cls = mdib.sdc_definitions.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
-            self.state = cls(self.descriptor)
-            self.state.update_from_node(source.state)
+            self._mk_state(source.state)
 
     def update(self):
         """Update the entity from current data in mdib."""
@@ -187,11 +187,19 @@ class ConsumerEntity(ConsumerEntityBase):
             raise ValueError('entity no longer exists in mdib')
         if int(xml_entity.descriptor.get('DescriptorVersion', '0')) != self.descriptor.DescriptorVersion:
             self.descriptor.update_from_node(xml_entity.descriptor)
-        if int(xml_entity.state.get('StateVersion', '0')) != self.state.StateVersion:
-            self.state.update_from_node(xml_entity.state)
+        if xml_entity.state is not None:
+            if self.state is None:
+                self._mk_state(xml_entity.state)
+            elif int(xml_entity.state.get('StateVersion', '0')) != self.state.StateVersion:
+                self.state.update_from_node(xml_entity.state)
+
+    def _mk_state(self, lxml_state: LxmlElement):
+        cls = self._mdib.sdc_definitions.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
+        self.state = cls(self.descriptor)
+        self.state.update_from_node(lxml_state)
 
 
-class ConsumerMultiStateEntity(ConsumerEntityBase):
+class ConsumerMultiStateEntity(ConsumerEntityBase, MultiStateEntityProtocol):
     """Groups descriptor container and list of multi-state containers."""
 
     def __init__(self,
@@ -215,21 +223,18 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
             self.descriptor.update_from_node(xml_entity.descriptor)
 
         for handle, xml_state in xml_entity.states.items():
-            create_new_state = False
             try:
                 existing_state = self.states[handle]
             except KeyError:
-                create_new_state = True
-            else:
-                if existing_state.StateVersion != int(xml_state.get('StateVersion', '0')):
-                    existing_state.update_from_node(xml_state)
-
-            if create_new_state:
+                # create new state
                 xsi_type = get_xsi_type(xml_state)
                 cls = self._mdib.sdc_definitions.data_model.get_state_container_class(xsi_type)
                 state_container = cls(self.descriptor)
                 state_container.update_from_node(xml_state)
                 self.states[handle] = state_container
+            else:
+                if existing_state.StateVersion != int(xml_state.get('StateVersion', '0')):
+                    existing_state.update_from_node(xml_state)
 
         # delete states that are no longer in xml_entity
         for handle in list(self.states.keys()):
@@ -249,7 +254,6 @@ class ConsumerMultiStateEntity(ConsumerEntityBase):
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
         state = cls(descriptor_container=self.descriptor)
         state.Handle = state_handle or self.handle
-        self.states[state.Handle] = state
         return state
 
 
@@ -339,7 +343,8 @@ class ProviderInternalMultiStateEntity(ProviderInternalEntityBase):
         return ProviderMultiStateEntity(self, mdib)
 
 
-def _mk_copy(original: ContainerBase) -> ContainerBase:
+T = TypeVar('T', bound=ContainerBase)
+def _mk_copy(original: T) -> T:
     """Return a deep copy of original without node member."""
     node, original.node = original.node, None
     copied = copy.deepcopy(original)
@@ -446,3 +451,4 @@ class ProviderMultiStateEntity(ProviderEntityBase):
 
 ProviderInternalEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity]
 ProviderEntityType = Union[ProviderEntity, ProviderMultiStateEntity]
+AnyProviderEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity, ]

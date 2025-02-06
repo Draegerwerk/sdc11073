@@ -62,9 +62,16 @@ class EntityProviderMdibMethods:
 
         if location_context_descriptor_handle is None:
             # assume there is only one descriptor in mdib, user has not provided a handle.
-            location_entity = mdib.entities.by_node_type(pm.LocationContextDescriptor)[0]
+            location_entities = mdib.entities.by_node_type(pm.LocationContextDescriptor)
+            if len(location_entities) == 0:
+                location_entity = None
+            else:
+                location_entity = location_entities[0]
         else:
             location_entity = mdib.entities.by_handle(location_context_descriptor_handle)
+
+        if location_entity is None:
+            raise ValueError('no LocationContextDescriptor entity found in mdib')
 
         new_location = location_entity.new_state()
         new_location.update_from_sdc_location(sdc_location)
@@ -214,8 +221,9 @@ class EntityProviderMdibMethods:
         pm_types = self._mdib.data_model.pm_types
         disassociated_state_handles = []
         for state in entity.states.values():
-            if state.Handle == ignored_handle:
+            if state.Handle == ignored_handle or state.ContextAssociation == pm_types.ContextAssociation.NO_ASSOCIATION:
                 # If state is already part of this transaction leave it also untouched, accept what the user wanted.
+                # If state is not associated, also do not touch it.
                 continue
             if state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
                     or state.UnbindingMdibVersion is None:
