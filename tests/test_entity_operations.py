@@ -559,10 +559,6 @@ class TestEntityOperations(unittest.TestCase):
     def test_delayed_processing(self):
         """Verify that flag 'delayed_processing' changes responses as expected."""
         self._init_provider_consumer()
-        logging.getLogger('sdc.client.op_mgr').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.device.op_reg').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.device.SetService').setLevel(logging.DEBUG)
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
         set_service = self.sdc_consumer.client('Set')
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
@@ -606,8 +602,6 @@ class TestEntityOperations(unittest.TestCase):
 
     def test_set_operating_mode(self):
         self._init_provider_consumer()
-        logging.getLogger('sdc.device.subscrMgr').setLevel(logging.DEBUG)
-        logging.getLogger('ssdc.client.subscr').setLevel(logging.DEBUG)
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer)
         consumer_mdib.init_mdib()
 

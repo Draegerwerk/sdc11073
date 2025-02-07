@@ -591,7 +591,7 @@ class EntityConsumerMdib(EntityMdibBase):
             self._update_mdib_version_group(cast(MdibVersionGroup, received_message.mdib_version_group))
 
         handles = []
-        report_parts = received_message.p_msg.msg_node or []  # msg_node can be None
+        report_parts = received_message.p_msg.msg_node if received_message.p_msg.msg_node is not None else []
         for report_part in report_parts:
             for state in report_part:
                 if state.tag == expected_q_name:
