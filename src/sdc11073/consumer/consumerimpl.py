@@ -38,8 +38,8 @@ if TYPE_CHECKING:
     from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
     from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
     from sdc11073.dispatch.request import RequestData
-    from sdc11073.mdib.consumermdib import ConsumerMdib
     from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
+    from sdc11073.mdib.consumermdib import ConsumerMdib
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
     from sdc11073.pysoap.soapclient import SoapClientProtocol
@@ -130,7 +130,8 @@ class _NotificationsSplitter:
     def on_notification(self, message_data: ReceivedMessage):
         observable_name = self._lookup.get(message_data.action)
         if observable_name is None:
-            raise ValueError(f'unknown message {message_data.action}')
+            how_i_hate_this = f'unknown message {message_data.action}'
+            raise ValueError(how_i_hate_this)
         setattr(self._sdc_consumer, observable_name, message_data)
 
     def _mk_lookup(self) -> dict[str, str]:
@@ -163,7 +164,7 @@ class SdcConsumer:
 
     subscription_status = properties.ObservableProperty({})
     # indicates whether all subscriptions have been subscribed to and are renewed successfully
-    is_connected = properties.ObservableProperty(False)
+    is_connected = properties.ObservableProperty(default_value=False)
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
@@ -189,7 +190,7 @@ class SdcConsumer:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location: str,  # noqa: PLR0913
+    def __init__(self, device_location: str,  # noqa: PLR0913 PLR0915
                  sdc_definitions: type[BaseDefinitions],
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
                  epr: str | uuid.UUID | None = None,
@@ -200,7 +201,7 @@ class SdcConsumer:
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
                  force_ssl_connect: bool = False,
-                 alternative_hostname: str | None = None
+                 alternative_hostname: str | None = None,
                  ):
         """Construct a SdcConsumer.
 
@@ -354,8 +355,7 @@ class SdcConsumer:
         p = urlparse(self._http_server.base_url)
         tmp = f'{p.scheme}://{self._alternative_hostname or self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
-        tmp = f'{tmp}{sep}{self.path_prefix}/'
-        return tmp
+        return f'{tmp}{sep}{self.path_prefix}/'
 
     def mk_subscription(self, dpws_hosted: HostedServiceType,
                         filter_type: eventing_types.FilterType,
@@ -469,7 +469,7 @@ class SdcConsumer:
         """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions: Iterable[str] | None = None,
+    def start_all(self, not_subscribed_actions: Iterable[str] | None = None,  #noqa: C901 PLR0915
                   fixed_renew_interval: float | None = None,
                   shared_http_server: Any | None = None,
                   check_get_service: bool = True) -> None:
@@ -585,7 +585,7 @@ class SdcConsumer:
         self._stop_event_sink()
 
     def restart(self):
-        """forget existing data and restart from the beginning."""
+        """Forget existing data and restart from the beginning."""
         mdib = self._mdib  # keep existing mdib connection
         self.stop_all()  # with unsubscribe
         # start with the same parameters as initially
@@ -749,7 +749,7 @@ class SdcConsumer:
                          validate: bool = True,
                          log_prefix: str = '',
                          default_components: SdcConsumerComponents | None = None,
-                         specific_components: SdcConsumerComponents | None = None):
+                         specific_components: SdcConsumerComponents | None = None) -> SdcConsumer:
         """Construct a SdcConsumer from a Service.
 
         :param wsd_service: a wsdiscovery.Service instance
