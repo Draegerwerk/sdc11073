@@ -142,7 +142,8 @@ class ConsumerEntityBase:
 
         cls = mdib.sdc_definitions.data_model.get_descriptor_container_class(source.node_type)
         if cls is None:  # pragma: no cover
-            raise ValueError(f'do not know how to make container from {source.node_type!s}')
+            msg = f'do not know how to make container from {source.node_type!s}'
+            raise ValueError(msg)
         handle = source.descriptor.get('Handle')
         self.descriptor: AbstractDescriptorContainer = cls(handle, parent_handle=source.parent_handle)
         self.descriptor.update_from_node(source.descriptor)
@@ -223,18 +224,16 @@ class ConsumerMultiStateEntity(ConsumerEntityBase, MultiStateEntityProtocol):
             self.descriptor.update_from_node(xml_entity.descriptor)
 
         for handle, xml_state in xml_entity.states.items():
-            try:
-                existing_state = self.states[handle]
-            except KeyError:
+            existing_state = self.states.get(handle)
+            if existing_state is None:
                 # create new state
                 xsi_type = get_xsi_type(xml_state)
                 cls = self._mdib.sdc_definitions.data_model.get_state_container_class(xsi_type)
                 state_container = cls(self.descriptor)
                 state_container.update_from_node(xml_state)
                 self.states[handle] = state_container
-            else:
-                if existing_state.StateVersion != int(xml_state.get('StateVersion', '0')):
-                    existing_state.update_from_node(xml_state)
+            elif existing_state.StateVersion != int(xml_state.get('StateVersion', '0')):
+                existing_state.update_from_node(xml_state)
 
         # delete states that are no longer in xml_entity
         for handle in list(self.states.keys()):
@@ -249,8 +248,8 @@ class ConsumerMultiStateEntity(ConsumerEntityBase, MultiStateEntityProtocol):
         state shall be created on providers side.
         """
         if state_handle in self.states:  # pragma: no cover
-            raise ValueError(
-                f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
+            msg = f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}'
+            raise ValueError(msg)
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
         state = cls(descriptor_container=self.descriptor)
         state.Handle = state_handle or self.handle
@@ -401,7 +400,8 @@ class ProviderEntity(ProviderEntityBase):
         """Update from internal entity."""
         source_entity = self._mdib.internal_entities.get(self.handle)
         if source_entity is None:
-            raise ValueError(f'entity {self.handle} no longer exists in mdib')
+            msg = f'entity {self.handle} no longer exists in mdib'
+            raise ValueError(msg)
         self.descriptor.update_from_other_container(source_entity.descriptor)
         self.state = _mk_copy(source_entity.state)
 
@@ -424,7 +424,8 @@ class ProviderMultiStateEntity(ProviderEntityBase):
         """Update from internal entity."""
         source_entity = self._mdib.internal_entities.get(self.handle)
         if source_entity is None:  # pragma: no cover
-            raise ValueError(f'entity {self.handle} no longer exists in mdib')
+            msg = f'entity {self.handle} no longer exists in mdib'
+            raise ValueError(msg)
         self.descriptor.update_from_other_container(source_entity.descriptor)
         for handle, src_state in source_entity.states.items():
             dest_state = self.states.get(handle)
@@ -440,8 +441,8 @@ class ProviderMultiStateEntity(ProviderEntityBase):
     def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
         """Create a new state."""
         if state_handle in self.states:
-            raise ValueError(
-                f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
+            msg = f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}'
+            raise ValueError(msg)
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
         state = cls(descriptor_container=self.descriptor)
         state.Handle = state_handle or uuid.uuid4().hex
