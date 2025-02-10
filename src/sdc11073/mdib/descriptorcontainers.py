@@ -1,3 +1,4 @@
+"""Definitions of descriptor containers."""
 from __future__ import annotations
 
 import inspect
@@ -47,12 +48,8 @@ def sorted_child_data(obj: Any, member_name: str):
     """:return: an iterator with whatever the members have, starting with base class members"""
     classes = inspect.getmro(obj.__class__)
     for cls in reversed(classes):
-        try:
-            names = cls.__dict__[member_name]  # only access class member of this class, not parent
-            for name in names:
-                yield name
-        except KeyError:
-            continue
+        names = cls.__dict__.get(member_name, [])
+        yield from names
 
 
 class AbstractDescriptorProtocol(Protocol):
@@ -125,7 +122,7 @@ class AbstractDescriptorContainer(ContainerBase):
     _child_elements_order = (ext.Extension, pm_qnames.Type)  # child elements in BICEPS order
     STATE_QNAME = None
     extension_class_lookup: ClassVar[dict[etree.QName, type[pm_types.PropertyBasedPMType]]] = {
-        msg.Retrievability: pm_types.Retrievability
+        msg.Retrievability: pm_types.Retrievability,
     }
 
     def __init__(self, handle: str | None, parent_handle: str | None):
@@ -173,9 +170,9 @@ class AbstractDescriptorContainer(ContainerBase):
                                     skipped_properties: list[str] | None = None):
         """Update own properties with values from other descriptor."""
         if other.Handle != self.Handle:
-            raise ValueError(
-                f'Update from a container with different handle is not possible! '
-                f'Have "{self.Handle}", got "{other.Handle}"')
+            msg = (f'Update from a container with different handle is not possible! '
+                  f'Have "{self.Handle}", got "{other.Handle}"')
+            raise ValueError(msg)
         self._update_from_other(other, skipped_properties)
         self.node = other.node
 
@@ -217,7 +214,8 @@ class AbstractDescriptorContainer(ContainerBase):
             if child.node_types is not None and node_type in child.node_types:
                 set_xsi_type = len(child.node_types) > 1
                 return child.child_qname, set_xsi_type
-        raise ValueError(f'{node_type} not known in child declarations of {self.__class__.__name__}')
+        msg = f'{node_type} not known in child declarations of {self.__class__.__name__}'
+        raise ValueError(msg)
 
     def sort_child_nodes(self, node: xml_utils.LxmlElement) -> None:
         """Bring all child elements of node in correct order (BICEPS schema).
@@ -228,8 +226,9 @@ class AbstractDescriptorContainer(ContainerBase):
         q_names = list(sorted_child_data(self, '_child_elements_order'))
         not_in_order = [n for n in node if n.tag not in q_names]
         if len(not_in_order) > 0:
-            raise ValueError(f'{self.__class__.__name__}: not in Order:{[n.tag for n in not_in_order]} '
-                             f'node={node.tag}, order={[o.localname for o in q_names]}')
+            msg = (f'{self.__class__.__name__}: not in Order:{[n.tag for n in not_in_order]} '
+                  f'node={node.tag}, order={[o.localname for o in q_names]}')
+            raise ValueError(msg)
         all_child_nodes = node[:]
         for child_node in all_child_nodes:
             node.remove(child_node)
@@ -409,20 +408,25 @@ class AbstractMetricDescriptorContainer(AbstractDescriptorContainer):
                                                                           value_class=pm_types.CodedValue)
     Relation: list[pm_types.Relation] = x_struct.SubElementListProperty(pm_qnames.Relation,
                                                                         value_class=pm_types.Relation)
-    MetricCategory: pm_types.MetricCategory = x_struct.EnumAttributeProperty('MetricCategory',
-                                                                             enum_cls=pm_types.MetricCategory,
-                                                                             default_py_value=pm_types.MetricCategory.UNSPECIFIED,
-                                                                             is_optional=False)
+    MetricCategory: pm_types.MetricCategory = x_struct.EnumAttributeProperty(
+        'MetricCategory',
+        enum_cls=pm_types.MetricCategory,
+        default_py_value=pm_types.MetricCategory.UNSPECIFIED,
+        is_optional=False)
     DerivationMethod: pm_types.DerivationMethod | None = x_struct.EnumAttributeProperty('DerivationMethod',
                                                                                         enum_cls=pm_types.DerivationMethod)
     #  There is an implied value defined, but it is complicated, therefore here not implemented:
-    # - If pm:AbstractDescriptor/@MetricCategory is "Set" or "Preset", then the default value of DerivationMethod is "Man"
-    # - If pm:AbstractDescriptor/@MetricCategory is "Clc", "Msrmt", "Rcmm", then the default value of DerivationMethod is "Auto"
-    # - If pm:AbstractDescriptor/@MetricCategory is "Unspec", then no default value is being implied</xsd:documentation>
-    MetricAvailability: pm_types.MetricAvailability = x_struct.EnumAttributeProperty('MetricAvailability',
-                                                                                     enum_cls=pm_types.MetricAvailability,
-                                                                                     default_py_value=pm_types.MetricAvailability.CONTINUOUS,
-                                                                                     is_optional=False)
+    # - If pm:AbstractDescriptor/@MetricCategory is "Set" or "Preset",
+    #         then the default value of DerivationMethod is "Man"
+    # - If pm:AbstractDescriptor/@MetricCategory is "Clc", "Msrmt", "Rcmm",
+    #         then the default value of DerivationMethod is "Auto"
+    # - If pm:AbstractDescriptor/@MetricCategory is "Unspec",
+    #         then no default value is being implied</xsd:documentation>
+    MetricAvailability: pm_types.MetricAvailability = x_struct.EnumAttributeProperty(
+        'MetricAvailability',
+        enum_cls=pm_types.MetricAvailability,
+        default_py_value=pm_types.MetricAvailability.CONTINUOUS,
+        is_optional=False)
     MaxMeasurementTime: DurationType | None = x_struct.DurationAttributeProperty('MaxMeasurementTime')
     MaxDelayTime: DurationType | None = x_struct.DurationAttributeProperty('MaxDelayTime')
     DeterminationPeriod: DurationType | None = x_struct.DurationAttributeProperty('DeterminationPeriod')
