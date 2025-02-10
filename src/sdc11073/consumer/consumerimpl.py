@@ -102,7 +102,7 @@ class HostedServiceDescription:
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
             logging.getLogger(commlog.WSDL).debug(self.wsdl_string)
         except etree.XMLSyntaxError as ex:
-            self._logger.error(  # noqa: PLE1205
+            self._logger.error(  # noqa: PLE1205 TRY400
                 'could not read wsdl from {}: error={}, data=\n{}', actual_path, ex, self.wsdl_bytes)
 
     def __repr__(self) -> str:
@@ -194,13 +194,13 @@ class SdcConsumer:
                  sdc_definitions: type[BaseDefinitions],
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
                  epr: str | uuid.UUID | None = None,
-                 validate: bool = True,
+                 validate: bool = True,  # noqa: FBT001 FBT002
                  log_prefix: str = '',
                  default_components: SdcConsumerComponents | None = None,
                  specific_components: SdcConsumerComponents | None = None,
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
-                 force_ssl_connect: bool = False,
+                 force_ssl_connect: bool = False,  # noqa: FBT001 FBT002
                  alternative_hostname: str | None = None,
                  ):
         """Construct a SdcConsumer.
@@ -370,7 +370,7 @@ class SdcConsumer:
         """
         subscription = self._subscription_mgr.mk_subscription(dpws_hosted, filter_type)
 
-        def update_subscription_status(subscription_filter: str, status: bool):
+        def update_subscription_status(subscription_filter: str, status: bool):   # noqa: FBT001
             subscription_status = dict(self.subscription_status)
             subscription_status[subscription_filter] = status
             self.subscription_status = subscription_status  # trigger observable if status has changed
@@ -472,7 +472,7 @@ class SdcConsumer:
     def start_all(self, not_subscribed_actions: Iterable[str] | None = None,  #noqa: C901 PLR0915
                   fixed_renew_interval: float | None = None,
                   shared_http_server: Any | None = None,
-                  check_get_service: bool = True) -> None:
+                  check_get_service: bool = True) -> None:   # noqa: FBT001 FBT002
         """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
 
         :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
@@ -505,7 +505,8 @@ class SdcConsumer:
 
         # only GetService is mandatory!!!
         if check_get_service and self.get_service_client is None:
-            raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
+            msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
+            raise RuntimeError(msg)
 
         self._start_event_sink(shared_http_server)
 
@@ -556,7 +557,7 @@ class SdcConsumer:
                         self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
                     except Exception:  # noqa: BLE001
                         self.all_subscribed = False  # => don't log errors when mdib versions are missing
-                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
+                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205 TRY400
                                            traceback.format_exc(), subscribe_actions)
 
         def _update_is_connected(subscription_status: dict[str, bool]):
