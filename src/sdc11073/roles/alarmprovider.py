@@ -55,7 +55,6 @@ class AlertDelegateProvider(providerbase.ProviderRole):
                 if 'Presence' in modifiable_data \
                         and 'ActivationState' in modifiable_data \
                         and 'ActualSignalGenerationDelay' in modifiable_data:
-                    # ToDo:  check for appropriate code
                     operation = self._mk_operation_from_operation_descriptor(
                         operation_descriptor_container,
                         operation_cls_getter,
@@ -219,7 +218,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
                     self._update_alert_system_states(entities_needing_update)
                     mgr.write_entities(entities_needing_update)
         except Exception: # noqa: BLE001
-            self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())
+            self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())  # noqa: TRY400
 
     def _get_alert_system_entities_needing_update(self) -> list[EntityProtocol]:
         pm_names = self._mdib.data_model.pm_names
@@ -234,7 +233,7 @@ class AlertSystemStateMaintainer(providerbase.ProviderRole):
                         if time.time() - last_self_check >= self_check_period - self.self_check_safety_margin:
                             entities_needing_update.append(alert_system_entity)
         except Exception: # noqa: BLE001
-            self._logger.error('_get_alert_system_entities_needing_update: %s', traceback.format_exc())
+            self._logger.error('_get_alert_system_entities_needing_update: %s', traceback.format_exc())  # noqa: TRY400
         return entities_needing_update
 
     def _update_alert_system_states(self, alert_system_entities: Iterable[EntityProtocol]):
@@ -282,7 +281,8 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
             # nothing to do
             return
 
-        all_alert_signal_entities = self._mdib.entities.by_node_type(self._mdib.data_model.pm_names.AlertSignalDescriptor)
+        all_alert_signal_entities = self._mdib.entities.by_node_type(
+            self._mdib.data_model.pm_names.AlertSignalDescriptor)
         changed_alert_condition_states = self._get_changed_alert_condition_states(transaction)
         # change AlertSignal Settings in order to be compliant with changed Alert Conditions
         for changed_alert_condition_state in changed_alert_condition_states:
@@ -378,7 +378,7 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
         for entity in remote_alert_signal_entities:
             if (entity.state.Presence != pm_types.AlertSignalPresence.OFF
                     and entity.state.Location == pm_types.AlertSignalPrimaryLocation.REMOTE):
-                active_delegate_manifestations.append(entity.descriptor.Manifestation)
+                active_delegate_manifestations.append(entity.descriptor.Manifestation) # noqa: PERF401
 
         # this lookup gives the values that a local signal shall have:
         # key = (Cond.Presence, isDelegated): value = (SignalState.ActivationState, SignalState.Presence)
@@ -392,7 +392,8 @@ class AlertPreCommitHandler(providerbase.ProviderRole):
         for entity in local_alert_signal_entities:
             tr_item = transaction.get_state_transaction_item(entity.handle)
             if tr_item is None:
-                is_delegated = entity.descriptor.Manifestation in active_delegate_manifestations  # is this local signal delegated?
+                # is this local signal delegated?
+                is_delegated = entity.descriptor.Manifestation in active_delegate_manifestations
                 activation, presence = lookup[(changed_alert_condition.Presence, is_delegated)]
 
                 if entity.state.ActivationState != activation or entity.state.Presence != presence:

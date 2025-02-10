@@ -194,7 +194,8 @@ class AudioPauseProvider(GenericAudioPauseProvider):
         # find mds for this sco
         mds_entity = self._mdib.entities.by_handle(parent_entity.descriptor.source_mds)
         if mds_entity is None:
-            raise ValueError(f"no source mds found for entity {parent_entity.handle}")
+            msg = f"no source mds found for entity {parent_entity.handle}"
+            raise ValueError(msg)
 
         activate_op_cls = operation_cls_getter(pm_names.ActivateOperationDescriptor)
         if not self._set_global_audio_pause_operations:
