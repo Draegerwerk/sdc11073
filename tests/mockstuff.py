@@ -218,7 +218,6 @@ class SomeDeviceEntityMdib(SdcProvider):
         device_mdib_container.instance_id = 1  # set the optional value
         # set Metadata
         mds_entities = device_mdib_container.entities.by_parent_handle(None)
-        # Todo: write that meta data back to dom tree
         for mds_entity in mds_entities:
             mds_descriptor = mds_entity.descriptor
             if mds_descriptor.MetaData is not None:

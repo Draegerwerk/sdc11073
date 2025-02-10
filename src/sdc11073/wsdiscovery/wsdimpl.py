@@ -300,7 +300,6 @@ class WSDiscovery:
 
     def get_active_addresses(self) -> list[str]:
         """Get active addresses."""
-        # TODO: do not return list
         return [str(self._adapter.ip)]
 
     def set_remote_service_hello_callback(self,
@@ -486,7 +485,7 @@ class WSDiscovery:
         try:
             func: Callable[[ReceivedMessage, str], None] = lookup[action]
         except KeyError:
-            self._logger.error('unknown action %s', action)
+            self._logger.error('unknown action %s', action)  # noqa: TRY400
         else:
             func(received_message, addr_from)
 
@@ -640,7 +639,9 @@ class WSDiscoverySingleAdapter(WSDiscovery):
         adapters = [adapter for adapter in network.get_adapters() if adapter.name == adapter_name]
         if not adapters:
             names = [adapter.name for adapter in network.get_adapters()]
-            raise RuntimeError(f'No adapter named "{adapter_name}", have {names}')
+            msg = f'No adapter named "{adapter_name}", have {names}'
+            raise RuntimeError(msg)
         if len(adapters) > 1:
-            raise RuntimeError(f'Found multiple possible ip addresses on adapter "{adapter_name}"')
+            msg = f'Found multiple possible ip addresses on adapter "{adapter_name}"'
+            raise RuntimeError(msg)
         super().__init__(adapters[0].ip, logger, multicast_port)
