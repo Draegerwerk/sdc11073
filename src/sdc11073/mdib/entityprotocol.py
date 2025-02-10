@@ -55,8 +55,6 @@ class MultiStateEntityProtocol(Protocol): # pragma: no cover
 EntityTypeProtocol = Union[EntityProtocol, MultiStateEntityProtocol]
 
 
-# Todo: should node_type be QName (this assumes that we talk XML) or just Any to be generic?
-
 class EntityGetterProtocol(Protocol): # pragma: no cover
     """The protocol defines a way to access mdib data as entities.
 

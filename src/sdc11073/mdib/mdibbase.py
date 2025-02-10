@@ -278,20 +278,21 @@ class MultiStateEntity(_EntityBase):
         states_dict = { st.Handle: st for st in all_orig_states}
         # update existing states, remove deleted ones
         for state in list(self.states.values()):
-            try:
-                orig = states_dict[state.Handle]
+            orig = states_dict.get(state.Handle)
+            if orig is not None:
                 state.update_from_other_container(orig)
-            except KeyError:
+            else:
                 self.states.pop(state.Handle)
         # add new states
-        for handle, _ in states_dict.items():
+        for handle, _ in states_dict.items(): # noqa: PERF102
             if handle not in self.states:
                 self.states[handle] = states_dict[handle].mk_copy()
 
     def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
         """Create a new state."""
         if state_handle in self.states:
-            raise ValueError(f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}')
+            msg = f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}'
+            raise ValueError(msg)
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)
         state = cls(descriptor_container=self.descriptor)
         state.Handle = state_handle or uuid.uuid4().hex
@@ -353,7 +354,8 @@ class EntityGetter:
 class MdibBase:
     """Base class with common functionality of provider mdib and consumer mdib."""
 
-    # these observables can be used to watch any change of data in the mdib. They contain lists of containers that were changed.
+    # these observables can be used to watch any change of data in the mdib.
+    # They contain lists of containers that were changed.
     # every transaction (device mdib) or notification (client mdib) will report their changes here.
     metrics_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     waveform_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
@@ -460,10 +462,10 @@ class MdibBase:
                 my_multikey.add_object(state_container)
             except KeyError as ex:
                 if state_container.is_context_state:
-                    self._logger.error('add_state_containers: {}, Handle={}; {}',  # noqa: PLE1205
+                    self._logger.error('add_state_containers: {}, Handle={}; {}',  # noqa: PLE1205 TRY400
                                        ex, state_container.Handle, traceback.format_exc())
                 else:
-                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}',  # noqa: PLE1205
+                    self._logger.error('add_state_containers: {}, DescriptorHandle={}; {}',  # noqa: PLE1205 TRY400
                                        ex, state_container.DescriptorHandle, traceback.format_exc())
 
     def _reconstruct_md_description(self) -> xml_utils.LxmlElement:
@@ -581,8 +583,8 @@ class MdibBase:
                 if len(matching_metrics) == 1:
                     return matching_metrics[0]
                 if len(matching_metrics) > 1:
-                    raise ValueError(
-                        f'found multiple metrics for vmd={vmd_code} channel={channel_code} metric={metric_code}')
+                    msg = f'found multiple metrics for vmd={vmd_code} channel={channel_code} metric={metric_code}'
+                    raise ValueError(msg)
         return None
 
     def get_operations_for_metric(self,
