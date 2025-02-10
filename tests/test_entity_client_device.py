@@ -509,7 +509,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             mgr.write_entity(patient_entity)
-            tmp = mgr.transaction_entity(patient_entity.handle)  # call for code cov.
+            mgr.transaction_entity(patient_entity.handle)  # call for code cov.
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         entity = consumer_mdib.entities.by_handle(patient_entity.handle)
         # now DescriptorVersion shall be incremented
