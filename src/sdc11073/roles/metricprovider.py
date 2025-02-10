@@ -79,7 +79,6 @@ class GenericMetricProvider(ProviderRole):
 
     def _set_metric_state(self, params: ExecuteParameters) -> ExecuteResult:
         """Handle SetMetricState calls (ExecuteHandler)."""
-        # ToDo: consider ModifiableDate attribute
         proposed_states = params.operation_request.argument
         params.operation_instance.current_value = proposed_states
 

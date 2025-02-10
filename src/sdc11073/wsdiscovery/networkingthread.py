@@ -164,7 +164,7 @@ class NetworkingThread:
         while not self._quit_recv_event.is_set():
             try:
                 self._recv_messages()
-            except:  # noqa: E722. use bare except here, this is a catch-all that keeps thread running.
+            except:  # noqa: E722 PERF203 use bare except here, this is a catch-all that keeps thread running.
                 self._logger.exception('exception during receiving')
 
     def _recv_messages(self):
@@ -189,7 +189,7 @@ class NetworkingThread:
         while not self._quit_recv_event.is_set():
             try:
                 incoming = self._read_queue.get(timeout=0.1)
-            except queue.Empty:
+            except queue.Empty:  # noqa: PERF203
                 pass
             else:
                 addr, data = incoming
@@ -213,7 +213,7 @@ class NetworkingThread:
                         self._known_message_ids.appendleft(mid)
                         self._wsd.handle_received_message(received_message, addr)
                 except Exception:  # noqa: BLE001
-                    self._logger.error('_run_q_read: %s', traceback.format_exc())
+                    self._logger.error('_run_q_read: %s', traceback.format_exc())  # noqa: TRY400
 
     def _send_msg(self, q_msg: _EnqueuedMessage, s: socket.socket):
         msg = q_msg.msg

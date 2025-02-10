@@ -200,7 +200,8 @@ class GenericWaveformProvider:
         for entity in all_waveform_entities:
             min_value = 0
             max_value = 1
-            sample_period = entity.descriptor.SamplePeriod if entity.descriptor.SamplePeriod > 0 else 0.01  # guarantee usable value
+            # guarantee usable value:
+            sample_period = entity.descriptor.SamplePeriod if entity.descriptor.SamplePeriod > 0 else 0.01
             try:
                 tech_range = entity.descriptor.TechnicalRange[0]
             except IndexError:
