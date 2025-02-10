@@ -157,6 +157,8 @@ max-doc-length = 120 # https://docs.astral.sh/ruff/settings/#max-doc-length
     "PLR0915",  # Too many statements
     "PLR2004",  # Magic value used in comparison
     "E722",  # Do not use bare `except`
+    "PT009", # Use a regular `assert` instead of unittest-style `assertEqual`
+    "PT027", # Use `pytest.raises` instead of unittest-style `assertRaises`
 ]
 
 [tool.mypy]

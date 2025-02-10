@@ -73,8 +73,8 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def _init_provider_consumer(self, mdib_file: str = default_mdib_file):
-        self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(self.wsd, None, mdib_file,
-                                                             max_subscription_duration=10)  # shorter duration for faster tests
+        self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(
+            self.wsd, None, mdib_file, max_subscription_duration=10)  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_provider.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -121,7 +121,8 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         new_states = []
         entities = self.sdc_provider.mdib.entities.by_node_type(pm.PatientContextDescriptor)
         if len(entities) != 1:
-            raise ValueError(f'cannot handle {len(entities)} instances of PatientContextDescriptor')
+            msg = f'cannot handle {len(entities)} instances of PatientContextDescriptor'
+            raise ValueError(msg)
         entity = entities[0]
         handles = []
         for i in range(count):
@@ -136,7 +137,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
+            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)  # noqa: DTZ001
             handles.append(st.Handle)
             new_states.append(st)
 
@@ -205,7 +206,6 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
     def test_metric_update(self):
         self._init_provider_consumer()
-        msg_reader = self.sdc_consumer.msg_reader
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
@@ -237,7 +237,6 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
     def test_alert_update(self):
         self._init_provider_consumer()
-        msg_reader = self.sdc_consumer.msg_reader
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
@@ -261,7 +260,6 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
     def test_component_update(self):
         self._init_provider_consumer()
-        msg_reader = self.sdc_consumer.msg_reader
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
 
@@ -283,7 +281,6 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
     def test_operational_state_update(self):
         self._init_provider_consumer()
-        msg_reader = self.sdc_consumer.msg_reader
         consumer_mdib = EntityConsumerMdib(self.sdc_consumer, max_realtime_samples=297)
         consumer_mdib.init_mdib()
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib._entities))
