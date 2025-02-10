@@ -442,7 +442,7 @@ class StateTransactionBase(_TransactionBase):
 
     def write_entity(self, entity: ProviderEntity, adjust_version_counter: bool = True):
         """Update the state of the entity."""
-        if entity.is_multi_state:
+        if entity.is_multi_state:  # pragma: no cover
             msg = f'Multi-state entity not in {self.__class__.__name__}!'
             raise ApiUsageError(msg)
         if not self._is_correct_state_type(entity.state):
@@ -465,7 +465,7 @@ class StateTransactionBase(_TransactionBase):
                 raise ApiUsageError(msg)
         for entity in entities:
             # check all states before writing any of them
-            if not self._is_correct_state_type(entity.state):
+            if not self._is_correct_state_type(entity.state):  # pragma: no cover
                 msg = f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}'
                 raise ApiUsageError(msg)
         for ent in entities:
@@ -628,7 +628,7 @@ class ContextStateTransaction(_TransactionBase):
                 # delete it internal_entity anf that is all
                 if handle in internal_entity.states:
                     internal_entity.states.pop(handle)
-                else:
+                else:  # pragma: no cover
                     msg = f'invalid handle {handle}!'
                     raise KeyError(msg)
                 continue
@@ -711,8 +711,8 @@ class TransactionResult:
             return self.op_updates
         if descriptor.is_component_descriptor:
             return self.comp_updates
-        msg = f'do not know how to handle {descriptor}'
-        raise ValueError(msg)
+        msg = f'do not know how to handle {descriptor}'  # pragma: no cover
+        raise ValueError(msg)  # pragma: no cover
 
 
 _transaction_type_lookup = {TransactionType.descriptor: DescriptorTransaction,

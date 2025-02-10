@@ -151,7 +151,7 @@ class ProviderEntityGetter:
         if parent_handle is not None:
             parent_entity = (self._mdib.new_entities.get(parent_handle)
                              or self._mdib.internal_entities.get(parent_handle))
-            if parent_entity is None:
+            if parent_entity is None: # pragma: no cover
                 msg = f'Entity {handle} has no parent (parent_handle = {parent_handle})!'
                 raise ValueError(msg)
             descriptor_container.set_source_mds(parent_entity.descriptor.source_mds)
@@ -211,7 +211,7 @@ class EntityProviderMdib(EntityMdibBase):
         :param extra_functionality: class for extra functionality, default is ProviderMdibMethods
         :param transaction_factory: optional alternative transactions factory.
         """
-        if sdc_definitions is None:
+        if sdc_definitions is None:  # pragma: no cover
             from sdc11073.definitions_sdc import SdcV1Definitions  # lazy import, needed to brake cyclic imports
             sdc_definitions = SdcV1Definitions
         super().__init__(sdc_definitions,

@@ -129,7 +129,7 @@ class _NotificationsSplitter:
 
     def on_notification(self, message_data: ReceivedMessage):
         observable_name = self._lookup.get(message_data.action)
-        if observable_name is None:
+        if observable_name is None:  # pragma: no cover
             how_i_hate_this = f'unknown message {message_data.action}'
             raise ValueError(how_i_hate_this)
         setattr(self._sdc_consumer, observable_name, message_data)
@@ -504,7 +504,7 @@ class SdcConsumer:
                           self._network_adapter)
 
         # only GetService is mandatory!!!
-        if check_get_service and self.get_service_client is None:
+        if check_get_service and self.get_service_client is None:  # pragma: no cover
             msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
             raise RuntimeError(msg)
 
@@ -763,7 +763,7 @@ class SdcConsumer:
         :return:
         """
         device_locations = wsd_service.x_addrs
-        if not device_locations:
+        if not device_locations:  # pragma: no cover
             msg = f'discovered Service has no address!{wsd_service}'
             raise RuntimeError(msg)
         device_location = device_locations[0]

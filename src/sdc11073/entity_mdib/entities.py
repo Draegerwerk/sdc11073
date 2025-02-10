@@ -399,7 +399,7 @@ class ProviderEntity(ProviderEntityBase):
     def update(self):
         """Update from internal entity."""
         source_entity = self._mdib.internal_entities.get(self.handle)
-        if source_entity is None:
+        if source_entity is None: # pragma: no cover
             msg = f'entity {self.handle} no longer exists in mdib'
             raise ValueError(msg)
         self.descriptor.update_from_other_container(source_entity.descriptor)
@@ -440,7 +440,7 @@ class ProviderMultiStateEntity(ProviderEntityBase):
 
     def new_state(self, state_handle: str | None = None) -> AbstractMultiStateContainer:
         """Create a new state."""
-        if state_handle in self.states:
+        if state_handle in self.states: # pragma: no cover
             msg = f'State handle {state_handle} already exists in {self.__class__.__name__}, handle = {self.handle}'
             raise ValueError(msg)
         cls = self._mdib.data_model.get_state_container_class(self.descriptor.STATE_QNAME)

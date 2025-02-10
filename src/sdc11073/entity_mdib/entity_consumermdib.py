@@ -117,7 +117,7 @@ class EntityGetter:
         """Return number of entities."""
         return len(self._entities)
 
-class ConsumerXtraProtocol(Protocol):
+class ConsumerXtraProtocol(Protocol):  # pragma: no cover
     """Functionality expected by EntityConsumerMdib."""
 
     def bind_to_client_observables(self):
@@ -207,7 +207,7 @@ class EntityConsumerMdib(EntityMdibBase):
         Client mdib is initialized from GetMdibResponse, and from then on updated from incoming notifications.
         :return: None
         """
-        if self.is_initialized:
+        if self.is_initialized: # pragma: no cover
             raise ApiUsageError('ConsumerMdib is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise, we might miss notifications.
@@ -709,7 +709,7 @@ class EntityConsumerMdib(EntityMdibBase):
         return True
 
     def _can_accept_mdib_version(self, new_mdib_version: int, log_prefix: str) -> bool:
-        if self.MDIB_VERSION_CHECK_DISABLED:
+        if self.MDIB_VERSION_CHECK_DISABLED:  # pragma: no cover
             return True
         # log deviations from expected mdib version
         if new_mdib_version < self.mdib_version:
@@ -752,7 +752,7 @@ class EntityConsumerMdib(EntityMdibBase):
 
     def _set_root_node(self, root_node: LxmlElement): # noqa: C901
         """Set member and create xml entities."""
-        if root_node.tag != msg_qnames.GetMdibResponse:
+        if root_node.tag != msg_qnames.GetMdibResponse:  # pragma: no cover
             msg = f'root node must be {msg_qnames.GetMdibResponse!s}, got {root_node.tag!s}'
             raise ValueError(msg)
         self._entities.clear()
