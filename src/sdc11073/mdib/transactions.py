@@ -96,7 +96,8 @@ class DescriptorTransaction(_TransactionBase):
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
             if tr_container.new is None:  # descriptor is deleted in this transaction!
-                raise ValueError(f'The descriptor {descriptor_handle} is going to be deleted')
+                msg = f'The descriptor {descriptor_handle} is going to be deleted'
+                raise ValueError(msg)
             return tr_container.new
         return self._mdib.descriptions.handle.get_one(descriptor_handle)
 
@@ -107,9 +108,11 @@ class DescriptorTransaction(_TransactionBase):
         """Add a new descriptor to mdib."""
         descriptor_handle = descriptor_container.Handle
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
+            msg = f'Descriptor {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
         if descriptor_handle in self._mdib.descriptions.handle:
-            raise ValueError(f'Cannot create descriptor {descriptor_handle}, it already exists in mdib!')
+            msg = f'Cannot create descriptor {descriptor_handle}, it already exists in mdib!'
+            raise ValueError(msg)
         if adjust_descriptor_version:
             self._mdib.descriptions.set_version(descriptor_container)
         if descriptor_container.source_mds is None:
@@ -117,8 +120,8 @@ class DescriptorTransaction(_TransactionBase):
         self.descriptor_updates[descriptor_handle] = TransactionItem(None, descriptor_container)
         if state_container is not None:
             if state_container.DescriptorHandle != descriptor_handle:
-                raise ValueError(
-                    f'State {state_container.DescriptorHandle} does not match descriptor {descriptor_handle}!')
+                msg = f'State {state_container.DescriptorHandle} does not match descriptor {descriptor_handle}!'
+                raise ValueError(msg)
             self.add_state(state_container)
 
     def remove_descriptor(self, descriptor_handle: str):
@@ -126,7 +129,8 @@ class DescriptorTransaction(_TransactionBase):
         if not descriptor_handle:
             raise ValueError('No handle for descriptor specified')
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
+            msg = f'Descriptor {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
         orig_descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
         self.descriptor_updates[descriptor_handle] = TransactionItem(orig_descriptor_container, None)
 
@@ -135,7 +139,8 @@ class DescriptorTransaction(_TransactionBase):
         if not descriptor_handle:
             raise ValueError('No handle for descriptor specified')
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError(f'Descriptor {descriptor_handle} already in updated set!')
+            msg = f'Descriptor {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
         orig_descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
         descriptor_container = orig_descriptor_container.mk_copy()
         descriptor_container.increment_descriptor_version()
@@ -159,7 +164,8 @@ class DescriptorTransaction(_TransactionBase):
 
         updates_dict = self._get_states_update(descriptor)
         if descriptor_handle in updates_dict:
-            raise ValueError(f'State {descriptor_handle} already in updated set!')
+            msg = f'State {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
 
         mdib_state = self._mdib.states.descriptor_handle.get_one(descriptor_handle, allow_none=False)
         copied_state = mdib_state.mk_copy()
@@ -185,7 +191,8 @@ class DescriptorTransaction(_TransactionBase):
             key = state_container.DescriptorHandle
 
         if key in updates_dict:
-            raise ValueError(f'State {key} already in updated set!')
+            msg = f'State {key} already in updated set!'
+            raise ValueError(msg)
 
         # set reference to descriptor
         state_container.descriptor_container = self.descriptor_updates[state_container.DescriptorHandle].new
@@ -203,7 +210,8 @@ class DescriptorTransaction(_TransactionBase):
         """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
         if descriptor_handle in self.descriptor_updates:
-            raise ValueError(f'Entity {descriptor_handle} already in updated set!')
+            msg = f'Entity {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
 
         tmp_descriptor = copy.deepcopy(entity.descriptor)
         orig_descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle, allow_none=True)
@@ -368,8 +376,8 @@ class DescriptorTransaction(_TransactionBase):
                 # the state has also been updated directly in transaction.
                 # update descriptor version
                 if tr_item.new is None:
-                    raise ValueError(
-                        f'State deleted? That should not be possible! handle = {descriptor_container.Handle}')
+                    msg = f'State deleted? That should not be possible! handle = {descriptor_container.Handle}'
+                    raise ValueError(msg)
                 tr_item.new.update_descriptor_version()
             else:
                 old_state = self._mdib.states.descriptor_handle.get_one(
@@ -404,7 +412,8 @@ class DescriptorTransaction(_TransactionBase):
             return self.operational_state_updates
         if getattr(container, 'is_context_state', False) or getattr(container, 'is_context_descriptor', False):
             return self.context_state_updates
-        raise NotImplementedError(f'Unhandled case {container}')
+        msg = f'Unhandled case {container}'
+        raise NotImplementedError(msg)
 
 
 class StateTransactionBase(_TransactionBase):
@@ -433,11 +442,13 @@ class StateTransactionBase(_TransactionBase):
         if not descriptor_handle:
             raise ValueError('No handle for state specified')
         if descriptor_handle in self._state_updates:
-            raise ValueError(f'State {descriptor_handle} already in updated set!')
+            msg = f'State {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
 
         mdib_state = self._mdib.states.descriptor_handle.get_one(descriptor_handle, allow_none=False)
         if not self._is_correct_state_type(mdib_state):
-            raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {mdib_state}')
+            msg = f'Wrong data type in transaction! {self.__class__.__name__}, {mdib_state}'
+            raise ApiUsageError(msg)
 
         copied_state = mdib_state.mk_copy()
         copied_state.increment_state_version()
@@ -451,10 +462,12 @@ class StateTransactionBase(_TransactionBase):
     def write_entity(self, entity: Entity, adjust_version_counter: bool = True):
         """Insert or update an entity."""
         if entity.is_multi_state:
-            raise ApiUsageError(f'Transaction {self.__class__.__name__} does not handle multi state entities!')
+            msg = f'Transaction {self.__class__.__name__} does not handle multi state entities!'
+            raise ApiUsageError(msg)
 
         if not self._is_correct_state_type(entity.state):
-                raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
+            msg = f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}'
+            raise ApiUsageError(msg)
 
         descriptor_handle = entity.state.DescriptorHandle
         old_state = self._mdib.states.descriptor_handle.get_one(entity.handle, allow_none=True)
@@ -476,10 +489,12 @@ class StateTransactionBase(_TransactionBase):
         for entity in entities:
             # check all states before writing any of them
             if entity.is_multi_state:
-                raise ApiUsageError(f'Transaction {self.__class__.__name__} does not handle multi state entities!')
+                msg = f'Transaction {self.__class__.__name__} does not handle multi state entities!'
+                raise ApiUsageError(msg)
 
             if not self._is_correct_state_type(entity.state):
-                    raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
+                msg = f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}'
+                raise ApiUsageError(msg)
         for ent in entities:
             self.write_entity(ent, adjust_version_counter)
 
@@ -632,7 +647,8 @@ class ContextStateTransaction(_TransactionBase):
         if not context_state_handle:
             raise ValueError('No handle for context state specified')
         if context_state_handle in self._state_updates:
-            raise ValueError(f'Context State {context_state_handle} already in updated set!')
+            msg = f'Context State {context_state_handle} already in updated set!'
+            raise ValueError(msg)
 
         mdib_state = self._mdib.context_states.handle.get_one(context_state_handle, allow_none=False)
         copied_state = mdib_state.mk_copy()
@@ -651,15 +667,18 @@ class ContextStateTransaction(_TransactionBase):
         if not descriptor_handle:
             raise ValueError('No descriptor handle for context state specified')
         if context_state_handle in self._state_updates:
-            raise ValueError(f'Context State {context_state_handle} already in updated set!')
+            msg = f'Context State {context_state_handle} already in updated set!'
+            raise ValueError(msg)
         descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle, allow_none=False)
         if not descriptor_container.is_context_descriptor:
-            raise ValueError(f'Descriptor {descriptor_handle} is not a context descriptor!')
+            msg = f'Descriptor {descriptor_handle} is not a context descriptor!'
+            raise ValueError(msg)
 
         if context_state_handle is not None:
             old_state_container = self._mdib.context_states.handle.get_one(context_state_handle, allow_none=True)
             if old_state_container is not None:
-                raise ValueError(f'ContextState with handle={context_state_handle} already exists')
+                msg = f'ContextState with handle={context_state_handle} already exists'
+                raise ValueError(msg)
 
         new_state_container = self._mdib.data_model.mk_state_container(descriptor_container)
         new_state_container.Handle = context_state_handle or uuid.uuid4().hex
@@ -733,7 +752,8 @@ class ContextStateTransaction(_TransactionBase):
                 if old_state is not None:
                     self._state_updates[handle] = TransactionItem(old=old_state, new=None)
                 else:
-                    raise KeyError(f'invalid handle {handle}!')
+                    msg = f'invalid handle {handle}!'
+                    raise KeyError(msg)
                 continue
             if not state_container.is_context_state:
                 raise ApiUsageError('Transaction only handles context states!')

@@ -209,7 +209,8 @@ class ProviderMdibMethods:
                 if self._mdib.current_transaction:
                     tmp = self._mdib.current_transaction.actual_descriptor(parent_handle)
             if tmp is None:
-                raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
+                msg = f'could not find mds descriptor for handle {container.Handle}'
+                raise KeyError(msg)
         return None
 
     def set_source_mds(self, descriptor_container: AbstractDescriptorProtocol):

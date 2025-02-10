@@ -50,8 +50,6 @@ class ProviderEntityGetter(mdibbase.EntityGetter):
         ):
             raise ValueError('Handle already exists')
 
-        # Todo: check if this node type is a valid child of parent
-
         descr_cls = self._mdib.data_model.get_descriptor_container_class(node_type)
         descriptor_container = descr_cls(handle=handle, parent_handle=parent_handle)
         parent_descriptor = self._mdib.descriptions.handle.get_one(parent_handle)
