@@ -66,7 +66,7 @@ def _update_multi_states(mdib: EntityProviderMdib, # noqa: C901
             # delete it internal_entity anf that is all
             if handle in old.states:
                 old.states.pop(handle)
-            else:
+            else:  # pragma: no cover
                 msg = f'invalid handle {handle}!'
                 raise KeyError(msg)
             continue
@@ -460,7 +460,7 @@ class StateTransactionBase(_TransactionBase):
     def write_entities(self, entities: list[ProviderEntity], adjust_version_counter: bool = True):
         """Update the states of entities."""
         for entity in entities:
-            if entity.is_multi_state:
+            if entity.is_multi_state: # pragma: no cover
                 msg = f'Multi-state entity not in {self.__class__.__name__}!'
                 raise ApiUsageError(msg)
         for entity in entities:
@@ -632,7 +632,7 @@ class ContextStateTransaction(_TransactionBase):
                     msg = f'invalid handle {handle}!'
                     raise KeyError(msg)
                 continue
-            if not state_container.is_context_state:
+            if not state_container.is_context_state:  # pragma: no cover
                 raise ApiUsageError('Transaction only handles context states!')
 
             old_state = internal_entity.states.get(state_container.Handle)
