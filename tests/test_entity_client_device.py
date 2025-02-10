@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from lxml import etree as etree_
 
 from sdc11073 import loghelper, observableproperties
+from sdc11073 import commlog
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
-NOTIFICATION_TIMEOUT = 10  # also jenkins related value
+NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
 default_mdib_file = 'mdib_two_mds.xml'
