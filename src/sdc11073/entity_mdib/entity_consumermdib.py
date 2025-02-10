@@ -390,7 +390,8 @@ class EntityConsumerMdib(EntityMdibBase):
             self._update_mdib_version_group(cast(MdibVersionGroup, received_message.mdib_version_group))
 
         handles = []
-        states = received_message.p_msg.msg_node or []  # msg_node can be None
+        # msg_node can be None
+        states = received_message.p_msg.msg_node if received_message.p_msg.msg_node is None else []
         for state in states:
             # _update_state replaces states in entity and optionally in self.get_mdib_response_node
             handles.append(self._update_state(state, pm_qnames.RealTimeSampleArrayMetricState)) # noqa: PERF401
@@ -408,7 +409,8 @@ class EntityConsumerMdib(EntityMdibBase):
         new_descriptors_handles = []
         updated_descriptors_handles = []
         deleted_descriptors_handles = []
-        report_parts = received_message.p_msg.msg_node or []  # msg_node can be None
+        # msg_node can be None
+        report_parts = received_message.p_msg.msg_node if received_message.p_msg.msg_node is None else []
         for report_part in report_parts:
             parent_handle = report_part.attrib.get('ParentDescriptor')  # can be None in case of MDS, but that is ok
             source_mds_handle = report_part[0].text
