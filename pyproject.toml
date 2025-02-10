@@ -124,7 +124,10 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "S311", # https://docs.astral.sh/ruff/rules/suspicious-non-cryptographic-random-usage/
     "SIM102", # collapsible-if
     "T201", # https://docs.astral.sh/ruff/rules/print/
-    "TRY003", #https://docs.astral.sh/ruff/rules/raise-vanilla-args/
+    "TRY003", # https://docs.astral.sh/ruff/rules/raise-vanilla-args/
+    "FBT001", # https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
+    "FBT002", # https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
+    "FBT003", # https://docs.astral.sh/ruff/rules/boolean-positional-value-in-call/
 ]
 
 [tool.ruff.format]

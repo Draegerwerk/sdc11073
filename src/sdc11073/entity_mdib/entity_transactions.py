@@ -52,9 +52,11 @@ def _update_multi_states(mdib: EntityProviderMdib, # noqa: C901
                          modified_handles: list[str] | None = None,
                          adjust_state_version: bool = True):
     if not (new.is_multi_state and old.is_multi_state):  # pragma: no cover
-        raise ApiUsageError('_update_multi_states only handles context states!')
+        msg = '_update_multi_states only handles context states!'
+        raise ApiUsageError(msg)
     if new.handle != old.handle:  # pragma: no cover
-        raise ApiUsageError(f'_update_multi_states found different handles! new={new.handle}, old = {old.handle}')
+        msg = f'_update_multi_states found different handles! new={new.handle}, old = {old.handle}'
+        raise ApiUsageError(msg)
     if not modified_handles:
         modified_handles = new.states.keys()
     for handle in modified_handles:
@@ -65,7 +67,8 @@ def _update_multi_states(mdib: EntityProviderMdib, # noqa: C901
             if handle in old.states:
                 old.states.pop(handle)
             else:
-                raise KeyError(f'invalid handle {handle}!')
+                msg = f'invalid handle {handle}!'
+                raise KeyError(msg)
             continue
 
         old_state = old.states.get(state_container.Handle)
@@ -187,7 +190,8 @@ class DescriptorTransaction(_TransactionBase):
         tr_container = self.descriptor_updates.get(descriptor_handle)
         if tr_container is not None:
             if tr_container.modification == _Modification.delete:
-                raise ValueError(f'The descriptor {descriptor_handle} is going to be deleted')
+                msg = f'The descriptor {descriptor_handle} is going to be deleted'
+                raise ValueError(msg)
             return tr_container.entity
         return None
 
@@ -197,7 +201,8 @@ class DescriptorTransaction(_TransactionBase):
         """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
         if descriptor_handle in self.descriptor_updates:  # pragma: no cover
-            raise ValueError(f'Entity {descriptor_handle} already in updated set!')
+            msg = f'Entity {descriptor_handle} already in updated set!'
+            raise ValueError(msg)
         tmp = copy.copy(entity)  # cannot deepcopy entity, that would deepcopy also whole mdib
         tmp.descriptor = copy.deepcopy(entity.descriptor) # do not touch original entity of user
         if entity.is_multi_state:
@@ -269,7 +274,8 @@ class DescriptorTransaction(_TransactionBase):
     def remove_entity(self, entity: ProviderEntityType):
         """Remove existing descriptor from mdib."""
         if entity.handle in self.descriptor_updates: # pragma: no cover
-            raise ValueError(f'Descriptor {entity.handle} already in updated set!')
+            msg = f'Descriptor {entity.handle} already in updated set!'
+            raise ValueError(msg)
 
         internal_entity = self._mdib.internal_entities.get(entity.handle)
         if internal_entity:
@@ -371,15 +377,11 @@ class DescriptorTransaction(_TransactionBase):
                     # increment DescriptorVersion if a child descriptor is added or deleted.
                     if internal_entity.parent_handle is not None \
                             and internal_entity.parent_handle not in to_be_deleted_handles:
-                        # Todo: whole parent chain should be checked
                         # only update parent if it is not also deleted in this transaction
                         self._increment_parent_descriptor_version(proc, internal_entity)
                 else:
                     # this is an update operation
                     # it does not change tr_item.entity!
-                    # Todo: check if state changes exist and raise an error in that case.
-                    #       It simplifies code a lot if it is safe to assume that states
-                    #       have not changed in description transaction
                     updated_entity = tr_item.entity
                     internal_entity = self._mdib.internal_entities[tr_item.entity.handle]
                     self._logger.debug(  # noqa: PLE1205
@@ -404,8 +406,6 @@ class DescriptorTransaction(_TransactionBase):
                                  modified_entity,
                                  internal_entity,
                                  None)
-            # Todo: update context state handles in mdib
-
         else:
             internal_entity.state.update_from_other_container(modified_entity.state)
 
@@ -423,7 +423,6 @@ class DescriptorTransaction(_TransactionBase):
             # parent entity can never be a multi state
             parent_entity.state.increment_state_version()
 
-            # Todo: why make a copy?
             proc.descr_updated.append(parent_entity.descriptor.mk_copy())
             updates_list.append(parent_entity.state.mk_copy())
 
@@ -444,9 +443,11 @@ class StateTransactionBase(_TransactionBase):
     def write_entity(self, entity: ProviderEntity, adjust_version_counter: bool = True):
         """Update the state of the entity."""
         if entity.is_multi_state:
-            raise ApiUsageError(f'Multi-state entity not in {self.__class__.__name__}!')
+            msg = f'Multi-state entity not in {self.__class__.__name__}!'
+            raise ApiUsageError(msg)
         if not self._is_correct_state_type(entity.state):
-            raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
+            msg = f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}'
+            raise ApiUsageError(msg)
         descriptor_handle = entity.state.DescriptorHandle
         old_state = self._mdib.internal_entities[descriptor_handle].state
         tmp = copy.deepcopy(entity.state)  # do not touch original entity of user
@@ -460,11 +461,13 @@ class StateTransactionBase(_TransactionBase):
         """Update the states of entities."""
         for entity in entities:
             if entity.is_multi_state:
-                raise ApiUsageError(f'Multi-state entity not in {self.__class__.__name__}!')
+                msg = f'Multi-state entity not in {self.__class__.__name__}!'
+                raise ApiUsageError(msg)
         for entity in entities:
             # check all states before writing any of them
             if not self._is_correct_state_type(entity.state):
-                raise ApiUsageError(f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}')
+                msg = f'Wrong data type in transaction! {self.__class__.__name__}, {entity.state}'
+                raise ApiUsageError(msg)
         for ent in entities:
             self.write_entity(ent, adjust_version_counter)
 
@@ -626,7 +629,8 @@ class ContextStateTransaction(_TransactionBase):
                 if handle in internal_entity.states:
                     internal_entity.states.pop(handle)
                 else:
-                    raise KeyError(f'invalid handle {handle}!')
+                    msg = f'invalid handle {handle}!'
+                    raise KeyError(msg)
                 continue
             if not state_container.is_context_state:
                 raise ApiUsageError('Transaction only handles context states!')
@@ -707,7 +711,8 @@ class TransactionResult:
             return self.op_updates
         if descriptor.is_component_descriptor:
             return self.comp_updates
-        raise ValueError(f'do not know how to handle {descriptor}')
+        msg = f'do not know how to handle {descriptor}'
+        raise ValueError(msg)
 
 
 _transaction_type_lookup = {TransactionType.descriptor: DescriptorTransaction,

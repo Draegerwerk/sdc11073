@@ -62,8 +62,8 @@ def _mk_internal_entity(descriptor_container: AbstractDescriptorContainer,
         return ProviderInternalEntity(descriptor_container, states[0])
     if len(states) == 0:
         return ProviderInternalEntity(descriptor_container, None)
-    raise ValueError(
-        f'found {len(states)} states for {descriptor_container.NODETYPE} handle = {descriptor_container.Handle}')
+    msg = f'found {len(states)} states for {descriptor_container.NODETYPE} handle = {descriptor_container.Handle}'
+    raise ValueError(msg)
 
 
 class ProviderEntityGetter:
@@ -96,7 +96,7 @@ class ProviderEntityGetter:
         with self._mdib.mdib_lock:
             for internal_entity in self._mdib.internal_entities.values():
                 if node_type == internal_entity.descriptor.NODETYPE:
-                    ret.append(internal_entity.mk_entity(self._mdib))
+                    ret.append(internal_entity.mk_entity(self._mdib)) # noqa: PERF401
         return ret
 
     def by_parent_handle(self, parent_handle: str | None) -> list[ProviderEntityType]:
@@ -105,16 +105,17 @@ class ProviderEntityGetter:
         with self._mdib.mdib_lock:
             for internal_entity in self._mdib.internal_entities.values():
                 if internal_entity.descriptor.parent_handle == parent_handle:
-                    ret.append(internal_entity.mk_entity(self._mdib))
+                    ret.append(internal_entity.mk_entity(self._mdib))   # noqa: PERF401
         return ret
 
     def by_coding(self, coding: Coding) -> list[ProviderEntityType]:
         """Return all entities with given Coding."""
         ret = []
-        with self._mdib.mdib_lock:
+        with (self._mdib.mdib_lock):
             for internal_entity in self._mdib.internal_entities.values():
-                if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(coding):
-                    ret.append(internal_entity.mk_entity(self._mdib))
+                if internal_entity.descriptor.Type is not None \
+                    and internal_entity.descriptor.Type.is_equivalent(coding):
+                    ret.append(internal_entity.mk_entity(self._mdib))  # noqa: PERF401
         return ret
 
     def by_coded_value(self, coded_value: CodedValue) -> list[ProviderEntityType]:
@@ -124,7 +125,7 @@ class ProviderEntityGetter:
             for internal_entity in self._mdib.internal_entities.values():
                 if internal_entity.descriptor.Type is not None and internal_entity.descriptor.Type.is_equivalent(
                         coded_value):
-                    ret.append(internal_entity.mk_entity(self._mdib))
+                    ret.append(internal_entity.mk_entity(self._mdib))  # noqa: PERF401
         return ret
 
     def items(self) -> Iterable[tuple[str, ProviderEntityType]]:
@@ -151,7 +152,8 @@ class ProviderEntityGetter:
             parent_entity = (self._mdib.new_entities.get(parent_handle)
                              or self._mdib.internal_entities.get(parent_handle))
             if parent_entity is None:
-                raise ValueError(f'Entity {handle} has no parent (parent_handle = {parent_handle})!')
+                msg = f'Entity {handle} has no parent (parent_handle = {parent_handle})!'
+                raise ValueError(msg)
             descriptor_container.set_source_mds(parent_entity.descriptor.source_mds)
         else:
             descriptor_container.set_source_mds(descriptor_container.Handle)  # this is a mds, source_mds is itself
@@ -166,7 +168,8 @@ class ProviderEntityGetter:
             new_internal_entity.state = state_cls(descriptor_container)
             if handle in self._mdib.state_handle_version_lookup:
                 new_internal_entity.state.StateVersion = self._mdib.state_handle_version_lookup[handle] + 1
-        self._mdib.new_entities[descriptor_container.Handle] = new_internal_entity  # write to mdib in process_transaction
+        # write to mdib in process_transaction
+        self._mdib.new_entities[descriptor_container.Handle] = new_internal_entity
         return new_internal_entity.mk_entity(self._mdib)
 
     def __len__(self) -> int:
@@ -176,9 +179,11 @@ class ProviderEntityGetter:
 
 class ProviderXtraProtocol(Protocol):
     """Functionality expected by EntityProviderMdib."""
+
     def set_initial_content(self,
                             descriptor_containers: list[AbstractDescriptorContainer],
                             state_containers: list[AbstractStateContainer]):
+        """Populate mdib."""
         ...
 
 
@@ -510,7 +515,6 @@ class EntityProviderMdib(EntityMdibBase):
 
         xml_msg_reader = xml_reader_class(protocol_definition, None, mdib.logger)
         descriptor_containers, state_containers = xml_msg_reader.read_mdib_xml(xml_text)
-        # Todo: msg_reader sets source_mds while reading xml mdib
         mdib.xtra.set_initial_content(descriptor_containers, state_containers)
         mdib.set_initialized()
         return mdib

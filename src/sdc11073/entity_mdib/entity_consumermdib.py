@@ -5,19 +5,19 @@ import copy
 import time
 from dataclasses import dataclass
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Any, Callable, cast, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Protocol, cast
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.mdib.consumermdib import ConsumerMdibState
+from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import QN_TYPE, default_ns_helper
 from sdc11073.xml_types import msg_qnames, pm_qnames
 
-from .entities import XmlEntity, XmlMultiStateEntity, get_xsi_type, ConsumerMultiStateEntity
+from .entities import ConsumerMultiStateEntity, XmlEntity, XmlMultiStateEntity, get_xsi_type
 from .entity_consumermdibxtra import EntityConsumerMdibMethods
 from .entity_mdibbase import EntityMdibBase
-from sdc11073.mdib.mdibbase import MdibVersionGroup
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -119,7 +119,9 @@ class EntityGetter:
 
 class ConsumerXtraProtocol(Protocol):
     """Functionality expected by EntityConsumerMdib."""
+
     def bind_to_client_observables(self):
+        """Connect mdib to consumer."""
         ...
 
 
@@ -390,7 +392,7 @@ class EntityConsumerMdib(EntityMdibBase):
         states = received_message.p_msg.msg_node or []  # msg_node can be None
         for state in states:
             # _update_state replaces states in entity and optionally in self.get_mdib_response_node
-            handles.append(self._update_state(state, pm_qnames.RealTimeSampleArrayMetricState))
+            handles.append(self._update_state(state, pm_qnames.RealTimeSampleArrayMetricState)) # noqa: PERF401
         self.waveform_handles = handles  # update observable
 
     def process_incoming_description_modification_report(self, received_message: ReceivedMessage):
@@ -457,7 +459,7 @@ class EntityConsumerMdib(EntityMdibBase):
             handles.append(handle)
         return handles
 
-    def _create_descriptors(self,
+    def _create_descriptors(self, # noqa: PLR0912 C901
                             parent_handle: str,
                             source_mds_handle: str,
                             descriptors: list[LxmlElement],
@@ -479,7 +481,6 @@ class EntityConsumerMdib(EntityMdibBase):
                     xml_entity.states[st.attrib['Handle']] = st
             elif len(current_states) != 1:
                 self.logger.error('create descriptor: Expect one state, got %d', len(current_states))
-                # Todo: what to do in this case? add entity without state?
             else:
                 xml_entity.state = current_states[0]
             self._entities[descriptor_handle] = xml_entity
@@ -596,7 +597,7 @@ class EntityConsumerMdib(EntityMdibBase):
             for state in report_part:
                 if state.tag == expected_q_name:
                     # _update_state replaces states in entity and optionally in self.get_mdib_response_node
-                    handles.append(self._update_state(state))
+                    handles.append(self._update_state(state)) # noqa: PERF401
         return handles  # update observable
 
     def _update_state(self, state_node: LxmlElement, xsi_type: QName | None = None) -> str:
@@ -617,7 +618,9 @@ class EntityConsumerMdib(EntityMdibBase):
         xml_entity.state = state_node
         return descriptor_handle
 
-    def _update_descriptor_states(self, descriptor_node: LxmlElement, state_nodes: list[LxmlElement]) -> str:
+    def _update_descriptor_states(self, # noqa: PLR0912 C901
+                                  descriptor_node: LxmlElement,
+                                  state_nodes: list[LxmlElement]) -> str:
         """Replace state in DOM tree and entity."""
         for state_node in state_nodes:
             state_node.tag = pm_qnames.State  # rename in order to have a valid tag acc. to participant model
@@ -628,7 +631,7 @@ class EntityConsumerMdib(EntityMdibBase):
         if not xml_entity.is_multi_state:
             if len(state_nodes) == 0:
                 self.logger.error('Update descriptor %s: no state provided. State will not be updated.',
-                                  descriptor_handle, len(state_nodes))
+                                  descriptor_handle)
             elif len(state_nodes) > 1:
                 self.logger.error('Update descriptor %s: expected 1 state, got %d. Will use only 1st one.',
                                   descriptor_handle, len(state_nodes))
@@ -666,12 +669,11 @@ class EntityConsumerMdib(EntityMdibBase):
                 for handle, state in xml_entity.states.items():
                     if handle not in current_handles:
                         self._md_state_node.remove(state)
-            else:  # single state
-                if len(state_nodes) >= 1:
-                    if xml_entity.state is not None :
-                        self._md_state_node.replace(xml_entity.state, state_nodes[0])
-                    else:
-                        self._md_state_node.append(state_nodes[0])
+            elif len(state_nodes) >= 1:
+                if xml_entity.state is not None :
+                    self._md_state_node.replace(xml_entity.state, state_nodes[0])
+                else:
+                    self._md_state_node.append(state_nodes[0])
         if xml_entity.is_multi_state:
             # replace state_nodes in xml_entity
             xml_entity.states.clear()
@@ -748,7 +750,8 @@ class EntityConsumerMdib(EntityMdibBase):
     def _set_root_node(self, root_node: LxmlElement): # noqa: C901
         """Set member and create xml entities."""
         if root_node.tag != msg_qnames.GetMdibResponse:
-            raise ValueError(f'root node must be {msg_qnames.GetMdibResponse!s}, got {root_node.tag!s}')
+            msg = f'root node must be {msg_qnames.GetMdibResponse!s}, got {root_node.tag!s}'
+            raise ValueError(msg)
         self._entities.clear()
         md_state_node = None
         md_description_node = None

@@ -63,10 +63,7 @@ class EntityProviderMdibMethods:
         if location_context_descriptor_handle is None:
             # assume there is only one descriptor in mdib, user has not provided a handle.
             location_entities = mdib.entities.by_node_type(pm.LocationContextDescriptor)
-            if len(location_entities) == 0:
-                location_entity = None
-            else:
-                location_entity = location_entities[0]
+            location_entity = None if len(location_entities) == 0 else location_entities[0]
         else:
             location_entity = mdib.entities.by_handle(location_context_descriptor_handle)
 
