@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
-NOTIFICATION_TIMEOUT = 5  # also jenkins related value
+NOTIFICATION_TIMEOUT = 10  # also jenkins related value
 
 
 default_mdib_file = 'mdib_two_mds.xml'
