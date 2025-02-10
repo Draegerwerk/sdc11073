@@ -46,7 +46,6 @@ class GenericSDCClockProvider(ProviderRole):
                 self._logger.info('empty mdib, cannot create a clock descriptor')
                 return
             # create a clock descriptor for the first mds
-            # Todo: create for all?
             my_mds_entity = mds_entities[0]
             clock_descr_handle = 'clock_' + uuid.uuid4().hex
             self._logger.debug('creating a clock descriptor, handle=%s', clock_descr_handle)

@@ -60,7 +60,6 @@ class GenericSetComponentStateOperationProvider(providerbase.ProviderRole):
     def _set_component_state(self, params: ExecuteParameters) -> ExecuteResult:
         """Handle SetComponentState operation (ExecuteHandler)."""
         value = params.operation_request.argument
-        # ToDo: consider ModifiableDate attribute
         params.operation_instance.current_value = value
         with self._mdib.component_state_transaction() as mgr:
             for proposed_state in value:

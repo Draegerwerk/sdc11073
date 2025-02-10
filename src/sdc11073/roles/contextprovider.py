@@ -65,7 +65,8 @@ class GenericContextProvider(providerbase.ProviderRole):
                 proposed_by_handle[st.DescriptorHandle].append(st)
         for handle, states in proposed_by_handle.items():
             if len(states) > 1:
-                raise ValueError(f'more than one associated context for descriptor handle {handle}')
+                msg = f'more than one associated context for descriptor handle {handle}'
+                raise ValueError(msg)
 
         operation_target_handles = []
         modified_state_handles: dict[str, list[str]] = defaultdict(list)
@@ -79,7 +80,8 @@ class GenericContextProvider(providerbase.ProviderRole):
                     # this is an update for an existing state or a new one
                     old_state_container = entity.states.get(proposed_st.Handle)
                     if old_state_container is None:
-                        raise ValueError(f'handle {proposed_st.Handle} not found')
+                        msg = f'handle {proposed_st.Handle} not found'
+                        raise ValueError(msg)
                 if old_state_container is None:
                     # this is a new context state
                     # create a new unique handle
