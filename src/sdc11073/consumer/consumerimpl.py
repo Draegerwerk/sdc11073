@@ -572,7 +572,7 @@ class SdcConsumer:
                         self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd')),
             self._on_subscription_end)
 
-    def stop_all(self, unsubscribe: bool = True):
+    def stop_all(self, unsubscribe: bool = True): # noqa: FBT001 FBT002
         """Stop all threads, optionally unsubscribe."""
         if self._subscription_mgr is not None:
             if unsubscribe:
@@ -667,7 +667,7 @@ class SdcConsumer:
                 del self._soap_clients[key]
                 return
 
-    def _mk_soap_client(self, use_ssl: bool, netloc: str) -> SoapClientProtocol:
+    def _mk_soap_client(self, use_ssl: bool, netloc: str) -> SoapClientProtocol:  # noqa: FBT001
         _ssl_context = self._ssl_context_container.client_context if use_ssl else None
         cls = self._components.soap_client_class
         return cls(netloc,
@@ -720,7 +720,7 @@ class SdcConsumer:
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
             # it sometimes still happens that http server is not completely started without waiting.
-            # TODO: find better solution, see issue #320
+            # TODO(deichmab): find better solution, see issue #320  noqa: FIX002
             time.sleep(1)
             self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
@@ -742,12 +742,13 @@ class SdcConsumer:
         return EmptyResponse()
 
     def __str__(self) -> str:
-        return f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
+        return (f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} '
+                f'on {self._device_location}')
 
     @classmethod
     def from_wsd_service(cls, wsd_service: Service,  # noqa: PLR0913
                          ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
-                         validate: bool = True,
+                         validate: bool = True, # noqa: FBT001 FBT002
                          log_prefix: str = '',
                          default_components: SdcConsumerComponents | None = None,
                          specific_components: SdcConsumerComponents | None = None) -> SdcConsumer:
@@ -763,7 +764,8 @@ class SdcConsumer:
         """
         device_locations = wsd_service.x_addrs
         if not device_locations:
-            raise RuntimeError(f'discovered Service has no address!{wsd_service}')
+            msg = f'discovered Service has no address!{wsd_service}'
+            raise RuntimeError(msg)
         device_location = device_locations[0]
         for sdc_definition in ProtocolsRegistry.protocols:
             if sdc_definition.types_match(wsd_service.types):

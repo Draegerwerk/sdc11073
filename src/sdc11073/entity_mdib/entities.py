@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import copy
 import uuid
-from typing import TYPE_CHECKING, Union, TypeVar
+from typing import TYPE_CHECKING, TypeVar, Union
 
 from lxml.etree import QName
 
 from sdc11073.mdib.containerbase import ContainerBase
+from sdc11073.mdib.entityprotocol import EntityProtocol, MultiStateEntityProtocol
 from sdc11073.namespaces import QN_TYPE, text_to_qname
 from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.pm_types import CodedValue
-from ..mdib.entityprotocol import EntityProtocol, MultiStateEntityProtocol
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorContainer
@@ -451,4 +451,4 @@ class ProviderMultiStateEntity(ProviderEntityBase):
 
 ProviderInternalEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity]
 ProviderEntityType = Union[ProviderEntity, ProviderMultiStateEntity]
-AnyProviderEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity, ]
+AnyProviderEntityType = Union[ProviderInternalEntity, ProviderInternalMultiStateEntity ]
