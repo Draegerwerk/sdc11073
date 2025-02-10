@@ -223,7 +223,7 @@ class TestBuiltinOperations(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
+            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)  # noqa: DTZ001
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_containers = consumer_mdib.context_states.NODETYPE.get(pm.PatientContextState)
         my_patients = [p for p in patient_context_state_containers if p.CoreData.Givenname == 'Max123']
@@ -314,7 +314,8 @@ class TestBuiltinOperations(unittest.TestCase):
         self.assertGreater(len(alert_system_descriptors), 0)
         for alert_system_descriptor in alert_system_descriptors:
             state = self.sdc_client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
-            # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
+            # we know that the state has only one SystemSignalActivation entity,
+            # which is audible and should be paused now
             if alert_system_descriptor.Handle != alert_system_off:
                 self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
@@ -387,7 +388,8 @@ class TestBuiltinOperations(unittest.TestCase):
             for alert_system_descriptor in alert_system_descriptors:
                 for client in clients:
                     state = client.mdib.states.descriptor_handle.get_one(alert_system_descriptor.Handle)
-                    # we know that the state has only one SystemSignalActivation entity, which is audible and should be paused now
+                    # we know that the state has only one SystemSignalActivation entity,
+                    # which is audible and should be paused now
                     self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
             coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
@@ -514,7 +516,8 @@ class TestBuiltinOperations(unittest.TestCase):
         operation_target_handle = '2.1.2.1'  # a channel
         # first we need to add a set_component_state Operation
         sco_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.ScoDescriptor)
-        descr_cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.SetComponentStateOperationDescriptor)
+        descr_cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(
+            pm.SetComponentStateOperationDescriptor)
         state_cls = self.sdc_device.mdib.data_model.get_state_container_class(descr_cls.STATE_QNAME)
 
         my_operation_descriptor = descr_cls('HANDLE_FOR_MY_TEST', sco_descriptors[0].Handle)

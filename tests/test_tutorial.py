@@ -68,7 +68,7 @@ def create_generic_provider(wsdiscovery_instance: WSDiscovery,
                                epr=my_epr,
                                specific_components=specific_components)
     with sdc_provider.mdib.descriptor_transaction() as tr:
-        for _, ent in sdc_provider.mdib.entities.items():
+        for _, ent in sdc_provider.mdib.entities.items():  # noqa: PERF102
             ent.descriptor.SafetyClassification = pm_types.SafetyClassification.MED_A
             tr.write_entity(ent)
     sdc_provider.start_all(start_rtsample_loop=False)
@@ -264,7 +264,6 @@ class TestTutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        # TODO: enable this step once https://github.com/Draegerwerk/sdc11073/issues/223 has been fixed
 
         # search for any device at my_location2
         services = my_client_ws_discovery.search_services(scopes=ScopesType(self.my_location2.scope_string),

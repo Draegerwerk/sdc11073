@@ -115,7 +115,8 @@ class TestEntityOperations(unittest.TestCase):
         # initially the device shall not have any patient
         self.assertEqual(len(my_patient_entity.states), 0)
         operation_entities = client_mdib.entities.by_node_type(pm.SetContextStateOperationDescriptor)
-        pat_op_entities = [ ent for ent in operation_entities if ent.descriptor.OperationTarget == my_patient_entity.handle]
+        pat_op_entities = [ent for ent in operation_entities
+                           if ent.descriptor.OperationTarget == my_patient_entity.handle]
         self.assertEqual(len(pat_op_entities), 1)
         my_operation = pat_op_entities[0]
         self._logger.info('Handle for SetContextState Operation = %s', my_operation.handle)
@@ -243,7 +244,7 @@ class TestEntityOperations(unittest.TestCase):
         st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
         st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
         st.CoreData.Race = pm_types.CodedValue('123', 'def')
-        st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)
+        st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)  # noqa: DTZ001
 
         coll = observableproperties.SingleValueCollector(self.sdc_consumer, 'episodic_context_report')
         with self.sdc_provider.mdib.context_state_transaction() as mgr:
@@ -519,7 +520,7 @@ class TestEntityOperations(unittest.TestCase):
         client_mdib = EntityConsumerMdib(self.sdc_consumer)
         client_mdib.init_mdib()
 
-        proposed_component_state = my_channel_entity.state  #client_mdib.xtra.mk_proposed_state(my_channel_entity.handle)
+        proposed_component_state = my_channel_entity.state
         self.assertIsNone(
             proposed_component_state.OperatingHours)  # just to be sure that we know the correct intitial value
         before_state_version = proposed_component_state.StateVersion
