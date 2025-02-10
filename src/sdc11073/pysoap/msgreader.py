@@ -1,3 +1,4 @@
+"""Message Reader implementation."""
 from __future__ import annotations
 
 import copy
@@ -19,13 +20,12 @@ from .soapenvelope import Fault, ReceivedSoapMessage, faultcodeEnum
 if TYPE_CHECKING:
     from types import ModuleType
 
+    from sdc11073 import xml_utils
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
-    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.namespaces import PrefixNamespace
-    from sdc11073 import xml_utils
 
 
 def validate_node(node: xml_utils.LxmlElement, xml_schema: etree.XMLSchema, logger: LoggerAdapter):
@@ -52,9 +52,9 @@ def _get_text(node: xml_utils.LxmlElement, q_name: etree.QName) -> str | None:
     return tmp.text
 
 
-OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')
+OperationRequest = namedtuple('OperationRequest', 'operation_handle argument') # noqa: PYI024
 
-SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')
+SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list') # noqa: PYI024
 
 
 @dataclass
@@ -220,7 +220,7 @@ class MessageReader:
         state_containers = []
         all_state_nodes = md_state_node.findall(self.pm_names.State)
         for state_node in all_state_nodes:
-            state_containers.append(self._mk_state_container_from_node(state_node))
+            state_containers.append(self._mk_state_container_from_node(state_node)) # noqa: PERF401
         return state_containers
 
     def _mk_descriptor_container_from_node(self, node: xml_utils.LxmlElement,
@@ -247,7 +247,8 @@ class MessageReader:
         descriptor_container = None
         st_cls = self.get_state_container_class(node_type)
         if st_cls is None:
-            raise ValueError(f'body type {node_type} is not known')
+            msg = f'body type {node_type} is not known'
+            raise ValueError(msg)
 
         if node.tag != self.pm_names.State:
             node = copy.copy(node)  # make a copy, do not modify the original report

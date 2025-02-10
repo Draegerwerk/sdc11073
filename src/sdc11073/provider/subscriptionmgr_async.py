@@ -110,7 +110,7 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             self._logger.info('exception async send subscription end to {}, subscription = {}',  # noqa: PLE1205
                               url, self)
         except Exception:  # noqa: BLE001
-            self._logger.error(traceback.format_exc())
+            self._logger.error(traceback.format_exc()) # noqa: TRY400
         finally:
             self._is_closed = True
 
@@ -237,7 +237,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
             tasks = []
             for subscriber in subscribers:
-                tasks.append(self._async_send_notification_report(subscriber, body_node, action))
+                tasks.append(self._async_send_notification_report(subscriber, body_node, action)) # noqa: PERF401
 
             self._logger.debug('sending report %s to %r',
                                action, [s.notify_to_address for s in subscribers])
@@ -277,7 +277,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             raise
         except Exception:
             # this should never happen! => re-raise
-            self._logger.error('could not send notification report {}, error {}: {}',  # noqa: PLE1205
+            self._logger.error('could not send notification report {}, error {}: {}',  # noqa: PLE1205 TRY400
                                action, traceback.format_exc(), subscription)
             raise
 

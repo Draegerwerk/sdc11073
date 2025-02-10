@@ -458,7 +458,7 @@ class SdcProvider:
             self._logger.error('Cannot start device, could not bind HTTP server to a port.')
             raise RuntimeError('Cannot start device, could not bind HTTP server to a port.')
 
-        self.base_urls = []  # e.g https://192.168.1.5:8888/8c26f673-fdbf-4380-b5ad-9e2454a65b6b; list has one member for each used ip address
+        self.base_urls = []
         for addr in host_ips:
             self.base_urls.append(
                 SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None, fragment=None))
@@ -505,12 +505,13 @@ class SdcProvider:
         if self._alternative_hostname:
             addresses = [self._alternative_hostname]
         else:
-            addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
+            # these own IP addresses are currently used by discovery
+            addresses = self._wsdiscovery.get_active_addresses()
 
         port = self._http_server.my_port
         xaddrs = []
         for addr in addresses:
-            xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
+            xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}') # noqa: PERF401
         return xaddrs
 
     def _send_episodic_reports(self, transaction_result: TransactionResultProtocol):
