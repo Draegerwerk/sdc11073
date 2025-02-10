@@ -1,3 +1,4 @@
+"""Implementation of metric provider functionality."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
@@ -11,9 +12,9 @@ from .providerbase import ProviderRole
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol, TransactionItem
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.mdib.transactionsprotocol import StateTransactionManagerProtocol, TransactionItem
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
 
     from .providerbase import OperationClassGetter
@@ -27,7 +28,7 @@ class GenericMetricProvider(ProviderRole):
     - SetStringOperation on (enum) string metrics
     """
 
-    def __init__(self, mdib: ProviderMdib,
+    def __init__(self, mdib: ProviderMdibProtocol,
                  activation_state_can_remove_metric_value: bool = True,
                  log_prefix: str | None = None):
         """Create a GenericMetricProvider."""
@@ -49,10 +50,10 @@ class GenericMetricProvider(ProviderRole):
         """
         pm_names = self._mdib.data_model.pm_names
         operation_target_handle = operation_descriptor_container.OperationTarget
-        op_target_descriptor_container = self._mdib.descriptions.handle.get_one(operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
         if operation_descriptor_container.NODETYPE == pm_names.SetValueOperationDescriptor:  # noqa: SIM300
-            if op_target_descriptor_container.NODETYPE == pm_names.NumericMetricDescriptor:  # noqa: SIM300
+            if op_target_entity.node_type == pm_names.NumericMetricDescriptor:
                 op_cls = operation_cls_getter(pm_names.SetValueOperationDescriptor)
                 return op_cls(operation_descriptor_container.Handle,
                               operation_target_handle,
@@ -60,8 +61,8 @@ class GenericMetricProvider(ProviderRole):
                               coded_value=operation_descriptor_container.Type)
             return None
         if operation_descriptor_container.NODETYPE == pm_names.SetStringOperationDescriptor:  # noqa: SIM300
-            if op_target_descriptor_container.NODETYPE in (pm_names.StringMetricDescriptor,
-                                                           pm_names.EnumStringMetricDescriptor):
+            if op_target_entity.node_type in (pm_names.StringMetricDescriptor,
+                                              pm_names.EnumStringMetricDescriptor):
                 op_cls = operation_cls_getter(pm_names.SetStringOperationDescriptor)
                 return op_cls(operation_descriptor_container.Handle,
                               operation_target_handle,
@@ -78,24 +79,25 @@ class GenericMetricProvider(ProviderRole):
 
     def _set_metric_state(self, params: ExecuteParameters) -> ExecuteResult:
         """Handle SetMetricState calls (ExecuteHandler)."""
-        # ToDo: consider ModifiableDate attribute
         proposed_states = params.operation_request.argument
         params.operation_instance.current_value = proposed_states
+
         with self._mdib.metric_state_transaction() as mgr:
             for proposed_state in proposed_states:
-                state = mgr.get_state(proposed_state.DescriptorHandle)
-                if state.is_metric_state:
-                    self._logger.info('updating %s with proposed metric state', state)
-                    state.update_from_other_container(proposed_state,
+                target_entity = self._mdib.entities.by_handle(proposed_state.DescriptorHandle)
+                if target_entity.state.is_metric_state:
+                    self._logger.info('updating %s with proposed metric state', target_entity.state)
+                    target_entity.state.update_from_other_container(proposed_state,
                                                       skipped_properties=['StateVersion', 'DescriptorVersion'])
+                    mgr.write_entity(target_entity)
                 else:
                     self._logger.warning('_set_metric_state operation: ignore invalid referenced type %s in operation',
-                                         state.NODETYPE)
+                                         target_entity.state.NODETYPE)
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
 
-    def on_pre_commit(self, mdib: ProviderMdib,  # noqa: ARG002
-                      transaction: TransactionManagerProtocol):
+    def on_pre_commit(self, mdib: ProviderMdibProtocol,  # noqa: ARG002
+                      transaction: StateTransactionManagerProtocol):
         """Set state.MetricValue to None if state.ActivationState requires this."""
         if not self.activation_state_can_remove_metric_value:
             return
@@ -129,19 +131,19 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
+        entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
+        state = cast(MetricStateProtocol, entity.state)
+        if state.MetricValue is None:
+            state.mk_metric_value()
+        state.MetricValue.Value = value
+        # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
+        # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
+        if entity.descriptor.MetricCategory in (pm_types.MetricCategory.SETTING,
+                                                pm_types.MetricCategory.PRESETTING):
+            state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
+
         with self._mdib.metric_state_transaction() as mgr:
-            _state = mgr.get_state(params.operation_instance.operation_target_handle)
-            state = cast(MetricStateProtocol, _state)
-            if state.MetricValue is None:
-                state.mk_metric_value()
-            state.MetricValue.Value = value
-            # SF1823: For Metrics with the MetricCategory = Set|Preset that are being modified as a result of a
-            # SetValue or SetString operation a Metric Provider shall set the MetricQuality / Validity = Vld.
-            metric_descriptor_container = self._mdib.descriptions.handle.get_one(
-                params.operation_instance.operation_target_handle)
-            if metric_descriptor_container.MetricCategory in (pm_types.MetricCategory.SETTING,
-                                                              pm_types.MetricCategory.PRESETTING):
-                state.MetricValue.Validity = pm_types.MeasurementValidity.VALID
+            mgr.write_entity(entity)
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)
 
@@ -152,11 +154,13 @@ class GenericMetricProvider(ProviderRole):
                           params.operation_instance.operation_target_handle,
                           params.operation_instance.current_value, value)
         params.operation_instance.current_value = value
+        entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
+        state = cast(MetricStateProtocol, entity.state)
+        if state.MetricValue is None:
+            state.mk_metric_value()
+        state.MetricValue.Value = value
+
         with self._mdib.metric_state_transaction() as mgr:
-            _state = mgr.get_state(params.operation_instance.operation_target_handle)
-            state = cast(MetricStateProtocol, _state)
-            if state.MetricValue is None:
-                state.mk_metric_value()
-            state.MetricValue.Value = value
+            mgr.write_entity(entity)
         return ExecuteResult(params.operation_instance.operation_target_handle,
                              self._mdib.data_model.msg_types.InvocationState.FINISHED)

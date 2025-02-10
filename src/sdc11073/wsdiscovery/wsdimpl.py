@@ -13,11 +13,11 @@ from sdc11073 import network
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import default_ns_helper as nsh
+from sdc11073.wsdiscovery import networkingthread
 from sdc11073.xml_types import wsd_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
 from .common import MULTICAST_IPV4_ADDRESS, MULTICAST_PORT, message_factory
-from sdc11073.wsdiscovery import networkingthread
 from .service import Service
 
 if TYPE_CHECKING:
@@ -184,7 +184,7 @@ class WSDiscovery:
     def search_services(self,
                         types: Iterable[etree.QName] | None = None,
                         scopes: wsd_types.ScopesType | None = None,
-                        timeout: int | float | None = 5,
+                        timeout: int | float | None = 5,  # noqa: PYI041
                         repeat_probe_interval: int | None = 3) -> list[Service]:
         """Search for services that match given types and scopes.
 
@@ -212,7 +212,7 @@ class WSDiscovery:
 
     def search_sdc_services(self,
                             scopes: wsd_types.ScopesType | None = None,
-                            timeout: int | float | None = 5,
+                            timeout: int | float | None = 5,  # noqa: PYI041
                             repeat_probe_interval: int | None = 3) -> list[Service]:
         """Search for sdc services that match given scopes.
 
@@ -226,7 +226,7 @@ class WSDiscovery:
     def search_multiple_types(self,
                               types_list: list[list[etree.QName]],
                               scopes: wsd_types.ScopesType | None = None,
-                              timeout: int | float | None = 10,
+                              timeout: int | float | None = 10,  # noqa: PYI041
                               repeat_probe_interval: int | None = 3) -> list[Service]:
         """Search for services given the list of TYPES and SCOPES in a given timeout.
 
@@ -276,7 +276,7 @@ class WSDiscovery:
             raise ApiUsageError("Server not started")
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
-        instance_id = str(random.randint(1, 0xFFFFFFFF))  # noqa: S311
+        instance_id = str(random.randint(1, 0xFFFFFFFF))
         service = Service(types, scopes, x_addrs, epr, instance_id, metadata_version=metadata_version)
         self._logger.info('publishing %r', service)
         self._local_services[epr] = service
@@ -300,7 +300,6 @@ class WSDiscovery:
 
     def get_active_addresses(self) -> list[str]:
         """Get active addresses."""
-        # TODO: do not return list
         return [str(self._adapter.ip)]
 
     def set_remote_service_hello_callback(self,
@@ -347,7 +346,7 @@ class WSDiscovery:
         already_known_service = self._remote_services.get(service.epr)
         if not already_known_service:
             self._remote_services[service.epr] = service
-            self._logger.info('new remote %r', service)
+            self._logger.info('new remote epr="%s" x_addrs=%r', service.epr, service.x_addrs)
             return
 
         if service.metadata_version == already_known_service.metadata_version:
@@ -486,7 +485,7 @@ class WSDiscovery:
         try:
             func: Callable[[ReceivedMessage, str], None] = lookup[action]
         except KeyError:
-            self._logger.error('unknown action %s', action)
+            self._logger.error('unknown action %s', action)  # noqa: TRY400
         else:
             func(received_message, addr_from)
 
@@ -640,7 +639,9 @@ class WSDiscoverySingleAdapter(WSDiscovery):
         adapters = [adapter for adapter in network.get_adapters() if adapter.name == adapter_name]
         if not adapters:
             names = [adapter.name for adapter in network.get_adapters()]
-            raise RuntimeError(f'No adapter named "{adapter_name}", have {names}')
+            msg = f'No adapter named "{adapter_name}", have {names}'
+            raise RuntimeError(msg)
         if len(adapters) > 1:
-            raise RuntimeError(f'Found multiple possible ip addresses on adapter "{adapter_name}"')
+            msg = f'Found multiple possible ip addresses on adapter "{adapter_name}"'
+            raise RuntimeError(msg)
         super().__init__(adapters[0].ip, logger, multicast_port)

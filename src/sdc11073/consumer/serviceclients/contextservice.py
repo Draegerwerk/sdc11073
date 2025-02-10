@@ -1,3 +1,4 @@
+"""The module contains the implementation of the BICEPS context service."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -41,13 +42,13 @@ class ContextServiceClient(HostedServiceClient):
         mdib = self._mdib_wref()
         if mdib is None:
             raise ApiUsageError('no mdib information')
-        context_descriptor_container = mdib.descriptions.handle.get_one(descriptor_handle)
+        context_entity = mdib.entities.by_handle(descriptor_handle)
         if handle is None:
-            cls = data_model.get_state_container_class(context_descriptor_container.STATE_QNAME)
-            obj = cls(descriptor_container=context_descriptor_container)
+            cls = data_model.get_state_container_class(context_entity.descriptor.STATE_QNAME)
+            obj = cls(descriptor_container=context_entity.descriptor)
             obj.Handle = descriptor_handle  # this indicates that this is a new context state
         else:
-            _obj = mdib.context_states.handle.get_one(handle)
+            _obj = context_entity.states[handle]
             obj = _obj.mk_copy()
         return obj
 

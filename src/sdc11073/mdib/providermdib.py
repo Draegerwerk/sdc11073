@@ -1,3 +1,4 @@
+"""The module contains the implementation of ProviderMdib with ProviderEntityGetter Protocol."""
 from __future__ import annotations
 
 import uuid
@@ -19,17 +20,51 @@ from .transactions import mk_transaction
 from .transactionsprotocol import AnyTransactionManagerProtocol, TransactionType
 
 if TYPE_CHECKING:
+    from lxml.etree import QName
+
     from sdc11073.definitions_base import BaseDefinitions
 
+    from .entityprotocol import ProviderEntityGetterProtocol
     from .transactionsprotocol import (
         ContextStateTransactionManagerProtocol,
         DescriptorTransactionManagerProtocol,
         StateTransactionManagerProtocol,
-        TransactionResultProtocol
+        TransactionResultProtocol,
     )
 
 TransactionFactory = Callable[[mdibbase.MdibBase, TransactionType, LoggerAdapter],
                               AnyTransactionManagerProtocol]
+
+
+class ProviderEntityGetter(mdibbase.EntityGetter):
+    """Implementation of ProviderEntityGetterProtocol."""
+
+    def new_entity(self,
+            node_type: QName,
+            handle: str,
+            parent_handle: str | None) -> mdibbase.Entity | mdibbase.MultiStateEntity:
+        """Create an entity."""
+        if (handle in self._mdib.descriptions.handle
+                or handle in self._mdib.context_states.handle
+                # or handle in self._new_entities
+        ):
+            raise ValueError('Handle already exists')
+
+        descr_cls = self._mdib.data_model.get_descriptor_container_class(node_type)
+        descriptor_container = descr_cls(handle=handle, parent_handle=parent_handle)
+        parent_descriptor = self._mdib.descriptions.handle.get_one(parent_handle)
+        if self._mdib.data_model.pm_names.MdsDescriptor == parent_descriptor.NODETYPE:
+            descriptor_container.set_source_mds(parent_descriptor.Handle)
+        else:
+            descriptor_container.set_source_mds(parent_descriptor.source_mds)
+
+        if descriptor_container.is_context_descriptor:
+            new_entity = mdibbase.MultiStateEntity(self._mdib, descriptor_container, [])
+        else:
+            state_cls = self._mdib.data_model.get_state_container_class(descriptor_container.STATE_QNAME)
+            state = state_cls(descriptor_container)
+            new_entity = mdibbase.Entity(self._mdib,descriptor_container, state)
+        return new_entity
 
 
 class ProviderMdib(mdibbase.MdibBase):
@@ -75,6 +110,7 @@ class ProviderMdib(mdibbase.MdibBase):
         self._transaction_factory = transaction_factory or mk_transaction
         self._retrievability_episodic = []  # a list of handles
         self.retrievability_periodic = defaultdict(list)
+        self.entities: ProviderEntityGetterProtocol = ProviderEntityGetter(self)
 
     @property
     def xtra(self) -> Any:
@@ -82,7 +118,7 @@ class ProviderMdib(mdibbase.MdibBase):
         return self._xtra
 
     @contextmanager
-    def _transaction_manager(self,
+    def _transaction_manager(self, #  noqa: PLR0912, C901
                              transaction_type: TransactionType,
                              set_determination_time: bool = True) -> AbstractContextManager[
         AnyTransactionManagerProtocol]:
@@ -122,7 +158,6 @@ class ProviderMdib(mdibbase.MdibBase):
                         self.operation_by_handle = {st.DescriptorHandle: st for st in transaction_result.op_updates}
                     if transaction_result.rt_updates:
                         self.waveform_by_handle = {st.DescriptorHandle: st for st in transaction_result.rt_updates}
-
 
                     if callable(self.post_commit_handler):
                         self.post_commit_handler(self, self.current_transaction)
@@ -202,7 +237,7 @@ class ProviderMdib(mdibbase.MdibBase):
     def from_string(cls,
                     xml_text: bytes,
                     protocol_definition: type[BaseDefinitions] | None = None,
-                    xml_reader_class: type[MessageReader] | None = MessageReader,
+                    xml_reader_class: type[MessageReader] = MessageReader,
                     log_prefix: str | None = None) -> ProviderMdib:
         """Construct mdib from a string.
 
@@ -229,6 +264,7 @@ class ProviderMdib(mdibbase.MdibBase):
         mdib.add_description_containers(descriptor_containers)
         mdib.add_state_containers(state_containers)
         mdib.xtra.mk_state_containers_for_all_descriptors()
+        mdib.xtra.set_states_initial_values()
         mdib.xtra.update_retrievability_lists()
         mdib.xtra.set_all_source_mds()
         return mdib

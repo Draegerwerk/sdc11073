@@ -1,3 +1,4 @@
+"""The module implements a waveform provider."""
 from __future__ import annotations
 
 import time
@@ -14,9 +15,9 @@ from .realtimesamples import Annotator, RtSampleArray
 
 if TYPE_CHECKING:
     from sdc11073.definitions_base import AbstractDataModel
-    from sdc11073.mdib import ProviderMdib
+    from sdc11073.mdib.entityprotocol import EntityProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
-    from sdc11073.mdib.transactionsprotocol import RtDataMdibUpdateTransaction
     from sdc11073.xml_types.pm_types import ComponentActivation
 
     from .realtimesamples import AnnotatorProtocol
@@ -95,7 +96,7 @@ class GenericWaveformProvider:
     WARN_LIMIT_REALTIMESAMPLES_BEHIND_SCHEDULE = 0.2  # warn limit when real time samples cannot be sent in time
     WARN_RATE_REALTIMESAMPLES_BEHIND_SCHEDULE = 5  # max. every x seconds a message
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str = ''):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str = ''):
         self._mdib = mdib
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
@@ -114,12 +115,13 @@ class GenericWaveformProvider:
         :param wf_generator: a waveforms.WaveformGenerator instance
         """
         sample_period = wf_generator.sample_period
-        descriptor_container = self._mdib.descriptions.handle.get_one(descriptor_handle)
-        if descriptor_container.SamplePeriod != sample_period:
+        entity = self._mdib.entities.by_handle(descriptor_handle)
+        if entity.descriptor.SamplePeriod != sample_period:
             # we must inform subscribers
+            entity.descriptor.SamplePeriod = sample_period
             with self._mdib.descriptor_transaction() as mgr:
-                descr = mgr.get_descriptor(descriptor_handle)
-                descr.SamplePeriod = sample_period
+                mgr.write_entity(entity)
+
         if descriptor_handle in self._waveform_generators:
             self._waveform_generators[descriptor_handle].set_waveform_generator(wf_generator)
         else:
@@ -166,16 +168,19 @@ class GenericWaveformProvider:
             if not wf_generator.is_active:
                 state.MetricValue = None
 
-    def update_all_realtime_samples(self, transaction: RtDataMdibUpdateTransaction):
+    def update_all_realtime_samples(self) -> list[EntityProtocol]:
         """Update all realtime sample states that have a waveform generator registered.
 
         On transaction commit the mdib will call the appropriate send method of the sdc device.
         """
+        updated_entities = []
         for descriptor_handle, wf_generator in self._waveform_generators.items():
             if wf_generator.is_active:
-                state = transaction.get_state(descriptor_handle)
-                self._update_rt_samples(state)
+                entity = self._mdib.entities.by_handle(descriptor_handle)
+                self._update_rt_samples(entity.state)
+                updated_entities.append(entity)
         self._add_all_annotations()
+        return updated_entities
 
     def provide_waveforms(self,
                           generator_class: type[WaveformGeneratorProtocol] = waveforms.TriangleGenerator,
@@ -188,16 +193,17 @@ class GenericWaveformProvider:
         :param max_waveforms: limit number of waveforms.
         :return: list of handles of created generators
         """
-        name = self._mdib.data_model.pm_names.RealTimeSampleArrayMetricDescriptor
-        all_waveforms = self._mdib.descriptions.NODETYPE.get(name)
+        pm_name = self._mdib.data_model.pm_names.RealTimeSampleArrayMetricDescriptor
+        all_waveform_entities = self._mdib.entities.by_node_type(pm_name)
         if max_waveforms:
-            all_waveforms = all_waveforms[:max_waveforms]
-        for waveform in all_waveforms:
+            all_waveform_entities = all_waveform_entities[:max_waveforms]
+        for entity in all_waveform_entities:
             min_value = 0
             max_value = 1
-            sample_period = waveform.SamplePeriod if waveform.SamplePeriod > 0 else 0.01  # guarantee usable value
+            # guarantee usable value:
+            sample_period = entity.descriptor.SamplePeriod if entity.descriptor.SamplePeriod > 0 else 0.01
             try:
-                tech_range = waveform.TechnicalRange[0]
+                tech_range = entity.descriptor.TechnicalRange[0]
             except IndexError:
                 pass
             else:
@@ -213,8 +219,8 @@ class GenericWaveformProvider:
                                         max_value=max_value,
                                         waveform_period=2.0,
                                         sample_period=sample_period)
-            self.register_waveform_generator(waveform.Handle, generator)
-        return [waveform.Handle for waveform in all_waveforms]
+            self.register_waveform_generator(entity.handle, generator)
+        return [ent.handle for ent in all_waveform_entities]
 
     def _worker_thread_loop(self):
         timer = IntervalTimer(period_in_seconds=self.notifications_interval)
@@ -226,8 +232,9 @@ class GenericWaveformProvider:
                 behind_schedule_seconds = timer.wait_next_interval_begin()
                 self._log_waveform_timing(behind_schedule_seconds)
                 try:
+                    updated_entities =  self.update_all_realtime_samples()
                     with self._mdib.rt_sample_state_transaction() as transaction:
-                        self.update_all_realtime_samples(transaction)
+                        transaction.write_entities(updated_entities)
                     self._log_waveform_timing(behind_schedule_seconds)
                 except Exception:  # noqa: BLE001
                     # catch all to keep loop running
