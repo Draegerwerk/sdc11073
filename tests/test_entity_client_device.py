@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING
 from lxml import etree as etree_
 
 from sdc11073 import loghelper, observableproperties
-from sdc11073 import commlog
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
