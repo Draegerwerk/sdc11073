@@ -194,13 +194,13 @@ class SdcConsumer:
                  sdc_definitions: type[BaseDefinitions],
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
                  epr: str | uuid.UUID | None = None,
-                 validate: bool = True,  # noqa: FBT001 FBT002
+                 validate: bool = True,
                  log_prefix: str = '',
                  default_components: SdcConsumerComponents | None = None,
                  specific_components: SdcConsumerComponents | None = None,
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
-                 force_ssl_connect: bool = False,  # noqa: FBT001 FBT002
+                 force_ssl_connect: bool = False,
                  alternative_hostname: str | None = None,
                  ):
         """Construct a SdcConsumer.
@@ -370,7 +370,7 @@ class SdcConsumer:
         """
         subscription = self._subscription_mgr.mk_subscription(dpws_hosted, filter_type)
 
-        def update_subscription_status(subscription_filter: str, status: bool):   # noqa: FBT001
+        def update_subscription_status(subscription_filter: str, status: bool):
             subscription_status = dict(self.subscription_status)
             subscription_status[subscription_filter] = status
             self.subscription_status = subscription_status  # trigger observable if status has changed
@@ -472,7 +472,7 @@ class SdcConsumer:
     def start_all(self, not_subscribed_actions: Iterable[str] | None = None,  #noqa: C901 PLR0915
                   fixed_renew_interval: float | None = None,
                   shared_http_server: Any | None = None,
-                  check_get_service: bool = True) -> None:   # noqa: FBT001 FBT002
+                  check_get_service: bool = True) -> None:
         """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
 
         :param not_subscribed_actions: a list of pmtypes.Actions elements or None. if None, everything is subscribed.
@@ -572,7 +572,7 @@ class SdcConsumer:
                         self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd')),
             self._on_subscription_end)
 
-    def stop_all(self, unsubscribe: bool = True): # noqa: FBT001 FBT002
+    def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""
         if self._subscription_mgr is not None:
             if unsubscribe:
@@ -667,7 +667,7 @@ class SdcConsumer:
                 del self._soap_clients[key]
                 return
 
-    def _mk_soap_client(self, use_ssl: bool, netloc: str) -> SoapClientProtocol:  # noqa: FBT001
+    def _mk_soap_client(self, use_ssl: bool, netloc: str) -> SoapClientProtocol:
         _ssl_context = self._ssl_context_container.client_context if use_ssl else None
         cls = self._components.soap_client_class
         return cls(netloc,
@@ -748,7 +748,7 @@ class SdcConsumer:
     @classmethod
     def from_wsd_service(cls, wsd_service: Service,  # noqa: PLR0913
                          ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
-                         validate: bool = True, # noqa: FBT001 FBT002
+                         validate: bool = True,
                          log_prefix: str = '',
                          default_components: SdcConsumerComponents | None = None,
                          specific_components: SdcConsumerComponents | None = None) -> SdcConsumer:

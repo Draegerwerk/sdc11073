@@ -69,8 +69,10 @@ class ConsumerRtBuffer:
         """Construct a ConsumerRtBuffer.
 
         :param sample_period: float value, in seconds.
-                              When an incoming real time sample array is split into single RtSampleContainers, this is used to calculate the individual time stamps.
-                              Value can be zero if correct value is not known. In this case all Containers will have the observation time of the sample array.
+                              When an incoming real time sample array is split into single RtSampleContainers,
+                              this is used to calculate the individual time stamps.
+                              Value can be zero if correct value is not known.
+                              In this case all Containers will have the observation time of the sample array.
         :param max_samples: integer, max. length of self.rt_data
         """
         self.rt_data = deque(maxlen=max_samples)
@@ -155,7 +157,8 @@ class ConsumerMdibState(enum.Enum):
 class ConsumerMdib(mdibbase.MdibBase):
     """ConsumerMdib is a mirror of a provider mdib. Updates are performed by an SdcConsumer."""
 
-    MDIB_VERSION_CHECK_DISABLED = False  # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
+    # for testing purpose you can disable checking of mdib version, so that every notification is accepted.
+    MDIB_VERSION_CHECK_DISABLED = False
 
     # sequence_or_instance_id_changed_event is set to True every time the sequence id changes.
     # It is not reset to False any time later.
@@ -307,7 +310,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                         self._logger.error('found {} objects: {}', len(old_state_containers), txt)  # noqa: PLE1205
 
         except Exception:  # noqa: BLE001
-            self._logger.error(traceback.format_exc())
+            self._logger.error(traceback.format_exc()) # noqa: TRY400
         finally:
             self._logger.info('_get_context_states done')
 
@@ -680,7 +683,8 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                                              allow_none=True)
                             if old_container is None:
                                 self._logger.error(  # noqa: PLE1205
-                                    'process_incoming_descriptors: got update of descriptor "{}", but it did not exist in mdib!',
+                                    'process_incoming_descriptors: got update of descriptor "{}", '
+                                    'but it did not exist in mdib!',
                                     descriptor_container.Handle)
                             else:
                                 old_container.update_from_other_container(descriptor_container)
@@ -707,7 +711,8 @@ class ConsumerMdib(mdibbase.MdibBase):
                                     state_container.DescriptorHandle, allow_none=True)
                                 if old_state_container is None:
                                     self._logger.error(  # noqa: PLE1205
-                                        'process_incoming_descriptors: got update of state "{}" , but it did not exist in mdib!',
+                                        'process_incoming_descriptors: got update of state "{}" , '
+                                        'but it did not exist in mdib!',
                                         state_container.DescriptorHandle)
                             if old_state_container is not None:
                                 old_state_container.update_from_other_container(state_container)
@@ -721,14 +726,14 @@ class ConsumerMdib(mdibbase.MdibBase):
                                 'process_incoming_descriptors: remove descriptor "{}" (parent="{}")',
                                 descriptor_container.Handle, descriptor_container.parent_handle)
                             self.rm_descriptor_by_handle(
-                                descriptor_container.Handle)  # handling of self.deleted_descriptor_by_handle inside called method
+                                descriptor_container.Handle)
                             deleted_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
 
                         for state_container in deleted_state_containers:
                             multi_key(state_container).remove_object_no_lock(state_container)
                     else:
-                        raise ValueError(
-                            f'unknown modification type {modification_type} in description modification report')
+                        msg = f'unknown modification type {modification_type} in description modification report'
+                        raise ValueError(msg)
 
         finally:
             self.description_modifications = report  # update observable for complete report
