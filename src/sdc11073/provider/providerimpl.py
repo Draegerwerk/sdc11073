@@ -1,3 +1,4 @@
+"""The module implements the SdcProvider."""
 from __future__ import annotations
 
 import copy
@@ -25,19 +26,20 @@ from sdc11073.xml_types import mex_types
 from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
-from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol # import here for code cov. :(
 
 from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 
 if TYPE_CHECKING:
     from enum import Enum
+
     from sdc11073.location import SdcLocation
-    from sdc11073.mdib.providermdib import ProviderMdib
-    from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
+    from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
+    from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol
     from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.pm_types import InstanceIdentifier
     from sdc11073.xml_types.wsd_types import ScopesType
@@ -82,15 +84,16 @@ class SdcProvider:
 
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 
-    def __init__(self, ws_discovery: WsDiscoveryProtocol,
+    def __init__(self, # noqa: PLR0915, PLR0913
+                 ws_discovery: WsDiscoveryProtocol,
                  this_model: ThisModelType,
                  this_device: ThisDeviceType,
-                 device_mdib_container: ProviderMdib,
+                 device_mdib_container: ProviderMdibProtocol,
                  epr: str | uuid.UUID | None = None,
                  validate: bool = True,
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
                  max_subscription_duration: int = 15,
-                 socket_timeout: int | float | None = None,
+                 socket_timeout: int | float | None = None, # noqa: PYI041
                  log_prefix: str = '',
                  default_components: SdcProviderComponents | None = None,
                  specific_components: SdcProviderComponents | None = None,
@@ -101,7 +104,7 @@ class SdcProvider:
         :param ws_discovery: a WsDiscovers instance
         :param this_model: a ThisModelType instance
         :param this_device: a ThisDeviceType instance
-        :param device_mdib_container: a ProviderMdib instance
+        :param device_mdib_container: a ProviderMdibProtocol instance
         :param epr: something that serves as a unique identifier of this device for discovery.
                     If epr is a string, it must be usable as a path element in an url (no spaces, ...)
         :param validate: bool
@@ -243,19 +246,19 @@ class SdcProvider:
         cls = self._components.sco_operations_registry_class
         pm_names = self._mdib.data_model.pm_names
 
-        sco_descr_list = self._mdib.descriptions.NODETYPE.get(pm_names.ScoDescriptor, [])
-        for sco_descr in sco_descr_list:
+        entities = self._mdib.entities.by_node_type(pm_names.ScoDescriptor)
+        for entity in entities:
             sco_operations_registry = cls(self.hosted_services.set_service,
                                           self._components.operation_cls_getter,
                                           self._mdib,
-                                          sco_descr,
+                                          entity.descriptor,
                                           log_prefix=self._log_prefix)
-            self._sco_operations_registries[sco_descr.Handle] = sco_operations_registry
+            self._sco_operations_registries[entity.handle] = sco_operations_registry
 
             product_roles = self._components.role_provider_class(self._mdib,
                                                                  sco_operations_registry,
                                                                  self._log_prefix)
-            self.product_lookup[sco_descr.Handle] = product_roles
+            self.product_lookup[entity.handle] = product_roles
             product_roles.init_operations()
         if self._components.waveform_provider_class is not None:
             self.waveform_provider = self._components.waveform_provider_class(self._mdib,
@@ -352,7 +355,7 @@ class SdcProvider:
                                           x_addrs)
 
     @property
-    def mdib(self) -> ProviderMdib:
+    def mdib(self) -> ProviderMdibProtocol:
         """Return mdib reference."""
         return self._mdib
 
@@ -396,8 +399,10 @@ class SdcProvider:
     def start_all(self,
                   start_rtsample_loop: bool = True,
                   periodic_reports_interval: float | None = None,
-                  shared_http_server=None):
-        """:param start_rtsample_loop: flag
+                  shared_http_server=None): # noqa: ANN001
+        """Start all background threads.
+
+        :param start_rtsample_loop: flag
         :param periodic_reports_interval: if provided, a value in seconds
         :param shared_http_server: if provided, use this http server, else device creates its own.
         :return:
@@ -416,7 +421,7 @@ class SdcProvider:
         if start_rtsample_loop:
             self.start_rt_sample_loop()
 
-    def _start_services(self, shared_http_server=None):
+    def _start_services(self, shared_http_server=None): # noqa: ANN001
         """Start the services."""
         self._logger.info('starting services, addr = %r', self._wsdiscovery.get_active_addresses())
         for sco in self._sco_operations_registries.values():
@@ -453,7 +458,7 @@ class SdcProvider:
             self._logger.error('Cannot start device, could not bind HTTP server to a port.')
             raise RuntimeError('Cannot start device, could not bind HTTP server to a port.')
 
-        self.base_urls = []  # e.g https://192.168.1.5:8888/8c26f673-fdbf-4380-b5ad-9e2454a65b6b; list has one member for each used ip address
+        self.base_urls = []
         for addr in host_ips:
             self.base_urls.append(
                 SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None, fragment=None))
@@ -464,6 +469,7 @@ class SdcProvider:
             subscriptions_manager.set_base_urls(self.base_urls)
 
     def stop_all(self, send_subscription_end: bool = True):
+        """Stop all background threads and clear local data."""
         self.stop_realtime_sample_loop()
         if self._periodic_reports_handler:
             self._periodic_reports_handler.stop()
@@ -482,6 +488,7 @@ class SdcProvider:
         self._soap_client_pool.close_all()
 
     def start_rt_sample_loop(self):
+        """Start generating waveform data."""
         if self.waveform_provider is None:
             raise ApiUsageError('no waveform provider configured.')
         if self.waveform_provider.is_running:
@@ -489,19 +496,22 @@ class SdcProvider:
         self.waveform_provider.start()
 
     def stop_realtime_sample_loop(self):
+        """Stop generating waveform data."""
         if self.waveform_provider is not None and self.waveform_provider.is_running:
             self.waveform_provider.stop()
 
     def get_xaddrs(self) -> list[str]:
+        """Return the addresses of the provider."""
         if self._alternative_hostname:
             addresses = [self._alternative_hostname]
         else:
-            addresses = self._wsdiscovery.get_active_addresses()  # these own IP addresses are currently used by discovery
+            # these own IP addresses are currently used by discovery
+            addresses = self._wsdiscovery.get_active_addresses()
 
         port = self._http_server.my_port
         xaddrs = []
         for addr in addresses:
-            xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')
+            xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}') # noqa: PERF401
         return xaddrs
 
     def _send_episodic_reports(self, transaction_result: TransactionResultProtocol):

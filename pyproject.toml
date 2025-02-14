@@ -124,7 +124,11 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "S311", # https://docs.astral.sh/ruff/rules/suspicious-non-cryptographic-random-usage/
     "SIM102", # collapsible-if
     "T201", # https://docs.astral.sh/ruff/rules/print/
-    "TRY003", #https://docs.astral.sh/ruff/rules/raise-vanilla-args/
+    "TRY003", # https://docs.astral.sh/ruff/rules/raise-vanilla-args/
+    "FBT001", # https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
+    "FBT002", # https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
+    "FBT003", # https://docs.astral.sh/ruff/rules/boolean-positional-value-in-call/
+    "S320", # https://docs.astral.sh/ruff/rules/suspicious-xmle-tree-usage/
 ]
 
 [tool.ruff.format]
@@ -145,6 +149,17 @@ max-doc-length = 120 # https://docs.astral.sh/ruff/settings/#max-doc-length
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["D104"]
+"tests/*" = [
+    "SLF001",  # Private member accessed
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "PLR0915",  # Too many statements
+    "PLR2004",  # Magic value used in comparison
+    "E722",  # Do not use bare `except`
+    "PT009", # Use a regular `assert` instead of unittest-style `assertEqual`
+    "PT027", # Use `pytest.raises` instead of unittest-style `assertRaises`
+]
 
 [tool.mypy]
 python_version = "3.9" # https://mypy.readthedocs.io/en/stable/config_file.html#confval-python_version

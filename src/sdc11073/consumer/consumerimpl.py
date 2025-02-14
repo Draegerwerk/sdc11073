@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
     from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
     from sdc11073.dispatch.request import RequestData
+    from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
     from sdc11073.mdib.consumermdib import ConsumerMdib
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
@@ -101,7 +102,7 @@ class HostedServiceDescription:
             self.wsdl_string = self.wsdl_bytes.decode(encoding)
             logging.getLogger(commlog.WSDL).debug(self.wsdl_string)
         except etree.XMLSyntaxError as ex:
-            self._logger.error(  # noqa: PLE1205
+            self._logger.error(  # noqa: PLE1205 TRY400
                 'could not read wsdl from {}: error={}, data=\n{}', actual_path, ex, self.wsdl_bytes)
 
     def __repr__(self) -> str:
@@ -128,8 +129,9 @@ class _NotificationsSplitter:
 
     def on_notification(self, message_data: ReceivedMessage):
         observable_name = self._lookup.get(message_data.action)
-        if observable_name is None:
-            raise ValueError(f'unknown message {message_data.action}')
+        if observable_name is None:  # pragma: no cover
+            how_i_hate_this = f'unknown message {message_data.action}'
+            raise ValueError(how_i_hate_this)
         setattr(self._sdc_consumer, observable_name, message_data)
 
     def _mk_lookup(self) -> dict[str, str]:
@@ -162,7 +164,7 @@ class SdcConsumer:
 
     subscription_status = properties.ObservableProperty({})
     # indicates whether all subscriptions have been subscribed to and are renewed successfully
-    is_connected = properties.ObservableProperty(False)
+    is_connected = properties.ObservableProperty(default_value=False)
 
     # observable properties for all notifications
     # all incoming Notifications can be observed in state_event_report ( as soap envelope)
@@ -188,7 +190,7 @@ class SdcConsumer:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(self, device_location: str,  # noqa: PLR0913
+    def __init__(self, device_location: str,  # noqa: PLR0913 PLR0915
                  sdc_definitions: type[BaseDefinitions],
                  ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
                  epr: str | uuid.UUID | None = None,
@@ -199,7 +201,7 @@ class SdcConsumer:
                  request_chunk_size: int = 0,
                  socket_timeout: int = 5,
                  force_ssl_connect: bool = False,
-                 alternative_hostname: str | None = None
+                 alternative_hostname: str | None = None,
                  ):
         """Construct a SdcConsumer.
 
@@ -306,7 +308,7 @@ class SdcConsumer:
         self._shared_http_server_param: Any | None = None
         self._check_get_service_param: bool | None = None
 
-    def set_mdib(self, mdib: ConsumerMdib | None):
+    def set_mdib(self, mdib: ConsumerMdib | EntityConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise ApiUsageError('SdcConsumer has already an registered mdib')
@@ -353,8 +355,7 @@ class SdcConsumer:
         p = urlparse(self._http_server.base_url)
         tmp = f'{p.scheme}://{self._alternative_hostname or self._network_adapter.ip}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
-        tmp = f'{tmp}{sep}{self.path_prefix}/'
-        return tmp
+        return f'{tmp}{sep}{self.path_prefix}/'
 
     def mk_subscription(self, dpws_hosted: HostedServiceType,
                         filter_type: eventing_types.FilterType,
@@ -468,7 +469,7 @@ class SdcConsumer:
         """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(self, not_subscribed_actions: Iterable[str] | None = None,
+    def start_all(self, not_subscribed_actions: Iterable[str] | None = None,  #noqa: C901 PLR0915
                   fixed_renew_interval: float | None = None,
                   shared_http_server: Any | None = None,
                   check_get_service: bool = True) -> None:
@@ -503,8 +504,9 @@ class SdcConsumer:
                           self._network_adapter)
 
         # only GetService is mandatory!!!
-        if check_get_service and self.get_service_client is None:
-            raise RuntimeError(f'GetService not detected! found services = {list(self._service_clients.keys())}')
+        if check_get_service and self.get_service_client is None:  # pragma: no cover
+            msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
+            raise RuntimeError(msg)
 
         self._start_event_sink(shared_http_server)
 
@@ -555,7 +557,7 @@ class SdcConsumer:
                         self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
                     except Exception:  # noqa: BLE001
                         self.all_subscribed = False  # => don't log errors when mdib versions are missing
-                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205
+                        self._logger.error('start_all: could not subscribe: error = {}, actions= {}',  # noqa: PLE1205 TRY400
                                            traceback.format_exc(), subscribe_actions)
 
         def _update_is_connected(subscription_status: dict[str, bool]):
@@ -584,7 +586,7 @@ class SdcConsumer:
         self._stop_event_sink()
 
     def restart(self):
-        """forget existing data and restart from the beginning."""
+        """Forget existing data and restart from the beginning."""
         mdib = self._mdib  # keep existing mdib connection
         self.stop_all()  # with unsubscribe
         # start with the same parameters as initially
@@ -718,7 +720,7 @@ class SdcConsumer:
             self._http_server.start()
             self._http_server.started_evt.wait(timeout=5)
             # it sometimes still happens that http server is not completely started without waiting.
-            # TODO: find better solution, see issue #320
+            # find better solution, see issue #320
             time.sleep(1)
             self._logger.info('serving EventSink on {}', self._http_server.base_url)  # noqa: PLE1205
         else:
@@ -740,7 +742,8 @@ class SdcConsumer:
         return EmptyResponse()
 
     def __str__(self) -> str:
-        return f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} on {self._device_location}'
+        return (f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} '
+                f'on {self._device_location}')
 
     @classmethod
     def from_wsd_service(cls, wsd_service: Service,  # noqa: PLR0913
@@ -748,7 +751,7 @@ class SdcConsumer:
                          validate: bool = True,
                          log_prefix: str = '',
                          default_components: SdcConsumerComponents | None = None,
-                         specific_components: SdcConsumerComponents | None = None):
+                         specific_components: SdcConsumerComponents | None = None) -> SdcConsumer:
         """Construct a SdcConsumer from a Service.
 
         :param wsd_service: a wsdiscovery.Service instance
@@ -760,8 +763,9 @@ class SdcConsumer:
         :return:
         """
         device_locations = wsd_service.x_addrs
-        if not device_locations:
-            raise RuntimeError(f'discovered Service has no address!{wsd_service}')
+        if not device_locations:  # pragma: no cover
+            msg = f'discovered Service has no address!{wsd_service}'
+            raise RuntimeError(msg)
         device_location = device_locations[0]
         for sdc_definition in ProtocolsRegistry.protocols:
             if sdc_definition.types_match(wsd_service.types):

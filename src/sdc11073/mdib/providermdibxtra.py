@@ -1,3 +1,4 @@
+"""The module contains extensions to the functionality of the ProviderMdib."""
 from __future__ import annotations
 
 import time
@@ -17,9 +18,9 @@ if TYPE_CHECKING:
     )
 
     from .descriptorcontainers import AbstractDescriptorProtocol
+    from .entityprotocol import MultiStateEntityProtocol
     from .providermdib import ProviderMdib
     from .statecontainers import AbstractStateProtocol
-
 
 class ProviderMdibMethods:
     """Extra methods for provider mdib tht are not core functionality."""
@@ -40,7 +41,7 @@ class ProviderMdibMethods:
         for system_context_descriptor in system_context_descriptors:
             child_location_descriptors = [d for d in location_context_descriptors
                                           if d.parent_handle == system_context_descriptor.Handle
-                                          and d.NODETYPE == pm.LocationContextDescriptor]
+                                          and pm.LocationContextDescriptor == d.NODETYPE]
             if not child_location_descriptors:
                 descr_cls = mdib.data_model.get_descriptor_container_class(pm.LocationContextDescriptor)
                 descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
@@ -57,7 +58,7 @@ class ProviderMdibMethods:
         for system_context_descriptor in system_context_descriptors:
             child_location_descriptors = [d for d in patient_context_descriptors
                                           if d.parent_handle == system_context_descriptor.Handle
-                                          and d.NODETYPE == pm.PatientContextDescriptor]
+                                          and pm.PatientContextDescriptor == d.NODETYPE]
             if not child_location_descriptors:
                 descr_cls = mdib.data_model.get_descriptor_container_class(pm.PatientContextDescriptor)
                 descr_container = descr_cls(handle=uuid.uuid4().hex, parent_handle=system_context_descriptor.Handle)
@@ -125,6 +126,45 @@ class ProviderMdibMethods:
                     else:
                         mdib.states.add_object(state)
 
+    def set_states_initial_values(self):
+        """Set all states to defined starting conditions.
+
+        This method is ment to be called directly after the mdib was loaded and before the provider is published
+        on the network.
+        It changes values only internally in the mdib, no notifications are sent!
+
+        """
+        pm_names = self._mdib.data_model.pm_names
+        pm_types = self._mdib.data_model.pm_types
+
+        for state in self._mdib.states.objects:
+            descriptor = self._mdib.descriptions.handle.get_one(state.DescriptorHandle)
+            if pm_names.AlertSystemDescriptor == descriptor.NODETYPE:
+                # alert systems are active
+                state.ActivationState = pm_types.AlertActivation.ON
+                state.SystemSignalActivation.append(
+                    pm_types.SystemSignalActivation(manifestation=pm_types.AlertSignalManifestation.AUD,
+                                                    state=pm_types.AlertActivation.ON))
+            elif descriptor.is_alert_condition_descriptor:
+                # alert conditions are active, but not present
+                state.ActivationState = pm_types.AlertActivation.ON
+                state.Presence = False
+            elif descriptor.is_alert_signal_descriptor:
+                # alert signals are not present, and delegable signals are also not active
+                if descriptor.SignalDelegationSupported:
+                    state.Location = pm_types.AlertSignalPrimaryLocation.REMOTE
+                    state.ActivationState = pm_types.AlertActivation.OFF
+                    state.Presence = pm_types.AlertSignalPresence.OFF
+                else:
+                    state.ActivationState = pm_types.AlertActivation.ON
+                    state.Presence = pm_types.AlertSignalPresence.OFF
+            elif descriptor.is_component_descriptor:
+                # all components are active
+                state.ActivationState = pm_types.ComponentActivation.ON
+            elif descriptor.is_operational_descriptor:
+                # all operations are enabled
+                state.OperatingMode = pm_types.OperatingMode.ENABLED
+
     def update_retrievability_lists(self):
         """Update internal lists, based on current mdib descriptors."""
         mdib = self._mdib
@@ -169,7 +209,8 @@ class ProviderMdibMethods:
                 if self._mdib.current_transaction:
                     tmp = self._mdib.current_transaction.actual_descriptor(parent_handle)
             if tmp is None:
-                raise KeyError(f'could not find mds descriptor for handle {container.Handle}')
+                msg = f'could not find mds descriptor for handle {container.Handle}'
+                raise KeyError(msg)
         return None
 
     def set_source_mds(self, descriptor_container: AbstractDescriptorProtocol):
@@ -177,6 +218,32 @@ class ProviderMdibMethods:
         mds = self.get_mds_descriptor(descriptor_container)
         descriptor_container.set_source_mds(mds.Handle)
 
+
+    def disassociate_all(self,
+                         entity: MultiStateEntityProtocol,
+                         unbinding_mdib_version: int,
+                         ignored_handle: str | None = None) -> list[str]:
+        """Disassociate all associated states in entity.
+
+        The method returns a list of states that were disassociated.
+        :param entity: ProviderMultiStateEntity
+        :param ignored_handle: the context state with this Handle shall not be touched.
+        """
+        pm_types = self._mdib.data_model.pm_types
+        disassociated_state_handles = []
+        for state in entity.states.values():
+            if state.Handle == ignored_handle or state.ContextAssociation == pm_types.ContextAssociation.NO_ASSOCIATION:
+                # If state is already part of this transaction leave it also untouched, accept what the user wanted.
+                # If state is not associated, also do not touch it.
+                continue
+            if state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
+                    or state.UnbindingMdibVersion is None:
+                state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
+                if state.UnbindingMdibVersion is None:
+                    state.UnbindingMdibVersion = unbinding_mdib_version
+                    state.BindingEndTime = time.time()
+                disassociated_state_handles.append(state.Handle)
+        return disassociated_state_handles
 
 class DescriptorFactory:
     """DescriptorFactory provides some methods to make creation of descriptors easier."""

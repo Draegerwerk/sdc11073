@@ -1,10 +1,14 @@
+"""Implementation of products.
+
+A product is a set of role providers that handle operations and other tasks.
+"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
 from sdc11073 import loghelper
 
-from .alarmprovider import GenericAlarmProvider
+from .alarmprovider import AlertDelegateProvider, AlertPreCommitHandler, AlertSystemStateMaintainer
 from .audiopauseprovider import AudioPauseProvider
 from .clockprovider import GenericSDCClockProvider
 from .componentprovider import GenericSetComponentStateOperationProvider
@@ -14,9 +18,9 @@ from .operationprovider import OperationProvider
 from .patientcontextprovider import GenericPatientContextProvider
 
 if TYPE_CHECKING:
-    from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.mdib.transactionsprotocol import AnyTransactionManagerProtocol
     from sdc11073.provider.operations import OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
@@ -53,10 +57,10 @@ class ProviderRoleProtocol(Protocol):
         If a role provider needs to add operations beyond that, it can do it here.
         """
 
-    def on_pre_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def on_pre_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         """Manipulate operation (e.g. add more states)."""
 
-    def on_post_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def on_post_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         """Implement actions after the transaction."""
         ...
 
@@ -69,14 +73,13 @@ class BaseProduct:
     """
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         """Create a product."""
         self._sco = sco
         self._mdib = mdib
-        self._model = mdib.data_model
-        self._ordered_providers: list[ProviderRoleProtocol] = []  # order matters, first come, first serve
+        self._ordered_providers: list[ProviderRoleProtocol] = []  # order matters, first come, first served
         # start with most specific providers, end with most general ones
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
@@ -102,8 +105,8 @@ class BaseProduct:
             for operation in operations:
                 self._sco.register_operation(operation)
 
-        all_sco_operations = self._mdib.descriptions.parent_handle.get(self._sco.sco_descriptor_container.Handle, [])
-        all_op_handles = [op.Handle for op in all_sco_operations]
+        all_sco_operations = self._mdib.entities.by_parent_handle(self._sco.sco_descriptor_container.Handle)
+        all_op_handles = [op.handle for op in all_sco_operations]
         all_not_registered_op_handles = [op_h for op_h in all_op_handles if
                                          self._sco.get_operation_by_handle(op_h) is None]
 
@@ -114,7 +117,6 @@ class BaseProduct:
                               sco_handle, all_not_registered_op_handles)
         else:
             self._logger.info('sco %s: all operations have a handler.', sco_handle)
-        self._mdib.xtra.mk_state_containers_for_all_descriptors()
         self._mdib.pre_commit_handler = self._on_pre_commit
         self._mdib.post_commit_handler = self._on_post_commit
 
@@ -128,9 +130,8 @@ class BaseProduct:
                                 operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
         """Call make_operation_instance of all role providers, until the first returns not None."""
         operation_target_handle = operation_descriptor_container.OperationTarget
-        operation_target_descr = self._mdib.descriptions.handle.get_one(operation_target_handle,
-                                                                        allow_none=True)  # descriptor container
-        if operation_target_descr is None:
+        operation_target_entity = self._mdib.entities.by_handle(operation_target_handle)
+        if operation_target_entity is None:
             # this operation is incomplete, the operation target does not exist. Registration not possible.
             self._logger.warning('Operation %s: target %s does not exist, will not register operation',
                                  operation_descriptor_container.Handle, operation_target_handle)
@@ -145,23 +146,24 @@ class BaseProduct:
         return None
 
     def _register_existing_mdib_operations(self, sco: AbstractScoOperationsRegistry):
-        operation_descriptor_containers = self._mdib.descriptions.parent_handle.get(
-            self._sco.sco_descriptor_container.Handle, [])
-        for descriptor in operation_descriptor_containers:
-            registered_op = sco.get_operation_by_handle(descriptor.Handle)
+        operation_entities = self._mdib.entities.by_parent_handle(self._sco.sco_descriptor_container.Handle)
+        for operation_entity in operation_entities:
+            registered_op = sco.get_operation_by_handle(operation_entity.handle)
             if registered_op is None:
                 self._logger.debug('found unregistered %s in mdib, handle=%s, code=%r target=%s',
-                                   descriptor.NODETYPE.localname, descriptor.Handle, descriptor.Type,
-                                   descriptor.OperationTarget)
-                operation = self.make_operation_instance(descriptor, sco.operation_cls_getter)
+                                   operation_entity.node_type.localname, operation_entity.handle,
+                                   operation_entity.descriptor.Type,
+                                   operation_entity.descriptor.OperationTarget)
+                operation = self.make_operation_instance(operation_entity.descriptor,
+                                                         sco.operation_cls_getter)
                 if operation is not None:
                     sco.register_operation(operation)
 
-    def _on_pre_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def _on_pre_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         for provider in self._all_providers_sorted():
             provider.on_pre_commit(mdib, transaction)
 
-    def _on_post_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def _on_post_commit(self, mdib: ProviderMdibProtocol, transaction: AnyTransactionManagerProtocol):
         for provider in self._all_providers_sorted():
             provider.on_post_commit(mdib, transaction)
 
@@ -170,7 +172,7 @@ class DefaultProduct(BaseProduct):
     """Default Product."""
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)
@@ -178,7 +180,9 @@ class DefaultProduct(BaseProduct):
         self._ordered_providers.extend([AudioPauseProvider(mdib, log_prefix=log_prefix),
                                         GenericSDCClockProvider(mdib, log_prefix=log_prefix),
                                         GenericPatientContextProvider(mdib, log_prefix=log_prefix),
-                                        GenericAlarmProvider(mdib, log_prefix=log_prefix),
+                                        AlertDelegateProvider(mdib, log_prefix=log_prefix),
+                                        AlertSystemStateMaintainer(mdib, log_prefix=log_prefix),
+                                        AlertPreCommitHandler(mdib, log_prefix=log_prefix),
                                         self.metric_provider,
                                         OperationProvider(mdib, log_prefix=log_prefix),
                                         GenericSetComponentStateOperationProvider(mdib, log_prefix=log_prefix),
@@ -189,7 +193,7 @@ class ExtendedProduct(DefaultProduct):
     """Add EnsembleContextProvider and LocationContextProvider."""
 
     def __init__(self,
-                 mdib: ProviderMdib,
+                 mdib: ProviderMdibProtocol,
                  sco: AbstractScoOperationsRegistry,
                  log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)

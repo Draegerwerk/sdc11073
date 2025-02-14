@@ -1,3 +1,4 @@
+"""The module implements the base class of role providers."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
@@ -8,9 +9,9 @@ from sdc11073 import loghelper
 from sdc11073.provider.operations import OperationDefinitionBase
 
 if TYPE_CHECKING:
-    from sdc11073.mdib import ProviderMdib
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.transactionsprotocol import TransactionManagerProtocol
+    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.mdib.transactionsprotocol import AbstractTransactionManagerProtocol
     from sdc11073.provider.operations import ExecuteHandler, TimeoutHandler
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
     from sdc11073.xml_types.pm_types import CodedValue, SafetyClassification
@@ -21,7 +22,7 @@ OperationClassGetter = Callable[[etree.QName], type[OperationDefinitionBase]]
 class ProviderRole:
     """Base class for all role implementations."""
 
-    def __init__(self, mdib: ProviderMdib, log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         self._mdib = mdib
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
@@ -57,13 +58,13 @@ class ProviderRole:
         """
         return []
 
-    def on_pre_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def on_pre_commit(self, mdib: ProviderMdibProtocol, transaction: AbstractTransactionManagerProtocol):
         """Manipulate the transaction if needed.
 
         Derived classes can overwrite this method.
         """
 
-    def on_post_commit(self, mdib: ProviderMdib, transaction: TransactionManagerProtocol):
+    def on_post_commit(self, mdib: ProviderMdibProtocol, transaction: AbstractTransactionManagerProtocol):
         """Run stuff after transaction.
 
         Derived classes can overwrite this method.

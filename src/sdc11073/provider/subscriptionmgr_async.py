@@ -1,7 +1,9 @@
+"""Async implementation of subscriptions manager."""
 from __future__ import annotations
 
 import asyncio
 import socket
+import time
 import traceback
 from collections import defaultdict
 from threading import Thread
@@ -21,14 +23,15 @@ from .subscriptionmgr_base import ActionBasedSubscription, RoundTripData, Subscr
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Iterable
+    from logging import LoggerAdapter
 
+    from sdc11073 import xml_utils
     from sdc11073.definitions_base import BaseDefinitions
     from sdc11073.dispatch import RequestData
     from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.msgreader import ReceivedMessage
     from sdc11073.pysoap.soapclientpool import SoapClientPool
-    from sdc11073 import xml_utils
 
 
 def _mk_dispatch_identifier(reference_parameters: list, path_suffix: str) -> tuple[str | None, str]:
@@ -106,9 +109,8 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('exception async send subscription end to {}, subscription = {}',  # noqa: PLE1205
                               url, self)
-            pass
         except Exception:  # noqa: BLE001
-            self._logger.error(traceback.format_exc())
+            self._logger.error(traceback.format_exc()) # noqa: TRY400
         finally:
             self._is_closed = True
 
@@ -116,28 +118,39 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
 class AsyncioEventLoopThread(Thread):
     """Central event loop for provider."""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, logger: LoggerAdapter ):
         super().__init__(name=name)
+        self._logger = logger
         self.daemon = True
         self.loop = asyncio.new_event_loop()
-        self.running = False
+        self._running = False
+
+    @property
+    def running(self) -> bool:
+        """Return True if the event loop is running."""
+        return self._running
 
     def run(self):
         """Run method of thread."""
-        self.running = True
+        self._logger.info('%s started', self.__class__.__name__)
+        self._running = True
         self.loop.run_forever()
+        self._logger.info('%s finished', self.__class__.__name__)
 
     def run_coro(self, coro: Awaitable) -> Any:
         """Run threadsafe."""
-        if not self.running:
+        if not self._running:
+            self._logger.error('%s: async thread is not running', self.__class__.__name__)
             return None
         return asyncio.run_coroutine_threadsafe(coro, loop=self.loop).result()
 
     def stop(self):
         """Stop thread."""
-        self.running = False
+        self._logger.info('%s: stopping now', self.__class__.__name__)
+        self._running = False
         self.loop.call_soon_threadsafe(self.loop.stop)
         self.join()
+        self._logger.info('%s: stopped', self.__class__.__name__)
 
 
 class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
@@ -153,14 +166,21 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                  sdc_definitions: BaseDefinitions,
                  msg_factory: MessageFactory,
                  soap_client_pool: SoapClientPool,
-                 max_subscription_duration: [float, None] = None,
-                 log_prefix: str = None,
+                 max_subscription_duration: float | None = None,
+                 log_prefix: str | None = None,
                  ):
         super().__init__(sdc_definitions, msg_factory, soap_client_pool, max_subscription_duration, log_prefix)
         if soap_client_pool.async_loop_subscr_mgr is None:
-            thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr')
+            thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr', logger=self._logger)
             soap_client_pool.async_loop_subscr_mgr = thr
             thr.start()
+            for _i in range(10):
+                if not thr.running:
+                    time.sleep(0.1)
+                else:
+                    break
+            if not thr.running:
+                raise RuntimeError('could not start AsyncioEventLoopThread')
         self._async_send_thread = soap_client_pool.async_loop_subscr_mgr
 
     def _mk_subscription_instance(self, request_data: RequestData) -> BicepsSubscriptionAsync:
@@ -201,7 +221,8 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
         """Send payload to all subscribers."""
         with self._subscriptions.lock:
             if not self._async_send_thread.running:
-                self._logger.info('could not send notifications, async send loop is not running.')
+                self._logger.warning('could not send notifications, async send loop is not running.')
+                self._logger.warning(traceback.format_stack())
                 return
             subscribers = self._get_subscriptions_for_action(action)
             if isinstance(payload, MessageType):
@@ -216,7 +237,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
             tasks = []
             for subscriber in subscribers:
-                tasks.append(self._async_send_notification_report(subscriber, body_node, action))
+                tasks.append(self._async_send_notification_report(subscriber, body_node, action)) # noqa: PERF401
 
             self._logger.debug('sending report %s to %r',
                                action, [s.notify_to_address for s in subscribers])
@@ -256,7 +277,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             raise
         except Exception:
             # this should never happen! => re-raise
-            self._logger.error('could not send notification report {}, error {}: {}',  # noqa: PLE1205
+            self._logger.error('could not send notification report {}, error {}: {}',  # noqa: PLE1205 TRY400
                                action, traceback.format_exc(), subscription)
             raise
 
