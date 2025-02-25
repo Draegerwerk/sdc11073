@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2025-02-25
+
 ### Added:
 
-- support for python 3.13
+- support for python 3.13 [#408](https://github.com/Draegerwerk/sdc11073/pull/408)
+- redesigned mdib handling to be more efficient [#401](https://github.com/Draegerwerk/sdc11073/pull/401)
 
 ### Fixed:
 
