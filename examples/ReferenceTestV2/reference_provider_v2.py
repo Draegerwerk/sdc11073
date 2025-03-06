@@ -179,14 +179,14 @@ def provide_realtime_data(sdc_provider: SdcProvider):
     if waveform_provider is None:
         return
     with sdc_provider.mdib.mdib_lock:
-        mdib_waveforms = [
+        waveform_handles = [
             wv.Handle
             for wv in sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
         ]
 
-    for waveform in mdib_waveforms:
+    for waveform in waveform_handles:
         wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.001)
-        waveform_provider.register_waveform_generator(waveform.Handle, wf_generator)
+        waveform_provider.register_waveform_generator(waveform, wf_generator)
 
 
 def run_provider():  # noqa: PLR0915, PLR0912, C901
