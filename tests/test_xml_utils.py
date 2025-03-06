@@ -1,3 +1,5 @@
+"""Unit tests for XML utility functions in the `xml_utils` module."""
+
 import copy
 import unittest
 import uuid

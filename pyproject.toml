@@ -109,8 +109,6 @@ extend-exclude = ["examples", "tools", "tutorial"] # https://docs.astral.sh/ruff
 [tool.ruff.lint]
 select = ["ALL"]  # https://docs.astral.sh/ruff/settings/#select
 extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
-    "ANN101", # https://docs.astral.sh/ruff/rules/missing-type-self/
-    "ANN102", # https://docs.astral.sh/ruff/rules/missing-type-cls/
     "ANN204", # https://docs.astral.sh/ruff/rules/missing-return-type-special-method/
     "ANN401", # https://docs.astral.sh/ruff/rules/any-type/
     "C408", # https://docs.astral.sh/ruff/rules/unnecessary-collection-call/
