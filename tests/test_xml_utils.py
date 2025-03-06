@@ -1,8 +1,12 @@
+"""Unit tests for XML utility functions in the `xml_utils` module."""
+
+import copy
 import unittest
 
 from lxml import etree
 
 from sdc11073 import xml_utils
+from tests import utils
 
 
 class TestXmlParsing(unittest.TestCase):
@@ -274,3 +278,24 @@ class TestXmlParsing(unittest.TestCase):
         self.assertEqual(type(parsed_xml), xml_utils.LxmlElement)
         self.assertTrue(isinstance(parsed_xml, etree._Element))
         self.assertTrue(isinstance(parsed_xml, xml_utils.LxmlElement))
+
+    def test_custom_qname(self):
+        qname = utils.random_qname()
+        new_qname = xml_utils.QName(qname.text)
+        self.assertEqual(qname.text, new_qname.text)
+        self.assertEqual(qname.localname, new_qname.localname)
+        self.assertEqual(qname.namespace, new_qname.namespace)
+
+    def test_custom_qname_copy(self):
+        qname = xml_utils.QName(utils.random_qname().text)
+        new_qname = copy.copy(qname)
+        self.assertEqual(qname.text, new_qname.text)
+        self.assertEqual(qname.localname, new_qname.localname)
+        self.assertEqual(qname.namespace, new_qname.namespace)
+
+    def test_custom_qname_deepcopy(self):
+        qname = xml_utils.QName(utils.random_qname().text)
+        new_qname = copy.deepcopy(qname)
+        self.assertEqual(qname.text, new_qname.text)
+        self.assertEqual(qname.localname, new_qname.localname)
+        self.assertEqual(qname.namespace, new_qname.namespace)

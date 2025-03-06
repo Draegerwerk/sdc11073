@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Fixed:
+
+- fixed an issue where the new pat mdib is not parseable because lxml QName is unpickleable
+
 ## [2.2.0] - 2025-02-25
 
 ### Added:

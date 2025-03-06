@@ -1,4 +1,5 @@
 """Module containing utilities and helper methods regarding xml."""
+from __future__ import annotations
 
 import copy
 import sys
@@ -9,11 +10,11 @@ from lxml import etree
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 
-    LxmlElement: TypeAlias = etree._Element
+    LxmlElement: TypeAlias = etree._Element  # noqa: SLF001
 else:
     from typing_extensions import TypeAlias
 
-    LxmlElement: TypeAlias = etree._Element
+    LxmlElement: TypeAlias = etree._Element  # noqa: SLF001
 
 
 def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:
@@ -57,3 +58,13 @@ def copy_node_wo_parent(node: LxmlElement, method: Callable[[LxmlElement], LxmlE
     new_node.tail = node.tail
     new_node.extend(method(child) for child in node)
     return new_node
+
+
+class QName(etree.QName):
+    """Implements copy and deepcopy for lxml QName as it is unpickleable."""
+
+    def __copy__(self):
+        return QName(self.text)
+
+    def __deepcopy__(self, _: dict):
+        return QName(self.text)
