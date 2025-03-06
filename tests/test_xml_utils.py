@@ -7,7 +7,7 @@ import uuid
 from lxml import etree
 
 from sdc11073 import xml_utils
-
+from tests import utils
 
 class TestXmlParsing(unittest.TestCase):
     xml_to_be_parsed = (b"""<?xml version='1.0' encoding='UTF-8'?>
@@ -280,21 +280,21 @@ class TestXmlParsing(unittest.TestCase):
         self.assertTrue(isinstance(parsed_xml, xml_utils.LxmlElement))
 
     def test_custom_qname(self):
-        qname = etree.QName(f'{{http://www.w3.org/2001/{uuid.uuid4()}}}{uuid.uuid4()}')
+        qname = utils.random_qname()
         new_qname = xml_utils.QName(qname.text)
         self.assertEqual(qname.text, new_qname.text)
         self.assertEqual(qname.localname, new_qname.localname)
         self.assertEqual(qname.namespace, new_qname.namespace)
 
     def test_custom_qname_copy(self):
-        qname = xml_utils.QName(f'{{http://www.w3.org/2001/{uuid.uuid4()}}}{uuid.uuid4()}')
+        qname = xml_utils.QName(utils.random_qname().text)
         new_qname = copy.copy(qname)
         self.assertEqual(qname.text, new_qname.text)
         self.assertEqual(qname.localname, new_qname.localname)
         self.assertEqual(qname.namespace, new_qname.namespace)
 
     def test_custom_qname_deepcopy(self):
-        qname = xml_utils.QName(f'{{http://www.w3.org/2001/{uuid.uuid4()}}}{uuid.uuid4()}')
+        qname = xml_utils.QName(utils.random_qname().text)
         new_qname = copy.deepcopy(qname)
         self.assertEqual(qname.text, new_qname.text)
         self.assertEqual(qname.localname, new_qname.localname)
