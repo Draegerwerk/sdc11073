@@ -16,6 +16,7 @@ import json
 import logging.config
 import os
 import pathlib
+import random
 import traceback
 import uuid
 from decimal import Decimal
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
 
 def get_network_adapter() -> network.NetworkAdapter:
     """Get network adapter from environment or first loopback."""
+    # return network.get_adapter_containing_ip('192.168.30.109')
     if (ip := os.getenv('ref_ip')) is not None:  # noqa: SIM112
         return network.get_adapter_containing_ip(ip)
     # get next available loopback adapter
@@ -178,7 +180,9 @@ def provide_realtime_data(sdc_provider: SdcProvider):
     waveform_provider = sdc_provider.waveform_provider
     if waveform_provider is None:
         return
-    mdib_waveforms = sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
+    with sdc_provider.mdib.mdib_lock:
+        mdib_waveforms = [wv.Handle for wv in sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)]
+
     for waveform in mdib_waveforms:
         wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.001)
         waveform_provider.register_waveform_generator(waveform.Handle, wf_generator)
