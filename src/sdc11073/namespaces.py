@@ -7,6 +7,8 @@ from typing import Optional, Type, NamedTuple
 
 from lxml import etree
 
+from sdc11073 import xml_utils
+
 
 class PrefixNamespace(NamedTuple):
     prefix: str
@@ -240,7 +242,7 @@ def text_to_qname(text: str, doc_nsmap: dict) -> etree.QName:
     prefix = None if len(elements) == 1 else elements[0]
     name = elements[-1]
     try:
-        return etree.QName(doc_nsmap[prefix], name)
+        return xml_utils.QName(doc_nsmap[prefix], name)
     except KeyError as ex:
         raise KeyError(f'Cannot make QName for {text}, prefix is not in nsmap: {doc_nsmap.keys()}') from ex
 

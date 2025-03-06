@@ -1,4 +1,5 @@
 """Module containing utilities and helper methods regarding xml."""
+from __future__ import annotations
 
 import copy
 import sys
@@ -57,3 +58,13 @@ def copy_node_wo_parent(node: LxmlElement, method: Callable[[LxmlElement], LxmlE
     new_node.tail = node.tail
     new_node.extend(method(child) for child in node)
     return new_node
+
+
+class QName(etree.QName):
+    """Implements copy and deepcopy for lxml QName as it is unpickleable."""
+
+    def __copy__(self):
+        return QName(self.text)
+
+    def __deepcopy__(self, _: dict):
+        return QName(self.text)

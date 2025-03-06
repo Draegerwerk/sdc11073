@@ -82,7 +82,7 @@ def get_mdib_path() -> pathlib.Path:
     """Get mdib from environment or default mdib."""
     if mdib_path := os.getenv("ref_mdib"):  # noqa:SIM112
         return pathlib.Path(mdib_path)
-    return pathlib.Path(__file__).parent.joinpath("mdib_test_sequence_2_v4(temp).xml")
+    return pathlib.Path(__file__).parent.joinpath("PlugathonMdibV2.xml")
 
 
 numeric_metric_handle = "numeric_metric_0.channel_0.vmd_0.mds_0"
@@ -378,7 +378,9 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
                                 descriptor.Type.ConceptDescription[0].text = text
                         if enable_5a2:
                             if len(descriptor.CauseInfo) == 0:
-                                descriptor.CauseInfo.append(pm_types.CauseInfo())
+                                cause_info = pm_types.CauseInfo()
+                                cause_info.RemedyInfo = pm_types.RemedyInfo()
+                                descriptor.CauseInfo.append(cause_info)
                             if len(descriptor.CauseInfo[0].RemedyInfo.Description) == 0:
                                 descriptor.CauseInfo[0].RemedyInfo.Description.append(pm_types.LocalizedText(text))
                             else:

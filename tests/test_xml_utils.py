@@ -1,4 +1,6 @@
+import copy
 import unittest
+import uuid
 
 from lxml import etree
 
@@ -274,3 +276,24 @@ class TestXmlParsing(unittest.TestCase):
         self.assertEqual(type(parsed_xml), xml_utils.LxmlElement)
         self.assertTrue(isinstance(parsed_xml, etree._Element))
         self.assertTrue(isinstance(parsed_xml, xml_utils.LxmlElement))
+
+    def test_custom_qname(self):
+        qname = etree.QName(f'{{http://www.w3.org/2001/{uuid.uuid4()}}}{uuid.uuid4()}')
+        new_qname = xml_utils.QName(qname.text)
+        self.assertEqual(qname.text, new_qname.text)
+        self.assertEqual(qname.localname, new_qname.localname)
+        self.assertEqual(qname.namespace, new_qname.namespace)
+
+    def test_custom_qname_copy(self):
+        qname = xml_utils.QName(f'{{http://www.w3.org/2001/{uuid.uuid4()}}}{uuid.uuid4()}')
+        new_qname = copy.copy(qname)
+        self.assertEqual(qname.text, new_qname.text)
+        self.assertEqual(qname.localname, new_qname.localname)
+        self.assertEqual(qname.namespace, new_qname.namespace)
+
+    def test_custom_qname_deepcopy(self):
+        qname = xml_utils.QName(f'{{http://www.w3.org/2001/{uuid.uuid4()}}}{uuid.uuid4()}')
+        new_qname = copy.deepcopy(qname)
+        self.assertEqual(qname.text, new_qname.text)
+        self.assertEqual(qname.localname, new_qname.localname)
+        self.assertEqual(qname.namespace, new_qname.namespace)

@@ -775,7 +775,7 @@ class CauseInfo(PropertyBasedPMType):
 
     NODETYPE = pm.CauseInfo
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
-    RemedyInfo: RemedyInfoType = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
+    RemedyInfo: RemedyInfoType | None = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
     Description: list[LocalizedText] = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     _props = ('ExtExtension', 'RemedyInfo', 'Description')
 
@@ -790,10 +790,10 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
     """Represents BICEPS AbstractSetStateOperationDescriptor/Argument."""
 
     ArgName: CodedValue = cp.SubElementProperty(pm.ArgName, value_class=CodedValue, is_optional=False)
-    Arg: etree.QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
+    Arg: xml_utils.QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
     _props = ('ArgName', 'Arg')
 
-    def __init__(self, arg_name: CodedValue | None = None, arg: etree.QName | None = None):
+    def __init__(self, arg_name: CodedValue | None = None, arg: xml_utils.QName | None = None):
         super().__init__()
         self.ArgName = arg_name
         self.Arg = arg
