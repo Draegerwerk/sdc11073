@@ -2,12 +2,12 @@
 
 import copy
 import unittest
-import uuid
 
 from lxml import etree
 
 from sdc11073 import xml_utils
 from tests import utils
+
 
 class TestXmlParsing(unittest.TestCase):
     xml_to_be_parsed = (b"""<?xml version='1.0' encoding='UTF-8'?>
