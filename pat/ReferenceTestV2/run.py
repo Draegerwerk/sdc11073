@@ -7,8 +7,7 @@ import sys
 import threading
 import uuid
 
-from examples.ReferenceTestV2 import reference_consumer_v2, reference_provider_v2
-
+from pat.ReferenceTestV2 import reference_consumer_v2, reference_provider_v2
 from sdc11073 import network
 
 
