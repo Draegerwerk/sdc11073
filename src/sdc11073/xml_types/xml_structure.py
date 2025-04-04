@@ -785,7 +785,7 @@ class NodeTextQNameProperty(_ElementBase):
     """The handled data is a single qualified name in the text of an element in the form prefix:localname."""
 
     def __init__(self, sub_element_name: etree.QName | None,
-                 default_py_value: etree.QName | None = None,
+                 default_py_value: xml_utils.QName | None = None,
                  is_optional: bool = False):
         super().__init__(sub_element_name, ClassCheckConverter(etree.QName), default_py_value,
                          is_optional=is_optional)
