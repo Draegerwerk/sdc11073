@@ -111,6 +111,23 @@
               <pm:ConceptDescription Lang="en-US">An operation to cancel global all audio pause</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
+          <pm:Operation xsi:type="pm:ActivateOperationDescriptor" OperationTarget="string_metric_1.channel_0.vmd_0.mds_0" Retriggerable="false" Handle="activate_1.sco.mds_0" SafetyClassification="MedA">
+              <pm:Type Code="67108893">
+                  <pm:ConceptDescription Lang="en-US">Accepts three arguments which are concatenated and written to the metric value of the operation target.</pm:ConceptDescription>
+              </pm:Type>
+              <pm:Argument>
+                  <pm:ArgName Code="67108895"/>
+                  <pm:Arg xmlns="http://www.w3.org/2001/XMLSchema">string</pm:Arg>
+              </pm:Argument>
+              <pm:Argument>
+                  <pm:ArgName Code="67108896"/>
+                  <pm:Arg xmlns="http://www.w3.org/2001/XMLSchema">decimal</pm:Arg>
+              </pm:Argument>
+              <pm:Argument>
+                  <pm:ArgName Code="67108897"/>
+                  <pm:Arg xmlns="http://www.w3.org/2001/XMLSchema">anyURI</pm:Arg>
+              </pm:Argument>
+          </pm:Operation>
           <pm:Operation xsi:type="pm:SetContextStateOperationDescriptor" Handle="SVO.41.PC.mds0" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="PC.mds0" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
             <ext:Extension>
               <msg:Retrievability>
@@ -262,6 +279,14 @@
             <pm:Type Code="69635">
               <pm:ConceptDescription Lang="en-US">Patient related device specific settings channel</pm:ConceptDescription>
             </pm:Type>
+            <pm:Metric xsi:type="pm:StringMetricDescriptor" MetricCategory="Set" MetricAvailability="Intr" Handle="string_metric_1.channel_0.vmd_0.mds_0">
+                <pm:Type Code="67108898">
+                  <pm:ConceptDescription Lang="en-US">Operation target of the activate operation</pm:ConceptDescription>
+                </pm:Type>
+                <pm:Unit Code="262656">
+                  <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
+                </pm:Unit>
+            </pm:Metric>
             <pm:Metric xsi:type="pm:NumericMetricDescriptor" Handle="0x34F0434A" DescriptorVersion="2" SafetyClassification="MedA" Resolution="1.0" MetricCategory="Set" MetricAvailability="Intr" MaxDelayTime="PT00H00M30S">
               <ext:Extension>
                 <msg:Retrievability>
