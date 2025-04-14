@@ -286,7 +286,9 @@ class _ElementBase(_XmlStructureBaseProperty, ABC):
 
     @staticmethod
     def _get_element_by_child_name(
-        node: xml_utils.LxmlElement, sub_element_name: etree.QName | None, create_missing_nodes: bool
+        node: xml_utils.LxmlElement,
+        sub_element_name: etree.QName | None,
+        create_missing_nodes: bool,
     ) -> xml_utils.LxmlElement:
         if sub_element_name is None:
             return node
@@ -312,7 +314,11 @@ class StringAttributeProperty(_AttributeBase):
     """Python representation is a string."""
 
     def __init__(
-        self, attribute_name: str, default_py_value: Any = None, implied_py_value: Any = None, is_optional: bool = True
+        self,
+        attribute_name: str,
+        default_py_value: Any = None,
+        implied_py_value: Any = None,
+        is_optional: bool = True,
     ):
         super().__init__(attribute_name, StringConverter, default_py_value, implied_py_value, is_optional)
 
@@ -371,7 +377,11 @@ class TimestampAttributeProperty(_AttributeBase):
     """
 
     def __init__(
-        self, attribute_name: str, default_py_value: Any = None, implied_py_value: Any = None, is_optional: bool = True
+        self,
+        attribute_name: str,
+        default_py_value: Any = None,
+        implied_py_value: Any = None,
+        is_optional: bool = True,
     ):
         super().__init__(
             attribute_name,
@@ -390,7 +400,10 @@ class CurrentTimestampAttributeProperty(_AttributeBase):
 
     def __init__(self, attribute_name: str, is_optional: bool = True):
         super().__init__(
-            attribute_name, value_converter=TimestampConverter, default_py_value=None, is_optional=is_optional
+            attribute_name,
+            value_converter=TimestampConverter,
+            default_py_value=None,
+            is_optional=is_optional,
         )
 
     def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
@@ -530,9 +543,9 @@ class QNameAttributeProperty(_AttributeBase):
             is_optional=is_optional,
         )
 
-    def get_py_value_from_node(
+    def get_py_value_from_node(  # noqa: D102
         self,
-        instance: Any,  # noqa: ARG002, D102
+        instance: Any,  # noqa: ARG002
         node: xml_utils.LxmlElement | None,
     ) -> Any:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
@@ -663,9 +676,9 @@ class NodeTextProperty(_ElementBase):
     Python representation depends on value converter.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
-        sub_element_name: etree.QName | None,  # noqa: PLR0913
+        sub_element_name: etree.QName | None,
         value_converter: DataConverterProtocol,
         default_py_value: Any | None = None,
         implied_py_value: Any | None = None,
@@ -756,7 +769,12 @@ class NodeEnumTextProperty(NodeTextProperty):
         is_optional: bool = False,
     ):
         super().__init__(
-            sub_element_name, EnumConverter(enum_cls), default_py_value, implied_py_value, is_optional, min_length=1
+            sub_element_name,
+            EnumConverter(enum_cls),
+            default_py_value,
+            implied_py_value,
+            is_optional,
+            min_length=1,
         )
         self.enum_cls = enum_cls
 
@@ -776,7 +794,12 @@ class NodeEnumQNameProperty(NodeTextProperty):
         is_optional: bool = False,
     ):
         super().__init__(
-            sub_element_name, EnumConverter(enum_cls), default_py_value, implied_py_value, is_optional, min_length=1
+            sub_element_name,
+            EnumConverter(enum_cls),
+            default_py_value,
+            implied_py_value,
+            is_optional,
+            min_length=1,
         )
         self.enum_cls = enum_cls
 
@@ -833,7 +856,12 @@ class NodeIntProperty(NodeTextProperty):
         min_length: int = 0,
     ):
         super().__init__(
-            sub_element_name, IntegerConverter, default_py_value, implied_py_value, is_optional, min_length
+            sub_element_name,
+            IntegerConverter,
+            default_py_value,
+            implied_py_value,
+            is_optional,
+            min_length,
         )
 
 
@@ -849,7 +877,12 @@ class NodeDecimalProperty(NodeTextProperty):
         min_length: int = 0,
     ):
         super().__init__(
-            sub_element_name, DecimalConverter, default_py_value, implied_py_value, is_optional, min_length
+            sub_element_name,
+            DecimalConverter,
+            default_py_value,
+            implied_py_value,
+            is_optional,
+            min_length,
         )
 
 
@@ -865,7 +898,12 @@ class NodeDurationProperty(NodeTextProperty):
         min_length: int = 0,
     ):
         super().__init__(
-            sub_element_name, DurationConverter, default_py_value, implied_py_value, is_optional, min_length
+            sub_element_name,
+            DurationConverter,
+            default_py_value,
+            implied_py_value,
+            is_optional,
+            min_length,
         )
 
 
@@ -1054,7 +1092,11 @@ class SubElementProperty(_ElementBase):
         is_optional: bool = False,
     ):
         super().__init__(
-            sub_element_name, ClassCheckConverter(value_class), default_py_value, implied_py_value, is_optional
+            sub_element_name,
+            ClassCheckConverter(value_class),
+            default_py_value,
+            implied_py_value,
+            is_optional,
         )
         self.value_class = value_class
 
@@ -1384,7 +1426,9 @@ class AnyEtreeNodeListProperty(_ElementListProperty):
 
     def __init__(self, sub_element_name: etree.QName | None, is_optional: bool = True):
         super().__init__(
-            sub_element_name, ListConverter(ClassCheckConverter(xml_utils.LxmlElement)), is_optional=is_optional
+            sub_element_name,
+            ListConverter(ClassCheckConverter(xml_utils.LxmlElement)),
+            is_optional=is_optional,
         )
 
     def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
@@ -1544,7 +1588,11 @@ class DateOfBirthProperty(_ElementBase):
         is_optional: bool = True,
     ):
         super().__init__(
-            sub_element_name, ClassCheckConverter(datetime, date), default_py_value, implied_py_value, is_optional
+            sub_element_name,
+            ClassCheckConverter(datetime, date),
+            default_py_value,
+            implied_py_value,
+            is_optional,
         )
 
     def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
