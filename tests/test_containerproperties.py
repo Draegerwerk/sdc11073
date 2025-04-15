@@ -1,20 +1,32 @@
+"""Test container properties."""
+
 import datetime
 import unittest
 from decimal import Decimal
 from enum import Enum
 
 from lxml import etree
+from src.sdc11073.xml_types.xml_structure import NodeTextListProperty
 
-from sdc11073.xml_types.isoduration import UTC
-from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
-from sdc11073.xml_types.xml_structure import NodeStringProperty, SubElementProperty, NodeEnumTextProperty
-from sdc11073.xml_types.xml_structure import SubElementWithSubElementListProperty
-from sdc11073.xml_types.xml_structure import HandleRefListAttributeProperty
-from sdc11073.xml_types.xml_structure import StringAttributeProperty, IntegerAttributeProperty, EnumAttributeProperty
-from sdc11073.xml_types.xml_structure import DecimalListAttributeProperty
 from sdc11073.mdib.statecontainers import AllowedValuesType
-from sdc11073.xml_types.pm_types import CodedValue
+from sdc11073.namespaces import text_to_qname
 from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types.isoduration import UTC
+from sdc11073.xml_types.pm_types import CodedValue
+from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
+from sdc11073.xml_types.xml_structure import (
+    DecimalListAttributeProperty,
+    EnumAttributeProperty,
+    HandleRefListAttributeProperty,
+    IntegerAttributeProperty,
+    NodeEnumTextProperty,
+    NodeStringProperty,
+    QNameAttributeProperty,
+    StringAttributeProperty,
+    SubElementProperty,
+    SubElementWithSubElementListProperty,
+)
+from tests import utils
 
 
 # pylint: disable=protected-access
@@ -29,10 +41,12 @@ class DummyBase:
         for prop in self.props():
             prop.init_instance_data(self)
 
-    def props(self):
+    def props(self) -> list:
+        """Return empty list."""
         return []
 
-    def mk_node(self):
+    def mk_node(self):  # noqa: ANN201
+        """Make a node."""
         node = etree.Element('test')
         for prop in self.props():
             prop.update_xml_value(self, node)
@@ -68,7 +82,6 @@ class DummyNodeText(DummyBase):
 
 
 class DummyNodeEnumText(DummyBase):
-    # node_text_mand = NodeEnumTextProperty(MyEnum, etree.QName('pref', 'node_text_mand'), implied_py_value=MyEnum.a)
     node_text_mand = NodeEnumTextProperty(etree.QName('pref', 'node_text_mand'), MyEnum, default_py_value=MyEnum.a)
     node_text_opt = NodeEnumTextProperty(etree.QName('pref', 'node_text_opt'), MyEnum, is_optional=True)
     node_text_mand_no_default = NodeEnumTextProperty(etree.QName('pref', 'node_text_mand_no_default'), MyEnum)
@@ -80,12 +93,10 @@ class DummyNodeEnumText(DummyBase):
 
 
 class DummySubElement(DummyBase):
-    sub_elem_mand = SubElementProperty(etree.QName('pref', 'sub_elem_mand'),
-                                       value_class=CodedValue,
-                                       default_py_value=CodedValue('foo'))
-    sub_elem_opt = SubElementProperty(etree.QName('pref', 'sub_elem_opt'),
-                                      value_class=CodedValue,
-                                      is_optional=True)
+    sub_elem_mand = SubElementProperty(
+        etree.QName('pref', 'sub_elem_mand'), value_class=CodedValue, default_py_value=CodedValue('foo'),
+    )
+    sub_elem_opt = SubElementProperty(etree.QName('pref', 'sub_elem_opt'), value_class=CodedValue, is_optional=True)
 
     def props(self):
         yield self.__class__.sub_elem_mand
@@ -93,30 +104,28 @@ class DummySubElement(DummyBase):
 
 
 class DummySubElementList(DummyBase):
-    sub_elem = SubElementWithSubElementListProperty(etree.QName('pref', 'sub_elem'),
-                                                    default_py_value=AllowedValuesType(),
-                                                    value_class=AllowedValuesType)
+    sub_elem = SubElementWithSubElementListProperty(
+        etree.QName('pref', 'sub_elem'), default_py_value=AllowedValuesType(), value_class=AllowedValuesType,
+    )
 
     def props(self):
         yield self.__class__.sub_elem
 
 
 class TestContainerProperties(unittest.TestCase):
-
     def setUp(self):
-
         self.dummy = Dummy()
 
-    def test_DateOfBirthRegEx(self):
+    def test_date_of_birth_regex(self):
         result = DoB.mk_value_object('2003-06-30')
         self.assertEqual(result, datetime.date(2003, 6, 30))
 
         for text in ('foo', '0000-06-30', '01-00-01', '01-01-00'):  # several invalid strings
             result = DoB.mk_value_object(text)
-            self.assertTrue(result is None, msg='result of {} should be None, but it is {}'.format(text, result))
+            self.assertTrue(result is None, msg=f'result of {text} should be None, but it is {result}')
 
         result = DoB.mk_value_object('2003-06-30T14:53:12.4')
-        self.assertEqual(result, datetime.datetime(2003, 6, 30, 14, 53, 12, 400000))
+        self.assertEqual(result, datetime.datetime(2003, 6, 30, 14, 53, 12, 400000))  # noqa: DTZ001
         self.assertEqual(result.tzinfo, None)
 
         # add time zone UTC
@@ -143,17 +152,17 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(result.hour, 15)
         self.assertEqual(result.tzinfo.utcoffset(0), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
 
-    def test_DateOfBirth_toString(self):
+    def test_date_of_birth_to_string(self):
         date_string = DoB._mk_datestring(datetime.date(2004, 3, 6))
         self.assertEqual(date_string, '2004-03-06')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16))
+        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16))  # noqa: DTZ001
         self.assertEqual(date_string, '2004-03-06T14:15:16')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 4, 5, 6))
+        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 4, 5, 6))  # noqa: DTZ001
         self.assertEqual(date_string, '2004-03-06T04:05:06')  # verify leading zeros in date and time
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000))
+        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000))  # noqa: DTZ001
         self.assertEqual(date_string, '2004-03-06T14:15:16.7')
 
         date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(0, 'UTC')))
@@ -171,7 +180,7 @@ class TestContainerProperties(unittest.TestCase):
         date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(-121, 'UTC+1')))
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:01')
 
-    def test_AttributePropertyBase(self):
+    def test_attribute_property_base(self):
         dummy = Dummy()
 
         # verify that default value is initially set
@@ -210,32 +219,32 @@ class TestContainerProperties(unittest.TestCase):
 
         self.assertEqual(dummy.str_prop3, None)
 
-    def test_StringAttributeProperty(self):
+    def test_string_attribute_property(self):
         dummy = Dummy()
         for value in (42, 42.42, True, b'hello'):
             try:
                 dummy.str_prop1 = value
-            except ValueError:
+            except ValueError:  # noqa: PERF203
                 pass
             else:
-                raise Exception(f'dummy.prop1 = {value} did not raise ValueError!')
+                raise Exception(f'dummy.prop1 = {value} did not raise ValueError!')  # noqa: EM102, TRY002
 
-    def test_EnumAttributeProperty(self):
+    def test_enum_attribute_property(self):
         dummy = Dummy()
         for value in (1, 2, 42, 42.42, True, b'hello'):
             try:
                 dummy.enum_prop = value
-            except ValueError:
+            except ValueError:  # noqa: PERF203
                 pass
             else:
-                raise Exception(f'dummy.prop1 = {value} did not raise ValueError!')
+                raise Exception(f'dummy.prop1 = {value} did not raise ValueError!')  # noqa: EM102, TRY002
         for value in MyEnum:
             dummy.enum_prop = value
             self.assertEqual(dummy.enum_prop, value)
             node = dummy.mk_node()
             self.assertEqual(node.attrib['enum_prop'], value.value)
 
-    def test_NodeAttributeListPropertyBase(self):
+    def test_node_attribute_list_property_base(self):
         dummy = Dummy()
         self.assertEqual(Dummy.str_list_attr.get_actual_value(dummy), [])
 
@@ -248,12 +257,12 @@ class TestContainerProperties(unittest.TestCase):
         for value in (1, 2, ['42', 43], 42.42, True, b'hello'):
             try:
                 dummy.str_list_attr = value
-            except ValueError:
+            except ValueError:  # noqa: PERF203
                 pass
             else:
-                raise Exception(f'dummy.str_list_attr = {value} did not raise ValueError!')
+                raise Exception(f'dummy.str_list_attr = {value} did not raise ValueError!')  # noqa: EM102, TRY002
 
-    def test_DecimalListAttributeProperty(self):
+    def test_decimal_list_attribute_property(self):
         dummy = Dummy()
         self.assertEqual(Dummy.dec_list_attr.get_actual_value(dummy), [])
 
@@ -267,20 +276,21 @@ class TestContainerProperties(unittest.TestCase):
         for value in (1, 2, ['42', 43], 42.42, True, b'hello'):
             try:
                 dummy.dec_list_attr = value
-            except ValueError:
+            except ValueError:  # noqa: PERF203
                 pass
             else:
-                raise Exception(f'dummy.str_list_attr = {value} did not raise ValueError!')
+                raise Exception(f'dummy.str_list_attr = {value} did not raise ValueError!')  # noqa: EM102, TRY002
 
-    def test_NodeTextProperty(self):
+    def test_node_text_property(self):
         dummy = DummyNodeText()
         self.assertEqual(dummy.node_text_mand, 'foo')
         self.assertEqual(dummy.node_text_opt, 'bar')
         self.assertEqual(DummyNodeText.node_text_mand.get_actual_value(dummy), 'foo')
         self.assertEqual(DummyNodeText.node_text_opt.get_actual_value(dummy), None)
         dummy.node_text_mand = None
-        self.assertRaises(ValueError,
-                          dummy.mk_node)  # implied value does not help here, we need a real value for mand. prop.
+        self.assertRaises(
+            ValueError, dummy.mk_node,
+        )  # implied value does not help here, we need a real value for mand. prop.
         dummy.node_text_mand = 'foo'
         node = dummy.mk_node()
         self.assertEqual(1, len(node))  # the empty optional node is not added, only the mandatory one
@@ -303,12 +313,12 @@ class TestContainerProperties(unittest.TestCase):
         for value in (42, b'hello'):
             try:
                 dummy.node_text_mand = value
-            except ValueError:
+            except ValueError:  # noqa: PERF203
                 pass
             else:
-                raise Exception(f'dummy.node_text_mand = {value} did not raise ValueError!')
+                raise Exception(f'dummy.node_text_mand = {value} did not raise ValueError!')  # noqa: EM102, TRY002
 
-    def test_DummyNodeEnumText(self):
+    def test_dummy_node_enum_text(self):
         dummy = DummyNodeEnumText()
         # verify that mandatory element without value raises a ValueError
         self.assertRaises(ValueError, dummy.mk_node)
@@ -341,16 +351,12 @@ class TestContainerProperties(unittest.TestCase):
         for value in (42, b'hello'):
             try:
                 dummy.node_text_mand = value
-            except ValueError:
+            except ValueError:  # noqa: PERF203
                 pass
             else:
-                raise Exception(f'dummy.node_text_mand = {value} did not raise ValueError!')
+                raise Exception(f'dummy.node_text_mand = {value} did not raise ValueError!')  # noqa: EM102, TRY002
 
-    def test_ExtensionNodeProperty(self):
-        # ToDo:implement
-        pass
-
-    def test_SubElementProperty(self):
+    def test_sub_element_property(self):
         dummy = DummySubElement()
         self.assertEqual(dummy.sub_elem_mand, CodedValue('foo'))
         self.assertEqual(DummySubElement.sub_elem_mand.get_actual_value(dummy), CodedValue('foo'))
@@ -379,7 +385,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(node[1].attrib['Code'], 'foo')
         self.assertEqual(node[1].attrib['CodingSystem'], 'bar')
 
-    def test_SubElementWithSubElementListProperty(self):
+    def test_sub_element_with_sub_element_list_property(self):
         dummy = DummySubElementList()
         self.assertEqual(dummy.sub_elem.Value, [])
 
@@ -400,3 +406,72 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(node[0][0].text, '42')
         self.assertEqual(node[0][1].tag, pm.Value)
         self.assertEqual(node[0][1].text, '43')
+
+
+class TestQNameAttributeProperty(unittest.TestCase):
+    def setUp(self):
+        self.attribute_name = 'testAttribute'
+        self.default_value = utils.random_qname()
+        self.property = QNameAttributeProperty(
+            attribute_name=self.attribute_name,
+            default_py_value=self.default_value,
+            is_optional=True,
+        )
+
+    def test_get_py_value_from_node(self):
+        """Test with a valid QName attribute."""
+        node = etree.Element('TestElement', nsmap={'ex': 'http://example.com'})
+        node.set(self.attribute_name, 'ex:validValue')
+        result = self.property.get_py_value_from_node(None, node)
+        expected = text_to_qname('ex:validValue', node.nsmap)
+        self.assertEqual(result, expected)
+
+        # Test with a missing attribute
+        node = etree.Element('TestElement')
+        result = self.property.get_py_value_from_node(None, node)
+        self.assertIsNone(result)
+
+    def test_update_xml_value(self):
+        """Test setting a valid QName value."""
+        node = etree.Element('TestElement', nsmap={'ex': 'https://example.com'})
+        instance = type('MockInstance', (object,), {})()
+        setattr(instance, self.property._local_var_name, etree.QName('https://example.com', 'newValue'))
+        self.property.update_xml_value(instance, node)
+        self.assertEqual(node.get(self.attribute_name), 'ex:newValue')
+
+        # Test removing the attribute when value is None
+        setattr(instance, self.property._local_var_name, None)
+        self.property._default_py_value = None
+        self.property.update_xml_value(instance, node)
+        self.assertNotIn(self.attribute_name, node.attrib)
+
+    def test_default_value(self):
+        """Test default value is used when no value is set."""
+        value = self.property.__get__(None, None)
+        self.assertEqual(value._default_py_value, self.default_value)
+
+
+class TestNodeTextListProperty(unittest.TestCase):
+    def setUp(self):
+        self.property = NodeTextListProperty(
+            sub_element_name=etree.QName('https://example.com', 'TestElement'), value_class=str,
+        )
+        self.instance = type('TestInstance', (object,), {})()
+        self.node = etree.Element('Root', nsmap={'ns': 'https://example.com'})
+
+    def test_update_xml_value_with_empty_list(self):
+        setattr(self.instance, self.property._local_var_name, [])
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find('{https://example.com}TestElement')
+        self.assertEqual(sub_node.text, '')
+
+    def test_update_xml_value_with_values(self):
+        setattr(self.instance, self.property._local_var_name, ['value1', 'value2'])
+        self.property.update_xml_value(self.instance, self.node)
+        sub_nodes = self.node.findall('{https://example.com}TestElement')
+        self.assertEqual(sub_nodes[0].text, 'value1 value2')
+
+    def test_update_xml_value_with_none(self):
+        setattr(self.instance, self.property._local_var_name, None)
+        with self.assertRaises(ValueError, msg='mandatory value {https://example.com}TestElement missing'):
+            self.property.update_xml_value(self.instance, self.node)
