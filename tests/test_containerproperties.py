@@ -7,15 +7,14 @@ from enum import Enum
 from unittest import mock
 
 from lxml import etree
-from src.sdc11073.xml_types.xml_structure import NodeTextListProperty
 
 from sdc11073.mdib.statecontainers import AllowedValuesType
 from sdc11073.namespaces import docname_from_qname, text_to_qname
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.isoduration import UTC
 from sdc11073.xml_types.pm_types import CodedValue
-from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
 from sdc11073.xml_types.xml_structure import (
+    AnyEtreeNodeProperty,
     DecimalListAttributeProperty,
     EnumAttributeProperty,
     HandleRefListAttributeProperty,
@@ -23,12 +22,14 @@ from sdc11073.xml_types.xml_structure import (
     NodeEnumQNameProperty,
     NodeEnumTextProperty,
     NodeStringProperty,
+    NodeTextListProperty,
     NodeTextQNameProperty,
     QNameAttributeProperty,
     StringAttributeProperty,
     SubElementProperty,
     SubElementWithSubElementListProperty,
 )
+from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
 from tests import utils
 
 
@@ -416,6 +417,69 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(node[0][1].text, '43')
 
 
+class TestAnyEtreeNodeProperty(unittest.TestCase):
+    def setUp(self):
+        self.sub_element_name = utils.random_qname()
+        self.property = AnyEtreeNodeProperty(sub_element_name=self.sub_element_name, is_optional=True)
+        self.node = etree.Element('Root', nsmap={self.sub_element_name.localname: self.sub_element_name.namespace})
+        self.instance = type('MockInstance', (object,), {})()
+
+    def test_get_py_value_from_node_with_existing_sub_element(self):
+        sub_node = etree.SubElement(self.node, self.sub_element_name)
+        etree.SubElement(sub_node, 'Child1')
+        etree.SubElement(sub_node, 'Child2')
+        result = self.property.get_py_value_from_node(self.instance, self.node)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0].tag, 'Child1')
+        self.assertEqual(result[1].tag, 'Child2')
+
+    def test_get_py_value_from_node_with_missing_sub_element(self):
+        result = self.property.get_py_value_from_node(self.instance, self.node)
+        self.assertIsNone(result)
+
+    def test_update_xml_value_with_children(self):
+        children = [etree.Element('Child1'), etree.Element('Child2')]
+        setattr(self.instance, self.property._local_var_name, children)
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name)
+        self.assertIsNotNone(sub_node)
+        self.assertEqual(len(sub_node), 2)
+        self.assertEqual(sub_node[0].tag, 'Child1')
+        self.assertEqual(sub_node[1].tag, 'Child2')
+
+    def test_update_xml_value_with_none(self):
+        setattr(self.instance, self.property._local_var_name, None)
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name)
+        self.assertIsNone(sub_node)
+
+    def test_update_xml_value_with_mandatory_check(self):
+        self.property._is_optional = False
+        with self.assertRaises(ValueError, msg=f'mandatory value {self.sub_element_name} missing'):
+            self.property.update_xml_value(self.instance, self.node)
+
+    def test_get_py_value_from_node_with_invalid_node(self):
+        invalid_node = etree.Element('InvalidRoot')
+        self.assertIsNone(self.property.get_py_value_from_node(self.instance, invalid_node))
+
+    def test_update_xml_value_creates_sub_element(self):
+        children = [etree.Element('Child1')]
+        setattr(self.instance, self.property._local_var_name, children)
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name)
+        self.assertIsNotNone(sub_node)
+        self.assertEqual(len(sub_node), 1)
+        self.assertEqual(sub_node[0].tag, 'Child1')
+
+    def test_update_xml_value_removes_existing_sub_element(self):
+        sub_node = etree.SubElement(self.node, self.sub_element_name)
+        etree.SubElement(sub_node, 'Child1')
+        setattr(self.instance, self.property._local_var_name, None)
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name)
+        self.assertIsNone(sub_node)
+
+
 class TestQNameAttributeProperty(unittest.TestCase):
     def setUp(self):
         self.attribute_name = 'testAttribute'
@@ -486,13 +550,20 @@ class TestNodeTextListProperty(unittest.TestCase):
         with self.assertRaises(ValueError, msg=f'mandatory value {self.sub_element_name.text} missing'):
             self.property.update_xml_value(self.instance, self.node)
 
+        before_update = etree.tostring(self.node)
+        self.property._is_optional = True
+        self.property.update_xml_value(self.instance, self.node)
+        self.assertEqual(before_update, etree.tostring(self.node))
+
 
 class TestNodeTextQNameProperty(unittest.TestCase):
     def setUp(self):
         self.sub_element_name = utils.random_qname()
         self.default_value = utils.random_qname(localname=self.sub_element_name.localname)
         self.property = NodeTextQNameProperty(
-            sub_element_name=self.sub_element_name, default_py_value=self.default_value, is_optional=True,
+            sub_element_name=self.sub_element_name,
+            default_py_value=self.default_value,
+            is_optional=True,
         )
         self.node = etree.Element('Root', nsmap={self.sub_element_name.localname: self.sub_element_name.namespace})
 
