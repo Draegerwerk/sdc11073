@@ -2,11 +2,13 @@
 
 import datetime
 import unittest
+import uuid
 from decimal import Decimal
 from enum import Enum
 from unittest import mock
 
 from lxml import etree
+from src.sdc11073.xml_types.xml_structure import ContainerProperty, NodeTextQNameListProperty
 
 from sdc11073.mdib.statecontainers import AllowedValuesType
 from sdc11073.namespaces import docname_from_qname, text_to_qname
@@ -28,6 +30,7 @@ from sdc11073.xml_types.xml_structure import (
     StringAttributeProperty,
     SubElementProperty,
     SubElementWithSubElementListProperty,
+    _AttributeListBase,
 )
 from sdc11073.xml_types.xml_structure import DateOfBirthProperty as DoB
 from tests import utils
@@ -417,6 +420,24 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(node[0][1].text, '43')
 
 
+class TestContainerProperty(unittest.TestCase):
+    def setUp(self):
+        self.sub_element_name = utils.random_qname()
+        self.property = ContainerProperty(
+            sub_element_name=self.sub_element_name,
+            value_class=mock.MagicMock(),
+            cls_getter=mock.MagicMock(),
+            ns_helper=mock.MagicMock(),
+        )
+        self.node = etree.Element('Root', nsmap={self.sub_element_name.localname: self.sub_element_name.namespace})
+        self.instance = type('MockInstance', (object,), {})()
+
+    def test_update_xml_value_with_none(self):
+        setattr(self.instance, self.property._local_var_name, None)
+        with self.assertRaises(ValueError, msg=f'mandatory value {self.sub_element_name} missing'):
+            self.property.update_xml_value(self.instance, self.node)
+
+
 class TestAnyEtreeNodeProperty(unittest.TestCase):
     def setUp(self):
         self.sub_element_name = utils.random_qname()
@@ -596,11 +617,17 @@ class TestNodeTextQNameProperty(unittest.TestCase):
         sub_node = self.node.find(self.sub_element_name)
         self.assertIsNone(sub_node)
 
+    def test_update_xml_value_with_none(self):
+        instance = type('TestInstance', (object,), {})()
+        self.property._is_optional = False
+        setattr(instance, self.property._local_var_name, None)
+        with self.assertRaises(ValueError, msg=f'mandatory value {self.sub_element_name.text} missing'):
+            self.property.update_xml_value(instance, self.node)
+
 
 class TestNodeEnumQNameProperty(unittest.TestCase):
     def setUp(self):
         self.q_name = utils.random_qname()
-        self.sub_node_qname = etree.QName(self.q_name.text, utils.random_qname_part())
         self.sub_node_qname = utils.random_qname(localname=self.q_name.localname)
         self.property = NodeEnumQNameProperty(
             sub_element_name=self.sub_node_qname,
@@ -632,3 +659,91 @@ class TestNodeEnumQNameProperty(unittest.TestCase):
         self.property.update_xml_value(self.instance, self.node)
         sub_node = self.node.find(self.sub_node_qname.text, namespaces=self.node.nsmap)
         self.assertIsNone(sub_node)
+
+
+class TestNodeTextQNameListProperty(unittest.TestCase):
+    def setUp(self):
+        self.sub_element_name = utils.random_qname()
+        self.property = NodeTextQNameListProperty(sub_element_name=self.sub_element_name)
+        self.instance = mock.MagicMock()
+        self.node = etree.Element('Root', nsmap={self.sub_element_name.localname: self.sub_element_name.namespace})
+
+    def test_update_xml_value_with_none(self):
+        """Test when the value is None and the property is optional."""
+        self.property._is_optional = True
+        setattr(self.instance, self.property._local_var_name, None)
+        self.property.update_xml_value(self.instance, self.node)
+        self.assertIsNone(self.node.find(self.sub_element_name.text, namespaces=self.node.nsmap))
+
+    def test_update_xml_value_with_values(self):
+        """Test when the value is a list of QNames."""
+        qname1 = utils.random_qname(localname=self.sub_element_name.text)
+        qname2 = utils.random_qname(localname=self.sub_element_name.text)
+        setattr(self.instance, self.property._local_var_name, [qname1, qname2])
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name.text, namespaces=self.node.nsmap)
+        self.assertIsNotNone(sub_node)
+        self.assertEqual(
+            sub_node.text,
+            f'{docname_from_qname(qname1, ns_map=self.node.nsmap)} '
+            f'{docname_from_qname(qname2, ns_map=self.node.nsmap)}',
+        )
+
+    def test_update_xml_value_with_mandatory_check(self):
+        """Test when the value is None and the property is mandatory."""
+        self.property._is_optional = False
+        setattr(self.instance, self.property._local_var_name, None)
+        with self.assertRaises(ValueError, msg=f'mandatory value {self.sub_element_name} missing'):
+            self.property.update_xml_value(self.instance, self.node)
+
+    def test_update_xml_value_overwrites_existing(self):
+        """Test that the method overwrites existing sub-element text."""
+        existing_sub_node = etree.SubElement(self.node, self.sub_element_name.localname, nsmap=self.node.nsmap)
+        existing_sub_node.text = docname_from_qname(
+            utils.random_qname(localname=self.sub_element_name.text),
+            ns_map=self.node.nsmap,
+        )
+        qname = utils.random_qname(localname=self.sub_element_name.text)
+        setattr(self.instance, self.property._local_var_name, [qname])
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name.text, namespaces=self.node.nsmap)
+        self.assertEqual(sub_node.text, docname_from_qname(qname, ns_map=self.node.nsmap))
+
+    def test_update_xml_value_creates_sub_element(self):
+        """Test that the method creates a sub-element if it doesn't exist."""
+        qname = utils.random_qname(localname=self.sub_element_name.text)
+        setattr(self.instance, self.property._local_var_name, [qname])
+        self.property.update_xml_value(self.instance, self.node)
+        sub_node = self.node.find(self.sub_element_name.text, namespaces=self.node.nsmap)
+        self.assertIsNotNone(sub_node)
+        self.assertEqual(sub_node.text, docname_from_qname(qname, ns_map=self.node.nsmap))
+
+
+class TestAttributeListBase(unittest.TestCase):
+    def setUp(self):
+        self.q_name = utils.random_qname()
+        self.attribute_name = utils.random_qname_part()
+        value_converter = mock.MagicMock()
+        value_converter.elem_to_xml = str
+        self.property = _AttributeListBase(
+            attribute_name=self.attribute_name,
+            value_converter=value_converter,
+        )
+        self.instance = mock.MagicMock()
+        self.node = etree.Element('Root', nsmap={self.q_name.localname: self.q_name.namespace})
+
+    def test_update_xml_value_with_none(self):
+        self.node.attrib[self.attribute_name] = uuid.uuid4().hex
+        setattr(self.instance, self.property._local_var_name, None)
+        self.property.update_xml_value(self.instance, self.node)
+        self.assertIsNone(self.node.get(self.attribute_name))
+
+        self.property._is_optional = False
+        with self.assertRaises(ValueError, msg=f'mandatory value {self.attribute_name} missing'):
+            self.property.update_xml_value(self.instance, self.node)
+
+    def test_update_xml_value_with_value(self):
+        mock_value = uuid.uuid4().hex
+        setattr(self.instance, self.property._local_var_name, mock_value)
+        self.property.update_xml_value(self.instance, self.node)
+        self.assertEqual(' '.join(mock_value), self.node.get(self.attribute_name))

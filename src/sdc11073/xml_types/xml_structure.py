@@ -616,11 +616,8 @@ class _AttributeListBase(_AttributeBase):
             # set to None (it is in the responsibility of the called method to do the right thing)
             py_value = None
         if not py_value and self.is_optional:  # is None:
-            try:
-                if self._attribute_name in node.attrib:
-                    del node.attrib[self._attribute_name]
-            except ElementNotFoundError:
-                return
+            if self._attribute_name in node.attrib:
+                del node.attrib[self._attribute_name]
         else:
             if py_value is None:
                 if MANDATORY_VALUE_CHECKING and not self.is_optional:
