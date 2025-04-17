@@ -1467,7 +1467,7 @@ class NodeTextListProperty(_ElementListProperty):
     def __init__(self, sub_element_name: etree.QName | None, value_class: Any, is_optional: bool = False):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(value_class)), is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> list[Any] | None:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> list[str] | None:  # noqa: ARG002
         """Read value from node.
 
         If the expected node does not exist, return _default_py_value (usually None).
@@ -1516,7 +1516,7 @@ class NodeTextQNameListProperty(_ElementListProperty):
     def __init__(self, sub_element_name: etree.QName | None, is_optional: bool = False):
         super().__init__(sub_element_name, ListConverter(ClassCheckConverter(etree.QName)), is_optional=is_optional)
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> list[xml_utils.QName] | None:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)

@@ -2,7 +2,6 @@
 
 import datetime
 import unittest
-import uuid
 from decimal import Decimal
 from enum import Enum
 from unittest import mock
@@ -98,7 +97,9 @@ class DummyNodeEnumText(DummyBase):
 
 class DummySubElement(DummyBase):
     sub_elem_mand = SubElementProperty(
-        etree.QName('pref', 'sub_elem_mand'), value_class=CodedValue, default_py_value=CodedValue('foo'),
+        etree.QName('pref', 'sub_elem_mand'),
+        value_class=CodedValue,
+        default_py_value=CodedValue('foo'),
     )
     sub_elem_opt = SubElementProperty(etree.QName('pref', 'sub_elem_opt'), value_class=CodedValue, is_optional=True)
 
@@ -109,7 +110,9 @@ class DummySubElement(DummyBase):
 
 class DummySubElementList(DummyBase):
     sub_elem = SubElementWithSubElementListProperty(
-        etree.QName('pref', 'sub_elem'), default_py_value=AllowedValuesType(), value_class=AllowedValuesType,
+        etree.QName('pref', 'sub_elem'),
+        default_py_value=AllowedValuesType(),
+        value_class=AllowedValuesType,
     )
 
     def props(self):
@@ -293,7 +296,8 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(DummyNodeText.node_text_opt.get_actual_value(dummy), None)
         dummy.node_text_mand = None
         self.assertRaises(
-            ValueError, dummy.mk_node,
+            ValueError,
+            dummy.mk_node,
         )  # implied value does not help here, we need a real value for mand. prop.
         dummy.node_text_mand = 'foo'
         node = dummy.mk_node()
@@ -459,7 +463,8 @@ class TestNodeTextListProperty(unittest.TestCase):
     def setUp(self):
         self.sub_element_name = utils.random_qname()
         self.property = NodeTextListProperty(
-            sub_element_name=self.sub_element_name, value_class=str,
+            sub_element_name=self.sub_element_name,
+            value_class=str,
         )
         self.instance = type('TestInstance', (object,), {})()
         self.node = etree.Element('Root', nsmap={self.sub_element_name.localname: self.sub_element_name.namespace})
@@ -487,9 +492,7 @@ class TestNodeTextQNameProperty(unittest.TestCase):
         self.sub_element_name = utils.random_qname()
         self.default_value = utils.random_qname(localname=self.sub_element_name.localname)
         self.property = NodeTextQNameProperty(
-            sub_element_name=self.sub_element_name,
-            default_py_value=self.default_value,
-            is_optional=True
+            sub_element_name=self.sub_element_name, default_py_value=self.default_value, is_optional=True,
         )
         self.node = etree.Element('Root', nsmap={self.sub_element_name.localname: self.sub_element_name.namespace})
 
@@ -533,10 +536,10 @@ class TestNodeEnumQNameProperty(unittest.TestCase):
             enum_cls=mock.MagicMock(),
             default_py_value=None,
             implied_py_value=None,
-            is_optional=True
+            is_optional=True,
         )
         self.instance = mock.MagicMock()
-        self.node = etree.Element("Root", nsmap={self.q_name.localname: self.q_name.namespace})
+        self.node = etree.Element('Root', nsmap={self.q_name.localname: self.q_name.namespace})
 
     def test_update_xml_value_with_none(self):
         setattr(self.instance, self.property._local_var_name, None)
