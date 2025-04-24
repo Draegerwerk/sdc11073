@@ -547,7 +547,7 @@ class QNameAttributeProperty(_AttributeBase):
         self,
         instance: Any,  # noqa: ARG002
         node: xml_utils.LxmlElement | None,
-    ) -> Any:
+    ) -> xml_utils.QName | None:
         xml_value = None if node is None else node.attrib.get(self._attribute_name)
         return None if xml_value is None else text_to_qname(xml_value, node.nsmap)
 

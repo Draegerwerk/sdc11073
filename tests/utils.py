@@ -45,9 +45,9 @@ def random_qname_part() -> str:
     return f'{"".join(random.choices(list(string.ascii_letters), k=1))}{uuid.uuid4().hex}'
 
 
-def random_qname(*, localname: str | None = None, namespace: str | None = None) -> etree.QName:
+def random_qname(*, namespace: str | None = None, localname: str | None = None) -> etree.QName:
     """Create random qname."""
-    return etree.QName(localname or random_qname_part(), namespace or random_qname_part())
+    return etree.QName(namespace or random_qname_part(), localname or random_qname_part())
 
 
 def random_scope() -> wsd_types.ScopesType:

@@ -113,7 +113,10 @@ class PrefixesEnum(PrefixNamespace, Enum):
         schema_folder.joinpath('wsdl.xsd'),
     )
     WSDL12 = PrefixNamespace(
-        'wsdl12', 'http://schemas.xmlsoap.org/wsdl/soap12/', None, None,
+        'wsdl12',
+        'http://schemas.xmlsoap.org/wsdl/soap12/',
+        None,
+        None,
     )  # old soap 12 namespace, used in wsdl 1.1. only for wsdl
     WSP = PrefixNamespace('wsp', 'http://www.w3.org/ns/ws-policy', None, None)
 
@@ -137,71 +140,71 @@ class NamespaceHelper:
         return self._lookup['MSG']
 
     @property
-    def PM(self) -> PrefixNamespace:# noqa: D102, N802
+    def PM(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['PM']
 
     @property
-    def EXT(self) -> PrefixNamespace:# noqa: D102, N802
+    def EXT(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['EXT']
 
     @property
-    def SDC(self) -> PrefixNamespace:# noqa: D102, N802
+    def SDC(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['SDC']
 
     @property
-    def WSE(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSE(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSE']
 
     @property
-    def XSI(self) -> PrefixNamespace:# noqa: D102, N802
+    def XSI(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['XSI']
 
     @property
-    def WSA(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSA(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSA']
 
     @property
-    def WSX(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSX(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSX']
 
     @property
-    def DPWS(self) -> PrefixNamespace:# noqa: D102, N802
+    def DPWS(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['DPWS']
 
     @property
-    def MDPWS(self) -> PrefixNamespace:# noqa: D102, N802
+    def MDPWS(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['MDPWS']
 
     @property
-    def WSD(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSD(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSD']
 
     @property
-    def S12(self) -> PrefixNamespace:# noqa: D102, N802
+    def S12(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['S12']
 
     @property
-    def XML(self) -> PrefixNamespace:# noqa: D102, N802
+    def XML(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['XML']
 
     @property
-    def WSDL(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSDL(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSDL']
 
     @property
-    def WSDL12(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSDL12(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSDL12']
 
     @property
-    def WSP(self) -> PrefixNamespace:# noqa: D102, N802
+    def WSP(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WSP']
 
     @property
-    def WXF(self) -> PrefixNamespace:# noqa: D102, N802
+    def WXF(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['WXF']
 
     @property
-    def XSD(self) -> PrefixNamespace:# noqa: D102, N802
+    def XSD(self) -> PrefixNamespace:  # noqa: D102, N802
         return self._lookup['XSD']
 
     def partial_map(self, *prefix: PrefixNamespace) -> dict:
@@ -242,7 +245,7 @@ def docname_from_qname(qname: etree.QName, ns_map: dict) -> str:
     return f'{prefix}:{qname.localname}'
 
 
-def text_to_qname(text: str, doc_nsmap: dict[str, str]) -> etree.QName:
+def text_to_qname(text: str, doc_nsmap: dict[str, str]) -> xml_utils.QName:
     """Convert a text to a qname."""
     elements = text.split(':')
     prefix = None if len(elements) == 1 else elements[0]
