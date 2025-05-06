@@ -531,14 +531,13 @@ class QNameAttributeProperty(_AttributeBase):
     def __init__(
         self,
         attribute_name: str,
-        default_py_value: etree.QName | None = None,
         implied_py_value: etree.QName | None = None,
         is_optional: bool = True,
     ):
         super().__init__(
             attribute_name,
             value_converter=ClassCheckConverter(etree.QName),
-            default_py_value=default_py_value,
+            default_py_value=None,
             implied_py_value=implied_py_value,
             is_optional=is_optional,
         )
@@ -557,8 +556,6 @@ class QNameAttributeProperty(_AttributeBase):
             py_value = getattr(instance, self._local_var_name)
         except AttributeError:  # set to None
             py_value = None
-        if py_value is None:
-            py_value = self._default_py_value
         if py_value is None:
             if MANDATORY_VALUE_CHECKING and not self.is_optional:
                 raise ValueError(f'mandatory value {self._attribute_name} missing')  # noqa: EM102
@@ -910,10 +907,9 @@ class NodeTextQNameProperty(_ElementBase):
     def __init__(
         self,
         sub_element_name: etree.QName | None,
-        default_py_value: xml_utils.QName | None = None,
         is_optional: bool = False,
     ):
-        super().__init__(sub_element_name, ClassCheckConverter(etree.QName), default_py_value, is_optional=is_optional)
+        super().__init__(sub_element_name, ClassCheckConverter(etree.QName), None, is_optional=is_optional)
 
     def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
         """Read value from node."""
@@ -924,7 +920,7 @@ class NodeTextQNameProperty(_ElementBase):
                 return text_to_qname(xml_value, sub_node.nsmap)
         except ElementNotFoundError:
             pass
-        return self._default_py_value
+        return None
 
     def update_xml_value(self, instance: Any, node: xml_utils.LxmlElement):
         """Write value to node."""
