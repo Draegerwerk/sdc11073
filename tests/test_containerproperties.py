@@ -499,7 +499,6 @@ class TestQNameAttributeProperty(unittest.TestCase):
         self.default_value = utils.random_qname()
         self.property = QNameAttributeProperty(
             attribute_name=self.attribute_name,
-            default_py_value=self.default_value,
             is_optional=True,
         )
 
