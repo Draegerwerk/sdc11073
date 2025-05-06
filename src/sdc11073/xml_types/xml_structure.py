@@ -565,8 +565,7 @@ class QNameAttributeProperty(_AttributeBase):
             except ElementNotFoundError:
                 return
         else:
-            xml_value = docname_from_qname(py_value, node.nsmap)
-            node.set(self._attribute_name, xml_value)
+            node.set(self._attribute_name, py_value)
 
 
 class _AttributeListBase(_AttributeBase):
@@ -830,12 +829,8 @@ class NodeEnumQNameProperty(NodeTextProperty):
                 sub_node.text = None
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
-            for prefix, namespace in sub_node.nsmap.items():
-                if namespace == py_value.value.namespace:
-                    value = f'{prefix}:{py_value.value.localname}'
-                    sub_node.text = self._converter.to_xml(value)
-                    return
-            raise ValueError(f'no prefix for namespace "{py_value.value.namespace}"')  # noqa: EM102
+            sub_node.text = self._converter.to_xml(py_value)
+            return
 
 
 class NodeIntProperty(NodeTextProperty):
