@@ -616,6 +616,7 @@ class TestNodeTextQNameProperty(unittest.TestCase):
         sub_node = self.node.find(self.sub_element_name)
         self.assertIsNotNone(sub_node)
         self.assertEqual(sub_node.text, docname_from_qname(new_value, sub_node.nsmap))
+        self.assertIn(new_value.namespace, sub_node.nsmap.values())
 
     def test_update_xml_value_with_none(self):
         instance = type('TestInstance', (object,), {})()
@@ -672,12 +673,12 @@ class TestNodeTextQNameListProperty(unittest.TestCase):
 
     def test_update_xml_value_with_values(self):
         """Test when the value is a list of related QNames."""
-        self.node = self.node = etree.Element('Root', nsmap={self.prefix: self.sub_element_name.namespace})
+        node = etree.Element('Root', nsmap={self.prefix: self.sub_element_name.namespace})
         qname1 = utils.random_qname(namespace=self.sub_element_name.text)
         qname2 = utils.random_qname(namespace=self.sub_element_name.text)
         setattr(self.instance, self.property._local_var_name, [qname1, qname2])
-        self.property.update_xml_value(self.instance, self.node)
-        sub_node = self.node.find(self.sub_element_name.text)
+        self.property.update_xml_value(self.instance, node)
+        sub_node = node.find(self.sub_element_name.text)
         self.assertIsNotNone(sub_node)
         self.assertEqual(sub_node.text, f'{self.prefix}:{qname1.localname} {self.prefix}:{qname2.localname}')
 
@@ -709,6 +710,7 @@ class TestNodeTextQNameListProperty(unittest.TestCase):
         self.property.update_xml_value(self.instance, self.node)
         sub_node = self.node.find(self.sub_element_name.text)
         self.assertEqual(sub_node.text, docname_from_qname(qname, ns_map=sub_node.nsmap))
+        self.assertIn(qname.namespace, sub_node.nsmap.values())
 
     def test_update_xml_value_creates_sub_element(self):
         """Test that the method creates a sub-element if it doesn't exist."""

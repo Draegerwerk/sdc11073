@@ -830,7 +830,6 @@ class NodeEnumQNameProperty(NodeTextProperty):
         else:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=True)
             sub_node.text = self._converter.to_xml(py_value)
-            return
 
 
 class NodeIntProperty(NodeTextProperty):
