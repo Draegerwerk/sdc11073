@@ -37,16 +37,16 @@ if TYPE_CHECKING:
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
 
-numeric_metric_handle = "numeric_metric_0.channel_0.vmd_0.mds_0"
-alert_condition_handle = "alert_condition_0.vmd_0.mds_1"
-set_value_handle = "set_value_0.sco.mds_0"
-set_string_handle = "set_string_0.sco.mds_0"
-set_context_state_handle = "set_context_0.sco.mds_0"
+numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
+alert_condition_handle = 'alert_condition_0.vmd_0.mds_1'
+set_value_handle = 'set_value_0.sco.mds_0'
+set_string_handle = 'set_string_0.sco.mds_0'
+set_context_state_handle = 'set_context_0.sco.mds_0'
 
 
 def get_network_adapter() -> network.NetworkAdapter:
     """Get network adapter from environment or first loopback."""
-    if (ip := os.getenv("ref_ip")) is not None:  # noqa: SIM112
+    if (ip := os.getenv('ref_ip')) is not None:  # noqa: SIM112
         return network.get_adapter_containing_ip(ip)
     # get next available loopback adapter
     return next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
@@ -54,23 +54,23 @@ def get_network_adapter() -> network.NetworkAdapter:
 
 def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
     """Get ssl context from environment or None."""
-    if (ca_folder := os.getenv("ref_ca")) is None:  # noqa: SIM112
+    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
         return None
     return mk_ssl_contexts_from_folder(
         ca_folder,
-        private_key="user_private_key_encrypted.pem",
-        certificate="user_certificate_root_signed.pem",
-        ca_public_key="root_certificate.pem",
+        private_key='user_private_key_encrypted.pem',
+        certificate='user_certificate_root_signed.pem',
+        ca_public_key='root_certificate.pem',
         cyphers_file=None,
-        ssl_passwd=os.getenv("ref_ssl_passwd"),  # noqa:SIM112
+        ssl_passwd=os.getenv('ref_ssl_passwd'),  # noqa:SIM112
     )
 
 
 def get_epr() -> uuid.UUID:
     """Get epr from environment or default."""
-    if (epr := os.getenv("ref_search_epr")) is not None:  # noqa: SIM112
+    if (epr := os.getenv('ref_search_epr')) is not None:  # noqa: SIM112
         return uuid.UUID(epr)
-    return uuid.UUID("12345678-6f55-11ea-9697-123456789abc")
+    return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
 
 
 @dataclass
@@ -83,8 +83,8 @@ class ResultEntry:
     xtra: str
 
     def __str__(self):
-        verdict_str = {None: "no result", True: "passed", False: "failed"}
-        return f"{self.step:6s}:{verdict_str[self.verdict]:10s} {self.info}{self.xtra}"
+        verdict_str = {None: 'no result', True: 'passed', False: 'failed'}
+        return f'{self.step:6s}:{verdict_str[self.verdict]:10s} {self.info}{self.xtra}'
 
 
 class ResultsCollector:
@@ -95,12 +95,12 @@ class ResultsCollector:
 
     def log_result(self, is_ok: bool | None, step: str, info: str, extra_info: str | None = None):
         """Log the result."""
-        xtra = f" ({extra_info}) " if extra_info else ""
+        xtra = f' ({extra_info}) ' if extra_info else ''
         self._results.append(ResultEntry(is_ok, step, info, xtra))
 
     def print_summary(self):
         """Print the summary."""
-        print("\n### Summary ###")
+        print('\n### Summary ###')
         for r in self._results:
             print(r)
 
@@ -147,8 +147,8 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
                         # test 5a.1
                         if descriptor_container.Type.ConceptDescription != old_descriptor.Type.ConceptDescription:
                             print(
-                                f"concept description {descriptor_container.Type.ConceptDescription} <=> "
-                                f"{old_descriptor.Type.ConceptDescription}",
+                                f'concept description {descriptor_container.Type.ConceptDescription} <=> '
+                                f'{old_descriptor.Type.ConceptDescription}',
                             )
                             self.alert_condition_type_concept_updates.append(
                                 now - self._last_alert_condition_type_concept_updates,
@@ -159,15 +159,15 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
                         detected_5a2 = False
                         if len(descriptor_container.CauseInfo) != len(old_descriptor.CauseInfo):
                             print(
-                                f"RemedyInfo no. of CauseInfo {len(descriptor_container.CauseInfo)} <=> "
-                                f"{len(old_descriptor.CauseInfo)}",
+                                f'RemedyInfo no. of CauseInfo {len(descriptor_container.CauseInfo)} <=> '
+                                f'{len(old_descriptor.CauseInfo)}',
                             )
                             detected_5a2 = True
                         else:
                             for i, cause_info in enumerate(descriptor_container.CauseInfo):
                                 old_cause_info = old_descriptor.CauseInfo[i]
                                 if cause_info.RemedyInfo != old_cause_info.RemedyInfo:
-                                    print(f"RemedyInfo {cause_info.RemedyInfo} <=> {old_cause_info.RemedyInfo}")
+                                    print(f'RemedyInfo {cause_info.RemedyInfo} <=> {old_cause_info.RemedyInfo}')
                                     detected_5a2 = True
                         if detected_5a2:
                             self.alert_condition_cause_remedy_updates.append(
@@ -190,13 +190,13 @@ def test_1b_resolve(wsd: WSDiscovery, my_service: Service) -> (bool, str):
     wsd._send_resolve(my_service.epr)  # noqa: SLF001
     time.sleep(3)
     if len(wsd._remote_services) == 0:  # noqa: SLF001
-        return False, "no response"
+        return False, 'no response'
     if len(wsd._remote_services) > 1:  # noqa: SLF001
-        return False, "multiple response"
+        return False, 'multiple response'
     service = wsd._remote_services.get(my_service.epr)  # noqa: SLF001
     if service.epr != my_service.epr:
-        return False, "not the same epr"
-    return True, "resolve answered"
+        return False, 'not the same epr'
+    return True, 'resolve answered'
 
 
 def connect_client(my_service: Service) -> SdcConsumer:
@@ -216,15 +216,15 @@ def test_min_updates_per_handle(
     is_ok = True
     if len(updates_dict) == 0:
         is_ok = False
-        results.append("no updates")
+        results.append('no updates')
     else:
         for k, v in updates_dict.items():
             if node_type_filter:
                 v = [n for n in v if node_type_filter == n.NODETYPE]  # noqa: PLW2901
             if len(v) < min_updates:
                 is_ok = False
-                results.append(f"Handle {k} only {len(v)} updates, expect >= {min_updates}")
-    return is_ok, "\n".join(results)
+                results.append(f'Handle {k} only {len(v)} updates, expect >= {min_updates}')
+    return is_ok, '\n'.join(results)
 
 
 def test_min_updates_for_type(updates_dict: dict, min_updates: int, q_name_list: list[QName]) -> (bool, str):  # True ok
@@ -234,15 +234,15 @@ def test_min_updates_for_type(updates_dict: dict, min_updates: int, q_name_list:
         flat_list.extend(v)
     matches = [x for x in flat_list if x.NODETYPE in q_name_list]
     if len(matches) >= min_updates:
-        return True, ""
-    return False, f"expect >= {min_updates}, got {len(matches)} out of {len(flat_list)}"
+        return True, ''
+    return False, f'expect >= {min_updates}, got {len(matches)} out of {len(flat_list)}'
 
 
 def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # noqa: PLR0915,PLR0912,C901
     """Run reference test."""
     adapter_ip = get_network_adapter().ip
     search_epr = str(get_epr())
-    print(f"using adapter address {adapter_ip}")
+    print(f'using adapter address {adapter_ip}')
     print(f'Test step 1: discover device which endpoint ends with "{search_epr}"')
     wsd = WSDiscovery(adapter_ip)
     wsd.start()
@@ -252,41 +252,37 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     # b) The Reference Provider answers to Probe and Resolve messages
 
     # Remark: 1a) is not testable because provider can't be forced to send a hello while this test is running.
-    step = "1a"
-    info = "The Reference Provider sends Hello messages"
-    results_collector.log_result(None, step, info, extra_info="not testable")
+    step = '1a'
+    info = 'The Reference Provider sends Hello messages'
+    results_collector.log_result(None, step, info, extra_info='not testable')
 
-    step = "1b.1"
-    info = "The Reference Provider answers to Probe messages"
+    step = '1b.1'
+    info = 'The Reference Provider answers to Probe messages'
     my_service = None
     while my_service is None:
         services = wsd.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
-        print("found {} services {}".format(len(services), ", ".join([s.epr for s in services])))
+        print('found {} services {}'.format(len(services), ', '.join([s.epr for s in services])))
         for s in services:
             if s.epr.endswith(search_epr):
                 my_service = s
-                print(f"found service {s.epr}")
+                print(f'found service {s.epr}')
                 break
-    print("Test step 1 successful: device discovered")
+    print('Test step 1 successful: device discovered')
     results_collector.log_result(True, step, info)
 
-    step = "1b.2"
-    info = "The Reference Provider answers to Resolve messages"
-    print("Test step 1b: send resolve and check response")
+    step = '1b.2'
+    info = 'The Reference Provider answers to Resolve messages'
+    print('Test step 1b: send resolve and check response')
     is_ok, txt = test_1b_resolve(wsd, my_service)
     results_collector.log_result(is_ok, step, info, extra_info=txt)
 
     # 2. BICEPS Services Discovery and binding
-    # a) The Reference Provider answers to TransferGet
-    # b) The SDCri Reference Provider grants subscription runtime of at most 15 seconds in order to enforce Reference Consumers to send renew requests
-
-    """2. BICEPS Services Discovery and binding
-        a) The Reference Provider answers to TransferGet
-        b) The Reference Consumer renews at least one subscription once during the test phase; 
-           the Reference Provider grants subscriptions of at most 15 seconds 
-           (this allows for the Reference Consumer to verify if auto-renew works)"""
-    step = "2a"
-    info = "The Reference Provider answers to TransferGet"
+    #     a) The Reference Provider answers to TransferGet
+    #     b) The Reference Consumer renews at least one subscription once during the test phase;
+    #        the Reference Provider grants subscriptions of at most 15 seconds
+    #        (this allows for the Reference Consumer to verify if auto-renew works)
+    step = '2a'
+    info = 'The Reference Provider answers to TransferGet'
     print(step, info)
     try:
         client = connect_client(my_service)
@@ -296,25 +292,25 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
         results_collector.log_result(False, step, info)
         return None  # results
 
-    step = "2b.1"
-    info = "the Reference Provider grants subscriptions of at most 15 seconds"
+    step = '2b.1'
+    info = 'the Reference Provider grants subscriptions of at most 15 seconds'
     now = time.time()
     durations = [s.expires_at - now for s in client.subscription_mgr.subscriptions.values()]
-    print(f"subscription durations = {durations}")
+    print(f'subscription durations = {durations}')
     results_collector.log_result(max(durations) <= 15, step, info)  # noqa: PLR2004
-    step = "2b.2"
-    info = "the Reference Provider grants subscriptions of at most 15 seconds (renew)"
+    step = '2b.2'
+    info = 'the Reference Provider grants subscriptions of at most 15 seconds (renew)'
     subscription = list(client.subscription_mgr.subscriptions.values())[0]  # noqa: RUF015
     granted = subscription.renew(30000)
-    print(f"renew granted = {granted}")
+    print(f'renew granted = {granted}')
     results_collector.log_result(max(durations) <= 15, step, info)  # noqa: PLR2004
 
     # 3. Request Response
     # a) The Reference Provider answers to GetMdib
     # b) The Reference Provider answers to GetContextStates messages
     # b.1) The Reference Provider provides at least one location context state
-    step = "3a"
-    info = "The Reference Provider answers to GetMdib"
+    step = '3a'
+    info = 'The Reference Provider answers to GetMdib'
     print(step, info)
     try:
         mdib = ConsumerMdib(client, extras_cls=ConsumerMdibMethodsReferenceTest)
@@ -325,35 +321,35 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
         results_collector.log_result(False, step, info)
         return None  # results
 
-    step = "3b"
-    info = "The Reference Provider answers to GetContextStates messages"
+    step = '3b'
+    info = 'The Reference Provider answers to GetContextStates messages'
     context_service = client.context_service_client
     if context_service is None:
-        results_collector.log_result(False, step, info, extra_info="no context service")
+        results_collector.log_result(False, step, info, extra_info='no context service')
     else:
         try:
             states = context_service.get_context_states().result.ContextState
             results_collector.log_result(True, step, info)
         except Exception:  # noqa: BLE001
             print(traceback.format_exc())
-            results_collector.log_result(False, step, info, extra_info="exception")
-        step = "3b.1"
-        info = "The Reference Provider provides at least one location context state"
+            results_collector.log_result(False, step, info, extra_info='exception')
+        step = '3b.1'
+        info = 'The Reference Provider provides at least one location context state'
         loc_states = [s for s in states if pm_qnames.LocationContextState == s.NODETYPE]
         results_collector.log_result(len(loc_states) > 0, step, info)
 
     # 4 State Reports
     # a) The Reference Provider produces at least 5 numeric metric updates in 30 seconds
-    # b) The Reference Provider produces at least 5 string metric updates (StringMetric or EnumStringMetric) in 30 seconds
-    # c) The Reference Provider produces at least 5 alert condition updates (AlertCondition or LimitAlertCondition) in 30 seconds
+    # b) The Reference Provider produces at least 5 string metric updates (StringMetric or EnumStringMetric) in 30 seconds  # noqa: E501, W505
+    # c) The Reference Provider produces at least 5 alert condition updates (AlertCondition or LimitAlertCondition) in 30 seconds  # noqa: E501, W505
     # d) The Reference Provider produces at least 5 alert signal updates in 30 seconds
-    # e) The Reference Provider provides alert system self checks in accordance to the periodicity defined in the MDIB (at least every 10 seconds)
-    # f) The Reference Provider provides 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message
+    # e) The Reference Provider provides alert system self checks in accordance to the periodicity defined in the MDIB (at least every 10 seconds)  # noqa: E501, W505
+    # f) The Reference Provider provides 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message  # noqa: E501, W505
     # g) The Reference Provider provides changes for the following components:
     #   * At least 5 Clock or Battery object updates in 30 seconds (Component report)
     #   * At least 5 MDS or VMD updates in 30 seconds (Component report)
     # g) The Reference Provider provides changes for the following operational states:
-    #    At least 5 Operation updates in 30 seconds; enable/disable operations; some different than the ones mentioned above (Operational State Report)"""
+    #    At least 5 Operation updates in 30 seconds; enable/disable operations; some different than the ones mentioned above (Operational State Report)"""  # noqa: E501, W505
 
     # setup data collectors for next test steps
     numeric_metric_updates = defaultdict(list)
@@ -369,16 +365,16 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     def on_metric_updates(metrics_by_handle: dict):
         """Write to numeric_metric_updates or string_metric_updates, depending on type of state."""
         for k, v in metrics_by_handle.items():
-            print(f"State {v.NODETYPE.localname} {v.DescriptorHandle}")
+            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             if pm_qnames.NumericMetricState == v.NODETYPE:
                 numeric_metric_updates[k].append(v)
             elif pm_qnames.StringMetricState == v.NODETYPE:
                 string_metric_updates[k].append(v)
 
     def on_alert_updates(alerts_by_handle: dict):
-        """Write to alert_condition_updates, alert_signal_updates or alert_system_updates, depending on type of state."""
+        """Write to alert_condition_updates, alert_signal_updates or alert_system_updates depending on type of state."""
         for k, v in alerts_by_handle.items():
-            print(f"State {v.NODETYPE.localname} {v.DescriptorHandle}")
+            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             if v.is_alert_condition:
                 alert_condition_updates[k].append(v)
             elif v.is_alert_signal:
@@ -389,7 +385,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     def on_component_updates(components_by_handle: dict):
         """Write to component_updates."""
         for k, v in components_by_handle.items():
-            print(f"State {v.NODETYPE.localname} {v.DescriptorHandle}")
+            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             component_updates[k].append(v)
 
     def on_waveform_updates(waveforms_by_handle: dict):
@@ -399,13 +395,13 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
 
     def on_description_modification(description_modification_report: dict):
         """Write to description_updates."""
-        print("on_description_modification")
+        print('on_description_modification')
         description_updates.append(description_modification_report)
 
     def on_operational_state_updates(operational_states_by_handle: dict):
         """Write to operational_state_updates."""
         for k, v in operational_states_by_handle.items():
-            print(f"State {v.NODETYPE.localname} {v.DescriptorHandle}")
+            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             operational_state_updates[k].append(v)
 
     observableproperties.bind(mdib, metrics_by_handle=on_metric_updates)
@@ -418,52 +414,52 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     # now collect reports
     sleep_timer = 30
     min_updates = 5
-    print(f"will wait for {sleep_timer} seconds now, expecting at least {min_updates} updates per Handle")
+    print(f'will wait for {sleep_timer} seconds now, expecting at least {min_updates} updates per Handle')
     time.sleep(sleep_timer)
 
     # now check report count
-    step = "4a"
-    info = "count numeric metric state updates"
+    step = '4a'
+    info = 'count numeric metric state updates'
     print(step, info)
     is_ok, result = test_min_updates_per_handle(numeric_metric_updates, min_updates)
     results_collector.log_result(is_ok, step, info)
 
-    step = "4b"
-    info = "count string metric state updates"
+    step = '4b'
+    info = 'count string metric state updates'
     print(step)
     is_ok, result = test_min_updates_per_handle(string_metric_updates, min_updates)
     results_collector.log_result(is_ok, step, info)
 
-    step = "4c"
-    info = "count alert condition updates"
+    step = '4c'
+    info = 'count alert condition updates'
     print(step)
     is_ok, result = test_min_updates_per_handle(alert_condition_updates, min_updates)
     results_collector.log_result(is_ok, step, info)
 
-    step = "4d"
-    info = " count alert signal updates"
+    step = '4d'
+    info = ' count alert signal updates'
     print(step, info)
     is_ok, result = test_min_updates_per_handle(alert_signal_updates, min_updates)
     results_collector.log_result(is_ok, step, info)
 
-    step = "4e"
-    info = "count alert system self checks"
+    step = '4e'
+    info = 'count alert system self checks'
     is_ok, result = test_min_updates_per_handle(alert_system_updates, min_updates)
     results_collector.log_result(is_ok, step, info)
 
-    step = "4f"
-    info = "count waveform updates"
+    step = '4f'
+    info = 'count waveform updates'
     # 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message
     print(step, info)
     is_ok, result = test_min_updates_per_handle(waveform_updates, min_updates)
-    results_collector.log_result(is_ok, step, info + " notifications per second")
+    results_collector.log_result(is_ok, step, info + ' notifications per second')
     results_collector.log_result(
         len(waveform_updates) >= 3,  # noqa:PLR2004
         step,
-        info + f" number of waveforms: {len(waveform_updates)}",
+        info + f' number of waveforms: {len(waveform_updates)}',
     )
 
-    expected_samples = int(os.getenv("EXPECTED_WAVEFORM_SAMPLES_4F", 1000 * sleep_timer * 0.9))
+    expected_samples = int(os.getenv('EXPECTED_WAVEFORM_SAMPLES_4F', 1000 * sleep_timer * 0.9))
     for handle, reports in waveform_updates.items():
         notifications = [n for n in reports if n.MetricValue is not None]
         samples = sum([len(n.MetricValue.Samples) for n in notifications])
@@ -471,32 +467,32 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
             results_collector.log_result(
                 False,
                 step,
-                info + f" waveform {handle} has {samples} samples, expecting {expected_samples}",
+                info + f' waveform {handle} has {samples} samples, expecting {expected_samples}',
             )
         else:
             results_collector.log_result(
                 True,
                 step,
-                info + f" waveform {handle} has more than {expected_samples} samples: {samples}",
+                info + f' waveform {handle} has more than {expected_samples} samples: {samples}',
             )
 
     pm = mdib.data_model.pm_names
     pm_types = mdib.data_model.pm_types
 
-    step = "4g.1"
-    info = "count battery or clock updates"
+    step = '4g.1'
+    info = 'count battery or clock updates'
     print(step, info)
     is_ok, result = test_min_updates_for_type(component_updates, min_updates, [pm.BatteryState, pm.ClockState])
     results_collector.log_result(is_ok, step, info)
 
-    step = "4g.2"
-    info = "count VMD or MDS updates"
+    step = '4g.2'
+    info = 'count VMD or MDS updates'
     print(step, info)
     is_ok, result = test_min_updates_for_type(component_updates, min_updates, [pm.VmdState, pm.MdsState])
     results_collector.log_result(is_ok, step, info)
 
-    step = "4h"
-    info = "Enable/Disable operations"
+    step = '4h'
+    info = 'Enable/Disable operations'
     print(step, info)
     is_ok, result = test_min_updates_for_type(
         operational_state_updates,
@@ -523,49 +519,49 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     #       a new handle assigned on each insertion such that containment tree entries are not recycled).
     #       (Tests for the handling of re-insertion of previously inserted objects should be tested additionally)
     #     * Remove the VMD
-    step = "5a.1"
-    info = "Update Alert condition concept description of Type"
+    step = '5a.1'
+    info = 'Update Alert condition concept description of Type'
     print(step, info)
     # verify only that there are Alert Condition Descriptors updated
     updates = mdib.xtra.alert_condition_type_concept_updates
     if not updates:
-        results_collector.log_result(False, step, info, "no updates")
+        results_collector.log_result(False, step, info, 'no updates')
     else:
         max_diff = max(updates)
         if max_diff > 10:  # noqa:PLR2004
-            results_collector.log_result(False, step, info, f"max dt={max_diff}")
+            results_collector.log_result(False, step, info, f'max dt={max_diff}')
         else:
-            results_collector.log_result(True, step, info, f"{len(updates) - 1} updates, max diff= {max_diff:.1f}")
+            results_collector.log_result(True, step, info, f'{len(updates) - 1} updates, max diff= {max_diff:.1f}')
 
-    step = "5a.2"
-    info = "Update Alert condition cause-remedy information"
+    step = '5a.2'
+    info = 'Update Alert condition cause-remedy information'
     print(step, info)
     # verify only that there are remedy infos updated
     updates = mdib.xtra.alert_condition_cause_remedy_updates
     if not updates:
-        results_collector.log_result(False, step, info, "no updates")
+        results_collector.log_result(False, step, info, 'no updates')
     else:
         max_diff = max(updates)
         if max_diff > 10:  # noqa:PLR2004
-            results_collector.log_result(False, step, info, f"{updates} => max dt={max_diff}")
+            results_collector.log_result(False, step, info, f'{updates} => max dt={max_diff}')
         else:
-            results_collector.log_result(True, step, info, f"{len(updates) - 1} updates, max diff= {max_diff:.1f}")
+            results_collector.log_result(True, step, info, f'{len(updates) - 1} updates, max diff= {max_diff:.1f}')
 
-    step = "5a.3"
-    info = "Update Unit of measure"
+    step = '5a.3'
+    info = 'Update Unit of measure'
     print(step, info)
     updates = mdib.xtra.unit_of_measure_updates
     if not updates:
-        results_collector.log_result(False, step, info, "no updates")
+        results_collector.log_result(False, step, info, 'no updates')
     else:
         max_diff = max(updates)
         if max_diff > 10:  # noqa: PLR2004
-            results_collector.log_result(False, step, info, f"max dt={max_diff}")
+            results_collector.log_result(False, step, info, f'max dt={max_diff}')
         else:
-            results_collector.log_result(True, step, info, f"{len(updates) - 1} updates, max diff= {max_diff:.1f}")
+            results_collector.log_result(True, step, info, f'{len(updates) - 1} updates, max diff= {max_diff:.1f}')
 
-    step = "5b"
-    info = "Add / remove vmd"
+    step = '5b'
+    info = 'Add / remove vmd'
     print(step, info)
     # verify only that there are Alert Condition Descriptors updated
     add_found = False
@@ -580,8 +576,8 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                 for descriptor in report_part.Descriptor:
                     if pm_qnames.VmdDescriptor == descriptor.NODETYPE:
                         rm_found = True
-    results_collector.log_result(add_found, step, info, "add")
-    results_collector.log_result(rm_found, step, info, "remove")
+    results_collector.log_result(add_found, step, info, 'add')
+    results_collector.log_result(rm_found, step, info, 'remove')
 
     # 6 Operation invocation
     # a) (removed)
@@ -590,7 +586,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     #     * Context state is added to the MDIB including context association and validation
     #     * If there is an associated context already, that context shall be disassociated
     #         * Handle and version information is generated by the provider
-    #     * In order to avoid infinite growth of patient contexts, older contexts are allowed to be removed from the MDIB
+    #     * In order to avoid infinite growth of patient contexts, older contexts are allowed to be removed from the MDIB  # noqa: E501, W505
     #       (=ContextAssociation=No)
     # c) SetValue: Immediately answers with "finished"
     #     * Finished has to be sent as a report in addition to the response =>
@@ -600,14 +596,14 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     #     * Immediately sends finished
     #     * Action: Alter values of metrics
 
-    step = "6b"
-    info = "SetContextState"
+    step = '6b'
+    info = 'SetContextState'
     print(step, info)
     # patients = mdib.context_states.NODETYPE.get(pm.PatientContextState, [])  # noqa: ERA001
     patient_context_descriptors = mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor, [])
     generated_family_names = []
     if len(patient_context_descriptors) == 0:
-        results_collector.log_result(False, step, info, extra_info="no PatientContextDescriptor")
+        results_collector.log_result(False, step, info, extra_info='no PatientContextDescriptor')
     else:
         try:
             for i, p in enumerate(patient_context_descriptors):  # noqa: B007
@@ -619,7 +615,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
             time.sleep(1)  # allow update notification to arrive
             patients = mdib.context_states.NODETYPE.get(pm_qnames.PatientContextState, [])
             if len(patients) == 0:
-                results_collector.log_result(False, step, info, extra_info="no patients found")
+                results_collector.log_result(False, step, info, extra_info='no patients found')
             else:
                 all_ok = True
                 for patient in patients:
@@ -629,7 +625,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                                 False,
                                 step,
                                 info,
-                                extra_info=f"new patient {patient.CoreData.Familyname} is {patient.ContextAssociation}",
+                                extra_info=f'new patient {patient.CoreData.Familyname} is {patient.ContextAssociation}',
                             )
                             all_ok = False
                     elif patient.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
@@ -637,7 +633,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                             False,
                             step,
                             info,
-                            extra_info=f"old patient {patient.CoreData.Familyname} is {patient.ContextAssociation}",
+                            extra_info=f'old patient {patient.CoreData.Familyname} is {patient.ContextAssociation}',
                         )
                         all_ok = False
                 results_collector.log_result(all_ok, step, info)
@@ -645,26 +641,26 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
             print(traceback.format_exc())
             results_collector.log_result(False, step, info, ex)
 
-    step = "6c"
+    step = '6c'
     info = 'SetValue: Immediately answers with "finished"'
     print(step, info)
     subscriptions = client.subscription_mgr.subscriptions.values()
     operation_invoked_subscriptions = [
-        subscr for subscr in subscriptions if "OperationInvokedReport" in subscr.short_filter_string
+        subscr for subscr in subscriptions if 'OperationInvokedReport' in subscr.short_filter_string
     ]
     if len(operation_invoked_subscriptions) == 0:
-        results_collector.log_result(False, step, info, "OperationInvokedReport not subscribed, cannot test")
+        results_collector.log_result(False, step, info, 'OperationInvokedReport not subscribed, cannot test')
     elif len(operation_invoked_subscriptions) > 1:
         results_collector.log_result(
             False,
             step,
             info,
-            f"found {len(operation_invoked_subscriptions)} OperationInvokedReport subscribed, cannot test",
+            f'found {len(operation_invoked_subscriptions)} OperationInvokedReport subscribed, cannot test',
         )
     else:
         try:
             operations = client.mdib.descriptions.NODETYPE.get(pm_qnames.SetValueOperationDescriptor, [])
-            my_ops = [op for op in operations if op.Type.Code == "67108888"]
+            my_ops = [op for op in operations if op.Type.Code == '67108888']
             if len(my_ops) != 1:
                 results_collector.log_result(False, step, info, f'found {len(my_ops)} operations with code "67108888"')
             else:
@@ -672,52 +668,52 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                 future_object = client.set_service_client.set_numeric_value(operation.Handle, Decimal(42))
                 operation_result = future_object.result()
                 if len(operation_result.report_parts) == 0:
-                    results_collector.log_result(False, step, info, "no notification")
+                    results_collector.log_result(False, step, info, 'no notification')
                 elif len(operation_result.report_parts) > 1:
                     results_collector.log_result(
                         False,
                         step,
                         info,
-                        f"got {len(operation_result.report_parts)} notifications, expect only one",
+                        f'got {len(operation_result.report_parts)} notifications, expect only one',
                     )
                 else:
                     results_collector.log_result(
                         True,
                         step,
                         info,
-                        f"got {len(operation_result.report_parts)} notifications",
+                        f'got {len(operation_result.report_parts)} notifications',
                     )
                 if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
                     results_collector.log_result(
                         False,
                         step,
                         info,
-                        f"got result {operation_result.InvocationInfo.InvocationState} "
-                        f"{operation_result.InvocationInfo.InvocationError} "
-                        f"{operation_result.InvocationInfo.InvocationErrorMessage}",
+                        f'got result {operation_result.InvocationInfo.InvocationState} '
+                        f'{operation_result.InvocationInfo.InvocationError} '
+                        f'{operation_result.InvocationInfo.InvocationErrorMessage}',
                     )
         except Exception as ex:  # noqa:BLE001
             print(traceback.format_exc())
             results_collector.log_result(False, step, info, ex)
 
-    step = "6d"
-    info = "SetString: Initiates a transaction that sends Wait, Start and Finished"
+    step = '6d'
+    info = 'SetString: Initiates a transaction that sends Wait, Start and Finished'
     print(step, info)
     try:
         operations = client.mdib.descriptions.NODETYPE.get(pm_qnames.SetStringOperationDescriptor, [])
-        my_ops = [op for op in operations if op.Type.Code == "67108889"]
+        my_ops = [op for op in operations if op.Type.Code == '67108889']
         if len(my_ops) != 1:
             results_collector.log_result(False, step, info, f'found {len(my_ops)} operations with code "67108889"')
         else:
             operation = my_ops[0]
-            future_object = client.set_service_client.set_string(operation.Handle, "STANDBY")
+            future_object = client.set_service_client.set_string(operation.Handle, 'STANDBY')
             operation_result = future_object.result()
             if len(operation_result.report_parts) < 3:  # noqa: PLR2004
                 results_collector.log_result(
                     False,
                     step,
                     info,
-                    f"only {len(operation_result.report_parts)} notification(s)",
+                    f'only {len(operation_result.report_parts)} notification(s)',
                 )
             elif len(operation_result.report_parts) >= 3:  # noqa: PLR2004
                 # check order of operation invoked reports (simple expectation, there could be multiple WAIT in theory)
@@ -728,82 +724,82 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                 ]
                 inv_states = [p.InvocationInfo.InvocationState for p in operation_result.report_parts]
                 if inv_states != expectation:
-                    results_collector.log_result(False, step, info, f"wrong order {inv_states}")
+                    results_collector.log_result(False, step, info, f'wrong order {inv_states}')
                 else:
                     results_collector.log_result(
                         True,
                         step,
                         info,
-                        f"got {len(operation_result.report_parts)} notifications",
+                        f'got {len(operation_result.report_parts)} notifications',
                     )
             if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
                 results_collector.log_result(
                     False,
                     step,
                     info,
-                    f"got result {operation_result.InvocationInfo.InvocationState} "
-                    f"{operation_result.InvocationInfo.InvocationError} "
-                    f"{operation_result.InvocationInfo.InvocationErrorMessage}",
+                    f'got result {operation_result.InvocationInfo.InvocationState} '
+                    f'{operation_result.InvocationInfo.InvocationError} '
+                    f'{operation_result.InvocationInfo.InvocationErrorMessage}',
                 )
 
     except Exception as ex:  # noqa: BLE001
         print(traceback.format_exc())
         results_collector.log_result(False, step, info, ex)
 
-    step = "6e"
-    info = "SetMetricStates Immediately answers with finished"
+    step = '6e'
+    info = 'SetMetricStates Immediately answers with finished'
     print(step, info)
     try:
         operations = client.mdib.descriptions.NODETYPE.get(pm_qnames.SetMetricStateOperationDescriptor, [])
-        my_ops = [op for op in operations if op.Type.Code == "67108890"]
+        my_ops = [op for op in operations if op.Type.Code == '67108890']
         if len(my_ops) != 1:
             results_collector.log_result(False, step, info, f'found {len(my_ops)} operations with code "67108890"')
         else:
             operation = my_ops[0]
-            proposed_metric_state1 = client.mdib.xtra.mk_proposed_state("numeric_metric_0.channel_0.vmd_1.mds_0")
-            proposed_metric_state2 = client.mdib.xtra.mk_proposed_state("numeric_metric_1.channel_0.vmd_1.mds_0")
+            proposed_metric_state1 = client.mdib.xtra.mk_proposed_state('numeric_metric_0.channel_0.vmd_1.mds_0')
+            proposed_metric_state2 = client.mdib.xtra.mk_proposed_state('numeric_metric_1.channel_0.vmd_1.mds_0')
             for st in (proposed_metric_state1, proposed_metric_state2):
                 if st.MetricValue is None:
                     st.mk_metric_value()
                     st.MetricValue.Value = Decimal(1)
                 else:
-                    st.MetricValue.Value += Decimal(0.1)
+                    st.MetricValue.Value += Decimal('0.1')
             future_object = client.set_service_client.set_metric_state(
                 operation.Handle,
                 [proposed_metric_state1, proposed_metric_state2],
             )
             operation_result = future_object.result()
             if len(operation_result.report_parts) == 0:
-                results_collector.log_result(False, step, info, "no notification")
+                results_collector.log_result(False, step, info, 'no notification')
             elif len(operation_result.report_parts) > 1:
                 results_collector.log_result(
                     False,
                     step,
                     info,
-                    f"got {len(operation_result.report_parts)} notifications, expect only one",
+                    f'got {len(operation_result.report_parts)} notifications, expect only one',
                 )
             else:
                 results_collector.log_result(
                     True,
                     step,
                     info,
-                    f"got {len(operation_result.report_parts)} notifications",
+                    f'got {len(operation_result.report_parts)} notifications',
                 )
             if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
                 results_collector.log_result(
                     False,
                     step,
                     info,
-                    f"got result {operation_result.InvocationInfo.InvocationState} "
-                    f"{operation_result.InvocationInfo.InvocationError} "
-                    f"{operation_result.InvocationInfo.InvocationErrorMessage}",
+                    f'got result {operation_result.InvocationInfo.InvocationState} '
+                    f'{operation_result.InvocationInfo.InvocationError} '
+                    f'{operation_result.InvocationInfo.InvocationErrorMessage}',
                 )
     except Exception as ex:  # noqa: BLE001
         print(traceback.format_exc())
         results_collector.log_result(False, step, info, ex)
 
-    step = "7"
-    info = "Graceful shutdown (at least subscriptions are ended; optionally Bye is sent)"
+    step = '7'
+    info = 'Graceful shutdown (at least subscriptions are ended; optionally Bye is sent)'
     try:
         success = client._subscription_mgr.unsubscribe_all()  # noqa: SLF001
         results_collector.log_result(success, step, info)
@@ -814,13 +810,13 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     return results_collector
 
 
-if __name__ == "__main__":
-    xtra_log_config = os.getenv("ref_xtra_log_cnf")  # noqa:SIM112
+if __name__ == '__main__':
+    xtra_log_config = os.getenv('ref_xtra_log_cnf')  # noqa:SIM112
 
     import json
     import logging.config
 
-    with pathlib.Path(__file__).parent.joinpath("logging_default.json").open() as f:
+    with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     if xtra_log_config is not None:
