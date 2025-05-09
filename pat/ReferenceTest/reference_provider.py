@@ -1,3 +1,5 @@
+"""Refrence provider for v1 specifications."""
+
 from __future__ import annotations
 
 import decimal
@@ -6,9 +8,7 @@ import logging.config
 import os
 import pathlib
 import time
-import traceback
 import uuid
-from typing import TYPE_CHECKING
 
 import sdc11073.certloader
 from sdc11073 import location, network, provider, wsdiscovery
@@ -21,9 +21,6 @@ from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenc
 from sdc11073.xml_types import dpws_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
-
-if TYPE_CHECKING:
-    pass
 
 USE_REFERENCE_PARAMETERS = True
 
@@ -38,21 +35,25 @@ def get_network_adapter() -> network.NetworkAdapter:
 
 def get_location() -> location.SdcLocation:
     """Get location from environment or default."""
-    return location.SdcLocation(fac=os.getenv('ref_fac', default='r_fac'),  # noqa: SIM112
-                                poc=os.getenv('ref_poc', default='r_poc'),  # noqa: SIM112
-                                bed=os.getenv('ref_bed', default='r_bed'))  # noqa: SIM112
+    return location.SdcLocation(
+        fac=os.getenv('ref_fac', default='r_fac'),  # noqa: SIM112
+        poc=os.getenv('ref_poc', default='r_poc'),  # noqa: SIM112
+        bed=os.getenv('ref_bed', default='r_bed'),  # noqa: SIM112
+    )
 
 
 def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
     """Get ssl context from environment or None."""
     if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
         return None
-    return mk_ssl_contexts_from_folder(ca_folder,
-                                       private_key='user_private_key_encrypted.pem',
-                                       certificate='user_certificate_root_signed.pem',
-                                       ca_public_key='root_certificate.pem',
-                                       cyphers_file=None,
-                                       ssl_passwd=os.getenv('ref_ssl_passwd'))  # noqa: SIM112
+    return mk_ssl_contexts_from_folder(
+        ca_folder,
+        private_key='user_private_key_encrypted.pem',
+        certificate='user_certificate_root_signed.pem',
+        ca_public_key='root_certificate.pem',
+        cyphers_file=None,
+        ssl_passwd=os.getenv('ref_ssl_passwd'),  # noqa: SIM112
+    )
 
 
 def get_epr() -> uuid.UUID:
@@ -62,26 +63,31 @@ def get_epr() -> uuid.UUID:
     return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
 
 
-def create_reference_provider(
-        ws_discovery: wsdiscovery.WSDiscovery | None = None,
-        mdib_path: pathlib.Path | None = None,
-        dpws_model: dpws_types.ThisModelType | None = None,
-        dpws_device: dpws_types.ThisDeviceType | None = None,
-        epr: uuid.UUID | None = None,
-        specific_components: SdcProviderComponents | None = None,
-        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None) -> provider.SdcProvider:
+def create_reference_provider(  # noqa: D103, PLR0913
+    ws_discovery: wsdiscovery.WSDiscovery | None = None,
+    mdib_path: pathlib.Path | None = None,
+    dpws_model: dpws_types.ThisModelType | None = None,
+    dpws_device: dpws_types.ThisDeviceType | None = None,
+    epr: uuid.UUID | None = None,
+    specific_components: SdcProviderComponents | None = None,
+    ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+) -> provider.SdcProvider:
     # generic way to create a device, this what you usually do:
     ws_discovery = ws_discovery or wsdiscovery.WSDiscovery(get_network_adapter().ip)
     ws_discovery.start()
-    dpws_model = dpws_model or ThisModelType(manufacturer='sdc11073',
-                                             manufacturer_url='www.sdc11073.com',
-                                             model_name='TestDevice',
-                                             model_number='1.0',
-                                             model_url='www.draeger.com/model',
-                                             presentation_url='www.draeger.com/model/presentation')
-    dpws_device = dpws_device or ThisDeviceType(friendly_name='TestDevice',
-                                                firmware_version='Version1',
-                                                serial_number='12345')
+    dpws_model = dpws_model or ThisModelType(
+        manufacturer='sdc11073',
+        manufacturer_url='www.sdc11073.com',
+        model_name='TestDevice',
+        model_number='1.0',
+        model_url='www.draeger.com/model',
+        presentation_url='www.draeger.com/model/presentation',
+    )
+    dpws_device = dpws_device or ThisDeviceType(
+        friendly_name='TestDevice',
+        firmware_version='Version1',
+        serial_number='12345',
+    )
     mdib = ProviderMdib.from_mdib_file(str(mdib_path or pathlib.Path(__file__).parent.joinpath('reference_mdib.xml')))
     prov = provider.SdcProvider(
         ws_discovery=ws_discovery,
@@ -98,37 +104,41 @@ def create_reference_provider(
     return prov
 
 
-def set_reference_data(prov: provider.SdcProvider, loc: location.SdcLocation = None):
+def set_reference_data(prov: provider.SdcProvider, loc: location.SdcLocation = None):  # noqa: D103
     loc = loc or get_location()
     prov.set_location(loc, [pm_types.InstanceIdentifier('Validator', extension_string='System')])
     patient_handle = prov.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor).Handle
     with prov.mdib.context_state_transaction() as mgr:
         patient_state = mgr.mk_context_state(patient_handle)
-        patient_state.CoreData.Givenname = "Given"
-        patient_state.CoreData.Middlename = ["Middle"]
-        patient_state.CoreData.Familyname = "Familiy"
-        patient_state.CoreData.Birthname = "Birthname"
-        patient_state.CoreData.Title = "Title"
+        patient_state.CoreData.Givenname = 'Given'
+        patient_state.CoreData.Middlename = ['Middle']
+        patient_state.CoreData.Familyname = 'Familiy'
+        patient_state.CoreData.Birthname = 'Birthname'
+        patient_state.CoreData.Title = 'Title'
         patient_state.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         patient_state.Identification = []
 
 
-def mk_all_services_except_localization(prov: provider.SdcProvider,
-                                        components: SdcProviderComponents,
-                                        subscription_managers: dict) -> HostedServices:
+def mk_all_services_except_localization(  # noqa: D103
+    prov: provider.SdcProvider,
+    components: SdcProviderComponents,
+    subscription_managers: dict,
+) -> HostedServices:
     # register all services with their endpoint references acc. to structure in components
     dpws_services, services_by_name = mk_dpws_hosts(prov, components, DPWSHostedService, subscription_managers)
-    return HostedServices(dpws_services,
-                          services_by_name['GetService'],
-                          set_service=services_by_name.get('SetService'),
-                          context_service=services_by_name.get('ContextService'),
-                          description_event_service=services_by_name.get('DescriptionEventService'),
-                          state_event_service=services_by_name.get('StateEventService'),
-                          waveform_service=services_by_name.get('WaveformService'),
-                          containment_tree_service=services_by_name.get('ContainmentTreeService'))
+    return HostedServices(
+        dpws_services,
+        services_by_name['GetService'],
+        set_service=services_by_name.get('SetService'),
+        context_service=services_by_name.get('ContextService'),
+        description_event_service=services_by_name.get('DescriptionEventService'),
+        state_event_service=services_by_name.get('StateEventService'),
+        waveform_service=services_by_name.get('WaveformService'),
+        containment_tree_service=services_by_name.get('ContainmentTreeService'),
+    )
 
 
-def setup_logging() -> logging.LoggerAdapter:
+def setup_logging() -> logging.LoggerAdapter:  # noqa: D103
     default = pathlib.Path(__file__).parent.joinpath('logging_default.json')
     if default.exists():
         logging.config.dictConfig(json.loads(default.read_bytes()))
@@ -137,7 +147,7 @@ def setup_logging() -> logging.LoggerAdapter:
     return LoggerAdapter(logging.getLogger('sdc'))
 
 
-def run_provider():
+def run_provider():  # noqa: D103, PLR0915
     logger = setup_logging()
 
     adapter = get_network_adapter()
@@ -168,7 +178,7 @@ def run_provider():
         if not state.MetricValue:
             state.mk_metric_value()
 
-    print("Running forever, CTRL-C to exit")
+    print('Running forever, CTRL-C to exit')
 
     try:
         current_value = 0
@@ -179,26 +189,30 @@ def run_provider():
                     if not state.MetricValue:
                         state.mk_metric_value()
                     state.MetricValue.Value = decimal.Decimal(current_value)
-                    logger.info(f'Set pm:MetricValue/@Value={current_value} of the metric with the handle '
-                                f'"{metric.Handle}".')
+                    logger.info(
+                        f'Set pm:MetricValue/@Value={current_value} of the metric with the handle '  # noqa: G004
+                        f'"{metric.Handle}".',
+                    )
                     current_value += 1
-            except Exception:  # noqa: BLE001
-                logger.error(traceback.format_exc())
+            except Exception:
+                logger.exception('An error occurred providing metrics')
             try:
                 with prov.mdib.alert_state_transaction() as mgr:
                     state = mgr.get_state(alert_condition.Handle)
                     state.Presence = not state.Presence
-                    logger.info(f'Set @Presence={state.Presence} of the alert condition with the handle '
-                                f'"{alert_condition.Handle}".')
-            except Exception:  # noqa: BLE001
-                logger.error(traceback.format_exc())
+                    logger.info(
+                        f'Set @Presence={state.Presence} of the alert condition with the handle '  # noqa: G004
+                        f'"{alert_condition.Handle}".',
+                    )
+            except Exception:
+                logger.exception('An error occurred providing alerts')
             time.sleep(5)
     except KeyboardInterrupt:
         pass
     finally:
-        print("Stopping provider...")
+        print('Stopping provider...')
         prov.stop_all()
-        print("Stopping discovery...")
+        print('Stopping discovery...')
         wsd.stop()
 
 

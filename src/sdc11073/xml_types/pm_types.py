@@ -17,8 +17,8 @@ from .basetypes import StringEnum, XMLTypeBase
 
 if TYPE_CHECKING:
     from lxml import etree
-    from sdc11073 import xml_utils
 
+    from sdc11073 import xml_utils
     from sdc11073.xml_types.isoduration import DateTypeUnion, DurationType
 
 
@@ -305,7 +305,7 @@ class LocalizedText(PropertyBasedPMType):
     TextWidth = cp.EnumAttributeProperty('TextWidth', enum_cls=LocalizedTextWidth)
     _props = ('text', 'Ref', 'Lang', 'Version', 'TextWidth')
 
-    def __init__(self, text: str,  # noqa: PLR0913
+    def __init__(self, text: str,
                  lang: str | None = None,
                  ref: str | None = None,
                  version: int | None = None,
@@ -589,7 +589,7 @@ class Range(PropertyBasedPMType):
     AbsoluteAccuracy: Decimal | None = cp.DecimalAttributeProperty('AbsoluteAccuracy')
     _props = ('Extension', 'Lower', 'Upper', 'StepWidth', 'RelativeAccuracy', 'AbsoluteAccuracy')
 
-    def __init__(self,  # noqa: PLR0913
+    def __init__(self,
                  lower: Decimal | None = None,
                  upper: Decimal | None = None,
                  step_width: Decimal | None = None,
@@ -775,7 +775,7 @@ class CauseInfo(PropertyBasedPMType):
 
     NODETYPE = pm.CauseInfo
     ExtExtension = cp.ExtensionNodeProperty(ext.Extension)
-    RemedyInfo: RemedyInfoType = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
+    RemedyInfo: RemedyInfoType | None = cp.SubElementProperty(pm.RemedyInfo, value_class=RemedyInfo)
     Description: list[LocalizedText] = cp.SubElementListProperty(pm.Description, value_class=LocalizedText)
     _props = ('ExtExtension', 'RemedyInfo', 'Description')
 
@@ -790,10 +790,10 @@ class ActivateOperationDescriptorArgument(PropertyBasedPMType):
     """Represents BICEPS AbstractSetStateOperationDescriptor/Argument."""
 
     ArgName: CodedValue = cp.SubElementProperty(pm.ArgName, value_class=CodedValue, is_optional=False)
-    Arg: etree.QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
+    Arg: xml_utils.QName | None = cp.NodeTextQNameProperty(pm.Arg, is_optional=False)
     _props = ('ArgName', 'Arg')
 
-    def __init__(self, arg_name: CodedValue | None = None, arg: etree.QName | None = None):
+    def __init__(self, arg_name: CodedValue | None = None, arg: xml_utils.QName | None = None):
         super().__init__()
         self.ArgName = arg_name
         self.Arg = arg
@@ -879,7 +879,7 @@ class BaseDemographics(PropertyBasedPMType):
     Title: str | None = cp.NodeStringProperty(pm.Title, is_optional=True)
     _props = ('ExtExtension', 'Givenname', 'Middlename', 'Familyname', 'Birthname', 'Title')
 
-    def __init__(self,  # noqa: PLR0913
+    def __init__(self,
                  given_name: str | None = None,
                  middle_names: list[str] | None = None,
                  family_name: str | None = None,
@@ -1035,7 +1035,7 @@ class ClinicalInfo(PropertyBasedPMType):
                                                                              value_class=RelatedMeasurement)
     _props = ('Type', 'Code', 'Criticality', 'Description', 'RelatedMeasurement')
 
-    def __init__(self,  # noqa: PLR0913
+    def __init__(self,
                  type_: CodedValue | None = None,
                  code: CodedValue | None = None,
                  criticality: CriticalityType | None = None,
@@ -1101,7 +1101,7 @@ class OrderDetail(PropertyBasedPMType):
                                                                              value_class=ImagingProcedure)
     _props = ('Start', 'End', 'Performer', 'Service', 'ImagingProcedure')
 
-    def __init__(self,  # noqa: PLR0913
+    def __init__(self,
                  start: str | None = None,
                  end: str | None = None,
                  performer: list[PersonParticipation] | None = None,
@@ -1442,4 +1442,4 @@ def _get_pmtypes_class(qname: etree.QName) -> type[PropertyBasedPMType]:
     try:
         return _name_class_lookup[qname]
     except KeyError as ex:
-        raise KeyError(f'{qname.namespace}.{qname.localname}') from ex
+        raise KeyError(f'{qname.namespace}.{qname.localname}') from ex  # noqa: EM102

@@ -7,30 +7,29 @@ import sys
 import threading
 import uuid
 
+from pat.ReferenceTest import reference_consumer, reference_provider
 from sdc11073 import network
 
-from examples.ReferenceTest import reference_provider, reference_consumer
 
-
-def setup(tls: bool):
-    os.environ['ref_search_epr'] = str(uuid.uuid4())
+def setup(tls: bool):  # noqa: D103
+    os.environ['REF_SEARCH_EPR'] = str(uuid.uuid4())
     if platform.system() == 'Darwin':
-        os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if not adapter.is_loopback)
+        os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if not adapter.is_loopback)  # noqa: SIM112
     else:
-        os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if adapter.is_loopback)
+        os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if adapter.is_loopback)  # noqa: SIM112
     if tls:
         certs_path = pathlib.Path(__file__).parent.parent.joinpath('certs')
         assert certs_path.exists()
-        os.environ['ref_ca'] = str(certs_path)
-        os.environ['ref_ssl_passwd'] = 'dummypass'
+        os.environ['ref_ca'] = str(certs_path)  # noqa: SIM112
+        os.environ['ref_ssl_passwd'] = 'dummypass'  # noqa: S105, SIM112
 
 
-def run() -> reference_consumer.TestCollector:
+def run() -> reference_consumer.TestCollector:  # noqa: D103
     threading.Thread(target=reference_provider.run_provider, daemon=True).start()
     return reference_consumer.main()
 
 
-def main(tls: bool):
+def main(tls: bool):  # noqa: ANN201, D103
     setup(tls)
     return run()
 

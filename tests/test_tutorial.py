@@ -379,7 +379,7 @@ class TestTutorial(unittest.TestCase):
 
         specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
-        mdib_path = os.path.join(here, '../examples/ReferenceTest/reference_mdib.xml')  # noqa: PTH118
+        mdib_path = os.path.join(here, '../pat/ReferenceTest/reference_mdib.xml')  # noqa: PTH118
         my_generic_provider = create_generic_provider(my_ws_discovery,
                                                       self.my_location,
                                                       mdib_path,

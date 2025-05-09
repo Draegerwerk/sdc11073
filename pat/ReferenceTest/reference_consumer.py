@@ -1,5 +1,7 @@
 """Reference test v1."""
 
+from __future__ import annotations
+
 import dataclasses
 import enum
 import os
@@ -25,9 +27,10 @@ from sdc11073.xml_types.msg_types import InvocationState
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
 # ref_discovery_runs indicates the maximum executions of wsdiscovery search services, "0" -> run until service is found
-discovery_runs = int(os.getenv('ref_discovery_runs', "0"))  # noqa: SIM112
+discovery_runs = int(os.getenv('ref_discovery_runs', '0'))  # noqa: SIM112
 
 ENABLE_COMMLOG = True
+
 
 def get_network_adapter() -> network.NetworkAdapter:
     """Get network adapter from environment or first loopback."""
@@ -41,12 +44,14 @@ def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
     """Get ssl context from environment or None."""
     if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
         return None
-    return mk_ssl_contexts_from_folder(ca_folder,
-                                       private_key='user_private_key_encrypted.pem',
-                                       certificate='user_certificate_root_signed.pem',
-                                       ca_public_key='root_certificate.pem',
-                                       cyphers_file=None,
-                                       ssl_passwd=os.getenv('ref_ssl_passwd'))  # noqa: SIM112
+    return mk_ssl_contexts_from_folder(
+        ca_folder,
+        private_key='user_private_key_encrypted.pem',
+        certificate='user_certificate_root_signed.pem',
+        ca_public_key='root_certificate.pem',
+        cyphers_file=None,
+        ssl_passwd=os.getenv('ref_ssl_passwd'),  # noqa: SIM112
+    )
 
 
 def get_epr() -> uuid.UUID:
@@ -62,6 +67,7 @@ class TestResult(enum.Enum):
     PASSED = 'PASSED'
     FAILED = 'FAILED'
 
+
 @dataclasses.dataclass
 class TestCollector:
     """Test collector."""
@@ -72,13 +78,13 @@ class TestCollector:
     def add_result(self, test_step_message: str, test_step_result: TestResult):
         """Add result to result list."""
         if not isinstance(test_step_result, TestResult):
-            raise ValueError("Unexpected parameter")
+            raise TypeError('Unexpected parameter')
         if self.overall_test_result is not TestResult.FAILED:
             self.overall_test_result = test_step_result
         self.test_messages.append(test_step_message)
 
 
-def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
+def run_ref_test() -> TestCollector:  # noqa: PLR0915,PLR0912,C901
     """Run reference tests."""
     test_collector = TestCollector()
     adapter_ip = get_network_adapter().ip
@@ -107,13 +113,11 @@ def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
 
     print('Test step 2: connect to device...')
     try:
-        client = SdcConsumer.from_wsd_service(my_service,
-                                              ssl_context_container=get_ssl_context(),
-                                              validate=True)
+        client = SdcConsumer.from_wsd_service(my_service, ssl_context_container=get_ssl_context(), validate=True)
         client.start_all()
         print('Test step 2 passed: connected to device')
         test_collector.add_result('### Test 2 ### passed', TestResult.PASSED)
-    except Exception: # noqa: BLE001
+    except Exception:  # noqa: BLE001
         print(traceback.format_exc())
         test_collector.add_result('### Test 2 ### failed', TestResult.FAILED)
         return test_collector
@@ -125,7 +129,7 @@ def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
         print('Test step 3&4 passed')
         test_collector.add_result('### Test 3 ### passed', TestResult.PASSED)
         test_collector.add_result('### Test 4 ### passed', TestResult.PASSED)
-    except Exception: # noqa: BLE001
+    except Exception:  # noqa: BLE001
         print(traceback.format_exc())
         test_collector.add_result('### Test 3 ### failed', TestResult.FAILED)
         test_collector.add_result('### Test 4 ### failed', TestResult.FAILED)
@@ -141,7 +145,6 @@ def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
     else:
         print('found no patients, Test step 5 failed')
         test_collector.add_result('### Test 5 ### failed', TestResult.FAILED)
-
 
     print('Test step 6: check that at least one location context exists')
     locations = mdib.context_states.NODETYPE.get(pm.LocationContextState, [])
@@ -221,7 +224,7 @@ def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
                 except futures.TimeoutError:
                     print('timeout error')
                     test_collector.add_result('### Test 9(SetString) ### failed', TestResult.FAILED)
-            except Exception as ex:# noqa: BLE001
+            except Exception as ex:  # noqa: BLE001
                 print(f'Test 9(SetString): {ex}')
                 test_collector.add_result('### Test 9(SetString) ### failed', TestResult.FAILED)
 
@@ -250,7 +253,7 @@ def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
                 except futures.TimeoutError:
                     print('timeout error')
                     test_collector.add_result('### Test 9(SetValue) ### failed', TestResult.FAILED)
-            except Exception as ex:# noqa: BLE001
+            except Exception as ex:  # noqa: BLE001
                 print(f'Test 9(SetValue): {ex}')
                 test_collector.add_result('### Test 9(SetValue) ### failed', TestResult.FAILED)
 
@@ -292,6 +295,7 @@ def run_ref_test() -> TestCollector: # noqa: PLR0915,PLR0912,C901
     time.sleep(2)
     return test_collector
 
+
 def main() -> TestCollector:
     """Execute reference tests."""
     xtra_log_config = os.getenv('ref_xtra_log_cnf')  # noqa: SIM112
@@ -299,17 +303,19 @@ def main() -> TestCollector:
     import json
     import logging.config
 
-    with pathlib.Path(__file__).parent.joinpath("logging_default.json").open() as f:
+    with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     if xtra_log_config is not None:
         with pathlib.Path(xtra_log_config).open() as f:
             logging_setup2 = json.load(f)
             logging.config.dictConfig(logging_setup2)
-    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_refclient_commlog',
-                                          log_out=True,
-                                          log_in=True,
-                                          broadcast_ip_filter=None)
+    comm_logger = commlog.DirectoryLogger(
+        log_folder=r'c:\temp\sdc_refclient_commlog',
+        log_out=True,
+        log_in=True,
+        broadcast_ip_filter=None,
+    )
     if ENABLE_COMMLOG:
         for name in commlog.LOGGER_NAMES:
             logging.getLogger(name).setLevel(logging.DEBUG)
