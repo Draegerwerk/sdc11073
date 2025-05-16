@@ -5,7 +5,7 @@ import uuid
 from unittest import mock
 
 from sdc11073.location import SdcLocation
-from sdc11073.provider.scopesfactory import mk_scopes, KEY_PURPOSE_SERVICE_PROVIDER
+from sdc11073.provider.scopesfactory import KEY_PURPOSE_SERVICE_PROVIDER, mk_scopes
 from sdc11073.xml_types.wsd_types import ScopesType
 
 
