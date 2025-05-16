@@ -6,6 +6,8 @@ from sdc11073.location import SdcLocation
 from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
+KEY_PURPOSE_SERVICE_PROVIDER = 'sdc.mds.pkp:1.2.840.10004.20701.1.1'
+
 
 def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
     """Return a ScopesType instance.
@@ -16,16 +18,21 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
     pm_names = mdib.data_model.pm_names
     scope = ScopesType()
     loc_entities = mdib.entities.by_node_type(pm_names.LocationContextDescriptor)
-    assoc_loc = []
-    for ent in loc_entities:
-        assoc_loc.extend(
-            [loc for loc in ent.states.values() if loc.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED],
-        )
-    if len(assoc_loc) == 1:
-        loc = assoc_loc[0]
-        det = loc.LocationDetail
-        dr_loc = SdcLocation(fac=det.Facility, poc=det.PoC, bed=det.Bed, bldng=det.Building, flr=det.Floor, rm=det.Room)
-        scope.text.append(dr_loc.scope_string)
+    for entry in loc_entities:
+        for state in entry.states.values():
+            if state.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
+                for identification in state.Identification:
+                    scope.text.append(
+                        SdcLocation(
+                            root=identification.Root,
+                            fac=state.LocationDetail.Facility,
+                            poc=state.LocationDetail.PoC,
+                            bed=state.LocationDetail.Bed,
+                            bldng=state.LocationDetail.Building,
+                            flr=state.LocationDetail.Floor,
+                            rm=state.LocationDetail.Room,
+                        ).scope_string,
+                    )
 
     for nodetype, scheme in (
         (pm_names.OperatorContextDescriptor, 'sdc.ctxt.opr'),
@@ -42,7 +49,7 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                     scope.text.append(f'{scheme}:/{quote_plus(ident.Root)}/{quote_plus(ident.Extension)}')
 
     scope.text.extend(_get_device_component_based_scopes(mdib))
-    scope.text.append('sdc.mds.pkp:1.2.840.10004.20701.1.1')  # key purpose Service provider
+    scope.text.append(KEY_PURPOSE_SERVICE_PROVIDER)  # default scope that is always included
     return scope
 
 
@@ -53,7 +60,10 @@ def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
     SDC SERVICE PROVIDER SHOULD include a URI-encoded pm:AbstractComplexDeviceComponentDescriptor/pm:Type
     as dpws:Scope of the MDPWS discovery messages. The URI encoding conforms to the given Extended Backus-Naur Form.
     E.G.  sdc.cdc.type:///69650, sdc.cdc.type:/urn:oid:1.3.6.1.4.1.3592.2.1.1.0//DN_VMD
-    After discussion with David: use only MDSDescriptor, VmdDescriptor makes no sense.
+
+    Use only MDSDescriptor, because there might be alot of VmdDescriptor that might exceed the dpws message size limit.
+    Also, VmdDescriptor do not contain relevant information for discovery purposes.
+
     :return: a set of scope strings
     """
     pm_types = mdib.data_model.pm_types

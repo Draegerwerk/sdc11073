@@ -5,7 +5,7 @@ import uuid
 from unittest import mock
 
 from sdc11073.location import SdcLocation
-from sdc11073.provider.scopesfactory import mk_scopes
+from sdc11073.provider.scopesfactory import mk_scopes, KEY_PURPOSE_SERVICE_PROVIDER
 from sdc11073.xml_types.wsd_types import ScopesType
 
 
@@ -23,14 +23,14 @@ class TestMkScopes(unittest.TestCase):
         self.mdib.data_model.pm_names.MdsDescriptor = 'MdsDescriptor'
 
     def test_no_associated_locations(self):
-        # Test when there are no associated locations
-        self.mdib.entities.by_node_type.return_value = []
+        """Test when there are no associated locations."""
         result = mk_scopes(self.mdib)
         self.assertIsInstance(result, ScopesType)
         self.assertEqual(len(result.text), 1)  # Only the default key purpose scope
+        self.assertEqual(result.text[0], KEY_PURPOSE_SERVICE_PROVIDER)
 
     def test_single_associated_location(self):
-        # Test with a single associated location
+        """Test with a single associated location."""
         mock_location = mock.MagicMock()
         mock_location.ContextAssociation = self.pm_types_associated
         mock_location.LocationDetail.Facility = uuid.uuid4().hex
@@ -42,7 +42,7 @@ class TestMkScopes(unittest.TestCase):
         self.mdib.entities.by_node_type.return_value = [mock.MagicMock(states={'state1': mock_location})]
 
         result = mk_scopes(self.mdib)
-        self.assertIn(
+        self.assertEqual(
             SdcLocation(
                 fac=mock_location.LocationDetail.Facility,
                 poc=mock_location.LocationDetail.PoC,
@@ -73,7 +73,7 @@ class TestMkScopes(unittest.TestCase):
         self.assertIn(f'sdc.ctxt.opr:/{root}/{extension}', result.text)
 
     def test_device_component_based_scopes(self):
-        # Test device component-based scopes
+        """Test device component-based scopes."""
         mock_entity = mock.MagicMock()
         mock_entity.descriptor.Type.CodingSystem = uuid.uuid4().hex
         mock_entity.descriptor.Type.CodingSystemVersion = uuid.uuid4().hex
@@ -94,7 +94,3 @@ class TestMkScopes(unittest.TestCase):
             f'{mock_entity.descriptor.Type.Code}',
             result.text,
         )
-
-    def test_scope_contains_key_purpose_service_provider(self):
-        result = mk_scopes(self.mdib)
-        self.assertEqual('sdc.mds.pkp:1.2.840.10004.20701.1.1', result.text[0])

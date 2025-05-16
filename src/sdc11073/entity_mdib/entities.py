@@ -33,6 +33,7 @@ _static_type_lookup = {
     pm_qnames.SystemContext: pm_qnames.SystemContextDescriptor,
     pm_qnames.PatientContext: pm_qnames.PatientContextDescriptor,
     pm_qnames.LocationContext: pm_qnames.LocationContextDescriptor,
+    pm_qnames.EnsembleContext: pm_qnames.EnsembleContextDescriptor,
     pm_qnames.Clock: pm_qnames.ClockDescriptor,
     pm_qnames.Battery: pm_qnames.BatteryDescriptor,
 }
