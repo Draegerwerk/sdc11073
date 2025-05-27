@@ -49,7 +49,7 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                                 'poc': state.LocationDetail.PoC,
                                 'rm': state.LocationDetail.Room,
                                 'bed': state.LocationDetail.Bed,
-                            }
+                            },
                         )
                     if query:
                         context_uri = f'{context_uri}?{query}'
