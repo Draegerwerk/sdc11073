@@ -5,16 +5,17 @@ import uuid
 from unittest import mock
 
 from sdc11073.location import SdcLocation
+from sdc11073.mdib import statecontainers
 from sdc11073.provider.scopesfactory import KEY_PURPOSE_SERVICE_PROVIDER, mk_scopes
+from sdc11073.xml_types import pm_types
 from sdc11073.xml_types.wsd_types import ScopesType
 
 
 class TestMkScopes(unittest.TestCase):
     def setUp(self):
-        self.pm_types_associated = uuid.uuid4().hex
         # Mock the ProviderMdibProtocol and its attributes
         self.mdib = mock.MagicMock()
-        self.mdib.data_model.pm_types.ContextAssociation.ASSOCIATED = self.pm_types_associated
+        self.mdib.data_model.pm_types.ContextAssociation.ASSOCIATED = pm_types.ContextAssociation.ASSOCIATED
         self.mdib.data_model.pm_names.LocationContextDescriptor = 'LocationContextDescriptor'
         self.mdib.data_model.pm_names.OperatorContextDescriptor = 'OperatorContextDescriptor'
         self.mdib.data_model.pm_names.EnsembleContextDescriptor = 'EnsembleContextDescriptor'
@@ -31,26 +32,25 @@ class TestMkScopes(unittest.TestCase):
 
     def test_single_associated_location(self):
         """Test with a single associated location."""
-        mock_location = mock.MagicMock()
-        mock_location.ContextAssociation = self.pm_types_associated
-        mock_location.LocationDetail.Facility = uuid.uuid4().hex
-        mock_location.LocationDetail.PoC = uuid.uuid4().hex
-        mock_location.LocationDetail.Bed = uuid.uuid4().hex
-        mock_location.LocationDetail.Building = uuid.uuid4().hex
-        mock_location.LocationDetail.Floor = uuid.uuid4().hex
-        mock_location.LocationDetail.Room = uuid.uuid4().hex
-        self.mdib.entities.by_node_type.return_value = [mock.MagicMock(states={'state1': mock_location})]
-
+        root = uuid.uuid4().hex
+        sdc_location = SdcLocation(
+            root=root,
+            fac=uuid.uuid4().hex,
+            poc=uuid.uuid4().hex,
+            bed=uuid.uuid4().hex,
+            bldng=uuid.uuid4().hex,
+            flr=uuid.uuid4().hex,
+            rm=uuid.uuid4().hex,
+        )
+        loc_state = statecontainers.LocationContextStateContainer(
+            mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int), uuid.uuid4().hex,
+        )
+        loc_state.update_from_sdc_location(sdc_location)
+        self.mdib.entities.by_node_type.return_value = [mock.MagicMock(states={uuid.uuid4().hex: loc_state})]
         result = mk_scopes(self.mdib)
+        self.maxDiff = None
         self.assertEqual(
-            SdcLocation(
-                fac=mock_location.LocationDetail.Facility,
-                poc=mock_location.LocationDetail.PoC,
-                bed=mock_location.LocationDetail.Bed,
-                bldng=mock_location.LocationDetail.Building,
-                flr=mock_location.LocationDetail.Floor,
-                rm=mock_location.LocationDetail.Room,
-            ).scope_string,
+            sdc_location.scope_string,
             result.text[0],
         )
 
@@ -59,7 +59,7 @@ class TestMkScopes(unittest.TestCase):
         extension = uuid.uuid4().hex
         # Test with multiple context associations
         mock_state = mock.MagicMock()
-        mock_state.ContextAssociation = self.pm_types_associated
+        mock_state.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
         mock_state.Identification = [mock.MagicMock(Root=root, Extension=extension)]
         self.mdib.entities.by_node_type.side_effect = (
             lambda nodetype: [

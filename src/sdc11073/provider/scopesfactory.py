@@ -1,8 +1,8 @@
 """The module implements the function mk_scopes."""
 
+import urllib.parse
 from urllib.parse import quote_plus
 
-from sdc11073.location import SdcLocation
 from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
@@ -17,24 +17,8 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
     pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scope = ScopesType()
-    loc_entities = mdib.entities.by_node_type(pm_names.LocationContextDescriptor)
-    for entry in loc_entities:
-        for state in entry.states.values():
-            if state.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
-                for identification in state.Identification:
-                    scope.text.append(
-                        SdcLocation(
-                            root=identification.Root,
-                            fac=state.LocationDetail.Facility,
-                            poc=state.LocationDetail.PoC,
-                            bed=state.LocationDetail.Bed,
-                            bldng=state.LocationDetail.Building,
-                            flr=state.LocationDetail.Floor,
-                            rm=state.LocationDetail.Room,
-                        ).scope_string,
-                    )
-
     for nodetype, scheme in (
+        (pm_names.LocationContextDescriptor, 'sdc.ctxt.loc'),
         (pm_names.OperatorContextDescriptor, 'sdc.ctxt.opr'),
         (pm_names.EnsembleContextDescriptor, 'sdc.ctxt.ens'),
         (pm_names.WorkflowContextDescriptor, 'sdc.ctxt.wfl'),
@@ -45,8 +29,31 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
             for state in [
                 s for s in entity.states.values() if s.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED
             ]:
+                if not state.Identification:
+                    msg = f'State {state.Handle} of type {nodetype} has no Identification element'
+                    raise ValueError(msg)
                 for ident in state.Identification:
-                    scope.text.append(f'{scheme}:/{quote_plus(ident.Root)}/{quote_plus(ident.Extension)}')
+                    # IEEE Std 11073-20701-2018 9.4 context based discovery
+                    instance_identifier = f'/{quote_plus(ident.Root)}/{quote_plus(ident.Extension)}'
+                    context_uri = f'{scheme}:{instance_identifier}'
+                    query = ''
+                    if nodetype == pm_names.LocationContextDescriptor:
+                        if not state.LocationDetail:
+                            msg = f'State {state.Handle} of type {nodetype} has no LocationDetail element'
+                            raise ValueError(msg)
+                        query = urllib.parse.urlencode(
+                            {
+                                'fac': state.LocationDetail.Facility,
+                                'bldng': state.LocationDetail.Building,
+                                'flr': state.LocationDetail.Floor,
+                                'poc': state.LocationDetail.PoC,
+                                'rm': state.LocationDetail.Room,
+                                'bed': state.LocationDetail.Bed,
+                            }
+                        )
+                    if query:
+                        context_uri = f'{context_uri}?{query}'
+                    scope.text.append(context_uri)
 
     scope.text.extend(_get_device_component_based_scopes(mdib))
     scope.text.append(KEY_PURPOSE_SERVICE_PROVIDER)  # default scope that is always included
