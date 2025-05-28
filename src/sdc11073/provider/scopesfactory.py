@@ -9,6 +9,24 @@ from sdc11073.xml_types.wsd_types import ScopesType
 KEY_PURPOSE_SERVICE_PROVIDER = 'sdc.mds.pkp:1.2.840.10004.20701.1.1'
 
 
+def _query_from_location_state(state) -> str:  # noqa: ANN001  typing is unknown here as it depends on the data_model in the mdib
+    """Return a query string from a LocationContextStateContainer."""
+    query_dict: dict[str, str] = {}
+    if state.LocationDetail.Facility:
+        query_dict['fac'] = state.LocationDetail.Facility
+    if state.LocationDetail.Building:
+        query_dict['bldng'] = state.LocationDetail.Building
+    if state.LocationDetail.Floor:
+        query_dict['flr'] = state.LocationDetail.Floor
+    if state.LocationDetail.PoC:
+        query_dict['poc'] = state.LocationDetail.PoC
+    if state.LocationDetail.Room:
+        query_dict['rm'] = state.LocationDetail.Room
+    if state.LocationDetail.Bed:
+        query_dict['bed'] = state.LocationDetail.Bed
+    return urllib.parse.urlencode(query_dict)
+
+
 def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
     """Return a ScopesType instance.
 
@@ -41,20 +59,7 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                         if not state.LocationDetail:
                             msg = f'State {state.Handle} of type {nodetype} has no LocationDetail element'
                             raise ValueError(msg)
-                        query_dict: dict[str, str] = {}
-                        if state.LocationDetail.Facility:
-                            query_dict['fac'] = state.LocationDetail.Facility
-                        if state.LocationDetail.Building:
-                            query_dict['bldng'] = state.LocationDetail.Building
-                        if state.LocationDetail.Floor:
-                            query_dict['flr'] = state.LocationDetail.Floor
-                        if state.LocationDetail.PoC:
-                            query_dict['poc'] = state.LocationDetail.PoC
-                        if state.LocationDetail.Room:
-                            query_dict['rm'] = state.LocationDetail.Room
-                        if state.LocationDetail.Bed:
-                            query_dict['bed'] = state.LocationDetail.Bed
-                        query = urllib.parse.urlencode(query_dict)
+                        query = _query_from_location_state(state)
                     if query:
                         context_uri = f'{context_uri}?{query}'
                     scope.text.append(context_uri)
