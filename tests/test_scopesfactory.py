@@ -43,12 +43,12 @@ class TestMkScopes(unittest.TestCase):
             rm=uuid.uuid4().hex,
         )
         loc_state = statecontainers.LocationContextStateContainer(
-            mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int), uuid.uuid4().hex,
+            mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+            uuid.uuid4().hex,
         )
         loc_state.update_from_sdc_location(sdc_location)
         self.mdib.entities.by_node_type.return_value = [mock.MagicMock(states={uuid.uuid4().hex: loc_state})]
         result = mk_scopes(self.mdib)
-        self.maxDiff = None
         self.assertEqual(
             sdc_location.scope_string,
             result.text[0],
@@ -93,4 +93,44 @@ class TestMkScopes(unittest.TestCase):
             f'{mock_entity.descriptor.Type.CodingSystemVersion}/'
             f'{mock_entity.descriptor.Type.Code}',
             result.text,
+        )
+
+    def test_raise_error_if_no_identification_element(self):
+        """Test that an error is raised if a location state has no Identification."""
+        loc_state = statecontainers.LocationContextStateContainer(
+            mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+            uuid.uuid4().hex,
+        )
+        loc_state.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        self.mdib.entities.by_node_type.return_value = [mock.MagicMock(states={uuid.uuid4().hex: loc_state})]
+
+        with self.assertRaises(ValueError) as context:
+            mk_scopes(self.mdib)
+
+        self.assertEqual(
+            f'State {loc_state.Handle} of type {self.mdib.data_model.pm_names.LocationContextDescriptor} has no '
+            f'Identification element',
+            str(context.exception),
+        )
+
+    def test_raise_error_if_no_location_detail_element(self):
+        """Test that an error is raised if a location state has no LocationDetail."""
+        loc_state = statecontainers.LocationContextStateContainer(
+            mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+            uuid.uuid4().hex,
+        )
+        loc_state.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        loc_state.Identification = [
+            pm_types.InstanceIdentifier(root=uuid.uuid4().hex, extension_string=uuid.uuid4().hex),
+        ]
+        loc_state.LocationDetail = None
+        self.mdib.entities.by_node_type.return_value = [mock.MagicMock(states={uuid.uuid4().hex: loc_state})]
+
+        with self.assertRaises(ValueError) as context:
+            mk_scopes(self.mdib)
+
+        self.assertEqual(
+            f'State {loc_state.Handle} of type {self.mdib.data_model.pm_names.LocationContextDescriptor} has no '
+            f'LocationDetail element',
+            str(context.exception),
         )

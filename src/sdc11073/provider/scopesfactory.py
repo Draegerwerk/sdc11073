@@ -41,16 +41,20 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                         if not state.LocationDetail:
                             msg = f'State {state.Handle} of type {nodetype} has no LocationDetail element'
                             raise ValueError(msg)
-                        query = urllib.parse.urlencode(
-                            {
-                                'fac': state.LocationDetail.Facility,
-                                'bldng': state.LocationDetail.Building,
-                                'flr': state.LocationDetail.Floor,
-                                'poc': state.LocationDetail.PoC,
-                                'rm': state.LocationDetail.Room,
-                                'bed': state.LocationDetail.Bed,
-                            },
-                        )
+                        query_dict: dict[str, str] = {}
+                        if state.LocationDetail.Facility:
+                            query_dict['fac'] = state.LocationDetail.Facility
+                        if state.LocationDetail.Building:
+                            query_dict['bldng'] = state.LocationDetail.Building
+                        if state.LocationDetail.Floor:
+                            query_dict['flr'] = state.LocationDetail.Floor
+                        if state.LocationDetail.PoC:
+                            query_dict['poc'] = state.LocationDetail.PoC
+                        if state.LocationDetail.Room:
+                            query_dict['rm'] = state.LocationDetail.Room
+                        if state.LocationDetail.Bed:
+                            query_dict['bed'] = state.LocationDetail.Bed
+                        query = urllib.parse.urlencode(query_dict)
                     if query:
                         context_uri = f'{context_uri}?{query}'
                     scope.text.append(context_uri)
