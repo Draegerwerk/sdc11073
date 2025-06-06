@@ -152,8 +152,9 @@ class SubscriptionBase:
 
     @property
     def remaining_seconds(self):
-        duration = int(self._expire_seconds - (time.monotonic() - self._started))
-        return 0 if duration < 0 else duration
+        # do not use int, because it would round down to 0 even if the subscription is still valid, e.g. 0.5 seconds
+        duration = round(self._expire_seconds - (time.monotonic() - self._started), 2)
+        return max(duration, 0)
 
     @property
     def expire_string(self):

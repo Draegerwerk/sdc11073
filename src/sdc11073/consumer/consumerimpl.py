@@ -395,7 +395,7 @@ class SdcConsumer:
                            This is the target for all subscribe/unsubscribe ... messages
         :param filter_type: the filter that is sent to device
         :param actions: a list of DispatchKeys that this subscription shall handle
-        :param expire_minutes: defaults to 1 hour
+        :param expire_minutes: defaults to 60 seconds
         :param any_elements: optional list of lxml elements
         :param any_attributes: optional dictionary of name:str - value:str pairs
         :return: a subscription object that has callback already registered.

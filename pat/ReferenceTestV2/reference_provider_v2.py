@@ -150,6 +150,7 @@ enable_5a3 = True
 enable_6c = True
 enable_6d = True
 enable_6e = True
+enable_6f = True
 
 
 def mk_all_services_except_localization(
@@ -208,7 +209,7 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
     wsd.start()
     my_mdib = ProviderMdib.from_mdib_file(str(get_mdib_path()))
     my_uuid = get_epr()
-    print(f'UUID for this device is {my_uuid}')
+    print(f'UUID for this device is urn:uuid:{my_uuid}')
     loc = get_location()
     print(f'location for this device is {loc}')
     dpws_model = ThisModelType(
@@ -272,6 +273,8 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
         sdc_provider.get_operation_by_handle('set_string_0.sco.mds_0').delayed_processing = False
     if enable_6e:
         sdc_provider.get_operation_by_handle('set_metric_0.sco.vmd_1.mds_0').delayed_processing = False
+    if enable_6f:
+        sdc_provider.get_operation_by_handle('activate_1.sco.mds_0').delayed_processing = False
 
     pm = my_mdib.data_model.pm_names
     pm_types = my_mdib.data_model.pm_types

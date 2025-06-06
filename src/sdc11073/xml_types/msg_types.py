@@ -700,9 +700,9 @@ class Activate(AbstractSet):
     Argument = cp.SubElementListProperty(msg.Argument, value_class=Argument)
     _props = ('Argument',)
 
-    def add_argument(self, arg_value):
+    def add_argument(self, arg_value: Argument):
         arg = Argument()
-        arg.ArgValue = str(arg_value)
+        arg.ArgValue = arg_value.ArgValue
         self.Argument.append(arg)
 
     @property

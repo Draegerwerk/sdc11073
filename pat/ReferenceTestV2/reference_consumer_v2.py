@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import os
 import pathlib
+import random
+import string
 import sys
+import threading
 import time
 import traceback
 import uuid
@@ -18,6 +21,7 @@ from typing import TYPE_CHECKING
 
 import sdc11073
 from sdc11073 import network, observableproperties
+from sdc11073.observableproperties import observables
 from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
@@ -25,8 +29,10 @@ from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_qnames
+from pat.ReferenceTestV2.consumer import step_6, result_collector
 
 if TYPE_CHECKING:
+    from concurrent.futures import Future
     from lxml.etree import QName
 
     from sdc11073.loghelper import LoggerAdapter
@@ -41,7 +47,7 @@ numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
 alert_condition_handle = 'alert_condition_0.vmd_0.mds_1'
 set_value_handle = 'set_value_0.sco.mds_0'
 set_string_handle = 'set_string_0.sco.mds_0'
-set_context_state_handle = 'set_context_0.sco.mds_0'
+
 
 
 def get_network_adapter() -> network.NetworkAdapter:
@@ -66,48 +72,13 @@ def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
     )
 
 
-def get_epr() -> uuid.UUID:
+def get_epr() -> str | uuid.UUID:
     """Get epr from environment or default."""
     if (epr := os.getenv('ref_search_epr')) is not None:  # noqa: SIM112
-        return uuid.UUID(epr)
+        return epr
     return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
 
 
-@dataclass
-class ResultEntry:
-    """Represents one result entry."""
-
-    verdict: bool | None
-    step: str
-    info: str
-    xtra: str
-
-    def __str__(self):
-        verdict_str = {None: 'no result', True: 'passed', False: 'failed'}
-        return f'{self.step:6s}:{verdict_str[self.verdict]:10s} {self.info}{self.xtra}'
-
-
-class ResultsCollector:
-    """Result collector."""
-
-    def __init__(self):
-        self._results: list[ResultEntry] = []
-
-    def log_result(self, is_ok: bool | None, step: str, info: str, extra_info: str | None = None):
-        """Log the result."""
-        xtra = f' ({extra_info}) ' if extra_info else ''
-        self._results.append(ResultEntry(is_ok, step, info, xtra))
-
-    def print_summary(self):
-        """Print the summary."""
-        print('\n### Summary ###')
-        for r in self._results:
-            print(r)
-
-    @property
-    def failed_count(self) -> int:
-        """Get the amount of failures."""
-        return len([r for r in self._results if r.verdict is False])
 
 
 class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
@@ -184,25 +155,18 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         super()._on_description_modification_report(received_message_data)
 
 
-def test_1b_resolve(wsd: WSDiscovery, my_service: Service) -> (bool, str):
-    """Send resolve and check response."""
-    wsd.clear_remote_services()
-    wsd._send_resolve(my_service.epr)  # noqa: SLF001
-    time.sleep(3)
-    if len(wsd._remote_services) == 0:  # noqa: SLF001
-        return False, 'no response'
-    if len(wsd._remote_services) > 1:  # noqa: SLF001
-        return False, 'multiple response'
-    service = wsd._remote_services.get(my_service.epr)  # noqa: SLF001
-    if service.epr != my_service.epr:
-        return False, 'not the same epr'
-    return True, 'resolve answered'
-
-
 def connect_client(my_service: Service) -> SdcConsumer:
     """Connect sdc consumer."""
     client = SdcConsumer.from_wsd_service(my_service, ssl_context_container=get_ssl_context(), validate=True)
-    client.start_all()
+    client.start_all(
+        # not_subscribed_actions=[
+        #     actions.Actions.PeriodicContextReport,
+        #     actions.Actions.PeriodicAlertReport,
+        #     actions.Actions.PeriodicMetricReport,
+        #     actions.Actions.PeriodicComponentReport,
+        #     actions.Actions.PeriodicOperationalStateReport,
+        # ]
+    )
     return client
 
 
@@ -238,7 +202,8 @@ def test_min_updates_for_type(updates_dict: dict, min_updates: int, q_name_list:
     return False, f'expect >= {min_updates}, got {len(matches)} out of {len(flat_list)}'
 
 
-def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # noqa: PLR0915,PLR0912,C901
+
+def run_ref_test(results_collector: result_collector.ResultsCollector) -> result_collector.ResultsCollector:  # noqa: PLR0915,PLR0912,C901
     """Run reference test."""
     adapter_ip = get_network_adapter().ip
     search_epr = str(get_epr())
@@ -256,7 +221,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     info = 'The Reference Provider sends Hello messages'
     results_collector.log_result(None, step, info, extra_info='not testable')
 
-    step = '1b.1'
+    step = '1b'
     info = 'The Reference Provider answers to Probe messages'
     my_service = None
     while my_service is None:
@@ -269,12 +234,6 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                 break
     print('Test step 1 successful: device discovered')
     results_collector.log_result(True, step, info)
-
-    step = '1b.2'
-    info = 'The Reference Provider answers to Resolve messages'
-    print('Test step 1b: send resolve and check response')
-    is_ok, txt = test_1b_resolve(wsd, my_service)
-    results_collector.log_result(is_ok, step, info, extra_info=txt)
 
     # 2. BICEPS Services Discovery and binding
     #     a) The Reference Provider answers to TransferGet
@@ -365,7 +324,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     def on_metric_updates(metrics_by_handle: dict):
         """Write to numeric_metric_updates or string_metric_updates, depending on type of state."""
         for k, v in metrics_by_handle.items():
-            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
+            #print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             if pm_qnames.NumericMetricState == v.NODETYPE:
                 numeric_metric_updates[k].append(v)
             elif pm_qnames.StringMetricState == v.NODETYPE:
@@ -374,7 +333,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     def on_alert_updates(alerts_by_handle: dict):
         """Write to alert_condition_updates, alert_signal_updates or alert_system_updates depending on type of state."""
         for k, v in alerts_by_handle.items():
-            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
+            #print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             if v.is_alert_condition:
                 alert_condition_updates[k].append(v)
             elif v.is_alert_signal:
@@ -385,7 +344,7 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     def on_component_updates(components_by_handle: dict):
         """Write to component_updates."""
         for k, v in components_by_handle.items():
-            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
+            #print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             component_updates[k].append(v)
 
     def on_waveform_updates(waveforms_by_handle: dict):
@@ -395,13 +354,13 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
 
     def on_description_modification(description_modification_report: dict):
         """Write to description_updates."""
-        print('on_description_modification')
+        #print('on_description_modification')
         description_updates.append(description_modification_report)
 
     def on_operational_state_updates(operational_states_by_handle: dict):
         """Write to operational_state_updates."""
         for k, v in operational_states_by_handle.items():
-            print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
+            #print(f'State {v.NODETYPE.localname} {v.DescriptorHandle}')
             operational_state_updates[k].append(v)
 
     observableproperties.bind(mdib, metrics_by_handle=on_metric_updates)
@@ -596,50 +555,11 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     #     * Immediately sends finished
     #     * Action: Alter values of metrics
 
-    step = '6b'
-    info = 'SetContextState'
-    print(step, info)
-    # patients = mdib.context_states.NODETYPE.get(pm.PatientContextState, [])  # noqa: ERA001
-    patient_context_descriptors = mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor, [])
-    generated_family_names = []
-    if len(patient_context_descriptors) == 0:
-        results_collector.log_result(False, step, info, extra_info='no PatientContextDescriptor')
-    else:
-        try:
-            for i, p in enumerate(patient_context_descriptors):  # noqa: B007
-                pat = client.context_service_client.mk_proposed_context_object(p.Handle)
-                pat.CoreData.Familyname = uuid.uuid4().hex
-                pat.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
-                generated_family_names.append(pat.CoreData.Familyname)
-                client.context_service_client.set_context_state(set_context_state_handle, [pat])
-            time.sleep(1)  # allow update notification to arrive
-            patients = mdib.context_states.NODETYPE.get(pm_qnames.PatientContextState, [])
-            if len(patients) == 0:
-                results_collector.log_result(False, step, info, extra_info='no patients found')
-            else:
-                all_ok = True
-                for patient in patients:
-                    if patient.CoreData.Familyname in generated_family_names:
-                        if patient.ContextAssociation != pm_types.ContextAssociation.ASSOCIATED:
-                            results_collector.log_result(
-                                False,
-                                step,
-                                info,
-                                extra_info=f'new patient {patient.CoreData.Familyname} is {patient.ContextAssociation}',
-                            )
-                            all_ok = False
-                    elif patient.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
-                        results_collector.log_result(
-                            False,
-                            step,
-                            info,
-                            extra_info=f'old patient {patient.CoreData.Familyname} is {patient.ContextAssociation}',
-                        )
-                        all_ok = False
-                results_collector.log_result(all_ok, step, info)
-        except Exception as ex:  # noqa: BLE001
-            print(traceback.format_exc())
-            results_collector.log_result(False, step, info, ex)
+    try:
+        step_6.test_6b(client, mdib, results_collector)
+    except Exception as ex:  # noqa: BLE001
+        print(traceback.format_exc())
+        results_collector.log_result(False, step, info, ex)
 
     step = '6c'
     info = 'SetValue: Immediately answers with "finished"'
@@ -683,7 +603,10 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                         info,
                         f'got {len(operation_result.report_parts)} notifications',
                     )
-                if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+                if operation_result.InvocationInfo.InvocationState not in (
+                    msg_types.InvocationState.FINISHED,
+                    msg_types.InvocationState.FINISHED_MOD,
+                ):
                     results_collector.log_result(
                         False,
                         step,
@@ -785,7 +708,10 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
                     info,
                     f'got {len(operation_result.report_parts)} notifications',
                 )
-            if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+            if operation_result.InvocationInfo.InvocationState not in (
+                msg_types.InvocationState.FINISHED,
+                msg_types.InvocationState.FINISHED_MOD,
+            ):
                 results_collector.log_result(
                     False,
                     step,
@@ -797,6 +723,58 @@ def run_ref_test(results_collector: ResultsCollector) -> ResultsCollector:  # no
     except Exception as ex:  # noqa: BLE001
         print(traceback.format_exc())
         results_collector.log_result(False, step, info, ex)
+
+    step = '6f'
+    info = 'The Reference Provider invokes Activate'
+    string_argument = msg_types.Argument()
+    string_argument.ArgValue = ''.join(random.choice(string.ascii_lowercase) for i in range(20))
+    decimal_argument = msg_types.Argument()
+    decimal_argument.ArgValue = str(random.randint(1, 2**20))
+    any_uri_argument = msg_types.Argument()
+    any_uri_argument.ArgValue = f'urn:uuid:{uuid.uuid4()}'
+    arguments = [string_argument, decimal_argument, any_uri_argument]
+    activate_operation_handle = 'activate_1.sco.mds_0'
+    try:
+        activate_operation = mdib.get_entity(activate_operation_handle)
+    except KeyError:
+        results_collector.log_result(
+            False,
+            step,
+            info,
+            f'no operation with handle "{activate_operation_handle}" found in MDIB',
+        )
+    else:
+        expected_value = ''.join([argument.ArgValue for argument in arguments])
+        observed = threading.Event()
+
+        def _observe_operation_metric_value(metrics_by_handle: dict):
+            if activate_operation.descriptor.OperationTarget in metrics_by_handle:
+                state = metrics_by_handle[activate_operation.descriptor.OperationTarget]
+                print(
+                    f'received an update for "{activate_operation.descriptor.OperationTarget}" with value "{state.MetricValue}"'
+                )
+                if state.MetricValue is not None and state.MetricValue.Value == expected_value:
+                    observed.set()
+
+        with observables.bound_context(mdib, metrics_by_handle=_observe_operation_metric_value):
+            fut: Future = client.set_service_client.activate(activate_operation_handle, arguments)
+            operation_result = fut.result(10.0)  # wait for 10 seconds for the result
+            if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+                results_collector.log_result(
+                    False,
+                    step,
+                    info,
+                    f'got result {operation_result.InvocationInfo.InvocationState} '
+                    f'{operation_result.InvocationInfo.InvocationError} '
+                    f'{operation_result.InvocationInfo.InvocationErrorMessage}',
+                )
+            else:
+                results_collector.log_result(
+                    observed.wait(10.0),
+                    step,
+                    info,
+                    f'The metric with the handle "{activate_operation.descriptor.OperationTarget}" contains {expected_value} as @MetricValue/@Value.',
+                )
 
     step = '7'
     info = 'Graceful shutdown (at least subscriptions are ended; optionally Bye is sent)'
@@ -824,7 +802,7 @@ if __name__ == '__main__':
             logging_setup2 = json.load(f)
             logging.config.dictConfig(logging_setup2)
 
-    results = ResultsCollector()
+    results = result_collector.ResultsCollector()
 
     run_ref_test(results)
     results.print_summary()

@@ -142,13 +142,17 @@ class ConsumerSubscription:
         try:
             soap_client = self._get_soap_client_func(self._hosted_service_address)
             message_data = soap_client.post_message_to(self._hosted_service_path, message, msg=msg)
+            # Get time of subscription before sending the request instead of after receiving the response.
+            # Otherwise, there might be a small time window where the subscription is expired on the provider but not
+            #   on the consumer.
+            time_before_subscription = time.time()
             try:
                 self.subscribe_response = evt_types.SubscribeResponse.from_node(message_data.p_msg.msg_node)
                 self.is_subscribed = True
                 subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
                 self._subscription_manager_path = urlparse(subscription_manager_address).path
                 self.granted_expires = self.subscribe_response.Expires
-                self.expires_at = time.time() + self.granted_expires
+                self.expires_at = time_before_subscription + self.granted_expires
                 self._logger.info('Subscribe was successful: expires at {}, address="{}"',  # noqa: PLE1205
                                   self.expires_at, self.subscribe_response.SubscriptionManager.Address)
             except AttributeError as ex:
