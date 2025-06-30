@@ -1,3 +1,5 @@
+"""SDC location handling."""
+
 from __future__ import annotations
 
 import warnings
@@ -48,7 +50,8 @@ class SdcLocation:
         self.bed = bed  # Bed
 
     @property
-    def root(self):
+    def root(self) -> str:
+        """Return the root of the location, e.g. 'sdc.ctxt.loc.detail'."""
         warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
         return self._root
 
@@ -92,10 +95,11 @@ class SdcLocation:
         """Check if location in scope is inside own location."""
         try:
             other = self.__class__.from_scope_string(scope_text)
-            return other in self
         except UrlSchemeError:
             # Scope has different scheme, no match
             return False
+        else:
+            return other in self
 
     def __contains__(self, other: SdcLocation) -> bool:
         """Compare element by element, root included.
@@ -122,7 +126,8 @@ class SdcLocation:
         src = urlsplit(scope_string)
 
         if src.scheme.lower() != cls.scheme:
-            raise UrlSchemeError(f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"')
+            msg = f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"'
+            raise UrlSchemeError(msg)
         dummy, root, _ = src.path.split('/')
         root = unquote(root)
         query_dict = dict(parse_qsl(src.query))

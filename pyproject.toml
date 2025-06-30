@@ -127,7 +127,6 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "FBT001", # https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
     "FBT002", # https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
     "FBT003", # https://docs.astral.sh/ruff/rules/boolean-positional-value-in-call/
-    "S320", # https://docs.astral.sh/ruff/rules/suspicious-xmle-tree-usage/
 ]
 
 [tool.ruff.format]

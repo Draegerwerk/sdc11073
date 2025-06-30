@@ -74,11 +74,6 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
 def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
     """Return a set of scope strings.
 
-    SDC: For every instance derived from pm:AbstractComplexDeviceComponentDescriptor in the MDIB an
-    SDC SERVICE PROVIDER SHOULD include a URI-encoded pm:AbstractComplexDeviceComponentDescriptor/pm:Type
-    as dpws:Scope of the MDPWS discovery messages. The URI encoding conforms to the given Extended Backus-Naur Form.
-    E.G.  sdc.cdc.type:///69650, sdc.cdc.type:/urn:oid:1.3.6.1.4.1.3592.2.1.1.0//DN_VMD
-
     Use only MDSDescriptor, because there might be alot of VmdDescriptor that might exceed the dpws message size limit.
     Also, VmdDescriptor do not contain relevant information for discovery purposes.
 

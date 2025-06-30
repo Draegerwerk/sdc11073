@@ -85,7 +85,7 @@ def test_context_associations(mdib: mock.MagicMock):
     root = uuid.uuid4().hex
     extension = uuid.uuid4().hex
 
-    def _node_type_side_effect(nodetype):
+    def _node_type_side_effect(nodetype: str) -> list[mock.MagicMock]:
         if nodetype == 'OperatorContextDescriptor':
             return [
                 mock.MagicMock(
@@ -93,9 +93,9 @@ def test_context_associations(mdib: mock.MagicMock):
                         'state1': mock.MagicMock(
                             ContextAssociation=pm_types.ContextAssociation.ASSOCIATED,
                             Identification=[mock.MagicMock(Root=root, Extension=extension)],
-                        )
-                    }
-                )
+                        ),
+                    },
+                ),
             ]
         if nodetype != 'MdsDescriptor':
             return [
@@ -104,9 +104,9 @@ def test_context_associations(mdib: mock.MagicMock):
                         uuid.uuid4(): mock.MagicMock(
                             ContextAssociation=pm_types.ContextAssociation.DISASSOCIATED,
                             Identification=[mock.MagicMock(Root=uuid.uuid4().hex, Extension=uuid.uuid4().hex)],
-                        )
-                    }
-                )
+                        ),
+                    },
+                ),
             ]
         return []
 
@@ -133,8 +133,10 @@ def test_device_component_based_scopes(mdib: mock.MagicMock):
 
     result = mk_scopes(mdib)
     assert (
-        result.text[0]
-        == f'sdc.cdc.type:/{mock_entity.descriptor.Type.CodingSystem}/{mock_entity.descriptor.Type.CodingSystemVersion}/{mock_entity.descriptor.Type.Code}'
+        result.text[0] == f'sdc.cdc.type:/'
+        f'{mock_entity.descriptor.Type.CodingSystem}/'
+        f'{mock_entity.descriptor.Type.CodingSystemVersion}/'
+        f'{mock_entity.descriptor.Type.Code}'
     )
 
 
