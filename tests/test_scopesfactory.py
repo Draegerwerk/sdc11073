@@ -175,7 +175,7 @@ def test_raise_error_if_no_location_detail_element(mdib: mock.MagicMock):
         mk_scopes(mdib)
 
 
-def test_raise_error_if_empty_location(mdib: mock.MagicMock):
+def test_raise_error_if_empty_location():
     """Test that an error is raised if a location state has empty LocationDetail."""
     loc_state = statecontainers.LocationContextStateContainer(
         mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),

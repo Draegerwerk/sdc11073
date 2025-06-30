@@ -13,7 +13,6 @@ class TestSdcLocation(unittest.TestCase):
     scope_prefix = scheme + ':/' + default_root  # sdc.ctxt.loc:/sdc.ctxt.loc.detail'
 
     def test_scope_string(self):
-        expected_scope_string = self.scope_prefix + '/HO%2FSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HO%2FSP1&poc=CU1&bed=BedA500'
         loc = SdcLocation(fac='HO/SP1', poc='CU1', bed='BedA500')
         self.assertEqual(loc.root, self.default_root)
         self.assertEqual(loc.fac, 'HO/SP1')
@@ -22,10 +21,12 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bldng, None)
         self.assertEqual(loc.flr, None)
-        self.assertEqual(loc.scope_string, expected_scope_string)
+        self.assertEqual(
+            loc.scope_string,
+            f'{self.scope_prefix}/HO%2FSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HO%2FSP1&poc=CU1&bed=BedA500',
+        )
 
         # this is an unusual scope with bed only plus root
-        expected_scope_string = self.scheme + ':/myroot/%2F%2F%2F%2F%2FBedA500?bed=BedA500'
         loc = SdcLocation(bed='BedA500', root='myroot')
         self.assertEqual(loc.root, 'myroot')
         self.assertEqual(loc.fac, None)
@@ -34,7 +35,7 @@ class TestSdcLocation(unittest.TestCase):
         self.assertEqual(loc.rm, None)
         self.assertEqual(loc.bldng, None)
         self.assertEqual(loc.flr, None)
-        self.assertEqual(loc.scope_string, expected_scope_string)
+        self.assertEqual(loc.scope_string, f'{self.scheme}:/myroot/%2F%2F%2F%2F%2FBedA500?bed=BedA500')
 
         # this is an unusual scope with all parameters and spaces in them
         loc = SdcLocation(
