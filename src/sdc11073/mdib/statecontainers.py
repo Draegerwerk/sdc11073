@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import sys
 import time
+import urllib.parse
 import uuid
 from typing import TYPE_CHECKING, Protocol
 
@@ -620,7 +621,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
     _props = ('LocationDetail',)
 
     def update_from_sdc_location(self, sdc_location: SdcLocation):
-        """Set members according to sdc_location."""
+        """Set members according to sdc_location using the fallback instance identifier algorithm from GLUE 9.4.1.1."""
         if self.LocationDetail is None:
             self.LocationDetail = pm_types.LocationDetail()
         self.LocationDetail.PoC = sdc_location.poc
@@ -631,15 +632,19 @@ class LocationContextStateContainer(AbstractContextStateContainer):
         self.LocationDetail.Floor = sdc_location.flr
         self.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
 
-        extension_string = self._mk_extension_string(sdc_location)
-        self.Identification = [pm_types.InstanceIdentifier(root=sdc_location.root, extension_string=extension_string)]
+        extension_string = self._loc_extension_segment(sdc_location)
+        self.Identification = [pm_types.InstanceIdentifier(root='sdc.ctxt.loc.detail', extension_string=extension_string)]
 
-    def _mk_extension_string(self, sdc_location: SdcLocation) -> str:
-        """Return a string with all location elements separated by /-char.
+    def _loc_extension_segment(self, sdc_location: SdcLocation) -> str:
+        """Build location extension segment as defined in GLUE 9.4.1.1 Fallback instance identifier algorithm.
 
         None elements are replaces by an empty string.
         """
-        return '/'.join([getattr(sdc_location, attr) or '' for attr in sdc_location.url_elements])
+        extension = '/'.join([urllib.parse.quote(getattr(sdc_location, attr) or '', safe='') for attr in sdc_location.url_elements])
+        if extension == '/////':  # extension segment requires at least 1 entry with 1 character
+            msg = 'Location extension segment is empty, at least one element must be set.'
+            raise ValueError(msg)
+        return extension
 
     @classmethod
     def from_sdc_location(cls, descriptor_container: AbstractDescriptorProtocol,

@@ -1,12 +1,12 @@
 """The module implements the function mk_scopes."""
 
 import urllib.parse
-from urllib.parse import quote_plus
 
 from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
 KEY_PURPOSE_SERVICE_PROVIDER = 'sdc.mds.pkp:1.2.840.10004.20701.1.1'
+BICEPS_URI_UNK = 'biceps.uri.unk'
 
 
 def _query_from_location_state(state) -> str:  # noqa: ANN001  typing is unknown here as it depends on the data_model in the mdib
@@ -52,7 +52,9 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                     raise ValueError(msg)
                 for ident in state.Identification:
                     # IEEE Std 11073-20701-2018 9.4 context based discovery
-                    instance_identifier = f'/{quote_plus(ident.Root)}/{quote_plus(ident.Extension)}'
+                    instance_identifier = f'/{urllib.parse.quote(ident.Root or BICEPS_URI_UNK, safe="")}'
+                    if ident.Extension:
+                        instance_identifier += f'/{urllib.parse.quote(ident.Extension, safe="")}'
                     context_uri = f'{scheme}:{instance_identifier}'
                     query = ''
                     if nodetype == pm_names.LocationContextDescriptor:

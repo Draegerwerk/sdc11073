@@ -11,9 +11,9 @@ class TestSdcLocation(unittest.TestCase):
 
     def test_scopeString(self):
         expected_scope_string = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
-        loc = SdcLocation(fac='HOSP1', poc='CU1', bed='BedA500')
+        loc = SdcLocation(fac='HO/SP1', poc='CU1', bed='BedA500')
         self.assertEqual(loc.root, self.default_root)
-        self.assertEqual(loc.fac, 'HOSP1')
+        self.assertEqual(loc.fac, 'HO/SP1')
         self.assertEqual(loc.poc, 'CU1')
         self.assertEqual(loc.bed, 'BedA500')
         self.assertEqual(loc.rm, None)

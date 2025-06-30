@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, parse_qsl, quote, unquote, urlencode, urlsplit, urlunparse
 
@@ -38,7 +39,7 @@ class SdcLocation:
                  flr: str | None = None,
                  rm: str | None = None,
                  root: str = 'sdc.ctxt.loc.detail'):
-        self.root = root
+        self._root = root
         self.fac = fac  # facility
         self.bldng = bldng  # building
         self.poc = poc  # point of care
@@ -47,11 +48,22 @@ class SdcLocation:
         self.bed = bed  # Bed
 
     @property
+    def root(self):
+        warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
+        return self._root
+
+    @root.setter
+    def root(self, value: str):
+        warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
+        self._root = value
+
+    @property
     def scope_string(self) -> str:
         """Return a string that can be used in ScopesType for discovery.
 
         Example: sdc.ctxt.loc:/sdc.ctxt.loc.detail/HOSP1%2F%2F%2FCU1%2F%2FBed42?fac=HOSP1&poc=CU1&bed=Bed42
         """
+        warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
         identifiers = []
         query_dict = {}
         for url_name in self.url_elements:
@@ -59,7 +71,7 @@ class SdcLocation:
             identifiers.append(value)
             if value:
                 query_dict[url_name] = value
-        identifiers = [quote(ident) for ident in identifiers]
+        identifiers = [quote(ident, safe='') for ident in identifiers]
         slash = quote('/', safe='')
         loc = slash.join(identifiers)  # this is a bit ugly, but urllib.quote does not touch slashes;
         query = urlencode(query_dict)
