@@ -13,7 +13,7 @@ class TestSdcLocation(unittest.TestCase):
     scope_prefix = scheme + ':/' + default_root  # sdc.ctxt.loc:/sdc.ctxt.loc.detail'
 
     def test_scope_string(self):
-        expected_scope_string = self.scope_prefix + '/HOSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HOSP1&poc=CU1&bed=BedA500'
+        expected_scope_string = self.scope_prefix + '/HO%2FSP1%2F%2F%2FCU1%2F%2FBedA500?fac=HO%2FSP1&poc=CU1&bed=BedA500'
         loc = SdcLocation(fac='HO/SP1', poc='CU1', bed='BedA500')
         self.assertEqual(loc.root, self.default_root)
         self.assertEqual(loc.fac, 'HO/SP1')

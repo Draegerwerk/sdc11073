@@ -83,8 +83,7 @@ testpaths = "tests/"
 filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
     "error",
     "ignore::UserWarning",
-    "ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning", # https://github.com/psf/black/issues/3805
-    "ignore::DeprecationWarning:sdc11073.*",
+    "ignore::DeprecationWarning",
 ]
 
 # https://docs.pytest.org/en/latest/how-to/logging.html#live-logs

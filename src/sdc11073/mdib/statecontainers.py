@@ -790,7 +790,7 @@ class LocationContextStateContainer(AbstractContextStateContainer):
             [urllib.parse.quote(getattr(sdc_location, attr) or '', safe='') for attr in sdc_location.url_elements],
         )
         if extension == '/////':  # extension segment requires at least 1 entry with 1 character
-            msg = 'Location extension segment is empty, at least one element must be set.'
+            msg = 'Location extension segment is empty, at least one element must be set'
             raise ValueError(msg)
         return extension
 
