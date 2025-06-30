@@ -32,7 +32,7 @@ def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceH
     tmp.write('</xsd:schema>')
     all_included = tmp.getvalue().encode('utf-8')
 
-    elem_tree = etree.fromstring(all_included, parser=parser, base_url='C://')
+    elem_tree = etree.fromstring(all_included, parser=parser)
     # for unknown reason creating the schema fails sometimes. repeat up to 3 times.
     try:
         return etree.XMLSchema(etree=elem_tree)
