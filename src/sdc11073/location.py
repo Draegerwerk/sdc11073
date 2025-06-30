@@ -33,14 +33,16 @@ class SdcLocation:
 
     url_elements = ('fac', 'bldng', 'flr', 'poc', 'rm', 'bed')  # order also defines hierarchy
 
-    def __init__(self,  # noqa: PLR0913
-                 fac: str | None = None,
-                 poc: str | None = None,
-                 bed: str | None = None,
-                 bldng: str | None = None,
-                 flr: str | None = None,
-                 rm: str | None = None,
-                 root: str = 'sdc.ctxt.loc.detail'):
+    def __init__(  # noqa: PLR0913
+        self,
+        fac: str | None = None,
+        poc: str | None = None,
+        bed: str | None = None,
+        bldng: str | None = None,
+        flr: str | None = None,
+        rm: str | None = None,
+        root: str = 'sdc.ctxt.loc.detail',
+    ):
         self._root = root
         self.fac = fac  # facility
         self.bldng = bldng  # building
@@ -80,7 +82,8 @@ class SdcLocation:
         query = urlencode(query_dict)
         path = f'/{quote(self.root)}/{loc}'
         return urlunparse(
-            ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None))
+            ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None),
+        )
 
     def filter_services_inside(self, services: Iterable[Service]) -> list[Service]:
         """Return services that are 'inside' own location (see doc string of class)."""
@@ -152,3 +155,7 @@ class SdcLocation:
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__} {self.scope_string}'
+
+    def __hash__(self):
+        attr_names = (*self.url_elements, 'root')
+        return hash(tuple([getattr(self, attr_name) for attr_name in attr_names]))
