@@ -36,13 +36,10 @@ def test_no_associated_locations(mdib: mock.MagicMock):
     assert result.text[0] == KEY_PURPOSE_SERVICE_PROVIDER
 
 
-_rnd_identifier = uuid.uuid4().hex
-
-
 @pytest.mark.parametrize(
     ('identifier', 'expected'),
     [
-        (_rnd_identifier, _rnd_identifier),
+        ('some_string', 'some_string'),
         (None, BICEPS_URI_UNK),
         ('', BICEPS_URI_UNK),
         (' ', ' '),
