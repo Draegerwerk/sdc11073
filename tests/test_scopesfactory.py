@@ -173,3 +173,24 @@ def test_raise_error_if_no_location_detail_element(mdib: mock.MagicMock):
         f'LocationDetail element',
     ):
         mk_scopes(mdib)
+
+
+def test_raise_error_if_empty_location(mdib: mock.MagicMock):
+    """Test that an error is raised if a location state has empty LocationDetail."""
+    loc_state = statecontainers.LocationContextStateContainer(
+        mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+        uuid.uuid4().hex,
+    )
+    loc_state.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+    loc_state.Identification = [
+        pm_types.InstanceIdentifier(root=uuid.uuid4().hex, extension_string=uuid.uuid4().hex),
+    ]
+    loc_state.LocationDetail = pm_types.LocationDetail()
+    mdib.entities.by_node_type.return_value = [mock.MagicMock(states={uuid.uuid4().hex: loc_state})]
+
+    with pytest.raises(
+        ValueError,
+        match=f'State {loc_state.Handle} of type {mdib.data_model.pm_names.LocationContextDescriptor} has empty '
+        f'LocationDetail element',
+    ):
+        mk_scopes(mdib)
