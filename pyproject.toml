@@ -30,7 +30,7 @@ keywords = [
     "IEEE11073",
 ]
 dependencies = [
-    'lxml>=2.3',
+    'lxml>=2.3,<6.0.0',
     'ifaddr',
     'aiohttp',
     'typing_extensions;python_version<"3.10"',
