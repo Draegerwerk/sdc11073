@@ -201,9 +201,6 @@ def test_query_from_location_state(loc_elem: str | None):
         mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
         uuid.uuid4().hex,
     )
-    loc_state.Identification = [
-        pm_types.InstanceIdentifier(root=uuid.uuid4().hex, extension_string=uuid.uuid4().hex),
-    ]
     for url_element in SdcLocation.url_elements:
         fac = uuid.uuid4().hex
         poc = uuid.uuid4().hex
@@ -236,9 +233,9 @@ def test_query_from_location_state_with_empty_details():
         mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
         uuid.uuid4().hex,
     )
-    loc_state.Identification = [
-        pm_types.InstanceIdentifier(root=uuid.uuid4().hex, extension_string=uuid.uuid4().hex),
-    ]
+    query = _query_from_location_state(loc_state)
+    assert query == ''
 
+    loc_state.LocationDetail = None
     query = _query_from_location_state(loc_state)
     assert query == ''
