@@ -238,3 +238,23 @@ def test_query_from_location_state_with_empty_details():
     loc_state.LocationDetail = None
     query = _query_from_location_state(loc_state)
     assert query == ''
+
+
+def test_location_detail_query_with_special_char():
+    """Test the query_from_location_state directly with LocationDetail function."""
+    location_detail = pm_types.LocationDetail(
+        poc='poc1',
+        room='room1',
+        bed='bed1',
+        facility='facility1&',
+        building='building1',
+        floor='floor1',
+    )
+    loc_state = statecontainers.LocationContextStateContainer(
+        mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+        uuid.uuid4().hex,
+    )
+    loc_state.LocationDetail = location_detail
+    actual_uri = _query_from_location_state(loc_state)
+    expected_uri = 'fac=facility1%26&bldng=building1&flr=floor1&poc=poc1&rm=room1&bed=bed1'
+    assert actual_uri == expected_uri
