@@ -1,6 +1,7 @@
 """Unit tests for the SdcLocation class."""
 
 import unittest
+import uuid
 
 from sdc11073.location import SdcLocation
 from sdc11073.wsdiscovery.service import Service
@@ -167,3 +168,42 @@ class TestSdcLocation(unittest.TestCase):
         service3 = Service(types=None, scopes=None, epr='b', x_addrs=None, instance_id='42')
         matches = my_loc.filter_services_inside((service1, service2, service3))
         self.assertEqual(len(matches), 1)
+
+    def test_scope_string_matches_returns_false_on_error(self):
+        loc = SdcLocation(
+            fac=uuid.uuid4().hex,
+            poc=uuid.uuid4().hex,
+            bed=uuid.uuid4().hex,
+            bldng=uuid.uuid4().hex,
+            flr=uuid.uuid4().hex,
+            rm=uuid.uuid4().hex,
+        )
+        loc2 = SdcLocation(
+            fac=uuid.uuid4().hex,
+            poc=uuid.uuid4().hex,
+            bed=uuid.uuid4().hex,
+            bldng=uuid.uuid4().hex,
+            flr=uuid.uuid4().hex,
+            rm=uuid.uuid4().hex,
+        )
+        loc2.scheme = uuid.uuid4().hex
+        self.assertFalse(loc._scope_string_matches(loc2.scope_string))
+
+    def test_hash(self):
+        fac = uuid.uuid4().hex
+        poc = uuid.uuid4().hex
+        bed = uuid.uuid4().hex
+        bldng = uuid.uuid4().hex
+        flr = uuid.uuid4().hex
+        rm = uuid.uuid4().hex
+        root = uuid.uuid4().hex
+        loc = SdcLocation(
+            fac=fac,
+            poc=poc,
+            bed=bed,
+            bldng=bldng,
+            flr=flr,
+            rm=rm,
+            root=root,
+        )
+        self.assertEqual(hash((fac, bldng, flr, poc, rm, bed, root)), hash(loc))

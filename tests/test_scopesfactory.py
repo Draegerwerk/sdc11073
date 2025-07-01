@@ -62,6 +62,7 @@ def test_fallback_instance_algorithm(mdib: mock.MagicMock, identifier: str | Non
         mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
         uuid.uuid4().hex,
     )
+    loc_state.LocationDetail = None
     loc_state.update_from_sdc_location(sdc_location)
     loc_state.Identification[0].Root = identifier  # overwrite root with the test value
     mdib.entities.by_node_type.side_effect = (
