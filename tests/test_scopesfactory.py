@@ -10,7 +10,12 @@ import pytest
 
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import statecontainers
-from sdc11073.provider.scopesfactory import BICEPS_URI_UNK, KEY_PURPOSE_SERVICE_PROVIDER, mk_scopes
+from sdc11073.provider.scopesfactory import (
+    BICEPS_URI_UNK,
+    KEY_PURPOSE_SERVICE_PROVIDER,
+    _query_from_location_state,
+    mk_scopes,
+)
 from sdc11073.xml_types import pm_types
 from sdc11073.xml_types.wsd_types import ScopesType
 
@@ -187,3 +192,53 @@ def test_raise_error_if_empty_location():
         match='Location extension segment is empty, at least one element must be set',
     ):
         loc_state.update_from_sdc_location(SdcLocation())
+
+
+@pytest.mark.parametrize('loc_elem', ['some_string', None, '', ' ', '/', '%', '&'])
+def test_query_from_location_state(loc_elem: str | None):
+    """Test the query_from_location_state function."""
+    loc_state = statecontainers.LocationContextStateContainer(
+        mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+        uuid.uuid4().hex,
+    )
+    loc_state.Identification = [
+        pm_types.InstanceIdentifier(root=uuid.uuid4().hex, extension_string=uuid.uuid4().hex),
+    ]
+    for url_element in SdcLocation.url_elements:
+        fac = uuid.uuid4().hex
+        poc = uuid.uuid4().hex
+        bed = uuid.uuid4().hex
+        bldng = uuid.uuid4().hex
+        flr = uuid.uuid4().hex
+        rm = uuid.uuid4().hex
+        loc = SdcLocation(
+            fac=fac,
+            poc=poc,
+            bed=bed,
+            bldng=bldng,
+            flr=flr,
+            rm=rm,
+        )
+        setattr(loc, url_element, loc_elem)
+        loc_state.update_from_sdc_location(loc)
+        query = _query_from_location_state(loc_state)
+        expected = '&'.join(
+            f'{url_element}={urllib.parse.quote(getattr(loc, url_element), safe="")}'
+            for url_element in SdcLocation.url_elements
+            if getattr(loc, url_element) is not None
+        )
+        assert query == expected
+
+
+def test_query_from_location_state_with_empty_details():
+    """Test the query_from_location_state function."""
+    loc_state = statecontainers.LocationContextStateContainer(
+        mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
+        uuid.uuid4().hex,
+    )
+    loc_state.Identification = [
+        pm_types.InstanceIdentifier(root=uuid.uuid4().hex, extension_string=uuid.uuid4().hex),
+    ]
+
+    query = _query_from_location_state(loc_state)
+    assert query == ''

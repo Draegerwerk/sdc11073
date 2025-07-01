@@ -10,21 +10,23 @@ BICEPS_URI_UNK = 'biceps.uri.unk'
 
 
 def _query_from_location_state(state) -> str:  # noqa: ANN001  typing is unknown here as it depends on the data_model in the mdib
-    """Return a query string from a LocationContextStateContainer."""
+    """Return a query string from a LocationContextStateContainer from GLUE 9.4.1.2."""
     query_dict: dict[str, str] = {}
-    if state.LocationDetail.Facility:
+    if state.LocationDetail is None:
+        return ''
+    if state.LocationDetail.Facility is not None:
         query_dict['fac'] = state.LocationDetail.Facility
-    if state.LocationDetail.Building:
+    if state.LocationDetail.Building is not None:
         query_dict['bldng'] = state.LocationDetail.Building
-    if state.LocationDetail.Floor:
+    if state.LocationDetail.Floor is not None:
         query_dict['flr'] = state.LocationDetail.Floor
-    if state.LocationDetail.PoC:
+    if state.LocationDetail.PoC is not None:
         query_dict['poc'] = state.LocationDetail.PoC
-    if state.LocationDetail.Room:
+    if state.LocationDetail.Room is not None:
         query_dict['rm'] = state.LocationDetail.Room
-    if state.LocationDetail.Bed:
+    if state.LocationDetail.Bed is not None:
         query_dict['bed'] = state.LocationDetail.Bed
-    return urllib.parse.urlencode(query_dict)
+    return urllib.parse.urlencode(query_dict, quote_via=urllib.parse.quote, safe='')
 
 
 def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
