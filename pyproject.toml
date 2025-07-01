@@ -30,7 +30,7 @@ keywords = [
     "IEEE11073",
 ]
 dependencies = [
-    'lxml>=2.3',
+    'lxml>=2.3,<6',  # do not use lxml>=6, because it breaks the schema validator
     'ifaddr',
     'aiohttp',
     'typing_extensions;python_version<"3.10"',
@@ -83,7 +83,7 @@ testpaths = "tests/"
 filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
     "error",
     "ignore::UserWarning",
-    "ignore:The --rsyncdir command line argument and rsyncdirs config variable are deprecated.:DeprecationWarning", # https://github.com/psf/black/issues/3805
+    "ignore::DeprecationWarning",
 ]
 
 # https://docs.pytest.org/en/latest/how-to/logging.html#live-logs
@@ -127,7 +127,6 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "FBT001", # https://docs.astral.sh/ruff/rules/boolean-type-hint-positional-argument/
     "FBT002", # https://docs.astral.sh/ruff/rules/boolean-default-value-positional-argument/
     "FBT003", # https://docs.astral.sh/ruff/rules/boolean-positional-value-in-call/
-    "S320", # https://docs.astral.sh/ruff/rules/suspicious-xmle-tree-usage/
 ]
 
 [tool.ruff.format]

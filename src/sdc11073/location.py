@@ -1,5 +1,8 @@
+"""SDC location handling."""
+
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
 from urllib.parse import ParseResult, parse_qsl, quote, unquote, urlencode, urlsplit, urlunparse
 
@@ -30,15 +33,17 @@ class SdcLocation:
 
     url_elements = ('fac', 'bldng', 'flr', 'poc', 'rm', 'bed')  # order also defines hierarchy
 
-    def __init__(self,  # noqa: PLR0913
-                 fac: str | None = None,
-                 poc: str | None = None,
-                 bed: str | None = None,
-                 bldng: str | None = None,
-                 flr: str | None = None,
-                 rm: str | None = None,
-                 root: str = 'sdc.ctxt.loc.detail'):
-        self.root = root
+    def __init__(  # noqa: PLR0913
+        self,
+        fac: str | None = None,
+        poc: str | None = None,
+        bed: str | None = None,
+        bldng: str | None = None,
+        flr: str | None = None,
+        rm: str | None = None,
+        root: str = 'sdc.ctxt.loc.detail',
+    ):
+        self._root = root
         self.fac = fac  # facility
         self.bldng = bldng  # building
         self.poc = poc  # point of care
@@ -47,11 +52,23 @@ class SdcLocation:
         self.bed = bed  # Bed
 
     @property
+    def root(self) -> str:
+        """Return the root of the location, e.g. 'sdc.ctxt.loc.detail'."""
+        warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
+        return self._root
+
+    @root.setter
+    def root(self, value: str):
+        warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
+        self._root = value
+
+    @property
     def scope_string(self) -> str:
         """Return a string that can be used in ScopesType for discovery.
 
         Example: sdc.ctxt.loc:/sdc.ctxt.loc.detail/HOSP1%2F%2F%2FCU1%2F%2FBed42?fac=HOSP1&poc=CU1&bed=Bed42
         """
+        warnings.warn('Will be removed without replacement in future version', DeprecationWarning, stacklevel=2)
         identifiers = []
         query_dict = {}
         for url_name in self.url_elements:
@@ -59,13 +76,14 @@ class SdcLocation:
             identifiers.append(value)
             if value:
                 query_dict[url_name] = value
-        identifiers = [quote(ident) for ident in identifiers]
+        identifiers = [quote(ident, safe='') for ident in identifiers]
         slash = quote('/', safe='')
         loc = slash.join(identifiers)  # this is a bit ugly, but urllib.quote does not touch slashes;
         query = urlencode(query_dict)
         path = f'/{quote(self.root)}/{loc}'
         return urlunparse(
-            ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None))
+            ParseResult(scheme=self.scheme, netloc=None, path=path, params=None, query=query, fragment=None),
+        )
 
     def filter_services_inside(self, services: Iterable[Service]) -> list[Service]:
         """Return services that are 'inside' own location (see doc string of class)."""
@@ -80,10 +98,11 @@ class SdcLocation:
         """Check if location in scope is inside own location."""
         try:
             other = self.__class__.from_scope_string(scope_text)
-            return other in self
         except UrlSchemeError:
             # Scope has different scheme, no match
             return False
+        else:
+            return other in self
 
     def __contains__(self, other: SdcLocation) -> bool:
         """Compare element by element, root included.
@@ -110,7 +129,8 @@ class SdcLocation:
         src = urlsplit(scope_string)
 
         if src.scheme.lower() != cls.scheme:
-            raise UrlSchemeError(f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"')
+            msg = f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"'
+            raise UrlSchemeError(msg)
         dummy, root, _ = src.path.split('/')
         root = unquote(root)
         query_dict = dict(parse_qsl(src.query))
@@ -135,3 +155,7 @@ class SdcLocation:
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__} {self.scope_string}'
+
+    def __hash__(self):
+        attr_names = (*self.url_elements, 'root')
+        return hash(tuple([getattr(self, attr_name) for attr_name in attr_names]))
