@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import urllib.parse
 import uuid
 from unittest import mock
 
@@ -44,13 +43,13 @@ def test_no_associated_locations(mdib: mock.MagicMock):
 @pytest.mark.parametrize(
     ('identifier', 'expected'),
     [
-        ('some_string', 'some_string'),
-        (None, BICEPS_URI_UNK),
-        ('', ''),
-        (' ', ' '),
-        ('/', '/'),
-        ('%', '%'),
-        ('&', '&'),
+        ('some_string', 'sdc.ctxt.loc:/some_string'),
+        (None, f'sdc.ctxt.loc:/{BICEPS_URI_UNK}'),
+        ('', 'sdc.ctxt.loc:/'),
+        (' ', 'sdc.ctxt.loc:/%20'),
+        ('/', 'sdc.ctxt.loc:/%2F'),
+        ('%', 'sdc.ctxt.loc:/%25'),
+        ('&', 'sdc.ctxt.loc:/%26'),
     ],
 )
 def test_fallback_instance_algorithm(mdib: mock.MagicMock, identifier: str | None, expected: str):
@@ -78,10 +77,7 @@ def test_fallback_instance_algorithm(mdib: mock.MagicMock, identifier: str | Non
         else []
     )
     result = mk_scopes(mdib)
-    assert (
-        result.text[0][: len(f'sdc.ctxt.loc:/{urllib.parse.quote(expected, safe="")}')]
-        == f'sdc.ctxt.loc:/{urllib.parse.quote(identifier if identifier is not None else BICEPS_URI_UNK, safe="")}'
-    )
+    assert result.text[0][: len(expected)] == expected
 
 
 def test_context_associations(mdib: mock.MagicMock):
@@ -194,37 +190,40 @@ def test_raise_error_if_empty_location():
         loc_state.update_from_sdc_location(SdcLocation())
 
 
-@pytest.mark.parametrize('loc_elem', ['some_string', None, '', ' ', '/', '%', '&'])
-def test_query_from_location_state(loc_elem: str | None):
+@pytest.mark.parametrize('url_element', ['fac', 'bldng', 'flr', 'poc', 'rm', 'bed'])
+@pytest.mark.parametrize(
+    ('loc_value', 'expected'),
+    [
+        ('some_string', 'some_string'),
+        (None, None),  # expected value does not matter for None
+        ('', ''),
+        (' ', '%20'),
+        ('/', '%2F'),
+        ('%', '%25'),
+        ('&', '%26'),
+    ],
+)
+def test_query_from_location_state(url_element: str, loc_value: str | None, expected: str):
     """Test the query_from_location_state function."""
     loc_state = statecontainers.LocationContextStateContainer(
         mock.MagicMock(Handle=uuid.uuid4().hex, DescriptorVersion=uuid.uuid4().int),
         uuid.uuid4().hex,
     )
-    for url_element in SdcLocation.url_elements:
-        fac = uuid.uuid4().hex
-        poc = uuid.uuid4().hex
-        bed = uuid.uuid4().hex
-        bldng = uuid.uuid4().hex
-        flr = uuid.uuid4().hex
-        rm = uuid.uuid4().hex
-        loc = SdcLocation(
-            fac=fac,
-            poc=poc,
-            bed=bed,
-            bldng=bldng,
-            flr=flr,
-            rm=rm,
-        )
-        setattr(loc, url_element, loc_elem)
-        loc_state.update_from_sdc_location(loc)
-        query = _query_from_location_state(loc_state)
-        expected = '&'.join(
-            f'{url_element}={urllib.parse.quote(getattr(loc, url_element), safe="")}'
-            for url_element in SdcLocation.url_elements
-            if getattr(loc, url_element) is not None
-        )
-        assert query == expected
+    loc = SdcLocation(
+        fac=uuid.uuid4().hex,
+        poc=uuid.uuid4().hex,
+        bed=uuid.uuid4().hex,
+        bldng=uuid.uuid4().hex,
+        flr=uuid.uuid4().hex,
+        rm=uuid.uuid4().hex,
+    )
+    setattr(loc, url_element, loc_value)
+    loc_state.update_from_sdc_location(loc)
+    query = _query_from_location_state(loc_state)
+    if loc_value is None:
+        assert f'{url_element}=' not in query
+    else:
+        assert f'{url_element}={expected}' in query
 
 
 def test_query_from_location_state_with_empty_details():
