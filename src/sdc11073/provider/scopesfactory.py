@@ -5,7 +5,9 @@ import urllib.parse
 from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
+# from IEEE Std 11073-20701-2018 chapter 9.3 SDC PARTICIPANT KEY PURPOSE based discovery
 KEY_PURPOSE_SERVICE_PROVIDER = 'sdc.mds.pkp:1.2.840.10004.20701.1.1'
+# from IEEE Std 11073-20701-2018 chapter 9.4 Context-based discovery
 BICEPS_URI_UNK = 'biceps.uri.unk'
 
 
@@ -54,7 +56,9 @@ def mk_scopes(mdib: ProviderMdibProtocol) -> ScopesType:
                     raise ValueError(msg)
                 for ident in state.Identification:
                     # IEEE Std 11073-20701-2018 9.4 context based discovery
-                    instance_identifier = f'/{urllib.parse.quote(ident.Root or BICEPS_URI_UNK, safe="")}'
+                    instance_identifier = (
+                        f'/{urllib.parse.quote(ident.Root if ident.Root is not None else BICEPS_URI_UNK, safe="")}'
+                    )
                     if ident.Extension:
                         instance_identifier += f'/{urllib.parse.quote(ident.Extension, safe="")}'
                     context_uri = f'{scheme}:{instance_identifier}'

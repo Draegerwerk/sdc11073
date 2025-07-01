@@ -46,7 +46,7 @@ def test_no_associated_locations(mdib: mock.MagicMock):
     [
         ('some_string', 'some_string'),
         (None, BICEPS_URI_UNK),
-        ('', BICEPS_URI_UNK),
+        ('', ''),
         (' ', ' '),
         ('/', '/'),
         ('%', '%'),
@@ -80,7 +80,7 @@ def test_fallback_instance_algorithm(mdib: mock.MagicMock, identifier: str | Non
     result = mk_scopes(mdib)
     assert (
         result.text[0][: len(f'sdc.ctxt.loc:/{urllib.parse.quote(expected, safe="")}')]
-        == f'sdc.ctxt.loc:/{urllib.parse.quote(identifier or BICEPS_URI_UNK, safe="")}'
+        == f'sdc.ctxt.loc:/{urllib.parse.quote(identifier if identifier is not None else BICEPS_URI_UNK, safe="")}'
     )
 
 
