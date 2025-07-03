@@ -1,3 +1,5 @@
+"""Common definitions for WS-Discovery module."""
+
 import logging
 
 from sdc11073.definitions_sdc import SdcV1Definitions
