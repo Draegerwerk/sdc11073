@@ -9,4 +9,3 @@ message_reader = MessageReader(SdcV1Definitions, None, logger=logging.getLogger(
 
 MULTICAST_PORT = 3702
 MULTICAST_IPV4_ADDRESS = "239.255.255.250"
-MULTICAST_OUT_TTL = 15  # Time To Live for multicast_out

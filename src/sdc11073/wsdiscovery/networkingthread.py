@@ -77,7 +77,8 @@ class NetworkingThread:
                  my_ip_address: str,
                  wsd: WSDiscovery,
                  logger: Logger,
-                 multicast_port: int):
+                 multicast_port: int,
+                 multicast_ttl: int):
         self._my_ip_address = my_ip_address
         self._wsd = wsd
         self._logger = logger
@@ -93,7 +94,7 @@ class NetworkingThread:
         self._inbound_selector = selectors.DefaultSelector()
         self._outbound_selector = selectors.DefaultSelector()
         self.multi_in = self._create_multicast_in_socket(my_ip_address, multicast_port)
-        self.multi_out_uni_in_out = self._create_multi_out_uni_in_out_socket(my_ip_address)
+        self.multi_out_uni_in_out = self._create_multi_out_uni_in_out_socket(my_ip_address, multicast_ttl)
 
     def _register_inbound_socket(self, sock: socket.SocketType):
         self._inbound_selector.register(sock, selectors.EVENT_READ)
@@ -103,8 +104,9 @@ class NetworkingThread:
         self._outbound_selector.register(sock, selectors.EVENT_WRITE)
         self._logger.info('registered outbound socket on %s:%d', *sock.getsockname())
 
-    def _create_multi_out_uni_in_out_socket(self, addr: str) -> socket.SocketType:
+    def _create_multi_out_uni_in_out_socket(self, addr: str, multicast_ttl: int) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, multicast_ttl)
         # set port explicitly when creating (it would otherwise be set after sending first message via this socket)
         sock.bind((addr, 0))
         self._register_outbound_socket(sock)
@@ -226,7 +228,7 @@ class NetworkingThread:
                            msg.created_message.p_msg.header_info_block.MessageID)
         try:
             s.sendto(data, (msg.addr, msg.port))
-        except:  # noqa: E722. use bare except here, this is a catch-all that keeps thread running.
+        except:  # noqa: E722 use bare except here, this is a catch-all that keeps thread running.
             self._logger.exception('exception during sending')
         else:
             # log this if there was no exception during send

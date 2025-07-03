@@ -1,4 +1,7 @@
+"""Tests for the wsdiscovery module."""
+
 import logging
+import random
 import selectors
 import socket
 import sys
@@ -13,15 +16,16 @@ from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
 from tests import utils
 
-test_log = logging.getLogger("unittest")
+test_log = logging.getLogger('unittest')
 
-_formatter_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+_formatter_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
 
 # pylint: disable=protected-access
 
+
 def setUpModule():
-    wsd_log = logging.getLogger("wsd_client")
+    wsd_log = logging.getLogger('wsd_client')
     wsd_log.setLevel(logging.DEBUG)
     # create console handler and set level to debug
     sh = logging.StreamHandler()
@@ -32,7 +36,7 @@ def setUpModule():
     # add ch to logger
     wsd_log.addHandler(sh)
 
-    srv_log = logging.getLogger("wsd_service")
+    srv_log = logging.getLogger('wsd_service')
     srv_log.setLevel(logging.DEBUG)
     # create console handler and set level to debug
     sh = logging.StreamHandler()
@@ -47,7 +51,7 @@ def setUpModule():
     # create console handler and set level to debug
     sh = logging.StreamHandler()
     # create formatter
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     # add formatter to ch
     sh.setFormatter(formatter)
     # add ch to logger
@@ -62,12 +66,16 @@ class TestDiscovery(unittest.TestCase):
         test_log.debug(f'setUp {self._testMethodName}')
 
         # give them different logger names so that output can be distinguished
-        self.wsd_client = wsdiscovery.WSDiscovery('127.0.0.1',
-                                                  logger=loghelper.get_logger_adapter('wsd_client'),
-                                                  multicast_port=self.MY_MULTICAST_PORT)
-        self.wsd_service = wsdiscovery.WSDiscovery('127.0.0.1',
-                                                   logger=loghelper.get_logger_adapter('wsd_service'),
-                                                   multicast_port=self.MY_MULTICAST_PORT)
+        self.wsd_client = wsdiscovery.WSDiscovery(
+            '127.0.0.1',
+            logger=loghelper.get_logger_adapter('wsd_client'),
+            multicast_port=self.MY_MULTICAST_PORT,
+        )
+        self.wsd_service = wsdiscovery.WSDiscovery(
+            '127.0.0.1',
+            logger=loghelper.get_logger_adapter('wsd_service'),
+            multicast_port=self.MY_MULTICAST_PORT,
+        )
         self.log_watcher_client = loghelper.LogWatcher(logging.getLogger('wsd_client'), level=logging.ERROR)
         self.log_watcher_service = loghelper.LogWatcher(logging.getLogger('wsd_service'), level=logging.ERROR)
 
@@ -107,7 +115,7 @@ class TestDiscovery(unittest.TestCase):
         ttype2 = [utils.random_qname()]
         scopes2 = utils.random_scope()
 
-        addresses = [f"http://localhost:8080/{uuid.uuid4()}", 'http://{ip}/' + str(uuid.uuid4())]
+        addresses = [f'http://localhost:8080/{uuid.uuid4()}', 'http://{ip}/' + str(uuid.uuid4())]
         epr = uuid.uuid4().hex
         self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
         time.sleep(1)
@@ -160,15 +168,17 @@ class TestDiscovery(unittest.TestCase):
         services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2], timeout=self.SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
 
-        addresses2 = [f"http://localhost:8080/{uuid.uuid4()}"]
+        addresses2 = [f'http://localhost:8080/{uuid.uuid4()}']
         self.wsd_service.publish_service(uuid.uuid4().hex, types=ttype2, scopes=scopes2, x_addrs=addresses2)
         time.sleep(1)
 
         ttype3 = [utils.random_qname()]
-        self.wsd_service.publish_service(uuid.uuid4().hex,
-                                         types=ttype3,
-                                         scopes=utils.random_scope(),
-                                         x_addrs=[f"http://localhost:8080/{uuid.uuid4()}"])
+        self.wsd_service.publish_service(
+            uuid.uuid4().hex,
+            types=ttype3,
+            scopes=utils.random_scope(),
+            x_addrs=[f'http://localhost:8080/{uuid.uuid4()}'],
+        )
         time.sleep(1)
 
         # test search_multiple_types
@@ -178,19 +188,23 @@ class TestDiscovery(unittest.TestCase):
 
         # test search_multiple_types
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2, ttype3],
-                                                         timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_multiple_types(
+            types_list=[ttype1, ttype2, ttype3],
+            timeout=self.SEARCH_TIMEOUT,
+        )
         self.assertEqual(len(services), 3)
 
-    def test_discover_serviceFirst(self):
+    def test_discover_service_first(self):
         test_log.info('starting service...')
         self.wsd_service.start()
 
         epr = uuid.uuid4().hex
-        self.wsd_service.publish_service(epr,
-                                         types=[utils.random_qname()],
-                                         scopes=utils.random_scope(),
-                                         x_addrs=[uuid.uuid4().hex])
+        self.wsd_service.publish_service(
+            epr,
+            types=[utils.random_qname()],
+            scopes=utils.random_scope(),
+            x_addrs=[uuid.uuid4().hex],
+        )
         time.sleep(2)
 
         test_log.info('starting client...')
@@ -204,7 +218,7 @@ class TestDiscovery(unittest.TestCase):
             test_log.info(f'found service: {service.epr} : {service.x_addrs}')
         self.assertEqual(len([s for s in services if s.epr == epr]), 1)
 
-    def test_discover_noEPR(self):
+    def test_discover_no_epr(self):
         """If a service has no epr in ProbeMatches response, it shall be ignored."""
         self.wsd_service.PROBEMATCH_EPR = False
         test_log.info('starting service...')
@@ -213,7 +227,7 @@ class TestDiscovery(unittest.TestCase):
         ttypes = [utils.random_qname()]
         scopes = ScopesType(utils.random_location().scope_string)
 
-        addresses = [f"localhost:8080/{uuid.uuid4()}"]
+        addresses = [f'localhost:8080/{uuid.uuid4()}']
         epr = uuid.uuid4().hex
         self.wsd_service.publish_service(epr, types=ttypes, scopes=scopes, x_addrs=addresses)
         time.sleep(5)  # make sure hello messages are all sent before client discovery starts
@@ -227,7 +241,7 @@ class TestDiscovery(unittest.TestCase):
         test_log.info('search done.')
         self.assertEqual(len(services), 0)
 
-    def test_discover_noTYPES(self):
+    def test_discover_no_types(self):
         """If a service has no types in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsd_service.PROBEMATCH_TYPES = False
         test_log.info('starting wsd_service...')
@@ -235,7 +249,7 @@ class TestDiscovery(unittest.TestCase):
 
         ttype = utils.random_qname()
 
-        addresses = ["localhost:8080/abc"]
+        addresses = ['localhost:8080/abc']
         epr = uuid.uuid4().hex
         test_log.info('publish_service...')
         self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
@@ -254,7 +268,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(len(my_services), 1)
         self.assertEqual(my_services[0].types, [ttype])
 
-    def test_discover_noScopes(self):
+    def test_discover_no_scopes(self):
         """If a service has no scopes in ProbeMatches response, the client shall send a resolve and add that result."""
         self.wsd_service.PROBEMATCH_SCOPES = False
         test_log.info('starting service...')
@@ -263,7 +277,7 @@ class TestDiscovery(unittest.TestCase):
         ttype = utils.random_qname()
 
         epr = uuid.uuid4().hex
-        addresses = [f"localhost:8080/{uuid.uuid4()}"]
+        addresses = [f'localhost:8080/{uuid.uuid4()}']
         self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
         time.sleep(2)
 
@@ -281,7 +295,7 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(my_services[0].types, [ttype])
 
     def test_discover_no_x_addresses(self):
-        """If a service has no x-addresses in ProbeMatches response, the client shall send a resolve and add that result."""
+        """If no x-addresses in ProbeMatches response, send a resolve and add that result."""
         self.wsd_service.PROBEMATCH_XADDRS = False
         test_log.info('starting wsd_service...')
         self.wsd_service.start()
@@ -291,7 +305,7 @@ class TestDiscovery(unittest.TestCase):
 
         epr = uuid.uuid4().hex
         test_log.info('publish_service...')
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=[f"localhost:8080/{uuid.uuid4()}"])
+        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=[f'localhost:8080/{uuid.uuid4()}'])
         time.sleep(2)
 
         test_log.info('starting client...')
@@ -307,29 +321,45 @@ class TestDiscovery(unittest.TestCase):
         self.assertEqual(len(my_services), 1)
         self.assertEqual(my_services[0].types, [ttype])
 
-    def test_ScopeMatch(self):
-        my_scope = 'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed'
-        other_scopes = [(
-            'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed',
-            True, 'identical'),
+    def test_scope_match(self):
+        my_scope = (
+            'biceps.ctxt.location:'
+            '/biceps.ctxt.unknown'
+            '/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed'
+        )
+        other_scopes = [
+            (
+                'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed',
+                True,
+                'identical',
+            ),
             (
                 'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=NoBed',
-                True, 'different query'),
+                True,
+                'different query',
+            ),
             (
                 'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1/b1/CU1/1/r2/Bed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=NoBed',
-                False, 'real slashes'),
+                False,
+                'real slashes',
+            ),
             ('biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed', True, 'no query'),
-            ('biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed/Longer', True,
-             'longer target'),
+            ('biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed/Longer', True, 'longer target'),
             (
                 'Biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed',
-                True, 'different case schema'),
+                True,
+                'different case schema',
+            ),
             (
                 'biceps.ctxt.location:/Biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2FBed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed',
-                False, 'different case root'),
+                False,
+                'different case root',
+            ),
             (
                 'biceps.ctxt.location:/biceps.ctxt.unknown/HOSP1%2Fb1%2FCU1%2F1%2Fr2%2Fbed?fac=HOSP1&bldng=b1&poc=CU1&flr=1&rm=r2&bed=Bed',
-                False, 'different case bed'),
+                False,
+                'different case bed',
+            ),
         ]
         match_by = MatchBy.uri
         for other_scope, expected_match_result, remark in other_scopes:
@@ -342,19 +372,20 @@ class TestDiscovery(unittest.TestCase):
         # Longer matches my_scope, but not the other way round
         longer = other_scopes[4][0]
         self.assertTrue(match_scope(my_scope, longer, match_by), msg='short scope matches longer scope')
-        self.assertFalse(match_scope(longer, my_scope, match_by),
-                         msg='long scope shall not match short scope')
+        self.assertFalse(match_scope(longer, my_scope, match_by), msg='long scope shall not match short scope')
 
-    def test_publishManyServices_lateStartedClient(self):
+    def test_publish_many_services_late_started_client(self):
         test_log.info('starting service...')
         self.wsd_service.start()
         device_count = 1
         eprs = [uuid.uuid4().hex for _ in range(device_count)]
         for i, epr in enumerate(eprs):
-            self.wsd_service.publish_service(epr,
-                                             types=[utils.random_qname()],
-                                             scopes=utils.random_scope(),
-                                             x_addrs=[f"localhost:{8080 + i}/{uuid.uuid4()}"])
+            self.wsd_service.publish_service(
+                epr,
+                types=[utils.random_qname()],
+                scopes=utils.random_scope(),
+                x_addrs=[f'localhost:{8080 + i}/{uuid.uuid4()}'],
+            )
 
         time.sleep(10)
         test_log.info('starting client...')
@@ -367,7 +398,7 @@ class TestDiscovery(unittest.TestCase):
         my_services = [s for s in services if s.epr in eprs]  # there might be other devices in the network
         self.assertEqual(len(my_services), device_count)
 
-    def test_publishManyServices_earlyStartedClient(self):
+    def test_publish_many_services_early_started_client(self):
         # verify if client keeps track of all devices that appeared / disappeared after start without searching.
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -378,11 +409,13 @@ class TestDiscovery(unittest.TestCase):
         eprs = [uuid.uuid4().hex for _ in range(device_count)]
         epr_event_map: dict[str, threading.Event] = {epr: threading.Event() for epr in eprs}
         for i, epr in enumerate(eprs):
-            addresses = [f"localhost:{8080 + i}/{epr}"]
-            self.wsd_service.publish_service(epr,
-                                             types=[utils.random_qname()],
-                                             scopes=ScopesType(utils.random_location().scope_string),
-                                             x_addrs=addresses)
+            addresses = [f'localhost:{8080 + i}/{epr}']
+            self.wsd_service.publish_service(
+                epr,
+                types=[utils.random_qname()],
+                scopes=ScopesType(utils.random_location().scope_string),
+                x_addrs=addresses,
+            )
 
         time.sleep(2.02)
         self.assertEqual(len([epr for epr in self.wsd_client._remote_services if epr in eprs]), device_count)
@@ -404,7 +437,7 @@ class TestDiscovery(unittest.TestCase):
         address = '127.0.0.1'
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-        def send_and_assert_running(data):
+        def send_and_assert_running(data: str):
             unicast_sock.sendto(data.encode('utf-8'), (address, self.MY_MULTICAST_PORT))
             time.sleep(0.1)
             self.assertTrue(self.wsd_service._networking_thread._recv_thread.is_alive())
@@ -426,14 +459,19 @@ class TestDiscovery(unittest.TestCase):
         """Verify that a provider and a consumer can exchange messages even if they share the same ip and port."""
         self.wsd_service.start()
         self.wsd_client.start()
-        self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_service._networking_thread.multi_out_uni_in_out)
-        self.wsd_service._networking_thread._outbound_selector.register(self.wsd_client._networking_thread.multi_out_uni_in_out, selectors.EVENT_WRITE)
+        self.wsd_service._networking_thread._outbound_selector.unregister(
+            self.wsd_service._networking_thread.multi_out_uni_in_out,
+        )
+        self.wsd_service._networking_thread._outbound_selector.register(
+            self.wsd_client._networking_thread.multi_out_uni_in_out,
+            selectors.EVENT_WRITE,
+        )
         time.sleep(0.1)
 
         ttype1 = [utils.random_qname()]
         scopes1 = utils.random_scope()
 
-        addresses = [f"http://localhost:8080/{uuid.uuid4()}", 'http://{ip}/' + str(uuid.uuid4())]
+        addresses = [f'http://localhost:8080/{uuid.uuid4()}', 'http://{ip}/' + str(uuid.uuid4())]
         epr = uuid.uuid4().hex
         self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
         time.sleep(1)
@@ -444,4 +482,33 @@ class TestDiscovery(unittest.TestCase):
             self.assertTrue(epr not in self.wsd_service._remote_services)
         finally:
             # ensure that ports are swapped back to avoid crashes in teardown
-            self.wsd_service._networking_thread._outbound_selector.unregister(self.wsd_client._networking_thread.multi_out_uni_in_out)
+            self.wsd_service._networking_thread._outbound_selector.unregister(
+                self.wsd_client._networking_thread.multi_out_uni_in_out,
+            )
+
+    def test_ws_discovery_multicast_ttl_default_128(self):
+        self.wsd_client.start()
+        self.assertEqual(
+            128,
+            self.wsd_client._networking_thread.multi_out_uni_in_out.getsockopt(
+                socket.IPPROTO_IP,
+                socket.IP_MULTICAST_TTL,
+            ),
+        )
+
+    def test_ws_discovery_set_multicast_ttl(self):
+        ttl = random.randint(0, 255)
+        wsd_client = wsdiscovery.WSDiscovery(
+            '127.0.0.1',
+            logger=loghelper.get_logger_adapter('wsd_client'),
+            multicast_port=self.MY_MULTICAST_PORT,
+            multicast_ttl=ttl,
+        )
+        wsd_client.start()
+        self.assertEqual(
+            ttl,
+            wsd_client._networking_thread.multi_out_uni_in_out.getsockopt(
+                socket.IPPROTO_IP,
+                socket.IP_MULTICAST_TTL,
+            ),
+        )
