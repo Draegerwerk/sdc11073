@@ -9,6 +9,7 @@ import threading
 import time
 import unittest
 import uuid
+from unittest import mock
 from urllib.parse import urlparse, urlsplit
 
 from sdc11073 import loghelper, network, wsdiscovery
@@ -512,3 +513,30 @@ class TestDiscovery(unittest.TestCase):
                 socket.IP_MULTICAST_TTL,
             ),
         )
+
+
+class TestNetworkingThread(unittest.TestCase):
+    def setUp(self):
+        test_log.debug(f'setUp {self._testMethodName}')
+
+        # give them different logger names so that output can be distinguished
+        self.wsd_client = wsdiscovery.WSDiscovery(
+            '127.0.0.1',
+            logger=loghelper.get_logger_adapter('wsd_client'),
+            multicast_port=37020,
+        )
+
+    def tearDown(self):
+        self.wsd_client.stop()
+
+    def test_exception_during_receiving(self):
+        exception_message = uuid.uuid4().hex
+
+        def _new_callable():
+            raise Exception(exception_message)
+
+        with mock.patch('sdc11073.wsdiscovery.networkingthread.NetworkingThread._recv_messages') as mock_recv_messages:
+            mock_recv_messages.side_effect = _new_callable
+            self.wsd_client.start()
+            time.sleep(1)
+        self.assertGreaterEqual(mock_recv_messages.call_count, 2)
