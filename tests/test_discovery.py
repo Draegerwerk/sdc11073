@@ -530,10 +530,8 @@ class TestNetworkingThread(unittest.TestCase):
         self.wsd_client.stop()
 
     def test_exception_during_receiving(self):
-        exception_message = uuid.uuid4().hex
-
         def _new_callable():
-            raise Exception(exception_message)
+            raise Exception  # noqa: TRY002
 
         with mock.patch('sdc11073.wsdiscovery.networkingthread.NetworkingThread._recv_messages') as mock_recv_messages:
             mock_recv_messages.side_effect = _new_callable
