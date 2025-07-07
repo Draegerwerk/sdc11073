@@ -538,3 +538,15 @@ class TestNetworkingThread(unittest.TestCase):
             self.wsd_client.start()
             time.sleep(1)
         self.assertGreaterEqual(mock_recv_messages.call_count, 2)
+
+    def test_exception_during_send(self):
+        def _new_callable(*args, **kwargs):  # noqa: ANN002, ANN003, ARG001
+            raise Exception  # noqa: TRY002
+
+        socket_mock = mock.MagicMock()
+        socket_mock.sendto.side_effect = _new_callable
+        self.wsd_client.start()
+        with self.assertLogs('wsd_client', level='ERROR') as cm:
+            self.wsd_client._networking_thread._send_msg(mock.MagicMock(), socket_mock)
+        self.assertEqual(len(cm.output), 1)
+        self.assertTrue(cm.output[0].startswith('ERROR:wsd_client:exception during sending'))

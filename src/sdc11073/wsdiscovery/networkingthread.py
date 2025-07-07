@@ -166,7 +166,7 @@ class NetworkingThread:
         while not self._quit_recv_event.is_set():
             try:
                 self._recv_messages()
-            except Exception:  # noqa: PERF203
+            except:  # noqa: E722, PERF203 use bare except here, this is a catch-all that keeps thread running.
                 self._logger.exception('exception during receiving')
 
     def _recv_messages(self):
