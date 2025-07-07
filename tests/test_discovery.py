@@ -530,13 +530,19 @@ class TestNetworkingThread(unittest.TestCase):
         self.wsd_client.stop()
 
     def test_exception_during_receiving(self):
+        first_event = threading.Event()
+        seconds_event = threading.Event()
         def _new_callable():
+            if not first_event.is_set():
+                first_event.set()
+            elif not seconds_event.is_set():
+                seconds_event.set()
             raise Exception  # noqa: TRY002
 
         with mock.patch('sdc11073.wsdiscovery.networkingthread.NetworkingThread._recv_messages') as mock_recv_messages:
             mock_recv_messages.side_effect = _new_callable
             self.wsd_client.start()
-            time.sleep(1)
+            self.assertTrue(seconds_event.wait(1))
         self.assertGreaterEqual(mock_recv_messages.call_count, 2)
 
     def test_exception_during_send(self):
