@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## Fixed:
+### Added:
+
+- option to configure the ttl of multicast out messages [#429](https://github.com/Draegerwerk/sdc11073/issues/429)
+
+### Fixed:
 
 - fixed an issue where the new pat mdib is not parseable because lxml QName is unpickleable
+- `AttributeError: 'str' object has no attribute 'ContextAssociation'` when running the provider from the tutorial [#415](https://github.com/Draegerwerk/sdc11073/issues/415)
+- Context states list comprehension uses wrong type should be dict [#426](https://github.com/Draegerwerk/sdc11073/issues/426)
 
 ## [2.2.0] - 2025-02-25
 

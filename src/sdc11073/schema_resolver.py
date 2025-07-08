@@ -1,13 +1,14 @@
+"""Schema resolver for SDC11073 XML Schemas."""
+
 from __future__ import annotations
 
 import pathlib
 import time
-import traceback
 from io import StringIO
 from typing import TYPE_CHECKING, Any
+from urllib import parse
 
 from lxml import etree
-from urllib import parse
 
 from . import loghelper
 
@@ -32,7 +33,7 @@ def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceH
     tmp.write('</xsd:schema>')
     all_included = tmp.getvalue().encode('utf-8')
 
-    elem_tree = etree.fromstring(all_included, parser=parser, base_url='C://')
+    elem_tree = etree.fromstring(all_included, parser=parser)
     # for unknown reason creating the schema fails sometimes. repeat up to 3 times.
     try:
         return etree.XMLSchema(etree=elem_tree)
@@ -68,12 +69,15 @@ class SchemaResolver(etree.Resolver):
                     path = path[1:]
             path = pathlib.Path(path)
             if not path.exists():
-                self._logger.error('no schema file for url "%s": resolved to "%s", but file does not exist',
-                                   system_url, path)
+                self._logger.error(
+                    'no schema file for url "%s": resolved to "%s", but file does not exist',
+                    system_url,
+                    path,
+                )
                 return None
             return self.resolve_string(path.read_bytes(), context, base_url=str(path))
         except Exception:
-            self._logger.error('error resolving %s: %s', system_url, traceback.format_exc())
+            self._logger.exception('error resolving %s', system_url)
             raise
 
     def _get_schema_file_path(self, url: str) -> pathlib.Path | None:

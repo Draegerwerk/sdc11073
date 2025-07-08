@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.msg_types import MessageType
 
 WSA_ANONYMOUS = nsh.WSA.namespace + '/anonymous'
-ADDRESS_ALL = "urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01"  # format acc to RFC 2141
+ADDRESS_ALL = 'urn:docs-oasis-open-org:ws-dd:ns:discovery:2009:01'  # format acc to RFC 2141
 
 NS_D = nsh.WSD.namespace
 
@@ -66,8 +66,10 @@ def match_scope(my_scope: str, other_scope: str, match_by: MatchBy | str | None)
     if match_by in (MatchBy.ldap, MatchBy.uri, MatchBy.uuid, '', None):
         my_scope = urlsplit(my_scope)
         other_scope = urlsplit(other_scope)
-        if my_scope.scheme.lower() != other_scope.scheme.lower() \
-                or my_scope.netloc.lower() != other_scope.netloc.lower():
+        if (
+            my_scope.scheme.lower() != other_scope.scheme.lower()
+            or my_scope.netloc.lower() != other_scope.netloc.lower()
+        ):
             return False
         if my_scope.path == other_scope.path:
             return True
@@ -100,9 +102,7 @@ def _is_scope_in_list(uri: str, match_by: str, srv_sc: wsd_types.ScopesType) -> 
     return any(match_scope(uri, entry, match_by) for entry in srv_sc.text)
 
 
-def matches_filter(service: Service,
-                   types: Iterable[etree.QName] | None,
-                   scopes: wsd_types.ScopesType | None) -> bool:
+def matches_filter(service: Service, types: Iterable[etree.QName] | None, scopes: wsd_types.ScopesType | None) -> bool:
     """Check if service matches the types and scopes."""
     if types is not None:
         for ttype in types:
@@ -115,18 +115,23 @@ def matches_filter(service: Service,
     return True
 
 
-def filter_services(services: Iterable[Service],
-                    types: Iterable[etree.QName] | None,
-                    scopes: wsd_types.ScopesType | None) -> list[Service]:
+def filter_services(
+    services: Iterable[Service],
+    types: Iterable[etree.QName] | None,
+    scopes: wsd_types.ScopesType | None,
+) -> list[Service]:
     """Filter services that match types and scopes."""
     return [service for service in services if matches_filter(service, types, scopes)]
 
 
-def _mk_wsd_soap_message(header_info: HeaderInformationBlock,
-                         payload: MessageType) -> CreatedMessage:
+def _mk_wsd_soap_message(header_info: HeaderInformationBlock, payload: MessageType) -> CreatedMessage:
     # use discovery specific namespaces
-    return message_factory.mk_soap_message(header_info, payload,
-                                           ns_list=[nsh.S12, nsh.WSA, nsh.WSD], use_defaults=False)
+    return message_factory.mk_soap_message(
+        header_info,
+        payload,
+        ns_list=[nsh.S12, nsh.WSA, nsh.WSD],
+        use_defaults=False,
+    )
 
 
 class WSDiscovery:
@@ -138,10 +143,13 @@ class WSDiscovery:
     PROBEMATCH_SCOPES = True
     PROBEMATCH_XADDRS = True
 
-    def __init__(self,
-                 ip_address: str | ipaddress.IPv4Address,
-                 logger: Logger | None = None,
-                 multicast_port: int = MULTICAST_PORT):
+    def __init__(
+        self,
+        ip_address: str | ipaddress.IPv4Address,
+        logger: Logger | None = None,
+        multicast_port: int = MULTICAST_PORT,
+        multicast_ttl: int = 128,
+    ):
         """Create a WsDiscovery instance.
 
         :param ip_address: network adapter to bind to
@@ -149,6 +157,7 @@ class WSDiscovery:
         :param multicast_port: defaults to MULTICAST_PORT.
                If port is changed, instance will not be able to communicate with implementations
                that use the correct port (which is the default MULTICAST_PORT)!
+        :param multicast_ttl: set the socket option IP_MULTICAST_TTL to this value
         """
         self._adapter = network.get_adapter_containing_ip(ip_address)
         self._networking_thread = None
@@ -166,6 +175,7 @@ class WSDiscovery:
 
         self._logger = logger or logging.getLogger('sdc.discover')
         self.multicast_port = multicast_port
+        self.mutlticast_ttl = multicast_ttl
 
     def start(self):
         """Start the discovery server - should be called before using other functions."""
@@ -182,11 +192,13 @@ class WSDiscovery:
             self._stop_threads()
             self._server_started = False
 
-    def search_services(self,
-                        types: Iterable[etree.QName] | None = None,
-                        scopes: wsd_types.ScopesType | None = None,
-                        timeout: int | float | None = 5,  # noqa: PYI041
-                        repeat_probe_interval: int | None = 3) -> list[Service]:
+    def search_services(
+        self,
+        types: Iterable[etree.QName] | None = None,
+        scopes: wsd_types.ScopesType | None = None,
+        timeout: int | float | None = 5,  # noqa: PYI041
+        repeat_probe_interval: int | None = 3,
+    ) -> list[Service]:
         """Search for services that match given types and scopes.
 
         :param types: list of types that a service must have (all of them), no filtering if value is None
@@ -196,7 +208,7 @@ class WSDiscovery:
         :return:
         """
         if not self._server_started:
-            raise RuntimeError("Server not started")
+            raise RuntimeError('Server not started')
 
         types = list(types) if types is not None else None
         start = time.monotonic()
@@ -211,10 +223,12 @@ class WSDiscovery:
             now = time.monotonic()
         return filter_services(list(self._remote_services.values()), types, scopes)
 
-    def search_sdc_services(self,
-                            scopes: wsd_types.ScopesType | None = None,
-                            timeout: int | float | None = 5,  # noqa: PYI041
-                            repeat_probe_interval: int | None = 3) -> list[Service]:
+    def search_sdc_services(
+        self,
+        scopes: wsd_types.ScopesType | None = None,
+        timeout: int | float | None = 5,  # noqa: PYI041
+        repeat_probe_interval: int | None = 3,
+    ) -> list[Service]:
         """Search for sdc services that match given scopes.
 
         :param scopes: scopes to search for, no scopes filtering if value is None
@@ -224,11 +238,13 @@ class WSDiscovery:
         """
         return self.search_services(SdcV1Definitions.MedicalDeviceTypesFilter, scopes, timeout, repeat_probe_interval)
 
-    def search_multiple_types(self,
-                              types_list: list[list[etree.QName]],
-                              scopes: wsd_types.ScopesType | None = None,
-                              timeout: int | float | None = 10,  # noqa: PYI041
-                              repeat_probe_interval: int | None = 3) -> list[Service]:
+    def search_multiple_types(
+        self,
+        types_list: list[list[etree.QName]],
+        scopes: wsd_types.ScopesType | None = None,
+        timeout: int | float | None = 10,  # noqa: PYI041
+        repeat_probe_interval: int | None = 3,
+    ) -> list[Service]:
         """Search for services given the list of TYPES and SCOPES in a given timeout.
 
         It returns services that match at least one of the types (OR condition).
@@ -239,7 +255,7 @@ class WSDiscovery:
         :param repeat_probe_interval: send another probe message after x seconds.
         """
         if not self._server_started:
-            raise ApiUsageError("Server not started")
+            raise ApiUsageError('Server not started')
 
         start = time.monotonic()
         end = start + timeout
@@ -265,16 +281,13 @@ class WSDiscovery:
         services = self.search_sdc_services(timeout=timeout)
         return sdc_location.filter_services_inside(services)
 
-    def publish_service(self, epr: str,
-                        types: list[etree.QName],
-                        scopes: wsd_types.ScopesType,
-                        x_addrs: list[str]):
+    def publish_service(self, epr: str, types: list[etree.QName], scopes: wsd_types.ScopesType, x_addrs: list[str]):
         """Publish a service with the given TYPES, SCOPES and XAddrs (service addresses).
 
         if x_addrs contains item, which includes {ip} pattern, one item per IP address will be sent
         """
         if not self._server_started:
-            raise ApiUsageError("Server not started")
+            raise ApiUsageError('Server not started')
 
         metadata_version = self._local_services[epr].metadata_version + 1 if epr in self._local_services else 1
         instance_id = str(random.randint(1, 0xFFFFFFFF))
@@ -303,10 +316,12 @@ class WSDiscovery:
         """Get active addresses."""
         return [str(self._adapter.ip)]
 
-    def set_remote_service_hello_callback(self,
-                                          callback: Callable[[str, Service], None] | None,
-                                          types: list[etree.QName] | None = None,
-                                          scopes: wsd_types.ScopesType | None = None):
+    def set_remote_service_hello_callback(
+        self,
+        callback: Callable[[str, Service], None] | None,
+        types: list[etree.QName] | None = None,
+        scopes: wsd_types.ScopesType | None = None,
+    ):
         """Set callback, which will be called when new service appeared online and sent Hello message.
 
         typesFilter and scopesFilter might be list of types and scopes.
@@ -355,8 +370,11 @@ class WSDiscovery:
             return
 
         if service.metadata_version == already_known_service.metadata_version:
-            self._logger.debug('update remote service: remote Service %s; MetadataVersion: %d',
-                               service.epr, service.metadata_version)
+            self._logger.debug(
+                'update remote service: remote Service %s; MetadataVersion: %d',
+                service.epr,
+                service.metadata_version,
+            )
             if len(service.x_addrs) > len(already_known_service.x_addrs):
                 already_known_service.x_addrs = service.x_addrs
             if service.scopes is not None:
@@ -364,14 +382,21 @@ class WSDiscovery:
             if service.types is not None:
                 already_known_service.types = service.types
         elif service.metadata_version > already_known_service.metadata_version:
-            self._logger.info('remote Service %s:\n    updated MetadataVersion\n      '
-                              'updated: %d\n      existing: %d',
-                              service.epr, service.metadata_version, already_known_service.metadata_version)
+            self._logger.info(
+                'remote Service %s:\n    updated MetadataVersion\n      updated: %d\n      existing: %d',
+                service.epr,
+                service.metadata_version,
+                already_known_service.metadata_version,
+            )
             self._remote_services[service.epr] = service
         else:
-            self._logger.debug('_add_remote_service: remote Service %s:\n    outdated MetadataVersion\n      '
-                               'outdated: %d\n      existing: %d',
-                               service.epr, service.metadata_version, already_known_service.metadata_version)
+            self._logger.debug(
+                '_add_remote_service: remote Service %s:\n    outdated MetadataVersion\n      '
+                'outdated: %d\n      existing: %d',
+                service.epr,
+                service.metadata_version,
+                already_known_service.metadata_version,
+            )
 
     def _remove_remote_service(self, epr: str):
         if epr in self._remote_services:
@@ -391,16 +416,17 @@ class WSDiscovery:
         hello = wsd_types.HelloType.from_node(received_message.p_msg.msg_node)
         epr = hello.EndpointReference.Address
         scopes = hello.Scopes
-        service = Service(hello.Types, scopes, hello.XAddrs, epr,
-                          instance_id, metadata_version=hello.MetadataVersion)
+        service = Service(hello.Types, scopes, hello.XAddrs, epr, instance_id, metadata_version=hello.MetadataVersion)
         self._add_remote_service(service)
         if not hello.XAddrs:  # B.D.
             self._logger.debug('%s(%s) has no Xaddr, sending resolve message', epr, addr_from)
             self._send_resolve(epr)
         if self._remote_service_hello_callback is not None:
-            if matches_filter(service,
-                              self._remote_service_hello_callback_types_filter,
-                              self._remote_service_hello_callback_scopes_filter):
+            if matches_filter(
+                service,
+                self._remote_service_hello_callback_types_filter,
+                self._remote_service_hello_callback_scopes_filter,
+            ):
                 self._remote_service_hello_callback(addr_from, service)
 
     def _handle_received_probe(self, received_message: ReceivedMessage, addr_from: str):
@@ -429,8 +455,14 @@ class WSDiscovery:
         for match in probe_matches.ProbeMatch:
             epr = match.EndpointReference.Address
             scopes = match.Scopes
-            service = Service(match.Types, scopes, match.XAddrs, epr,
-                              instance_id, metadata_version=match.MetadataVersion)
+            service = Service(
+                match.Types,
+                scopes,
+                match.XAddrs,
+                epr,
+                instance_id,
+                metadata_version=match.MetadataVersion,
+            )
             services.append(service)
             self._add_remote_service(service)
             if match.XAddrs is None or len(match.XAddrs) == 0:
@@ -467,8 +499,7 @@ class WSDiscovery:
         match = resolve_matches.ResolveMatch
         epr = match.EndpointReference.Address
         scopes = match.Scopes
-        service = Service(match.Types, scopes, match.XAddrs, epr,
-                          instance_id, metadata_version=match.MetadataVersion)
+        service = Service(match.Types, scopes, match.XAddrs, epr, instance_id, metadata_version=match.MetadataVersion)
         self._add_remote_service(service)
         if self._remote_service_resolve_match_callback is not None:
             self._remote_service_resolve_match_callback(service)
@@ -484,13 +515,14 @@ class WSDiscovery:
         """Forward received message to specific handler (dispatch by action)."""
         action = received_message.action
         self._logger.debug('handle_received_message: received %s from %s', action.split('/')[-1], addr_from)
-        lookup = {wsd_types.HelloType.action: self._handle_received_hello,
-                  wsd_types.ProbeType.action: self._handle_received_probe,
-                  wsd_types.ProbeMatchesType.action: self._handle_received_probe_matches,
-                  wsd_types.ResolveType.action: self._handle_received_resolve,
-                  wsd_types.ResolveMatchesType.action: self._handle_received_resolve_matches,
-                  wsd_types.ByeType.action: self._handle_received_bye,
-                  }
+        lookup = {
+            wsd_types.HelloType.action: self._handle_received_hello,
+            wsd_types.ProbeType.action: self._handle_received_probe,
+            wsd_types.ProbeMatchesType.action: self._handle_received_probe_matches,
+            wsd_types.ResolveType.action: self._handle_received_resolve,
+            wsd_types.ResolveMatchesType.action: self._handle_received_resolve_matches,
+            wsd_types.ByeType.action: self._handle_received_bye,
+        }
         try:
             func: Callable[[ReceivedMessage, str], None] = lookup[action]
         except KeyError:
@@ -508,18 +540,21 @@ class WSDiscovery:
         payload.ResolveMatch.Types = service.types
         payload.ResolveMatch.Scopes = service.scopes
         payload.ResolveMatch.XAddrs.extend(service.x_addrs)
-        inf = HeaderInformationBlock(action=payload.action,
-                                     addr_to=WSA_ANONYMOUS,
-                                     relates_to=relates_to)
+        inf = HeaderInformationBlock(action=payload.action, addr_to=WSA_ANONYMOUS, relates_to=relates_to)
         app_sequence = wsd_types.AppSequenceType()
         app_sequence.InstanceId = int(service.instance_id)
         app_sequence.MessageNumber = service.message_number
 
         created_message = _mk_wsd_soap_message(inf, payload)
-        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
-                                                                            ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_outbound_message(created_message, addr[0], addr[1],
-                                                     networkingthread.UNICAST_REPEAT_PARAMS)
+        created_message.p_msg.add_header_element(
+            app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'), ns_map=nsh.partial_map(nsh.WSD)),
+        )
+        self._networking_thread.add_outbound_message(
+            created_message,
+            addr[0],
+            addr[1],
+            networkingthread.UNICAST_REPEAT_PARAMS,
+        )
 
     def _send_probe_match(self, services: list[Service], relates_to: str, addr: str):
         self._logger.info('sending probe match to %s for %d services', addr, len(services))
@@ -542,18 +577,21 @@ class WSDiscovery:
             probe_match.Scopes = scopes
             probe_match.XAddrs.extend(xaddrs)
             payload.ProbeMatch.append(probe_match)
-            inf = HeaderInformationBlock(action=payload.action,
-                                         addr_to=WSA_ANONYMOUS,
-                                         relates_to=relates_to)
+            inf = HeaderInformationBlock(action=payload.action, addr_to=WSA_ANONYMOUS, relates_to=relates_to)
             app_sequence = wsd_types.AppSequenceType()
             app_sequence.InstanceId = int(service.instance_id)
             app_sequence.MessageNumber = msg_number
 
             created_message = _mk_wsd_soap_message(inf, payload)
-            created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
-                                                                                ns_map=nsh.partial_map(nsh.WSD)))
-            self._networking_thread.add_outbound_message(created_message, addr[0], addr[1],
-                                                         networkingthread.UNICAST_REPEAT_PARAMS)
+            created_message.p_msg.add_header_element(
+                app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'), ns_map=nsh.partial_map(nsh.WSD)),
+            )
+            self._networking_thread.add_outbound_message(
+                created_message,
+                addr[0],
+                addr[1],
+                networkingthread.UNICAST_REPEAT_PARAMS,
+            )
 
     def _send_probe(self, types: Iterable[etree.QName] | None = None, scopes: wsd_types.ScopesType | None = None):
         types = list(types) if types is not None else None  # enforce iteration
@@ -565,8 +603,12 @@ class WSDiscovery:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
         created_message = _mk_wsd_soap_message(inf, payload)
-        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
-                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
+        self._networking_thread.add_outbound_message(
+            created_message,
+            MULTICAST_IPV4_ADDRESS,
+            self.multicast_port,
+            networkingthread.MULTICAST_REPEAT_PARAMS,
+        )
 
     def _send_resolve(self, epr: str):
         self._logger.debug('sending resolve on %s', epr)
@@ -575,8 +617,12 @@ class WSDiscovery:
 
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
         created_message = _mk_wsd_soap_message(inf, payload)
-        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
-                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
+        self._networking_thread.add_outbound_message(
+            created_message,
+            MULTICAST_IPV4_ADDRESS,
+            self.multicast_port,
+            networkingthread.MULTICAST_REPEAT_PARAMS,
+        )
 
     def _send_hello(self, service: Service):
         self._logger.info('sending hello on %s', service)
@@ -594,10 +640,15 @@ class WSDiscovery:
         inf = HeaderInformationBlock(action=payload.action, addr_to=ADDRESS_ALL)
 
         created_message = _mk_wsd_soap_message(inf, payload)
-        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
-                                                                            ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
-                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
+        created_message.p_msg.add_header_element(
+            app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'), ns_map=nsh.partial_map(nsh.WSD)),
+        )
+        self._networking_thread.add_outbound_message(
+            created_message,
+            MULTICAST_IPV4_ADDRESS,
+            self.multicast_port,
+            networkingthread.MULTICAST_REPEAT_PARAMS,
+        )
 
     def _send_bye(self, service: Service):
         self._logger.debug('sending bye on %s', service)
@@ -612,16 +663,26 @@ class WSDiscovery:
         app_sequence.MessageNumber = service.message_number
 
         created_message = _mk_wsd_soap_message(inf, bye)
-        created_message.p_msg.add_header_element(app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'),
-                                                                            ns_map=nsh.partial_map(nsh.WSD)))
-        self._networking_thread.add_outbound_message(created_message, MULTICAST_IPV4_ADDRESS, self.multicast_port,
-                                                     networkingthread.MULTICAST_REPEAT_PARAMS)
+        created_message.p_msg.add_header_element(
+            app_sequence.as_etree_node(nsh.WSD.tag('AppSequence'), ns_map=nsh.partial_map(nsh.WSD)),
+        )
+        self._networking_thread.add_outbound_message(
+            created_message,
+            MULTICAST_IPV4_ADDRESS,
+            self.multicast_port,
+            networkingthread.MULTICAST_REPEAT_PARAMS,
+        )
 
     def _start_threads(self):
         if self._networking_thread is not None:
             return
-        self._networking_thread = networkingthread.NetworkingThread(str(self._adapter.ip), self, self._logger,
-                                                                    self.multicast_port)
+        self._networking_thread = networkingthread.NetworkingThread(
+            str(self._adapter.ip),
+            self,
+            self._logger,
+            self.multicast_port,
+            self.mutlticast_ttl,
+        )
         self._networking_thread.start()
 
     def _stop_threads(self):
