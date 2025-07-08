@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added:
+
+- option to configure the ttl of multicast out messages [#429](https://github.com/Draegerwerk/sdc11073/issues/429)
+
 ### Fixed:
 
 - fixed an issue where the new pat mdib is not parseable because lxml QName is unpickleable
