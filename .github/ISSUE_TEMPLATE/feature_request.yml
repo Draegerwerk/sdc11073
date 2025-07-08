@@ -2,6 +2,7 @@ name: 🚀 Feature Request
 description: File a new feature request
 title: 'feature: <title>'
 labels: [enhancement]
+type: feature
 body:
   - type: markdown
     attributes:
