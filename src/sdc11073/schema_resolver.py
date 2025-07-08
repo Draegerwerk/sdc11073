@@ -75,7 +75,7 @@ class SchemaResolver(etree.Resolver):
                     path,
                 )
                 return None
-            return self.resolve_string(path.read_bytes(), context, base_url=str(path))
+            return self.resolve_filename(str(path), context)
         except Exception:
             self._logger.exception('error resolving %s', system_url)
             raise
