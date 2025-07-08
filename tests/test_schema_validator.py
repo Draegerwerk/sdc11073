@@ -1,5 +1,10 @@
+"""Test for the schema validator."""
+
 import lxml.etree
+
 from sdc11073 import namespaces, schema_resolver
+
+
 def test_schema_validator_does_not_raise_schema_validation_error_with_valid_input():
     """Cover issue 432."""
     get_mdib_response = lxml.etree.fromstring("""<msg:GetMdibResponse xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant" xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message" xmlns:sdpi="urn:oid:1.3.6.1.4.1.19376.1.6.2.10.1.1.1" xmlns:mpkp="urn:oid:1.3.111.2.11073.10701.3.1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SequenceId="urn:uuid:90521c43-4822-4f01-b2e2-7fd0d5f4a31e">
@@ -304,7 +309,7 @@ def test_schema_validator_does_not_raise_schema_validation_error_with_valid_inpu
             <pm:State xsi:type="pm:MdsState" ActivationState="On" DescriptorHandle="mds_1"/>
         </pm:MdState>
     </msg:Mdib>
-</msg:GetMdibResponse>""")
+</msg:GetMdibResponse>""")  # noqa: E501
 
     schema = schema_resolver.mk_schema_validator(list(namespaces.PrefixesEnum), namespaces.default_ns_helper)
     schema.assertValid(get_mdib_response)
