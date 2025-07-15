@@ -196,7 +196,7 @@ class ConsumerSubscription:
                 self.is_subscribed = False
             else:
                 renew_response = evt_types.RenewResponse.from_node(message_data.p_msg.msg_node)
-                self.granted_expires = renew_response.Expires
+                self.granted_expires: float | int = renew_response.Expires
                 if self.granted_expires is not None:
                     self.expires_at = time.time() + self.granted_expires
                     return self.granted_expires

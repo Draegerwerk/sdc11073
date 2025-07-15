@@ -186,7 +186,7 @@ def provide_realtime_data(sdc_provider: SdcProvider):
         ]
 
     for waveform in waveform_handles:
-        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.001)
+        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.0009)
         waveform_provider.register_waveform_generator(waveform, wf_generator)
 
 

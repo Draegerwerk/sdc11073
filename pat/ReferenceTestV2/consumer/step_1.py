@@ -12,9 +12,9 @@ __STEP__ = '1'
 logger = logging.getLogger(f'pat.consumer.step_{__STEP__}')
 
 
-def on_hello(event: threading.Event, expected_epr: str, addr_from: str, service: wsdiscovery.Service):
-    # TODO: how to ensure that this hello was received in ad-hoc mode and not from a discovery proxy?
-    logger.debug('received hello from "%s" with epr "%s"', addr_from, service.epr)
+def on_hello(step: str, event: threading.Event, expected_epr: str, addr_from: str, service: wsdiscovery.Service):
+    """Handle hello events."""
+    logger.debug('received hello from "%s" with epr "%s"', addr_from, service.epr, extra={'step': step})
     if service.epr == expected_epr:
         event.set()
 
@@ -24,7 +24,7 @@ def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str):
     step = f'{__STEP__}a'
     timeout = 10.0
     sent_hello_event = threading.Event()
-    observer = functools.partial(on_hello, sent_hello_event, epr)
+    observer = functools.partial(on_hello, step, sent_hello_event, epr)
     discovery.set_remote_service_hello_callback(observer)
     if sent_hello_event.wait(timeout):
         result_collector.ResultCollector.log_success(step=step, message='Hello received in ad-hoc mode')
@@ -36,14 +36,16 @@ def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str):
     discovery.set_remote_service_hello_callback(None)
 
 
-def on_probe_matches(event: threading.Event, expected_epr: str, services: Sequence[wsdiscovery.Service]):
-    logger.debug('received probe match with services %s', services)
+def on_probe_matches(step: str, event: threading.Event, expected_epr: str, services: Sequence[wsdiscovery.Service]):
+    """Handle probe matches events."""
+    logger.debug('received probe match with services %s', services, extra={'step': step})
     if any(service for service in services if service.epr == expected_epr):
         event.set()
 
 
-def on_resolve_match(event: threading.Event, expected_epr: str, service: wsdiscovery.Service):
-    logger.debug('received resolve match from epr "%s"', service.epr)
+def on_resolve_match(step: str, event: threading.Event, expected_epr: str, service: wsdiscovery.Service):
+    """Handle resolve match events."""
+    logger.debug('received resolve match from epr "%s"', service.epr, extra={'step': step})
     if service.epr == expected_epr:
         event.set()
 
@@ -55,9 +57,9 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str):
 
     # if the epr is already known you can directly use resolve, but test specification requires probe to be tested
     probe_matches_event = threading.Event()
-    observer = functools.partial(on_probe_matches, probe_matches_event, epr)
+    observer = functools.partial(on_probe_matches, step, probe_matches_event, epr)
     discovery.set_on_probe_matches_callback(observer)
-    discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)
+    discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
     if probe_matches_event.wait(timeout):
         result_collector.ResultCollector.log_success(step=step, message='Probe matches received in ad-hoc mode')
     else:
@@ -68,9 +70,9 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str):
     discovery.set_on_probe_matches_callback(None)
 
     resolve_match_event = threading.Event()
-    observer = functools.partial(on_resolve_match, resolve_match_event, epr)
+    observer = functools.partial(on_resolve_match, step, resolve_match_event, epr)
     discovery.set_remote_service_resolve_match_callback(observer)
-    discovery._send_resolve(epr)
+    discovery._send_resolve(epr)  # noqa: SLF001
     if resolve_match_event.wait(timeout):
         result_collector.ResultCollector.log_success(step=step, message='Resolve match received in ad-hoc mode')
     else:
