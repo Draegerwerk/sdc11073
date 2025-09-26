@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import enum
 from abc import abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sdc11073.mdib.descriptorcontainers import (
     AbstractDescriptorContainer,
@@ -15,7 +15,9 @@ from sdc11073.mdib.descriptorcontainers import (
     MdsDescriptorContainer,
     VmdDescriptorContainer,
 )
-from sdc11073.mdib.descriptorcontainers import get_container_class as get_descriptor_container_class
+from sdc11073.mdib.descriptorcontainers import (
+    get_container_class as get_descriptor_container_class,
+)
 from sdc11073.mdib.statecontainers import (
     AbstractAlertStateContainer,
     AbstractContextStateContainer,
@@ -25,21 +27,30 @@ from sdc11073.mdib.statecontainers import (
     AbstractStateContainer,
     RealTimeSampleArrayMetricStateContainer,
 )
-from sdc11073.mdib.statecontainers import get_container_class as get_state_container_class
-from sdc11073.mdib.mdibbase import MdibVersionGroup
+from sdc11073.mdib.statecontainers import (
+    get_container_class as get_state_container_class,
+)
 from sdc11073.namespaces import default_ns_helper
 
-from . import ext_qnames as ext
-from . import msg_qnames as msg
-from . import pm_qnames as pm
-from . import pm_types
-from . import xml_structure as cp
-from .actions import Actions
-from .basetypes import MessageType
-from .dataconverters import UnsignedIntConverter
-from .pm_types import ContainmentTree, InstanceIdentifier, LocalizedText, LocalizedTextWidth, PropertyBasedPMType
+if TYPE_CHECKING:
+    from sdc11073 import xml_utils
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
 
-# pylint: disable=invalid-name
+from sdc11073.xml_types import ext_qnames as ext
+from sdc11073.xml_types import msg_qnames as msg
+from sdc11073.xml_types import pm_qnames as pm
+from sdc11073.xml_types import pm_types
+from sdc11073.xml_types import xml_structure as cp
+from sdc11073.xml_types.actions import Actions
+from sdc11073.xml_types.basetypes import MessageType
+from sdc11073.xml_types.dataconverters import UnsignedIntConverter
+from sdc11073.xml_types.pm_types import (
+    ContainmentTree,
+    InstanceIdentifier,
+    LocalizedText,
+    LocalizedTextWidth,
+    PropertyBasedPMType,
+)
 
 
 class StringEnum(str, enum.Enum):
@@ -291,7 +302,14 @@ class InvocationInfo(PropertyBasedPMType):
             )
         return f'{self.__class__.__name__}(TransactionId={self.TransactionId}, InvocationState={self.InvocationState})'
 
-    def add_error_message(self, text: str, lang=None, ref=None, version=None, text_width=None):
+    def add_error_message(
+        self,
+        text: str,
+        lang: str | None = None,
+        ref: str | None = None,
+        version: int | None = None,
+        text_width: LocalizedTextWidth | None = None,
+    ) -> None:
         self.InvocationErrorMessage.append(LocalizedText(text, lang, ref, version, text_width))
 
 
@@ -385,7 +403,10 @@ class DescriptionModificationReportPart(AbstractReportPart):
         ns_helper=default_ns_helper,
     )
     State = cp.ContainerListProperty(
-        msg.State, value_class=AbstractStateContainer, cls_getter=get_state_container_class, ns_helper=default_ns_helper,
+        msg.State,
+        value_class=AbstractStateContainer,
+        cls_getter=get_state_container_class,
+        ns_helper=default_ns_helper,
     )
     ParentDescriptor = cp.HandleRefAttributeProperty('ParentDescriptor')
     ModificationType = cp.EnumAttributeProperty(
@@ -405,7 +426,7 @@ class DescriptionModificationReport(AbstractReport):
         return self.ReportPart[-1]
 
     @classmethod
-    def from_node(cls, node):
+    def from_node(cls, node: xml_utils.LxmlElement) -> DescriptionModificationReport:
         instance = super().from_node(node)
         # ser parent_handle members of descriptors
         for report_part in instance.ReportPart:
@@ -470,7 +491,10 @@ class Channel(PropertyBasedPMType):
 
 class Vmd(PropertyBasedPMType):
     container = cp.ContainerProperty(
-        None, value_class=VmdDescriptorContainer, cls_getter=get_descriptor_container_class, ns_helper=default_ns_helper,
+        None,
+        value_class=VmdDescriptorContainer,
+        cls_getter=get_descriptor_container_class,
+        ns_helper=default_ns_helper,
     )
     Channel = cp.SubElementListProperty(pm.Channel, value_class=Channel)
     _props = ('container', 'Channel')
@@ -478,7 +502,10 @@ class Vmd(PropertyBasedPMType):
 
 class Mds(PropertyBasedPMType):
     container = cp.ContainerProperty(
-        None, value_class=MdsDescriptorContainer, cls_getter=get_descriptor_container_class, ns_helper=default_ns_helper,
+        None,
+        value_class=MdsDescriptorContainer,
+        cls_getter=get_descriptor_container_class,
+        ns_helper=default_ns_helper,
     )
     Vmd = cp.SubElementListProperty(pm.Vmd, value_class=Vmd)
     _props = ('container', 'Vmd')
@@ -495,13 +522,6 @@ class MdState(PropertyBasedPMType):
     )
     _props = ('State',)
 
-
-# class Mdib(PropertyBasedPMType):
-#     Extension = cp.ExtensionNodeProperty(ext.Extension)
-#     MdDescription = cp.SubElementProperty(pm.MdDescription, value_class=MdDescription)
-#     MdState = cp.SubElementProperty(pm.MdState, value_class=MdState)
-#     _props = ['Extension', 'MdDescription', 'MdState']
-#
 
 
 class GetMdib(AbstractGet):
