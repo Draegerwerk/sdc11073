@@ -341,7 +341,7 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
                             if not state.MetricValue:
                                 state.mk_metric_value()
                             if state.MetricValue.Value is None:
-                                state.MetricValue.Value = Decimal('0')
+                                state.MetricValue.Value = Decimal(0)
                             else:
                                 state.MetricValue.Value += Decimal(1)
                     if enable_5a3:
