@@ -9,15 +9,11 @@ import logging
 import os
 import sys
 import time
-import traceback
-import uuid
 from concurrent import futures
 from typing import TYPE_CHECKING
 
-import sdc11073
-from pat.ReferenceTestV2.consumer import result_collector, step_1, step_2, step_3, step_4, step_5, step_6
 from pat.ReferenceTestV2 import common
-from sdc11073 import network
+from pat.ReferenceTestV2.consumer import result_collector, step_1, step_2, step_3, step_4, step_5, step_6
 from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
@@ -25,6 +21,7 @@ from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.wsdiscovery import WSDiscovery
 
 if TYPE_CHECKING:
+    import sdc11073
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
     from sdc11073.wsdiscovery.service import Service

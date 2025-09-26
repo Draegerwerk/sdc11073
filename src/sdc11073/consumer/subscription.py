@@ -1,9 +1,10 @@
+"""Consumer side subscription handling."""
+
 from __future__ import annotations
 
 import http.client
 import threading
 import time
-import traceback
 import uuid
 from typing import TYPE_CHECKING, Callable, Protocol
 from urllib.parse import urlparse
@@ -21,6 +22,7 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
+    from sdc11073 import xml_utils
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.dispatch import RequestData
     from sdc11073.pysoap.msgfactory import CreatedMessage, MessageFactory
@@ -28,18 +30,20 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.soapclient import SoapClientProtocol
     from sdc11073.xml_types.eventing_types import FilterType
     from sdc11073.xml_types.mex_types import HostedServiceType
-    from sdc11073 import xml_utils
 
 
 class ConsumerSubscriptionProtocol(Protocol):
     """The interface of a subscription instance."""
 
-    def subscribe(self, expires: int | float = 3600,  # seconds
-                  any_elements: list | None = None,
-                  any_attributes: dict | None = None) -> None:
+    def subscribe(
+        self,
+        expires: float = 3600,  # seconds
+        any_elements: list | None = None,
+        any_attributes: dict | None = None,
+    ) -> None:
         """Send a Subscribe message."""
 
-    def renew(self, expires: int | float = 3600) -> float:
+    def renew(self, expires: int | float = 3600) -> float:  # noqa: PYI041
         """Send a Renew message."""
 
     def get_status(self) -> float:
@@ -67,14 +71,17 @@ class ConsumerSubscription:
     IDENT_TAG = etree.QName('http.local.com', 'MyClIdentifier')
     is_subscribed = properties.ObservableProperty(False)
 
-    def __init__(self, msg_factory: MessageFactory,  # noqa: PLR0913
-                 data_model: AbstractDataModel,
-                 get_soap_client_func: Callable[[str], SoapClientProtocol],
-                 dpws_hosted: HostedServiceType,
-                 filter_type: FilterType,
-                 notification_url: str,
-                 end_to_url: str,
-                 log_prefix: str):
+    def __init__(  # noqa: PLR0913
+        self,
+        msg_factory: MessageFactory,
+        data_model: AbstractDataModel,
+        get_soap_client_func: Callable[[str], SoapClientProtocol],
+        dpws_hosted: HostedServiceType,
+        filter_type: FilterType,
+        notification_url: str,
+        end_to_url: str,
+        log_prefix: str,
+    ):
         """Construct a ConsumerSubscription."""
         self._msg_factory = msg_factory
         self._data_model = data_model
@@ -98,15 +105,16 @@ class ConsumerSubscription:
 
         self._logger = loghelper.get_logger_adapter('sdc.client.subscr', log_prefix)
         self.event_counter = 0  # for display purpose, we count notifications
-        # ToDo: check if there is more than one address. In that case a clever selection is needed
+        # TODO: check if there is more than one address.  # noqa: FIX002, TD002, TD003
+        #  In that case a clever selection is needed
         self._hosted_service_address: str = self._dpws_hosted.EndpointReference[0].Address
         self._hosted_service_path = urlparse(self._hosted_service_address).path
         self._subscription_manager_path: str | None = None
         self.subscribe_response: evt_types.SubscribeResponse | None = None
 
-    def subscribe(self, expires: int | float = 3600,
-                  any_elements: list | None = None,
-                  any_attributes: dict | None = None) -> None:
+    def subscribe(
+        self, expires: float = 3600, any_elements: list | None = None, any_attributes: dict | None = None,
+    ) -> None:
         """Send a subscribe request to the provider and handle the response."""
         self._logger.info('start subscription "{}"', self.short_filter_string)  # noqa: PLE1205
         self.event_counter = 0
@@ -135,8 +143,7 @@ class ConsumerSubscription:
         if any_attributes is not None:
             for name, value in any_attributes.items():
                 body_node.set(name, value)
-        inf = HeaderInformationBlock(action=EventingActions.Subscribe,
-                                     addr_to=self._hosted_service_address)
+        inf = HeaderInformationBlock(action=EventingActions.Subscribe, addr_to=self._hosted_service_address)
         message = self._msg_factory.mk_soap_message_etree_payload(inf, body_node)
         msg = f'subscribe {self.short_filter_string}'
         try:
@@ -153,15 +160,20 @@ class ConsumerSubscription:
                 self._subscription_manager_path = urlparse(subscription_manager_address).path
                 self.granted_expires = self.subscribe_response.Expires
                 self.expires_at = time_before_subscription + self.granted_expires
-                self._logger.info('Subscribe was successful: expires at {}, address="{}"',  # noqa: PLE1205
-                                  self.expires_at, self.subscribe_response.SubscriptionManager.Address)
+                self._logger.info(  # noqa: PLE1205
+                    'Subscribe was successful: expires at {}, address="{}"',
+                    self.expires_at,
+                    self.subscribe_response.SubscriptionManager.Address,
+                )
             except AttributeError as ex:
-                self._logger.error('Subscribe response has unexpected content: {}',  # noqa: PLE1205
-                                   message_data.p_msg.raw_data)
+                self._logger.error(  # noqa: PLE1205, TRY400
+                    'Subscribe response has unexpected content: {}',
+                    message_data.p_msg.raw_data,
+                )
                 self.is_subscribed = False
                 raise SoapResponseError(message_data.p_msg) from ex
         except HTTPReturnCodeError as ex:
-            self._logger.error('could not subscribe: %r', ex)
+            self._logger.error('could not subscribe: %r', ex)  # noqa: TRY400
 
     def renew(self, expires: int = 3600) -> float:
         """Send a Renew request to the provider and handle the response.
@@ -175,24 +187,23 @@ class ConsumerSubscription:
             renew.Expires = expires
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-            inf = HeaderInformationBlock(action=renew.action,
-                                         addr_to=subscription_manager_address,
-                                         reference_parameters=dev_reference_param)
+            inf = HeaderInformationBlock(
+                action=renew.action, addr_to=subscription_manager_address, reference_parameters=dev_reference_param,
+            )
             message = self._msg_factory.mk_soap_message(inf, payload=renew)
             try:
                 soap_client = self._get_soap_client_func(subscription_manager_address)
-                message_data = soap_client.post_message_to(
-                    self._subscription_manager_path, message, msg='renew')
+                message_data = soap_client.post_message_to(self._subscription_manager_path, message, msg='renew')
                 self._logger.debug('{}', message_data.p_msg.raw_data)  # noqa: PLE1205
             except HTTPReturnCodeError as ex:
                 self.is_subscribed = False
-                self._logger.error('could not renew: {}', ex)  # noqa: PLE1205
+                self._logger.error('could not renew: {}', ex)  # noqa: PLE1205, TRY400
             except (http.client.HTTPException, ConnectionError) as ex:
                 self._logger.warning('renew failed: {}', ex)  # noqa: PLE1205
                 self.is_subscribed = False
             except Exception as ex:  # noqa: BLE001
                 # log any other exception as error and consider subscription to be broken
-                self._logger.error('Exception in renew: {}', ex)  # noqa: PLE1205
+                self._logger.error('Exception in renew: {}', ex)  # noqa: PLE1205, TRY400
                 self.is_subscribed = False
             else:
                 renew_response = evt_types.RenewResponse.from_node(message_data.p_msg.msg_node)
@@ -201,8 +212,10 @@ class ConsumerSubscription:
                     self.expires_at = time.time() + self.granted_expires
                     return self.granted_expires
                 self.is_subscribed = False
-                self._logger.warning('renew failed: {}',  # noqa: PLE1205
-                                     etree.tostring(message_data.p_msg.body_node, pretty_print=True))
+                self._logger.warning(  # noqa: PLE1205
+                    'renew failed: {}',
+                    etree.tostring(message_data.p_msg.body_node, pretty_print=True),
+                )
             return 0.0
 
     def unsubscribe(self):
@@ -213,23 +226,27 @@ class ConsumerSubscription:
             request = evt_types.Unsubscribe()
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-            inf = HeaderInformationBlock(action=request.action,
-                                         addr_to=subscription_manager_address,
-                                         reference_parameters=dev_reference_param)
+            inf = HeaderInformationBlock(
+                action=request.action, addr_to=subscription_manager_address, reference_parameters=dev_reference_param,
+            )
             message = self._msg_factory.mk_soap_message(inf, payload=request)
             soap_client = self._get_soap_client_func(subscription_manager_address)
-            received_message_data = soap_client.post_message_to(self._subscription_manager_path,
-                                                                message, msg='unsubscribe')
+            received_message_data = soap_client.post_message_to(
+                self._subscription_manager_path, message, msg='unsubscribe',
+            )
             response_action = received_message_data.action
             # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
             if response_action == EventingActions.UnsubscribeResponse:
                 self._logger.info(  # noqa: PLE1205
-                    'unsubscribe: end of subscription {} was confirmed.', self.notification_url)
+                    'unsubscribe: end of subscription {} was confirmed.', self.notification_url,
+                )
                 self.is_subscribed = False
             else:
                 self._logger.error(  # noqa: PLE1205
-                    'unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data)
-                raise ValueError(f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}')
+                    'unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data,
+                )
+                msg = f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}'
+                raise ValueError(msg)
 
     def get_status(self) -> float:
         """Send a GetStatus Request to the device.
@@ -242,36 +259,41 @@ class ConsumerSubscription:
             request = evt_types.GetStatus()
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
-            inf = HeaderInformationBlock(action=request.action,
-                                         addr_to=subscription_manager_address,
-                                         reference_parameters=dev_reference_param)
+            inf = HeaderInformationBlock(
+                action=request.action, addr_to=subscription_manager_address, reference_parameters=dev_reference_param,
+            )
             message = self._msg_factory.mk_soap_message(inf, payload=request)
             try:
                 soap_client = self._get_soap_client_func(subscription_manager_address)
-                message_data = soap_client.post_message_to(
-                    self._subscription_manager_path,
-                    message, msg='get_status')
+                message_data = soap_client.post_message_to(self._subscription_manager_path, message, msg='get_status')
             except HTTPReturnCodeError as ex:
                 self.is_subscribed = False
-                self._logger.error('could not get status: {}', ex)  # noqa: PLE1205
+                self._logger.error('could not get status: {}', ex)  # noqa: PLE1205, TRY400
             except (http.client.HTTPException, ConnectionError) as ex:
                 self.is_subscribed = False
                 self._logger.warning(  # noqa: PLE1205
-                    'get_status: Connection Error {} for subscription {}', ex, self._filter_text)
+                    'get_status: Connection Error {} for subscription {}', ex, self._filter_text,
+                )
             except Exception as ex:  # noqa: BLE001
                 # log any other exception as error and consider subscription to be broken
-                self._logger.error('Exception in get_status: {}', ex)  # noqa: PLE1205
+                self._logger.error('Exception in get_status: {}', ex)  # noqa: PLE1205, TRY400
                 self.is_subscribed = False
             else:
                 get_status_response = evt_types.GetStatusResponse.from_node(message_data.p_msg.msg_node)
                 expire_seconds = get_status_response.Expires
                 if expire_seconds is None:
                     self._logger.warning(  # noqa: PLE1205
-                        'get_status for {}: Could not find "Expires" node! get_status={} ', self._filter_text,
-                        message_data.p_msg.raw_data)
+                        'get_status for {}: Could not find "Expires" node! get_status={} ',
+                        self._filter_text,
+                        message_data.p_msg.raw_data,
+                    )
                     raise SoapResponseError(message_data.p_msg)
-                self._logger.debug('get_status for {}: Expires in {} seconds, counter = {}',  # noqa: PLE1205
-                                   self._filter_text, expire_seconds, self.event_counter)
+                self._logger.debug(  # noqa: PLE1205
+                    'get_status for {}: Expires in {} seconds, counter = {}',
+                    self._filter_text,
+                    expire_seconds,
+                    self.event_counter,
+                )
                 return expire_seconds
             return 0.0
 
@@ -283,8 +305,11 @@ class ConsumerSubscription:
     def on_notification(self, request_data: RequestData) -> CreatedMessage:
         """Handle an incoming notification."""
         self.event_counter += 1
-        self._logger.debug('received notification {} version= {}',  # noqa: PLE1205
-                           request_data.message_data.action, request_data.message_data.mdib_version_group)
+        self._logger.debug(  # noqa: PLE1205
+            'received notification {} version= {}',
+            request_data.message_data.action,
+            request_data.message_data.mdib_version_group,
+        )
         self.notification_data = request_data.message_data
         self.notification_msg = request_data.message_data.p_msg
         return EmptyResponse()
@@ -298,23 +323,27 @@ class ConsumerSubscription:
 
     def __str__(self) -> str:
         if self._filter_text is not None:
-            return (f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, '
-                    f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}')
+            return (
+                f'Subscription of "{self.short_filter_string}", is_subscribed={self.is_subscribed}, '
+                f'remaining time = {int(self.remaining_subscription_seconds)} sec., count={self.event_counter}'
+            )
         return ', '.join(str(a) for a in self._filter_type.any)
 
 
 class ConsumerSubscriptionManagerProtocol(Protocol):
     """Factory for Subscription objects."""
 
-    def __init__(self,  # noqa: PLR0913
-                 msg_reader: MessageReader,
-                 msg_factory: MessageFactory,
-                 data_model: AbstractDataModel,
-                 get_soap_client_func: Callable[[str], SoapClientProtocol],
-                 notification_url: str,
-                 end_to_url: str | None = None,
-                 fixed_renew_interval: int | None = None,
-                 log_prefix: str = ''):
+    def __init__(  # noqa: PLR0913
+        self,
+        msg_reader: MessageReader,
+        msg_factory: MessageFactory,
+        data_model: AbstractDataModel,
+        get_soap_client_func: Callable[[str], SoapClientProtocol],
+        notification_url: str,
+        end_to_url: str | None = None,
+        fixed_renew_interval: int | None = None,
+        log_prefix: str = '',
+    ):
         """Construct a ConsumerSubscriptionManager.
 
         :param msg_reader: xml -> internal representation
@@ -342,8 +371,9 @@ class ConsumerSubscriptionManagerProtocol(Protocol):
         """Send Unsubscribe messages for all subscriptions."""
 
 
-class ConsumerSubscriptionManager(threading.Thread,
-                                  ConsumerSubscriptionManagerProtocol):  # derive from protocol to help typing.
+class ConsumerSubscriptionManager(
+    threading.Thread, ConsumerSubscriptionManagerProtocol,
+):  # derive from protocol to help typing.
     """Factory for Subscription objects.
 
     The thread periodically renews subscriptions. This tells the provider to keep the connection alive.
@@ -355,14 +385,17 @@ class ConsumerSubscriptionManager(threading.Thread,
     subscription instance of the consumer. Reference parameters are not used.
     """
 
-    def __init__(self, msg_reader: MessageReader,  # noqa: PLR0913
-                 msg_factory: MessageFactory,
-                 data_model: AbstractDataModel,
-                 get_soap_client_func: Callable[[str], SoapClientProtocol],
-                 notification_url: str,
-                 end_to_url: str | None = None,
-                 fixed_renew_interval: int | None = None,
-                 log_prefix: str = ''):
+    def __init__(  # noqa: PLR0913
+        self,
+        msg_reader: MessageReader,
+        msg_factory: MessageFactory,
+        data_model: AbstractDataModel,
+        get_soap_client_func: Callable[[str], SoapClientProtocol],
+        notification_url: str,
+        end_to_url: str | None = None,
+        fixed_renew_interval: int | None = None,
+        log_prefix: str = '',
+    ):
         """Construct a ConsumerSubscriptionManager.
 
         :param msg_factory:
@@ -422,9 +455,9 @@ class ConsumerSubscriptionManager(threading.Thread,
                     subscription.renew()
                 for subscription in subscriptions:
                     self._logger.debug('{}', subscription)  # noqa: PLE1205
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: PERF203
                 # catch all in order to keep thread running.
-                self._logger.error('##### check loop: {}', traceback.format_exc())  # noqa: PLE1205
+                self._logger.exception('##### check loop')
 
     def _flexible_renew_interval_loop(self):
         """Renew subscriptions when remaining time <= 50% of granted time."""
@@ -442,9 +475,9 @@ class ConsumerSubscriptionManager(threading.Thread,
                         subscription.renew()
                 for subscription in subscriptions:
                     self._logger.debug('{}', subscription)  # noqa: PLE1205
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: PERF203
                 # catch all in order to keep thread running.
-                self._logger.error('##### check loop: {}', traceback.format_exc())  # noqa: PLE1205
+                self._logger.exception('##### check loop')
 
     def mk_subscription(self, dpws_hosted: HostedServiceType, filter_type: FilterType) -> ConsumerSubscription:
         """Create a subscription instance."""
@@ -453,22 +486,28 @@ class ConsumerSubscriptionManager(threading.Thread,
         sep = '' if self._end_to_url.endswith('/') else '/'
         end_to_url = f'{self._end_to_url}{sep}subscr{self._counter}_e'
         self._counter += 1
-        subscription = ConsumerSubscription(self._msg_factory, self._data_model,
-                                            self._get_soap_client_func,
-                                            dpws_hosted, filter_type, notification_url,
-                                            end_to_url, self.log_prefix)
+        subscription = ConsumerSubscription(
+            self._msg_factory,
+            self._data_model,
+            self._get_soap_client_func,
+            dpws_hosted,
+            filter_type,
+            notification_url,
+            end_to_url,
+            self.log_prefix,
+        )
         filter_ = filter_type.text
         with self._subscriptions_lock:
             self.subscriptions[filter_] = subscription
         return subscription
 
-    def _find_subscription(self, request_data: RequestData,
-                           log_prefix: str) -> ConsumerSubscription | None:
+    def _find_subscription(self, request_data: RequestData, log_prefix: str) -> ConsumerSubscription | None:
         for subscription in self.subscriptions.values():
             if subscription.end_to_url.endswith(request_data.current_path_element):
                 return subscription
         self._logger.warning(  # noqa: PLE1205
-            '{}: have no subscription for identifier = {}', log_prefix, request_data.current_path_element)
+            '{}: have no subscription for identifier = {}', log_prefix, request_data.current_path_element,
+        )
         return None
 
     def on_subscription_end(self, request_data: RequestData) -> ConsumerSubscription | None:
@@ -480,12 +519,13 @@ class ConsumerSubscriptionManager(threading.Thread,
                 info += f' reason = {subscription_end.Reason[0]}'
             else:
                 info += f' reasons = {subscription_end.Reason}'
-        subscription = self._find_subscription(request_data,
-                                               'on_subscription_end')
+        subscription = self._find_subscription(request_data, 'on_subscription_end')
         if subscription is not None:
-            self._logger.info('on_subscription_end: received Subscription End for {} {}',  # noqa: PLE1205
-                              subscription.short_filter_string,
-                              info)
+            self._logger.info(  # noqa: PLE1205
+                'on_subscription_end: received Subscription End for {} {}',
+                subscription.short_filter_string,
+                info,
+            )
             subscription.is_subscribed = False
             subscription.end_status = subscription_end.Status
             if len(subscription_end.Reason) > 0:
@@ -502,11 +542,11 @@ class ConsumerSubscriptionManager(threading.Thread,
             for subscription in current_subscriptions:
                 try:
                     subscription.unsubscribe()
-                except HTTPException as ex:
+                except HTTPException as ex:  # noqa: PERF203
                     self._logger.info('unsubscribe failed got HTTPException: {}', ex)  # noqa: PLE1205
-                except Exception:  # noqa: BLE001
-                    self._logger.error(  # noqa: PLE1205
-                        'unsubscribe error: {}\n call stack:{} ', traceback.format_exc(), traceback.format_stack())
+                    ret = False
+                except Exception:
+                    self._logger.exception('unsubscribe error')
                     ret = False
         return ret
 
@@ -516,12 +556,16 @@ class ClientSubscriptionManagerReferenceParams(ConsumerSubscriptionManager):
 
     def mk_subscription(self, dpws_hosted: HostedServiceType, filter_type: FilterType) -> ConsumerSubscription:
         """Create a subscription instance."""
-        subscription = ConsumerSubscription(self._msg_factory,
-                                            self._data_model,
-                                            self._get_soap_client_func,
-                                            dpws_hosted, filter_type,
-                                            self._notification_url,
-                                            self._end_to_url, self.log_prefix)
+        subscription = ConsumerSubscription(
+            self._msg_factory,
+            self._data_model,
+            self._get_soap_client_func,
+            dpws_hosted,
+            filter_type,
+            self._notification_url,
+            self._end_to_url,
+            self.log_prefix,
+        )
         subscription.notify_to_identifier = etree.Element(ConsumerSubscription.IDENT_TAG)
         subscription.notify_to_identifier.text = uuid.uuid4().urn
         subscription.end_to_identifier = etree.Element(ConsumerSubscription.IDENT_TAG)
@@ -532,8 +576,7 @@ class ClientSubscriptionManagerReferenceParams(ConsumerSubscriptionManager):
             self.subscriptions[filter_] = subscription
         return subscription
 
-    def _find_subscription(self, request_data: RequestData,
-                           log_prefix: str) -> ConsumerSubscription | None:
+    def _find_subscription(self, request_data: RequestData, log_prefix: str) -> ConsumerSubscription | None:
         subscr_ident_list = request_data.message_data.p_msg.header_info_block.reference_parameters
         if not subscr_ident_list:
             return None
@@ -542,5 +585,6 @@ class ClientSubscriptionManagerReferenceParams(ConsumerSubscriptionManager):
             if subscr_ident.text == subscription.end_to_identifier.text:
                 return subscription
         self._logger.warning(  # noqa: PLE1205
-            '{}}: have no subscription for identifier = {}', log_prefix, subscr_ident.text)
+            '{}}: have no subscription for identifier = {}', log_prefix, subscr_ident.text,
+        )
         return None

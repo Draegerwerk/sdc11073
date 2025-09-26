@@ -1,32 +1,15 @@
+"""common utils for pat test."""
+
 from __future__ import annotations
 
-import datetime
-import json
-import logging.config
 import os
 import pathlib
-import traceback
 import uuid
-from decimal import Decimal
-from time import sleep
-from typing import TYPE_CHECKING
 
 import sdc11073
 from sdc11073 import location, network
 from sdc11073.certloader import mk_ssl_contexts_from_folder
-from sdc11073.loghelper import LoggerAdapter
-from sdc11073.mdib import ProviderMdib, descriptorcontainers
-from sdc11073.provider import SdcProvider, components
-from sdc11073.provider.servicesfactory import DPWSHostedService, HostedServices, mk_dpws_hosts
-from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
-from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.roles.waveformprovider import waveforms
-from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import pm_qnames
-from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
-if TYPE_CHECKING:
-    from sdc11073.provider.components import SdcProviderComponents
 
 def get_network_adapter() -> network.NetworkAdapter:
     """Get network adapter from environment or first loopback."""
