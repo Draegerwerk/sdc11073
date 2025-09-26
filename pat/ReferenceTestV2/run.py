@@ -8,6 +8,7 @@ import threading
 import uuid
 
 from pat.ReferenceTestV2 import reference_consumer_v2, reference_provider_v2
+from pat.ReferenceTestV2.consumer import result_collector
 from sdc11073 import network
 
 
@@ -25,16 +26,16 @@ def setup(tls: bool):
         os.environ['ref_ssl_passwd'] = 'dummypass'  # noqa: S105,SIM112
 
 
-def run() -> reference_consumer_v2.ResultsCollector:
+def run() -> None:
     """Run tests."""
     threading.Thread(target=reference_provider_v2.run_provider, daemon=True).start()
-    return reference_consumer_v2.run_ref_test(reference_consumer_v2.ResultsCollector())
+    reference_consumer_v2.run_ref_test()
 
 
-def main(tls: bool) -> reference_consumer_v2.ResultsCollector:
+def main(tls: bool) -> None:
     """Setups and run tests."""
     setup(tls)
-    return run()
+    run()
 
 
 if __name__ == '__main__':
@@ -44,6 +45,6 @@ if __name__ == '__main__':
     parser.add_argument('--tls', action='store_true', help='Indicates whether tls encryption should be enabled.')
 
     args = parser.parse_args()
-    run_results = main(tls=args.tls)
-    run_results.print_summary()
-    sys.exit(bool(run_results.failed_count))
+    main(args.tls)
+    result_collector.ResultCollector.print_summary()
+    sys.exit(bool(result_collector.ResultCollector.failed))
