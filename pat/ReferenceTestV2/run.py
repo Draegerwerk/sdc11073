@@ -5,6 +5,7 @@ import pathlib
 import platform
 import sys
 import threading
+import time
 import uuid
 
 from pat.ReferenceTestV2 import reference_consumer_v2, reference_provider_v2
@@ -29,6 +30,7 @@ def setup(tls: bool):
 def run() -> None:
     """Run tests."""
     threading.Thread(target=reference_provider_v2.run_provider, daemon=True).start()
+    time.sleep(10)  # give the provider time to start
     reference_consumer_v2.run_ref_test()
 
 
