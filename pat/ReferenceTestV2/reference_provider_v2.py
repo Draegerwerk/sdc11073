@@ -23,6 +23,7 @@ from time import sleep
 from typing import TYPE_CHECKING
 
 import sdc11073
+from pat.ReferenceTestV2 import common
 from sdc11073 import location, network
 from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.loghelper import LoggerAdapter
@@ -38,51 +39,6 @@ from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
     from sdc11073.provider.components import SdcProviderComponents
-
-
-def get_network_adapter() -> network.NetworkAdapter:
-    """Get network adapter from environment or first loopback."""
-    if (ip := os.getenv('ref_ip')) is not None:  # noqa: SIM112
-        return network.get_adapter_containing_ip(ip)
-    # get next available loopback adapter
-    return next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
-
-
-def get_location() -> location.SdcLocation:
-    """Get location from environment or default."""
-    return location.SdcLocation(
-        fac=os.getenv('ref_fac', default='r_fac'),  # noqa: SIM112
-        poc=os.getenv('ref_poc', default='r_poc'),  # noqa: SIM112
-        bed=os.getenv('ref_bed', default='r_bed'),  # noqa: SIM112
-    )
-
-
-def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
-    """Get ssl context from environment or None."""
-    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
-        return None
-    return mk_ssl_contexts_from_folder(
-        ca_folder,
-        private_key='user_private_key_encrypted.pem',
-        certificate='user_certificate_root_signed.pem',
-        ca_public_key='root_certificate.pem',
-        cyphers_file=None,
-        ssl_passwd=os.getenv('ref_ssl_passwd'),  # noqa: SIM112
-    )
-
-
-def get_epr() -> uuid.UUID:
-    """Get epr from environment or default."""
-    if (epr := os.getenv('ref_search_epr')) is not None:  # noqa: SIM112
-        return uuid.UUID(epr)
-    return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
-
-
-def get_mdib_path() -> pathlib.Path:
-    """Get mdib from environment or default mdib."""
-    if mdib_path := os.getenv('ref_mdib'):  # noqa:SIM112
-        return pathlib.Path(mdib_path)
-    return pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')
 
 
 numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
@@ -192,25 +148,16 @@ def provide_realtime_data(sdc_provider: SdcProvider):
 
 def run_provider():  # noqa: PLR0915, PLR0912, C901
     """Run provider until KeyboardError is raised."""
-    with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
-        logging_setup = json.load(f)
-    logging.config.dictConfig(logging_setup)
-    xtra_log_config = os.getenv('ref_xtra_log_cnf')  # noqa:SIM112
-    if xtra_log_config is not None:
-        with pathlib.Path(xtra_log_config).open() as f:
-            logging_setup2 = json.load(f)
-            logging.config.dictConfig(logging_setup2)
-
     logger = logging.getLogger('sdc')
     logger = LoggerAdapter(logger)
     logger.info('%s', 'start')
-    adapter_ip = get_network_adapter().ip
+    adapter_ip = common.get_network_adapter().ip
     wsd = WSDiscovery(adapter_ip)
     wsd.start()
-    my_mdib = ProviderMdib.from_mdib_file(str(get_mdib_path()))
-    my_uuid = get_epr()
+    my_mdib = ProviderMdib.from_mdib_file(str(common.get_mdib_path()))
+    my_uuid = common.get_epr()
     print(f'UUID for this device is urn:uuid:{my_uuid}')
-    loc = get_location()
+    loc = common.get_location()
     print(f'location for this device is {loc}')
     dpws_model = ThisModelType(
         manufacturer='sdc11073',
@@ -222,7 +169,7 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
     )
 
     dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
-    ssl_context = get_ssl_context()
+    ssl_context = common.get_ssl_context()
     if USE_REFERENCE_PARAMETERS:
         tmp = {'StateEvent': SubscriptionsManagerReferenceParamAsync}
         specific_components = components.SdcProviderComponents(

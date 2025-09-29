@@ -1,28 +1,32 @@
 {
     "version": 1,
-    "formatters":{
-        "default":{
+    "formatters": {
+        "default": {
             "class": "logging.Formatter",
             "format": "{asctime} - {name} - {levelname} - {message}",
             "style": "{"
         }
     },
-    "handlers":{
-        "file":{
+    "handlers": {
+        "file": {
             "class": "logging.FileHandler",
             "filename": "sdc_ref_dev.log",
-            "mode":"w",
+            "mode": "w",
             "formatter": "default"
         },
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "default"
+            "formatter": "default",
+            "stream": "ext://sys.stdout"
         }
     },
-    "loggers":{
+    "loggers": {
         "sdc": {
-            "handlers": ["file", "console"],
-            "level":"INFO"
+            "handlers": [
+                "file",
+                "console"
+            ],
+            "level": "INFO"
         },
         "sdc.discover": {
             "level": "INFO"
@@ -105,6 +109,19 @@
         },
         "sdc.client.op_mgr": {
             "level": null
+        },
+        "pat": {
+            "handlers": [
+                "file",
+                "console"
+            ],
+            "level": "DEBUG",
+            "propagate": false
+        },
+        "pat.consumer": {
+            "level": "DEBUG",
+            "propagate": true
         }
-    }
+    },
+    "disable_existing_loggers": false
 }

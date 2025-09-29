@@ -1,4 +1,5 @@
 """Tests metric updxates."""
+from __future__ import annotations
 
 import collections
 import functools
@@ -162,6 +163,7 @@ def _on_alert_system_update(
     descriptor_handle_to_observe: str,
     first_update: threading.Event,
     second_update: threading.Event,
+    last_self_check_count: dict[str, int | None],
     alerts_by_handle: dict,
 ):
     if descriptor_handle_to_observe in alerts_by_handle:
@@ -180,10 +182,18 @@ def _on_alert_system_update(
             state.SelfCheckCount,
             extra={'step': step},
         )
-        if not first_update.is_set():
+        previous_count = last_self_check_count.get('value')
+        if previous_count is None:
+            last_self_check_count['value'] = state.SelfCheckCount
             first_update.set()
-        else:
-            second_update.set()
+            return
+        # ignore notifications that keep the counter constant (e.g. alert-condition churn) so timing uses real self checks
+        if state.SelfCheckCount != previous_count:
+            last_self_check_count['value'] = state.SelfCheckCount
+            if not first_update.is_set():
+                first_update.set()
+            else:
+                second_update.set()
 
 
 def test_4e(mdib: ConsumerMdib):
@@ -224,12 +234,16 @@ def test_4e(mdib: ConsumerMdib):
             continue
         first_update = threading.Event()
         second_update = threading.Event()
+        # store last SelfCheckCount in a mutable container so the callback can update it across invocations
+        # otherwise 4e latches onto alert updates that do not advance the counter and reports a 0s interval
+        self_check_counter = {'value': None}
         observer = functools.partial(
             _on_alert_system_update,
             step,
             alert_system.Handle,
             first_update,
             second_update,
+            self_check_counter,
         )
         timeout = alert_system.SelfCheckPeriod + network_delay
         with observables.bound_context(mdib, alert_by_handle=observer):
