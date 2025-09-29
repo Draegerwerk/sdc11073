@@ -27,6 +27,12 @@ jobs:
 
       - name: Install sdc11073
         run: python -m pip install .
+      - name: Configure PAT networking (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          sudo ifconfig lo0 alias 127.0.0.2 up || true
+          sudo route add -net 239.255.255.250 -interface lo0 || true
+          echo "ref_ip=127.0.0.1" >> $GITHUB_ENV
 
       - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
