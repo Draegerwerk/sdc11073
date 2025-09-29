@@ -25,14 +25,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install sdc11073
-        run: python -m pip install .
-      - name: Configure PAT networking (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          IFACE=$(route get 0.0.0.0 | awk '/interface:/{print $2}')
-          sudo route -n add -net 239.255.255.250/32 -interface "$IFACE" || true
-
       - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
         run: python -m pat.ReferenceTestV2.run --tls

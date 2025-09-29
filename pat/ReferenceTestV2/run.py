@@ -1,11 +1,11 @@
-"""Script that executes the plug-a-thon tests."""
+"""Run the reference tests."""
 
 import json
 import logging
 import logging.config
 import os
 import pathlib
-import platform
+import socket
 import sys
 import threading
 import time
@@ -14,20 +14,33 @@ from pat.ReferenceTestV2 import common, reference_consumer_v2, reference_provide
 from pat.ReferenceTestV2.consumer import result_collector
 from sdc11073 import network
 
+MULTICAST_PROBE = ('239.255.255.250', 3702)
 
-def setup_ref_ip():
-    """Setups ref ip."""
-    if platform.system() == 'Darwin':
-        os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if not adapter.is_loopback)  # noqa: SIM112
-    else:
-        os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if adapter.is_loopback)  # noqa: SIM112
+
+def find_adapter_supporting_multicast() -> str:
+    """Return the first adapter that can send multicast traffic to the WS-Discovery group."""
+    adapters = network.get_adapters()
+    for adapter in adapters:
+        address = str(adapter.ip)
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+                sock.settimeout(1)
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(address))
+                sock.bind((address, 0))
+                sock.sendto(b'\0', MULTICAST_PROBE)
+        except OSError:
+            print(f'Adapter address {address} cannot be used for multicast')
+            continue
+        return address
+    raise RuntimeError('No network adapter found that can send multicast packets')
 
 
 def setup(tls: bool):
     """Setups the run."""
     os.environ['ref_search_epr'] = common.get_epr()  # noqa: SIM112
     if not os.environ.get('ref_ip'):  # noqa: SIM112
-        setup_ref_ip()
+        os.environ['ref_ip'] = find_adapter_supporting_multicast()  # noqa: SIM112
     if tls:
         certs_path = pathlib.Path(__file__).parent.parent.joinpath('certs')
         assert certs_path.exists()
