@@ -30,9 +30,8 @@ jobs:
       - name: Configure PAT networking (macOS)
         if: runner.os == 'macOS'
         run: |
-          sudo ifconfig lo0 alias 127.0.0.2 up || true
-          sudo route add -net 239.255.255.250 -interface lo0 || true
-          echo "ref_ip=127.0.0.1" >> $GITHUB_ENV
+          IFACE=$(route get 0.0.0.0 | awk '/interface:/{print $2}')
+          sudo route -n add -net 239.255.255.250/32 -interface "$IFACE" || true
 
       - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
