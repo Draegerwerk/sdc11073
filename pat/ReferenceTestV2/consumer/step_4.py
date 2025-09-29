@@ -1,4 +1,5 @@
 """Tests metric updxates."""
+
 from __future__ import annotations
 
 import collections
@@ -7,13 +8,18 @@ import logging
 import queue
 import threading
 import time
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 from pat.ReferenceTestV2.consumer import result_collector
-from sdc11073 import xml_utils
-from sdc11073.mdib import ConsumerMdib, statecontainers
 from sdc11073.observableproperties import observables
 from sdc11073.xml_types import pm_qnames
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from sdc11073 import xml_utils
+    from sdc11073.mdib import ConsumerMdib, statecontainers
+
 
 __STEP__ = '4'
 logger = logging.getLogger(f'pat.consumer.step_{__STEP__}')
@@ -158,7 +164,7 @@ def test_4d(mdib: ConsumerMdib):
     )
 
 
-def _on_alert_system_update(
+def _on_alert_system_update(  # noqa: PLR0913
     step: str,
     descriptor_handle_to_observe: str,
     first_update: threading.Event,
@@ -187,7 +193,7 @@ def _on_alert_system_update(
             last_self_check_count['value'] = state.SelfCheckCount
             first_update.set()
             return
-        # ignore notifications that keep the counter constant (e.g. alert-condition churn) so timing uses real self checks
+        # ignore notifications keeping the counter constant (e.g. alert-condition churn) so timing uses real self checks
         if state.SelfCheckCount != previous_count:
             last_self_check_count['value'] = state.SelfCheckCount
             if not first_update.is_set():

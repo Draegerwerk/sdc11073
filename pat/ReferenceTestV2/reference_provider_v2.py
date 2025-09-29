@@ -12,20 +12,13 @@ If a value is not provided as environment variable, the default value (see code 
 from __future__ import annotations
 
 import datetime
-import json
 import logging.config
-import os
-import pathlib
 import traceback
-import uuid
 from decimal import Decimal
 from time import sleep
 from typing import TYPE_CHECKING
 
-import sdc11073
 from pat.ReferenceTestV2 import common
-from sdc11073 import location, network
-from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.loghelper import LoggerAdapter
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
 from sdc11073.provider import SdcProvider, components
