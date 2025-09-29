@@ -229,7 +229,7 @@ class NetworkingThread:
         try:
             s.sendto(data, (msg.addr, msg.port))
         except:  # noqa: E722 use bare except here, this is a catch-all that keeps thread running.
-            self._logger.exception('exception during sending')
+            self._logger.exception('exception during sending data to %s:%p: %s', msg.addr, msg.port, data)
         else:
             # log this if there was no exception during send
             logging.getLogger(commlog.DISCOVERY_OUT).debug(data, extra={'ip_address': msg.addr})
