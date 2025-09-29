@@ -5,7 +5,9 @@ import logging
 import logging.config
 import os
 import pathlib
+import platform
 import socket
+import struct
 import sys
 import threading
 import time
@@ -17,7 +19,6 @@ from sdc11073 import network
 
 MULTICAST_PROBE = ('239.255.255.250', 3702)
 
-
 def find_adapter_supporting_multicast() -> str:
     """Return the first adapter that can send multicast traffic to the WS-Discovery group."""
     adapters = network.get_adapters()
@@ -25,10 +26,15 @@ def find_adapter_supporting_multicast() -> str:
         address = str(adapter.ip)
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
-                sock.settimeout(1)
-                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(address))
-                sock.bind((address, 0))
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                if platform.system() != 'Windows':
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                    sock.bind(MULTICAST_PROBE)
+                else:
+                    sock.bind((address, MULTICAST_PROBE[1]))
+                sock.setblocking(False)
+                _addr = struct.pack('4s4s', socket.inet_aton(MULTICAST_PROBE[0]), socket.inet_aton(address))
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, _addr)
                 sock.sendto(b'\0', MULTICAST_PROBE)
         except OSError:
             print(f'Adapter address {address} cannot be used for multicast')
