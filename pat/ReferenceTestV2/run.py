@@ -21,6 +21,7 @@ def setup(tls: bool):
         os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if not adapter.is_loopback)  # noqa: SIM112
     else:
         os.environ['ref_ip'] = next(str(adapter.ip) for adapter in network.get_adapters() if adapter.is_loopback)  # noqa: SIM112
+    os.environ['ref_ip'] = '127.0.0.1'  # noqa: SIM112
     if tls:
         certs_path = pathlib.Path(__file__).parent.parent.joinpath('certs')
         assert certs_path.exists()
