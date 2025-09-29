@@ -107,6 +107,7 @@ class NetworkingThread:
     def _create_multi_out_uni_in_out_socket(self, addr: str, multicast_ttl: int) -> socket.SocketType:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, multicast_ttl)
+        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(addr))
         # set port explicitly when creating (it would otherwise be set after sending first message via this socket)
         sock.bind((addr, 0))
         self._register_outbound_socket(sock)

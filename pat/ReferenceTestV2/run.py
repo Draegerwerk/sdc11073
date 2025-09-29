@@ -33,6 +33,8 @@ def find_adapter_supporting_multicast() -> str:
         except OSError:
             print(f'Adapter address {address} cannot be used for multicast')
             continue
+        else:
+            print(f'Adapter address {address} successfully used for multicast')
         return address
     raise RuntimeError('No network adapter found that can send multicast packets')
 
