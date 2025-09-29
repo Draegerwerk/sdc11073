@@ -19,6 +19,7 @@ from sdc11073 import network
 
 MULTICAST_PROBE = ('239.255.255.250', 3702)
 
+
 def find_adapter_supporting_multicast() -> str:
     """Return the first adapter that can send multicast traffic to the WS-Discovery group."""
     adapters = network.get_adapters()
