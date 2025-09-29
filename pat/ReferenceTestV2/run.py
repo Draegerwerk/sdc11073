@@ -9,8 +9,9 @@ import socket
 import sys
 import threading
 import time
+import uuid
 
-from pat.ReferenceTestV2 import common, reference_consumer_v2, reference_provider_v2
+from pat.ReferenceTestV2 import reference_consumer_v2, reference_provider_v2
 from pat.ReferenceTestV2.consumer import result_collector
 from sdc11073 import network
 
@@ -38,7 +39,7 @@ def find_adapter_supporting_multicast() -> str:
 
 def setup(tls: bool):
     """Setups the run."""
-    os.environ['ref_search_epr'] = common.get_epr()  # noqa: SIM112
+    os.environ['ref_search_epr'] = f'urn:uuid:{uuid.uuid4()}'  # noqa: SIM112
     if not os.environ.get('ref_ip'):  # noqa: SIM112
         os.environ['ref_ip'] = find_adapter_supporting_multicast()  # noqa: SIM112
     if tls:

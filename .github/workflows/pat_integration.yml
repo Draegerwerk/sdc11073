@@ -8,8 +8,6 @@ on:
       - v*
 jobs:
   sdc11073_provider_v2:
-    env:
-      EXPECTED_WAVEFORM_SAMPLES_4F: 100  # set to a low value as we cannot control GitHub ci network latency
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
@@ -24,6 +22,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Install sdc11073
+        run: python -m pip install .
 
       - name: Run tests with tls enabled
         if: ${{ matrix.tls_enable }}
