@@ -26,7 +26,7 @@ def setup_ref_ip():
 def setup(tls: bool):
     """Setups the run."""
     os.environ['ref_search_epr'] = common.get_epr()  # noqa: SIM112
-    if not os.environ['ref_ip']:  # noqa: SIM112
+    if not os.environ.get('ref_ip'):  # noqa: SIM112
         setup_ref_ip()
     if tls:
         certs_path = pathlib.Path(__file__).parent.parent.joinpath('certs')
