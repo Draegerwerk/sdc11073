@@ -472,7 +472,7 @@ class SdcProvider:
 
             # first start http server, the services need to know the ip port number
             self._http_server.start()
-            event_is_set = self._http_server.started_evt.wait(timeout=15.0)
+            event_is_set = self._http_server.started_evt.wait(timeout=60.0)
             if not event_is_set:
                 self._logger.error('Cannot start device, start event of http server not set.')
                 raise RuntimeError('Cannot start device, start event of http server not set.')
