@@ -28,17 +28,21 @@ def find_adapter_supporting_multicast() -> str:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                if platform.system() != 'Windows':
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-                    sock.bind(MULTICAST_PROBE)
-                else:
-                    sock.bind((address, MULTICAST_PROBE[1]))
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(address))
                 sock.setblocking(False)
                 _addr = struct.pack('4s4s', socket.inet_aton(MULTICAST_PROBE[0]), socket.inet_aton(address))
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, _addr)
-                sock.sendto(b'\0', MULTICAST_PROBE)
-        except OSError:
-            print(f'Adapter address {address} cannot be used for multicast')
+                system = platform.system()
+                if system != 'Windows':
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+                sock.bind((address, MULTICAST_PROBE[1]))
+                test_bytes = b'\0'
+                sock.sendto(test_bytes, MULTICAST_PROBE)
+                if test_bytes != sock.recv(len(test_bytes)):
+                    continue
+        except OSError as e:
+            print(f'Adapter address {address} cannot be used for multicast', e)
             continue
         else:
             print(f'Adapter address {address} successfully used for multicast')
