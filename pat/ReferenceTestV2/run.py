@@ -39,8 +39,14 @@ def find_adapter_supporting_multicast() -> str:
                 sock.bind((address, MULTICAST_PROBE[1]))
                 test_bytes = b'\0'
                 sock.sendto(test_bytes, MULTICAST_PROBE)
-                if test_bytes != sock.recv(len(test_bytes)):
-                    continue
+                received_bytes = sock.recv(len(test_bytes))
+                if test_bytes != received_bytes:
+                    print(
+                        f'Adapter address {address} cannot be used for multicast: expected',
+                        test_bytes,
+                        'got',
+                        received_bytes,
+                    )
         except OSError as e:
             print(f'Adapter address {address} cannot be used for multicast', e)
             continue
