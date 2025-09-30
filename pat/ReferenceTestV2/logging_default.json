@@ -49,7 +49,7 @@
             "level": null
         },
         "sdc.device.httpsrv": {
-            "level": null
+            "level": "DEBUG"
         },
         "sdc.device.op_worker": {
             "comment": "logs execution of called operations",
