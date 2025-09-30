@@ -47,6 +47,7 @@ def find_adapter_supporting_multicast() -> str:
                         'got',
                         received_bytes,
                     )
+                    continue
         except OSError as e:
             print(f'Adapter address {address} cannot be used for multicast', e)
             continue
