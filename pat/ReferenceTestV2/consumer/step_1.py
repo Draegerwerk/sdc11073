@@ -50,7 +50,7 @@ def on_resolve_match(step: str, event: threading.Event, expected_epr: str, servi
         event.set()
 
 
-def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str):
+def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
     """The Reference Provider answers to Probe and Resolve messages in ad-hoc mode."""
     step = f'{__STEP__}b'
     timeout = 10.0
@@ -68,6 +68,8 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str):
             message=f'Probe matches not received in ad-hoc mode within {timeout}s.',
         )
     discovery.set_on_probe_matches_callback(None)
+    if not probe_matches_event.is_set():
+        return False
 
     resolve_match_event = threading.Event()
     observer = functools.partial(on_resolve_match, step, resolve_match_event, epr)
@@ -81,6 +83,7 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str):
             message=f'Resolve match not received in ad-hoc mode within {timeout}s.',
         )
     discovery.set_remote_service_resolve_match_callback(None)
+    return resolve_match_event.is_set()
 
 
 def test_1c():

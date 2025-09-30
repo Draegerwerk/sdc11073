@@ -126,7 +126,8 @@ def run_ref_test():
     # Remark: 1a) is not testable because provider can't be forced to send a hello while this test is running.
     wsd = WSDiscovery(adapter_ip)
     wsd.start()
-    step_1.test_1b(wsd, search_epr)
+    if not step_1.test_1b(wsd, search_epr):
+        return
     services = wsd.search_services(timeout=-1)
     consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=get_ssl_context(), validate=True)
     step_2.test_2a(consumer)
