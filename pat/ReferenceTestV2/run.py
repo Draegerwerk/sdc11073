@@ -33,21 +33,10 @@ def find_adapter_supporting_multicast() -> str:
                 sock.setblocking(False)
                 _addr = struct.pack('4s4s', socket.inet_aton(MULTICAST_PROBE[0]), socket.inet_aton(address))
                 sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, _addr)
-                system = platform.system()
-                if system != 'Windows':
+                if platform.system() != 'Windows':
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
                 sock.bind((address, MULTICAST_PROBE[1]))
-                test_bytes = b'\0'
-                sock.sendto(test_bytes, MULTICAST_PROBE)
-                received_bytes = sock.recv(len(test_bytes))
-                if test_bytes != received_bytes:
-                    print(
-                        f'Adapter address {address} cannot be used for multicast: expected',
-                        test_bytes,
-                        'got',
-                        received_bytes,
-                    )
-                    continue
+                sock.sendto(b'\0', MULTICAST_PROBE)
         except OSError as e:
             print(f'Adapter address {address} cannot be used for multicast', e)
             continue
