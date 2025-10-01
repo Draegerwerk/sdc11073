@@ -30,7 +30,7 @@ class OperationProvider(providerbase.ProviderRole):
             msg = f'Expected {len(descriptor.Argument)} arguments, got {len(params.operation_request.argument)}'
             raise ValueError(msg)
 
-        for description, value in zip(descriptor.Argument, params.operation_request.argument, strict=True):
+        for description, value in zip(descriptor.Argument, params.operation_request.argument):
             description: ActivateOperationDescriptorArgument
             value: msg_types.Argument
             # these are types from the plug-a-thon. add more if needed

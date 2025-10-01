@@ -42,7 +42,7 @@ class FakeMdib:
         self._state = FakeState()
         self.data_model = SimpleNamespace(msg_types=msg_types)
 
-    def metric_state_transaction(self, _) -> FakeMgr:  # noqa: ANN001
+    def metric_state_transaction(self, set_determination_time: bool = True) -> FakeMgr:  # noqa: ARG002
         return FakeMgr(self._state)
 
 
