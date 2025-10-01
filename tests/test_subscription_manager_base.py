@@ -29,7 +29,7 @@ class DummySoapClientPool:
     def get_soap_client(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN201
         return SimpleNamespace(post_message_to=lambda *_, **__: None)
 
-    def forget_usr(self, *_args, **_kwargs):  # noqa: ANN002, ANN003, ANN201
+    def forget_usr(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
         # No-op stub for tests
         return None
 
