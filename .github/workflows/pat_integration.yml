@@ -11,7 +11,9 @@ jobs:
   sdc11073_provider_v2:
     strategy:
       matrix:
-        os: [ ubuntu-latest, windows-latest ]  # macOS has issues starting the http server in the provider, but only in the ci
+        # macOS 15 has issues starting the http server in the provider, but only in the ci
+        #  https://github.blog/changelog/2025-07-11-upcoming-changes-to-macos-hosted-runners-macos-latest-migration-and-xcode-support-policy-updates/
+        os: [ ubuntu-latest, macos-14, windows-latest ]
         tls_enable: [ true, false ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
