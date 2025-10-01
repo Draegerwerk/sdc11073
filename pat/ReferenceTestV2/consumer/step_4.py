@@ -5,6 +5,7 @@ from __future__ import annotations
 import collections
 import functools
 import logging
+import os
 import queue
 import threading
 import time
@@ -371,7 +372,7 @@ def test_4f(mdib: ConsumerMdib):
         step=f'{__STEP__}f',
         at_least_waveform_descriptors=3,
         waveform_updates_per_second=10,
-        samples_per_message=100,
+        samples_per_message=int(os.environ.get('SDC11073_PAT_4F_SAMPLES_PER_MESSAGE', '100')),  # slow networks
         timeout=1.0,  # seconds, to allow for the updates to arrive
         network_delay=0.1,  # seconds, to allow for network delays and processing time
     )
