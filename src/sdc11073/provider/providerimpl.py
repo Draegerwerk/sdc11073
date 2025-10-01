@@ -462,8 +462,9 @@ class SdcProvider:
             self._is_internal_http_server = True
             logger = loghelper.get_logger_adapter('sdc.device.httpsrv', self._log_prefix)
 
+            bind_ip = '0.0.0.0' if self._alternative_hostname else self._wsdiscovery.get_active_addresses()[0]
             self._http_server = HttpServerThreadBase(
-                my_ipaddress=self._wsdiscovery.get_active_addresses()[0],
+                my_ipaddress=bind_ip,
                 ssl_context=self._ssl_context_container.server_context if self._ssl_context_container else None,
                 supported_encodings=self._compression_methods,
                 logger=logger,

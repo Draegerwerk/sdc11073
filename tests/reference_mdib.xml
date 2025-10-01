@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<msg:GetMdibResponse
+	xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+	xmlns:fn="http://www.w3.org/2005/xpath-functions"
+	xmlns:fo="http://www.w3.org/1999/XSL/Format"
+	xmlns:m="http://www.draeger.com/CTEM"
+	xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message"
+	xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
+	xmlns:ps="http://schemas.microsoft.com/powershell/2004/04"
+	xmlns:xs="http://www.w3.org/2001/XMLSchema"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant BICEPS_ParticipantModel.xsd
+        		 http://standards.ieee.org/downloads/11073/11073-10207-2017/message BICEPS_MessageModel.xsd
+        		 http://standards.ieee.org/downloads/11073/11073-10207-2017/extension ExtensionPoint.xsd"
+	SequenceId="urn:oid:1">
+	<msg:Mdib SequenceId="urn:oid:1">
+		<pm:MdDescription>
+			<pm:Mds Handle="mds0" SafetyClassification="MedA">
+				<pm:Type Code="130535"> <!-- 1:64.999 -->
+						<pm:ConceptDescription Lang="en-US">not settable metrics</pm:ConceptDescription>
+				</pm:Type>
+				<pm:AlertSystem SafetyClassification="MedA" Handle="asy.mds0" SelfCheckPeriod="PT5S">
+					<pm:AlertCondition Handle="ac0.mds0"
+							xsi:type="pm:AlertConditionDescriptor"
+							SafetyClassification="MedA" Kind="Phy" Priority="Me">
+							<pm:Type Code="262108‬"> <!-- 3:65.500 -->
+								<pm:ConceptDescription Lang="en-US">dummy condition</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Source>mds0</pm:Source>
+					</pm:AlertCondition>
+					<pm:AlertSignal Handle="as0.mds0" ConditionSignaled="ac0.mds0" Manifestation="Aud" Latching="false" SafetyClassification="MedA" />
+				</pm:AlertSystem>
+				<pm:Sco Handle="sco.mds0">
+					<pm:Operation Handle="actop.mds0_sco_0"
+						xsi:type="pm:ActivateOperationDescriptor"
+						SafetyClassification="MedC" OperationTarget="mds0"
+						MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
+						<pm:Type Code="196279"> <!-- 2:65.207 -->
+							<pm:ConceptDescription Lang="en-US">dummy activate operation</pm:ConceptDescription>
+						</pm:Type>
+					</pm:Operation>
+				</pm:Sco>
+				<pm:SystemContext Handle="SC.mds0">
+					<pm:PatientContext Handle="PC.mds0" />
+					<pm:LocationContext Handle="LC.mds0" />
+				</pm:SystemContext>
+				<pm:Clock Handle="CL.mds0">
+					<pm:TimeProtocol Code="532224">
+						<pm:ConceptDescription Lang="en-us">None
+						</pm:ConceptDescription>
+					</pm:TimeProtocol>
+					<pm:TimeProtocol Code="532225">
+						<pm:ConceptDescription Lang="en-us">NTPv4
+						</pm:ConceptDescription>
+					</pm:TimeProtocol>
+					<pm:TimeProtocol Code="532234">
+						<pm:ConceptDescription Lang="en-us">EBWW
+						</pm:ConceptDescription>
+					</pm:TimeProtocol>
+				</pm:Clock>
+				<pm:Vmd Handle="vmd0" SafetyClassification="MedA">
+					<pm:Type Code="130536"> <!-- 1:65.000 -->
+						<pm:ConceptDescription Lang="en-US">not settable metrics</pm:ConceptDescription>
+					</pm:Type>
+					<pm:AlertSystem SafetyClassification="MedA" Handle="asy.vmd0" SelfCheckPeriod="PT5S">
+						<pm:AlertCondition Handle="ac0.vmd0.mds0"
+								xsi:type="pm:AlertConditionDescriptor"
+								SafetyClassification="MedA" Kind="Phy" Priority="Me">
+								<pm:Type Code="262108‬"> <!-- 3:65.500 -->
+									<pm:ConceptDescription Lang="en-US">dummy condition</pm:ConceptDescription>
+								</pm:Type>
+								<pm:Source>mds0</pm:Source>
+						</pm:AlertCondition>
+						<pm:AlertSignal Handle="as0.vmd0.mds0" ConditionSignaled="ac0.vmd0.mds0" Manifestation="Aud" Latching="false" SafetyClassification="MedA" />
+					</pm:AlertSystem>
+					<pm:Sco Handle="sco.vmd0"></pm:Sco>
+					<pm:Channel Handle="ch0.vmd0"
+						SafetyClassification="MedA">
+						<pm:Type Code="130637"> <!-- 1:65.101 -->
+							<pm:ConceptDescription Lang="en-US">static not settable metrics</pm:ConceptDescription>
+						</pm:Type>
+						<pm:Metric Handle="numeric.ch0.vmd0"
+							SafetyClassification="MedA" xsi:type="pm:NumericMetricDescriptor"
+							MetricCategory="Set" MetricAvailability="Intr" Resolution="0.1">
+							<pm:Type Code="196174"> <!-- 2:65.102 -->
+								<pm:ConceptDescription Lang="en-US">dummy static numeric metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+							<pm:TechnicalRange Upper="100" Lower="1"
+								StepWidth="1" />
+						</pm:Metric>
+
+						<pm:Metric Handle="enumstring.ch0.vmd0"
+							SafetyClassification="MedA"
+							xsi:type="pm:EnumStringMetricDescriptor" MetricCategory="Set"
+							MetricAvailability="Intr">
+							<pm:Type Code="196175"> <!-- 2:65.103 -->
+								<pm:ConceptDescription Lang="en-US">dummy static enum string metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+							<pm:AllowedValue>
+								<pm:Value>ON</pm:Value>
+								<pm:Type Code="192834">
+									<pm:ConceptDescription Lang="en-US">ON</pm:ConceptDescription>
+								</pm:Type>
+							</pm:AllowedValue>
+							<pm:AllowedValue>
+								<pm:Value>OFF</pm:Value>
+								<pm:Type Code="192835">
+									<pm:ConceptDescription Lang="en-US">OFF</pm:ConceptDescription>
+								</pm:Type>
+							</pm:AllowedValue>
+						</pm:Metric>
+
+						<pm:Metric Handle="string.ch0.vmd0"
+							SafetyClassification="MedA" xsi:type="pm:StringMetricDescriptor"
+							MetricCategory="Set" MetricAvailability="Intr">
+							<pm:Type Code="196176"> <!-- 2:65.104 -->
+								<pm:ConceptDescription Lang="en-US">dummy static string metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+						</pm:Metric>
+					</pm:Channel>
+					<pm:Channel Handle="ch1.vmd0"
+						SafetyClassification="MedA">
+						<pm:Type Code="130537"> <!-- 1:65.001 -->
+							<pm:ConceptDescription Lang="en-US">dynamic (periodic changed) not settable metrics</pm:ConceptDescription>
+						</pm:Type>
+						<pm:Metric Handle="numeric.ch1.vmd0"
+							SafetyClassification="MedA" xsi:type="pm:NumericMetricDescriptor"
+							MetricCategory="Msrmt" MetricAvailability="Cont" Resolution="0.1">
+							<pm:Type Code="196074"> <!-- 2:65.002 -->
+								<pm:ConceptDescription Lang="en-US">dummy dynamic numeric metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+							<pm:TechnicalRange Upper="100" Lower="1"
+								StepWidth="1" />
+						</pm:Metric>
+
+						<pm:Metric Handle="enumstring2.ch0.vmd0"
+							SafetyClassification="MedA"
+							xsi:type="pm:EnumStringMetricDescriptor" MetricCategory="Clc"
+							MetricAvailability="Cont">
+							<pm:Type Code="196075"> <!-- 2:65.003 -->
+								<pm:ConceptDescription Lang="en-US">dummy dynamic enum string metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+							<pm:AllowedValue>
+								<pm:Value>ON</pm:Value>
+								<pm:Type Code="192834">
+									<pm:ConceptDescription Lang="en-US">ON</pm:ConceptDescription>
+								</pm:Type>
+							</pm:AllowedValue>
+							<pm:AllowedValue>
+								<pm:Value>OFF</pm:Value>
+								<pm:Type Code="192835">
+									<pm:ConceptDescription Lang="en-US">OFF</pm:ConceptDescription>
+								</pm:Type>
+							</pm:AllowedValue>
+						</pm:Metric>
+
+						<pm:Metric Handle="string2.ch0.vmd1"
+							SafetyClassification="MedA" xsi:type="pm:StringMetricDescriptor"
+							MetricCategory="Clc" MetricAvailability="Cont">
+							<pm:Type Code="196076"> <!-- 2:65.004 -->
+								<pm:ConceptDescription Lang="en-US">dummy static string metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+						</pm:Metric>
+					</pm:Channel>
+				</pm:Vmd>
+
+				<pm:Vmd Handle="vmd1" SafetyClassification="MedA">
+					<pm:Type Code="130736"> <!-- 1:65.200 -->
+						<pm:ConceptDescription Lang="en-US">settable metrics</pm:ConceptDescription>
+					</pm:Type>
+					<pm:Sco Handle="sco.vmd1.mds0">
+						<pm:Operation Handle="actop.vmd1_sco_0"
+							xsi:type="pm:ActivateOperationDescriptor"
+							SafetyClassification="MedC" OperationTarget="mds0"
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
+							<pm:Type Code="196279"> <!-- 2:65.207 -->
+								<pm:ConceptDescription Lang="en-US">dummy activate operation</pm:ConceptDescription>
+							</pm:Type>
+						</pm:Operation>
+
+						<pm:Operation
+							xsi:type="pm:SetValueOperationDescriptor"
+							Handle="numeric.ch0.vmd1_sco_0"
+							OperationTarget="numeric.ch0.vmd1" SafetyClassification="MedA"
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
+							<pm:Type Code="196276"> <!-- 2:65.204 -->
+								<pm:ConceptDescription Lang="en-US">set numeric metric value</pm:ConceptDescription>
+							</pm:Type>
+						</pm:Operation>
+
+						<pm:Operation
+							xsi:type="pm:SetStringOperationDescriptor"
+							Handle="enumstring.ch0.vmd1_sco_0"
+							OperationTarget="enumstring.ch0.vmd1" SafetyClassification="MedA"
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
+							<pm:Type Code="196277"> <!-- 2:65.205 -->
+								<pm:ConceptDescription Lang="en-US">set enum string metric value</pm:ConceptDescription>
+							</pm:Type>
+						</pm:Operation>
+
+						<pm:Operation
+							xsi:type="pm:SetStringOperationDescriptor"
+							Handle="string.ch0.vmd1_sco_0"
+							OperationTarget="string.ch0.vmd1" SafetyClassification="MedA"
+							MaxTimeToFinish="PT2S" Retriggerable="true" AccessLevel="Usr">
+							<pm:Type Code="196278"> <!-- 2:65.206 -->
+								<pm:ConceptDescription Lang="en-US">set string metric value</pm:ConceptDescription>
+							</pm:Type>
+						</pm:Operation>
+					</pm:Sco>
+					<!-- this is the channel grouping the settable metrics -->
+					<pm:Channel Handle="ch0.vmd1"
+						SafetyClassification="MedA">
+						<pm:Type Code="130737"> <!-- 1:65.201 -->
+							<pm:ConceptDescription Lang="en-US">settable metrics</pm:ConceptDescription>
+						</pm:Type>
+						<pm:Metric Handle="numeric.ch0.vmd1"
+							SafetyClassification="MedA" xsi:type="pm:NumericMetricDescriptor"
+							MetricCategory="Set" MetricAvailability="Intr" Resolution="0.1">
+							<pm:Type Code="196274"> <!-- 2:65.202 -->
+								<pm:ConceptDescription Lang="en-US">dummy settable numeric metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+							<pm:TechnicalRange Upper="100" Lower="1"
+								StepWidth="1" />
+						</pm:Metric>
+
+						<pm:Metric Handle="enumstring.ch0.vmd1"
+							SafetyClassification="MedA"
+							xsi:type="pm:EnumStringMetricDescriptor" MetricCategory="Set"
+							MetricAvailability="Intr">
+							<pm:Type Code="196275"> <!-- 2:65.203 -->
+								<pm:ConceptDescription Lang="en-US">dummy settable enum string metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+							<pm:AllowedValue>
+								<pm:Value>ON</pm:Value>
+								<pm:Type Code="192834">
+									<pm:ConceptDescription Lang="en-US">ON</pm:ConceptDescription>
+								</pm:Type>
+							</pm:AllowedValue>
+							<pm:AllowedValue>
+								<pm:Value>OFF</pm:Value>
+								<pm:Type Code="192835">
+									<pm:ConceptDescription Lang="en-US">OFF</pm:ConceptDescription>
+								</pm:Type>
+							</pm:AllowedValue>
+						</pm:Metric>
+
+						<pm:Metric Handle="string.ch0.vmd1"
+							SafetyClassification="MedA" xsi:type="pm:StringMetricDescriptor"
+							MetricCategory="Set" MetricAvailability="Intr">
+							<pm:Type Code="196276"> <!-- 2:65.204 -->
+								<pm:ConceptDescription Lang="en-US">dummy settable string metric</pm:ConceptDescription>
+							</pm:Type>
+							<pm:Unit Code="262656"> <!-- MDC_DIM_DIMLESS = 4:512 -->
+								<pm:ConceptDescription Lang="en-US">no unit</pm:ConceptDescription>
+							</pm:Unit>
+						</pm:Metric>
+					</pm:Channel>
+				</pm:Vmd>
+			</pm:Mds>
+		</pm:MdDescription>
+	</msg:Mdib>
+</msg:GetMdibResponse>
