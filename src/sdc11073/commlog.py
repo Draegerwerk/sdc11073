@@ -1,8 +1,11 @@
 """Communication logger."""
+
 from __future__ import annotations
 
+import contextlib
 import functools
 import logging
+import os
 import pathlib
 import threading
 import time
@@ -17,8 +20,16 @@ SOAP_RESPONSE_OUT = 'sdc_comm.soap.response.out'
 SOAP_SUBSCRIPTION_IN = 'sdc_comm.soap.subscription.in'
 WSDL = 'sdc_comm.wsdl'
 
-LOGGER_NAMES = (DISCOVERY_IN, DISCOVERY_OUT, SOAP_REQUEST_IN, SOAP_REQUEST_OUT,
-                SOAP_RESPONSE_IN, SOAP_RESPONSE_OUT, SOAP_SUBSCRIPTION_IN, WSDL)
+LOGGER_NAMES = (
+    DISCOVERY_IN,
+    DISCOVERY_OUT,
+    SOAP_REQUEST_IN,
+    SOAP_REQUEST_OUT,
+    SOAP_RESPONSE_IN,
+    SOAP_RESPONSE_OUT,
+    SOAP_SUBSCRIPTION_IN,
+    WSDL,
+)
 
 
 class IpFilter(logging.Filter):
@@ -49,7 +60,10 @@ class CommLogger:
         """Stop logger."""
         for name, handler in self.handlers.items():
             logger = logging.getLogger(name)
+            # Ensure handlers are fully detached and closed (important on Windows)
             logger.removeHandler(handler)
+            with contextlib.suppress(Exception):
+                handler.close()
 
     def __enter__(self):
         self.start()
@@ -73,28 +87,46 @@ class DirectoryLogger(CommLogger):
     T_HTTP_REQ = 'http_req'
     T_HTTP_RESP = 'http_resp'
 
-    def __init__(self, log_folder: str | pathlib.Path, log_out: bool = False, log_in: bool = False,
-                 broadcast_ip_filter: str | None = None):
+    def __init__(
+        self,
+        log_folder: str | pathlib.Path,
+        log_out: bool = False,
+        log_in: bool = False,
+        broadcast_ip_filter: str | None = None,
+    ):
         super().__init__()
         self._log_folder = pathlib.Path(log_folder)
         self._counter = 1
         self._io_lock = threading.Lock()
 
         if log_in:
-            self.handlers.update({
-                DISCOVERY_IN: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_IN)),
-                SOAP_REQUEST_IN: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_REQ, self.D_IN)),
-                SOAP_RESPONSE_IN: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_RESP, self.D_IN)),
-                SOAP_SUBSCRIPTION_IN: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP, self.D_IN)),
-                WSDL: self._GenericHandler(functools.partial(self._write_log, self.T_WSDL, self.D_IN)),
-            })
+            self.handlers.update(
+                {
+                    DISCOVERY_IN: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_IN)),
+                    SOAP_REQUEST_IN: self._GenericHandler(
+                        functools.partial(self._write_log, self.T_HTTP_REQ, self.D_IN),
+                    ),
+                    SOAP_RESPONSE_IN: self._GenericHandler(
+                        functools.partial(self._write_log, self.T_HTTP_RESP, self.D_IN),
+                    ),
+                    SOAP_SUBSCRIPTION_IN: self._GenericHandler(
+                        functools.partial(self._write_log, self.T_HTTP, self.D_IN),
+                    ),
+                    WSDL: self._GenericHandler(functools.partial(self._write_log, self.T_WSDL, self.D_IN)),
+                },
+            )
         if log_out:
-            self.handlers.update({
-                DISCOVERY_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_OUT)),
-                SOAP_REQUEST_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_HTTP_REQ, self.D_OUT)),
-                SOAP_RESPONSE_OUT: self._GenericHandler(
-                    functools.partial(self._write_log, self.T_HTTP_RESP, self.D_OUT)),
-            })
+            self.handlers.update(
+                {
+                    DISCOVERY_OUT: self._GenericHandler(functools.partial(self._write_log, self.T_UDP, self.D_OUT)),
+                    SOAP_REQUEST_OUT: self._GenericHandler(
+                        functools.partial(self._write_log, self.T_HTTP_REQ, self.D_OUT),
+                    ),
+                    SOAP_RESPONSE_OUT: self._GenericHandler(
+                        functools.partial(self._write_log, self.T_HTTP_RESP, self.D_OUT),
+                    ),
+                },
+            )
         if broadcast_ip_filter:
             broadcast_filter = IpFilter(broadcast_ip_filter)
             if DISCOVERY_IN in self.handlers:
@@ -103,8 +135,26 @@ class DirectoryLogger(CommLogger):
                 self.handlers[DISCOVERY_OUT].addFilter(broadcast_filter)
 
     def start(self) -> None:
+        """Start logger and create log folder if it does not exist."""
         self._log_folder.mkdir(parents=True, exist_ok=True)
         super().start()
+
+    def stop(self) -> None:
+        """Stop logger and wait for any in-flight writes.
+
+        On Windows, directory cleanup can fail if a write is still
+        completing. Ensure we block until all writes guarded by
+        ``_io_lock`` have finished after detaching handlers.
+        """
+        super().stop()
+        # Ensure no concurrent writes are in progress
+        with contextlib.suppress(Exception):  # noqa: SIM117
+            with self._io_lock:
+                pass
+        # On Windows, allow a short grace period for file system/indexers
+        # to release any transient handles to freshly written files.
+        if os.name == 'nt':
+            time.sleep(0.05)
 
     def _mk_filename(self, ip_type: str, direction: str, *infos: str) -> str:
         """Create file name.
@@ -114,8 +164,14 @@ class DirectoryLogger(CommLogger):
         :param info: becomes part of filename
         :return:
         """
-        assert ip_type in (self.T_UDP, self.T_UDP_MULTICAST, self.T_HTTP,
-                           self.T_HTTP_REQ, self.T_HTTP_RESP, self.T_WSDL)
+        assert ip_type in (
+            self.T_UDP,
+            self.T_UDP_MULTICAST,
+            self.T_HTTP,
+            self.T_HTTP_REQ,
+            self.T_HTTP_RESP,
+            self.T_WSDL,
+        )
         assert direction in (self.D_IN, self.D_OUT)
         extension = 'wsdl' if ip_type == self.T_WSDL else 'xml'
         time_string = f'{time.time():06.3f}'[-8:]
