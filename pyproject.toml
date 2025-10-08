@@ -11,7 +11,7 @@ authors = [
 ]
 description = "Pure python implementation of IEEE11073 SDC protocol"
 readme = "README.rst"
-requires-python = ">=3.9, <3.14"
+requires-python = ">=3.9, <3.15"
 classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Developers',
