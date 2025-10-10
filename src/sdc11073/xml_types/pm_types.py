@@ -676,7 +676,7 @@ class MetricQuality(PropertyBasedPMType):
     Mode: GenerationMode | None = cp.EnumAttributeProperty('Mode',
                                                            implied_py_value=GenerationMode.REAL,
                                                            enum_cls=GenerationMode)
-    Qi: Decimal | None = cp.QualityIndicatorAttributeProperty('Qi', implied_py_value=Decimal('1'))
+    Qi: Decimal | None = cp.QualityIndicatorAttributeProperty('Qi', implied_py_value=Decimal(1))
     _props = ('Validity', 'Mode', 'Qi')
 
 
