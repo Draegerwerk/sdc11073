@@ -645,7 +645,7 @@ class AllowedValue(PropertyBasedPMType):
     Type: CodedValue | None = cp.SubElementProperty(pm.Type,
                                                     value_class=CodedValue,
                                                     is_optional=True)
-    Identification: CodedValue | None = cp.SubElementProperty(pm.Identification,
+    Identification: InstanceIdentifier | None = cp.SubElementProperty(pm.Identification,
                                                               value_class=InstanceIdentifier,
                                                               is_optional=True)
     Characteristic: Measurement | None = cp.SubElementProperty(pm.Characteristic,
@@ -655,7 +655,7 @@ class AllowedValue(PropertyBasedPMType):
 
     def __init__(self, value: str = '',
                  type_coding: CodedValue | None = None,
-                 identification: CodedValue | None = None,
+                 identification: InstanceIdentifier | None = None,
                  characteristic: Measurement | None = None):
         """Construct one AllowedValue of a EnumStringMetricDescriptor."""
         super().__init__()
