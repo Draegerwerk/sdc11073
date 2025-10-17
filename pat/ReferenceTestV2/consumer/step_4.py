@@ -1,4 +1,4 @@
-"""Tests metric updxates."""
+"""Tests metric updates."""
 
 from __future__ import annotations
 

@@ -1,5 +1,6 @@
 """Result collector for test results."""
 
+
 class _ResultCollector:
     def __init__(self):
         self._results: list[str] = []
@@ -14,7 +15,7 @@ class _ResultCollector:
 
     @property
     def failed(self) -> bool:
-        return self._failed
+        return self._failed or not self._results
 
     def print_summary(self) -> None:
         print('\n### Summary ###')

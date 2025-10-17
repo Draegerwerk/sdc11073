@@ -21,7 +21,8 @@ def test_3a(consumer: SdcConsumer):
     except Exception as ex:
         logger.exception('Error during %s reference provider answers to a GetMdib', step, extra={'step': step})
         result_collector.ResultCollector.log_failure(
-            step=step, message=f'Error during {step} reference provider answers to a GetMdib: {ex}',
+            step=step,
+            message=f'Error during {step} reference provider answers to a GetMdib: {ex}',
         )
 
 
@@ -33,11 +34,13 @@ def test_3b(consumer: SdcConsumer):
     context_service: ContextServiceClient | None = consumer.context_service_client
     if context_service is None:
         result_collector.ResultCollector.log_failure(
-            step=step, message='The reference provider does not offer a context service.',
+            step=step,
+            message='The reference provider does not offer a context service.',
         )
         return
     result: msg_types.GetContextStatesResponse = typing.cast(
-        'msg_types.GetContextStatesResponse', context_service.get_context_states().result,
+        'msg_types.GetContextStatesResponse',
+        context_service.get_context_states().result,
     )
     loc_states = [s for s in result.ContextState if pm_qnames.LocationContextState == s.NODETYPE]
     if len(loc_states) >= minimum_location_context_states:

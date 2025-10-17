@@ -1,12 +1,9 @@
-"""Implementation of reference consumer v2.
-
-If a value is not provided as environment variable, the default value (see code below) will be used.
-"""
+"""Implementation of reference consumer v2."""
 
 from __future__ import annotations
 
 import logging
-import os
+import pathlib
 import sys
 import time
 from concurrent import futures
@@ -14,33 +11,17 @@ from typing import TYPE_CHECKING
 
 from pat.ReferenceTestV2 import common
 from pat.ReferenceTestV2.consumer import result_collector, step_1, step_2, step_3, step_4, step_5, step_6
-from sdc11073.certloader import mk_ssl_contexts_from_folder
 from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.wsdiscovery import WSDiscovery
 
 if TYPE_CHECKING:
-    import sdc11073
+    import sdc11073.certloader
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
-    from sdc11073.wsdiscovery.service import Service
 
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
-
-
-def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
-    """Get ssl context from environment or None."""
-    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
-        return None
-    return mk_ssl_contexts_from_folder(
-        ca_folder,
-        private_key='user_private_key_encrypted.pem',
-        certificate='user_certificate_root_signed.pem',
-        ca_public_key='root_certificate.pem',
-        cyphers_file=None,
-        ssl_passwd=os.getenv('ref_ssl_passwd'),  # noqa:SIM112
-    )
 
 
 class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
@@ -112,24 +93,19 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         super()._on_description_modification_report(received_message_data)
 
 
-def connect_client(my_service: Service) -> SdcConsumer:
-    """Connect sdc consumer."""
-    client = SdcConsumer.from_wsd_service(my_service, ssl_context_container=get_ssl_context(), validate=True)
-    client.start_all()
-    return client
-
-
-def run_ref_test():
+def run_ref_test(
+    adapter: str,
+    epr: str,
+    ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+) -> None:
     """Run reference test."""
-    adapter_ip = common.get_network_adapter().ip
-    search_epr = common.get_epr()
     # Remark: 1a) is not testable because provider can't be forced to send a hello while this test is running.
-    wsd = WSDiscovery(adapter_ip)
+    wsd = WSDiscovery(adapter)
     wsd.start()
-    if not step_1.test_1b(wsd, search_epr):
+    if not step_1.test_1b(wsd, epr):
         return
     services = wsd.search_services(timeout=-1)
-    consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=get_ssl_context(), validate=True)
+    consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=ssl_context_container, validate=True)
     step_2.test_2a(consumer)
     step_2.test_2b(consumer)
 
@@ -163,12 +139,27 @@ def run_ref_test():
 
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='run plug-a-thon test consumer')
+    parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
+    parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
+    parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
+    parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(step)s - %(message)s'))
     logger = logging.getLogger('pat.consumer')
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
 
-    run_ref_test()
+    args = parser.parse_args()
+    run_ref_test(
+        adapter=args.adapter,
+        epr=args.epr,
+        ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password)
+        if args.certificate_folder
+        else None,
+    )
     result_collector.ResultCollector.print_summary()
     sys.exit(bool(result_collector.ResultCollector.failed))

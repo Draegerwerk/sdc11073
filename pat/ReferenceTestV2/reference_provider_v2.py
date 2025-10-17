@@ -1,25 +1,16 @@
-"""Implementation of reference provider.
-
-The reference provider gets its parameters from environment variables:
-- adapter_ip specifies which ip address shall be used
-- ca_folder specifies where the communication certificates are located.
-- ref_fac, ref_poc and ref_bed specify the location values facility, point of care and bed.
-- ssl_passwd specifies an optional password for the certificates.
-
-If a value is not provided as environment variable, the default value (see code below) will be used.
-"""
+"""Implementation of reference provider driven by CLI configuration."""
 
 from __future__ import annotations
 
 import datetime
-import logging.config
+import pathlib
 import traceback
 from decimal import Decimal
 from time import sleep
 from typing import TYPE_CHECKING
 
 from pat.ReferenceTestV2 import common
-from sdc11073.loghelper import LoggerAdapter
+from sdc11073 import location
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
 from sdc11073.provider import SdcProvider, components
 from sdc11073.provider.servicesfactory import DPWSHostedService, HostedServices, mk_dpws_hosts
@@ -31,8 +22,10 @@ from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
-    from sdc11073.provider.components import SdcProviderComponents
+    import os
 
+    import sdc11073.certloader
+    from sdc11073.provider.components import SdcProviderComponents
 
 numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
 string_metric_handle = 'string_metric_0.channel_0.vmd_0.mds_0'
@@ -139,18 +132,22 @@ def provide_realtime_data(sdc_provider: SdcProvider):
         waveform_provider.register_waveform_generator(waveform, wf_generator)
 
 
-def run_provider():  # noqa: PLR0915, PLR0912, C901
+def run_provider(  # noqa: C901, PLR0912, PLR0915
+    mdib_path: os.PathLike[str],
+    adapter: str,
+    epr: str,
+    ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+):
     """Run provider until KeyboardError is raised."""
-    logger = logging.getLogger('sdc')
-    logger = LoggerAdapter(logger)
-    logger.info('%s', 'start')
-    adapter_ip = common.get_network_adapter().ip
-    wsd = WSDiscovery(adapter_ip)
+    wsd = WSDiscovery(adapter)
     wsd.start()
-    my_mdib = ProviderMdib.from_mdib_file(str(common.get_mdib_path()))
-    my_uuid = common.get_epr()
-    print(f'UUID for this device is urn:uuid:{my_uuid}')
-    loc = common.get_location()
+    my_mdib = ProviderMdib.from_mdib_file(str(mdib_path))
+    print(f'UUID for this device is {epr}')
+    loc = location.SdcLocation(
+        fac='fac1',
+        poc='poc1',
+        bed='bed1',
+    )
     print(f'location for this device is {loc}')
     dpws_model = ThisModelType(
         manufacturer='sdc11073',
@@ -162,7 +159,6 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
     )
 
     dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
-    ssl_context = common.get_ssl_context()
     if USE_REFERENCE_PARAMETERS:
         tmp = {'StateEvent': SubscriptionsManagerReferenceParamAsync}
         specific_components = components.SdcProviderComponents(
@@ -199,8 +195,8 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
         dpws_model,
         dpws_device,
         my_mdib,
-        my_uuid,
-        ssl_context_container=ssl_context,
+        epr,
+        ssl_context_container=ssl_context_container,
         specific_components=specific_components,
         max_subscription_duration=15,
     )
@@ -428,4 +424,27 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
 
 
 if __name__ == '__main__':
-    run_provider()
+    import argparse
+
+    parser = argparse.ArgumentParser(description='run plug-a-thon test provider')
+    parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
+    parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
+    parser.add_argument(
+        '--mdib-path',
+        required=True,
+        type=pathlib.Path,
+        help='Override MDIB file used by the provider.',
+        default=pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml'),
+    )
+    parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
+    parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
+
+    args = parser.parse_args()
+    run_provider(
+        mdib_path=args.mdib_path,
+        adapter=args.adapter,
+        epr=args.epr,
+        ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password)
+        if args.certificate_folder
+        else None,
+    )

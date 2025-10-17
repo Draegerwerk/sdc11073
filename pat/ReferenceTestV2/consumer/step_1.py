@@ -25,15 +25,17 @@ def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str):
     timeout = 10.0
     sent_hello_event = threading.Event()
     observer = functools.partial(on_hello, step, sent_hello_event, epr)
-    discovery.set_remote_service_hello_callback(observer)
-    if sent_hello_event.wait(timeout):
-        result_collector.ResultCollector.log_success(step=step, message='Hello received in ad-hoc mode')
-    else:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'Hello not received in ad-hoc mode within {timeout}s.',
-        )
-    discovery.set_remote_service_hello_callback(None)
+    try:
+        discovery.set_remote_service_hello_callback(observer)
+        if sent_hello_event.wait(timeout):
+            result_collector.ResultCollector.log_success(step=step, message='Hello received in ad-hoc mode')
+        else:
+            result_collector.ResultCollector.log_failure(
+                step=step,
+                message=f'Hello not received in ad-hoc mode within {timeout}s.',
+            )
+    finally:
+        discovery.set_remote_service_hello_callback(None)
 
 
 def on_probe_matches(step: str, event: threading.Event, expected_epr: str, services: Sequence[wsdiscovery.Service]):
@@ -58,31 +60,35 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
     # if the epr is already known you can directly use resolve, but test specification requires probe to be tested
     probe_matches_event = threading.Event()
     observer = functools.partial(on_probe_matches, step, probe_matches_event, epr)
-    discovery.set_on_probe_matches_callback(observer)
-    discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
-    if probe_matches_event.wait(timeout):
-        result_collector.ResultCollector.log_success(step=step, message='Probe matches received in ad-hoc mode')
-    else:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'Probe matches not received in ad-hoc mode within {timeout}s.',
-        )
-    discovery.set_on_probe_matches_callback(None)
+    try:
+        discovery.set_on_probe_matches_callback(observer)
+        discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
+        if probe_matches_event.wait(timeout):
+            result_collector.ResultCollector.log_success(step=step, message='Probe matches received in ad-hoc mode')
+        else:
+            result_collector.ResultCollector.log_failure(
+                step=step,
+                message=f'Probe matches not received in ad-hoc mode within {timeout}s.',
+            )
+    finally:
+        discovery.set_on_probe_matches_callback(None)
     if not probe_matches_event.is_set():
         return False
 
     resolve_match_event = threading.Event()
     observer = functools.partial(on_resolve_match, step, resolve_match_event, epr)
-    discovery.set_remote_service_resolve_match_callback(observer)
-    discovery._send_resolve(epr)  # noqa: SLF001
-    if resolve_match_event.wait(timeout):
-        result_collector.ResultCollector.log_success(step=step, message='Resolve match received in ad-hoc mode')
-    else:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'Resolve match not received in ad-hoc mode within {timeout}s.',
-        )
-    discovery.set_remote_service_resolve_match_callback(None)
+    try:
+        discovery.set_remote_service_resolve_match_callback(observer)
+        discovery._send_resolve(epr)  # noqa: SLF001
+        if resolve_match_event.wait(timeout):
+            result_collector.ResultCollector.log_success(step=step, message='Resolve match received in ad-hoc mode')
+        else:
+            result_collector.ResultCollector.log_failure(
+                step=step,
+                message=f'Resolve match not received in ad-hoc mode within {timeout}s.',
+            )
+    finally:
+        discovery.set_remote_service_resolve_match_callback(None)
     return resolve_match_event.is_set()
 
 

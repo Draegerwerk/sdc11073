@@ -21,7 +21,8 @@ def test_2a(consumer: SdcConsumer):
     except Exception as ex:
         logger.exception('The reference provider answers to a TransferGet', extra={'step': step})
         result_collector.ResultCollector.log_failure(
-            step=step, message=f'Error during {step} reference provider answers to a TransferGet: {ex}',
+            step=step,
+            message=f'Error during {step} reference provider answers to a TransferGet: {ex}',
         )
 
 
