@@ -3,7 +3,7 @@
 import logging
 import typing
 
-from pat.consumer import result_collector
+from pat.consumer_tests import result_collector
 from sdc11073.consumer import ContextServiceClient, GetServiceClient, SdcConsumer
 from sdc11073.xml_types import actions, msg_types, pm_qnames
 

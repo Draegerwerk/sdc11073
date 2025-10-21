@@ -10,7 +10,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from pat.consumer import result_collector
+from pat.consumer_tests import result_collector
 from sdc11073.observableproperties import observables
 from sdc11073.xml_types import pm_qnames
 

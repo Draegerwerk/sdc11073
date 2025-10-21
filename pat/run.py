@@ -13,8 +13,8 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
-from pat import reference_provider_v2, reference_consumer_v2, common
-from pat.consumer import result_collector
+from pat import common, consumer, provider
+from pat.consumer_tests import result_collector
 
 if TYPE_CHECKING:
     import os
@@ -34,12 +34,17 @@ def run(
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
     threading.Thread(
-        target=reference_provider_v2.run_provider,
+        target=provider.run_provider,
         args=(mdib_path, adapter, epr, ssl_context_container),
         daemon=True,
     ).start()
     time.sleep(10)
-    reference_consumer_v2.run_ref_test(adapter=adapter, epr=epr, ssl_context_container=ssl_context_container, samples_per_message_4f=samples_per_message)
+    consumer.run_ref_test(
+        adapter=adapter,
+        epr=epr,
+        ssl_context_container=ssl_context_container,
+        samples_per_message_4f=samples_per_message,
+    )
 
 
 if __name__ == '__main__':

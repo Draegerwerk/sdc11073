@@ -3,7 +3,7 @@
 import logging
 import time
 
-from pat.consumer import result_collector
+from pat.consumer_tests import result_collector
 from sdc11073.consumer import ConsumerSubscription, SdcConsumer
 
 __STEP__ = '2'

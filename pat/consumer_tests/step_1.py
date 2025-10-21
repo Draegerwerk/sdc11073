@@ -5,7 +5,7 @@ import logging
 import threading
 from collections.abc import Sequence
 
-from pat.consumer import result_collector
+from pat.consumer_tests import result_collector
 from sdc11073 import definitions_sdc, wsdiscovery
 
 __STEP__ = '1'

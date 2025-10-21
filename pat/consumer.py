@@ -10,7 +10,7 @@ from concurrent import futures
 from typing import TYPE_CHECKING
 
 from pat import common
-from pat.consumer import result_collector, step_1, step_2, step_3, step_4, step_5, step_6
+from pat.consumer_tests import result_collector, step_1, step_2, step_3, step_4, step_5, step_6
 from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods

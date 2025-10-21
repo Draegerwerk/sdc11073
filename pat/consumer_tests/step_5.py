@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 
-from pat.consumer import result_collector
+from pat.consumer_tests import result_collector
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.observableproperties import observables
 
