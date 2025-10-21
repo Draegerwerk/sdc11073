@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 
-from pat.ReferenceTestV2.consumer import result_collector
+from pat.consumer import result_collector
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.observableproperties import observables
 
@@ -29,6 +29,14 @@ def test_5a(mdib: ConsumerMdib):
     time.sleep(max_time_between_updates)
 
     updates: list[float] = mdib.xtra.alert_condition_type_concept_updates
+
+    if not updates:
+        result_collector.ResultCollector.log_failure(
+            step=step,
+            message='No alert condition concept description updates were recorded',
+        )
+        return
+
     if max(updates) <= max_time_between_updates:
         result_collector.ResultCollector.log_success(
             step=step,
@@ -43,6 +51,14 @@ def test_5a(mdib: ConsumerMdib):
         )
 
     updates: list[float] = mdib.xtra.alert_condition_cause_remedy_updates
+
+    if not updates:
+        result_collector.ResultCollector.log_failure(
+            step=step,
+            message='No alert condition cause-remedy information updates were recorded',
+        )
+        return
+
     if max(updates) <= max_time_between_updates:
         result_collector.ResultCollector.log_success(
             step=step,

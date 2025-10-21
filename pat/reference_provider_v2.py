@@ -9,7 +9,7 @@ from decimal import Decimal
 from time import sleep
 from typing import TYPE_CHECKING
 
-from pat.ReferenceTestV2 import common
+from pat import common
 from sdc11073 import location
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
 from sdc11073.provider import SdcProvider, components
@@ -431,7 +431,6 @@ if __name__ == '__main__':
     parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
     parser.add_argument(
         '--mdib-path',
-        required=True,
         type=pathlib.Path,
         help='Override MDIB file used by the provider.',
         default=pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml'),

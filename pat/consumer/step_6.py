@@ -11,7 +11,7 @@ import threading
 import typing
 import uuid
 
-from pat.ReferenceTestV2.consumer import result_collector
+from pat.consumer import result_collector
 from sdc11073.mdib import descriptorcontainers, statecontainers
 from sdc11073.observableproperties import observables
 from sdc11073.xml_types import msg_types, pm_qnames, pm_types
@@ -103,7 +103,7 @@ def test_6b(consumer: SdcConsumer):  # noqa: C901
                         f'seconds',
                     )
                     continue
-                if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+                if operation_result.InvocationInfo.InvocationState not in (msg_types.InvocationState.FINISHED, msg_types.InvocationState.FINISHED_MOD):
                     result_collector.ResultCollector.log_failure(
                         step=step,
                         message=f'SetContextState operation failed with the following error '
@@ -369,6 +369,7 @@ def test_6f(consumer: SdcConsumer):
                 step=step,
                 message=f'SetMetricState operation not finished within the timeout of {operation_timeout} seconds',
             )
+            return
         if operation_result.InvocationInfo.InvocationState in (msg_types.InvocationState.FINISHED,):
             result_collector.ResultCollector.log_success(
                 step=step,

@@ -3,9 +3,9 @@
 import logging
 import typing
 
-from pat.ReferenceTestV2.consumer import result_collector
+from pat.consumer import result_collector
 from sdc11073.consumer import ContextServiceClient, GetServiceClient, SdcConsumer
-from sdc11073.xml_types import msg_types, pm_qnames
+from sdc11073.xml_types import actions, msg_types, pm_qnames
 
 __STEP__ = '3'
 logger = logging.getLogger(f'pat.consumer.step_{__STEP__}')
@@ -17,7 +17,17 @@ def test_3a(consumer: SdcConsumer):
     get_service: GetServiceClient = consumer.get_service_client
 
     try:
-        _ = get_service.get_mdib()
+        result = get_service.get_mdib()
+        if result.action == actions.Actions.GetMdibResponse:
+            result_collector.ResultCollector.log_success(
+                step=step,
+                message='The reference provider answered to GetMdib with a GetMdibResponse.',
+            )
+        else:
+            result_collector.ResultCollector.log_failure(
+                step=step,
+                message=f'The reference provider answered to GetMdib with an unexpected action: {result.action}.',
+            )
     except Exception as ex:
         logger.exception('Error during %s reference provider answers to a GetMdib', step, extra={'step': step})
         result_collector.ResultCollector.log_failure(

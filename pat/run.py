@@ -13,8 +13,8 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
-from pat.ReferenceTestV2 import common, reference_consumer_v2, reference_provider_v2
-from pat.ReferenceTestV2.consumer import result_collector
+from pat import reference_provider_v2, reference_consumer_v2, common
+from pat.consumer import result_collector
 
 if TYPE_CHECKING:
     import os
@@ -27,6 +27,7 @@ def run(
     adapter: str,
     epr: str,
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+    samples_per_message: int,
 ) -> None:
     """Run tests."""
     with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
@@ -38,7 +39,7 @@ def run(
         daemon=True,
     ).start()
     time.sleep(10)
-    reference_consumer_v2.run_ref_test(adapter=adapter, epr=epr, ssl_context_container=ssl_context_container)
+    reference_consumer_v2.run_ref_test(adapter=adapter, epr=epr, ssl_context_container=ssl_context_container, samples_per_message_4f=samples_per_message)
 
 
 if __name__ == '__main__':
@@ -57,12 +58,17 @@ if __name__ == '__main__':
         default=pathlib.Path(__file__).parent.parent.joinpath('certs').resolve(),
     )
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.', default='dummypass')
-
     parser.add_argument(
         '--mdib-path',
         type=pathlib.Path,
         help='Override MDIB file used by the provider.',
         default=pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml'),
+    )
+    parser.add_argument(
+        '--samples-per-message',
+        type=int,
+        help='Number of samples per waveform message expected to be sent by the provider.',
+        default=100,
     )
 
     args = parser.parse_args()
@@ -71,6 +77,7 @@ if __name__ == '__main__':
         adapter=args.adapter,
         epr=args.epr,
         ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password) if args.tls else None,
+        samples_per_message=args.samples_per_message,
     )
     result_collector.ResultCollector.print_summary()
     sys.exit(bool(result_collector.ResultCollector.failed))
