@@ -11,7 +11,7 @@ import threading
 import typing
 import uuid
 
-from pat.consumer_tests import result_collector
+# result_collector removed; use logger and boolean returns instead
 from sdc11073.mdib import descriptorcontainers, statecontainers
 from sdc11073.observableproperties import observables
 from sdc11073.xml_types import msg_types, pm_qnames, pm_types
@@ -26,7 +26,7 @@ __STEP__ = '6'
 logger = logging.getLogger('pat.consumer')
 
 
-def test_6b(consumer: SdcConsumer):  # noqa: C901
+def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
     """The Reference Consumer invokes SetContextState:
     - Payload: 1 patient context
     - Context state is added to the MDIB including context association and validation
@@ -44,8 +44,8 @@ def test_6b(consumer: SdcConsumer):  # noqa: C901
         consumer.mdib.descriptions.NODETYPE.get(pm_qnames.PatientContextDescriptor, [])
     )
     if not patient_context_descriptors:
-        result_collector.ResultCollector.log_failure(step=step, message='No patient descriptor found in mdib')
-        return
+        logger.error('No patient descriptor found in mdib', extra={'step': step})
+        return False
 
     context_service: contextservice.ContextServiceClient = typing.cast(
         'contextservice.ContextServiceClient',
@@ -72,6 +72,7 @@ def test_6b(consumer: SdcConsumer):  # noqa: C901
                     if state.CoreData.Familyname == pat.CoreData.Familyname and not event.is_set():
                         event.set()
 
+    test_results: list[bool] = []
     for p in patient_context_descriptors:
         for association in list(pm_types.ContextAssociation):
             pat: statecontainers.PatientContextStateContainer = typing.cast(
@@ -97,36 +98,49 @@ def test_6b(consumer: SdcConsumer):  # noqa: C901
                 try:
                     operation_result = fut.result(operation_timeout)
                 except TimeoutError:
-                    result_collector.ResultCollector.log_failure(
-                        step=step,
-                        message=f'SetContextState operation not finished within the timeout of {operation_timeout} '
-                        f'seconds',
+                    logger.exception(
+                        'SetContextState operation not finished within the timeout of %s seconds',
+                        operation_timeout,
+                        extra={'step': step},
                     )
+                    test_results.append(False)
                     continue
-                if operation_result.InvocationInfo.InvocationState not in (msg_types.InvocationState.FINISHED, msg_types.InvocationState.FINISHED_MOD):
-                    result_collector.ResultCollector.log_failure(
-                        step=step,
-                        message=f'SetContextState operation failed with the state {operation_result.InvocationInfo.InvocationState} and the error '
-                        f'{operation_result.InvocationInfo.InvocationError}: '
-                        f'{operation_result.InvocationInfo.InvocationErrorMessage}',
+                if operation_result.InvocationInfo.InvocationState not in (
+                    msg_types.InvocationState.FINISHED,
+                    msg_types.InvocationState.FINISHED_MOD,
+                ):
+                    logger.error(
+                        'SetContextState operation failed with the state %s and the error %s: %s',
+                        operation_result.InvocationInfo.InvocationState,
+                        operation_result.InvocationInfo.InvocationError,
+                        operation_result.InvocationInfo.InvocationErrorMessage,
+                        extra={'step': step},
                     )
+                    test_results.append(False)
                     continue
 
                 if event.wait(patient_context_update_timeout):
-                    result_collector.ResultCollector.log_success(
-                        step=step,
-                        message=f'Patient context "{pat.CoreData.Familyname}" with association {association} was '
-                        f'successfully added to the MDIB',
+                    logger.info(
+                        'Patient context "%s" with association %s was successfully added to the MDIB',
+                        pat.CoreData.Familyname,
+                        association,
+                        extra={'step': step},
                     )
+                    test_results.append(True)
                 else:
-                    result_collector.ResultCollector.log_failure(
-                        step=step,
-                        message=f'Patient context "{pat.CoreData.Familyname}" with association {association} was not '
-                        f'added to the MDIB within the timeout of {patient_context_update_timeout} seconds',
+                    logger.error(
+                        'Patient context "%s" with association %s was not added to the MDIB within the timeout '
+                        'of %s seconds',
+                        pat.CoreData.Familyname,
+                        association,
+                        patient_context_update_timeout,
+                        extra={'step': step},
                     )
+                    test_results.append(False)
+    return any(test_results) and all(test_results)
 
 
-def test_6c(consumer: SdcConsumer):
+def test_6c(consumer: SdcConsumer) -> bool:
     """The Reference Consumer invokes SetValue:
     - The Reference Provider immediately responds with Fin
     - The Reference Provider sends Fin as a report in addition to the response
@@ -137,51 +151,54 @@ def test_6c(consumer: SdcConsumer):
 
     operations_ = consumer.mdib.descriptions.NODETYPE.get(pm_qnames.SetValueOperationDescriptor)
     if not operations_:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message='The reference provider provides no set value operations',
-        )
+        logger.error('The reference provider provides no set value operations', extra={'step': step})
+        return False
+    test_results: list[bool] = []
     for operation in operations_:
         fut: Future[operations.OperationResult] = set_service.set_numeric_value(operation.Handle, decimal.Decimal(42))
         try:
             operation_result = fut.result(operation_timeout)
         except TimeoutError:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetNumericValue operation not finished within the timeout of {operation_timeout} seconds',
+            logger.exception(
+                'SetNumericValue operation not finished within the timeout of %s seconds',
+                operation_timeout,
+                extra={'step': step},
             )
+            test_results.append(False)
             continue
         if len(operation_result.report_parts) == 0:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message='SetNumericValue operation finished with 0 report parts, but expected exactly 1',
+            logger.error(
+                'SetNumericValue operation finished with 0 report parts, but expected exactly 1',
+                extra={'step': step},
             )
+            test_results.append(False)
         elif len(operation_result.report_parts) > 1:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetNumericValue operation finished with {len(operation_result.report_parts)} report parts, '
-                f'but expected exactly 1',
+            logger.error(
+                'SetNumericValue operation finished with %d report parts, but expected exactly 1',
+                len(operation_result.report_parts),
+                extra={'step': step},
             )
+            test_results.append(False)
 
         if operation_result.InvocationInfo.InvocationState in (
             msg_types.InvocationState.FINISHED,
             msg_types.InvocationState.FINISHED_MOD,
         ):
-            result_collector.ResultCollector.log_success(
-                step=step,
-                message='SetNumericValue operation finished immediately responds with Fin',
-            )
+            logger.info('SetNumericValue operation finished immediately responds with Fin', extra={'step': step})
+            test_results.append(True)
         else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetNumericValue operation failed with invocation state '
-                f'{operation_result.InvocationInfo.InvocationState} and error '
-                f'{operation_result.InvocationInfo.InvocationError}: '
-                f'{operation_result.InvocationInfo.InvocationErrorMessage}',
+            logger.error(
+                'SetNumericValue operation failed with invocation state %s and error %s: %s',
+                operation_result.InvocationInfo.InvocationState,
+                operation_result.InvocationInfo.InvocationError,
+                operation_result.InvocationInfo.InvocationErrorMessage,
+                extra={'step': step},
             )
+            test_results.append(False)
+    return any(test_results) and all(test_results)
 
 
-def test_6d(consumer: SdcConsumer):
+def test_6d(consumer: SdcConsumer) -> bool:
     """The Reference Consumer invokes SetString:
     - The Reference Provider initiates a transaction that sends Wait, Start and Fin
     """  # noqa: D205, D400, D415
@@ -196,54 +213,74 @@ def test_6d(consumer: SdcConsumer):
 
     operations_ = consumer.mdib.descriptions.NODETYPE.get(pm_qnames.SetStringOperationDescriptor)
     if not operations_:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message='The reference provider provides no set value operations',
-        )
+        logger.error('The reference provider provides no set value operations', extra={'step': step})
+        return False
 
+    test_results: list[bool] = []
     for operation in operations_:
         fut: Future[operations.OperationResult] = set_service.set_string(operation.Handle, uuid.uuid4().hex)
         try:
             operation_result = fut.result(operation_timeout)
         except TimeoutError:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetString operation not finished within the timeout of {operation_timeout} seconds',
+            logger.exception(
+                'SetString operation not finished within the timeout of %s seconds',
+                operation_timeout,
+                extra={'step': step},
             )
+            test_results.append(False)
             continue
         if len(operation_result.report_parts) != len(expected_order):
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetString operation finished with {len(operation_result.report_parts)} report parts, '
-                f'but expected exactly {len(expected_order)}',
+            logger.error(
+                'SetString operation finished with %d report parts, but expected exactly %d',
+                len(operation_result.report_parts),
+                len(expected_order),
+                extra={'step': step},
             )
+            test_results.append(False)
             continue
-        for report in (report for report in operation_result.report_parts if report.InvocationInfo.InvocationState not in expected_order):
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetString operation returned unexpected invocation state '
-                f'{report.InvocationInfo.InvocationState} with error '
-                f'{report.InvocationInfo.InvocationError}: '
-                f'{report.InvocationInfo.InvocationErrorMessage}',
+        for report in (
+            report
+            for report in operation_result.report_parts
+            if report.InvocationInfo.InvocationState not in expected_order
+        ):
+            logger.error(
+                'SetString operation returned unexpected invocation state %s with error %s: %s',
+                report.InvocationInfo.InvocationState,
+                report.InvocationInfo.InvocationError,
+                report.InvocationInfo.InvocationErrorMessage,
+                extra={'step': step},
             )
+            test_results.append(False)
         for expected, actual in zip(
             expected_order,
             (p.InvocationInfo.InvocationState for p in operation_result.report_parts),
             strict=True,
         ):
             if expected == actual:
-                result_collector.ResultCollector.log_success(
-                    step=step,
-                    message=f'The answer of SetString operation is "{expected}" as expected',
-                )
+                logger.info('The answer of SetString operation is "%s" as expected', expected, extra={'step': step})
             else:
-                result_collector.ResultCollector.log_failure(
-                    step=step,
-                    message=f'The answer of SetString operation is "{actual}", but expected "{expected}"',
+                logger.error(
+                    'The answer of SetString operation is "%s", but expected "%s"',
+                    actual,
+                    expected,
+                    extra={'step': step},
                 )
+                test_results.append(False)
+        if not any(
+            expected == actual
+            for expected, actual in zip(
+                expected_order,
+                (p.InvocationInfo.InvocationState for p in operation_result.report_parts),
+                strict=True,
+            )
+        ):
+            test_results.append(False)
+        else:
+            test_results.append(True)
+    return any(test_results) and all(test_results)
 
 
-def test_6e(consumer: SdcConsumer):  # noqa: C901, PLR0912
+def test_6e(consumer: SdcConsumer) -> bool:  # noqa: C901, PLR0912
     """The Reference Consumer invokes SetMetricStates:
     - Payload: 2 metric states (settings; consider alert limits)
     - The Reference Provider immediately responds with Fin
@@ -257,10 +294,8 @@ def test_6e(consumer: SdcConsumer):  # noqa: C901, PLR0912
 
     operations_ = consumer.mdib.descriptions.NODETYPE.get(pm_qnames.SetMetricStateOperationDescriptor)
     if not operations_:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message='The reference provider provides no set value operations',
-        )
+        logger.error('The reference provider provides no set value operations', extra={'step': step})
+        return False
 
     metric_settings = [
         m
@@ -268,11 +303,15 @@ def test_6e(consumer: SdcConsumer):  # noqa: C901, PLR0912
         if m.is_metric_descriptor and m.MetricCategory == pm_types.MetricCategory.SETTING
     ]
     if not metric_settings or len(metric_settings) < metric_state_counts:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'The reference provider does not provide at least {metric_state_counts} metrics with '
-            f'@MetricCategory="{pm_types.MetricCategory.SETTING}", but found {len(metric_settings)}',
+        logger.error(
+            'The reference provider does not provide at least %d metrics with @MetricCategory="%s", but found %d',
+            metric_state_counts,
+            pm_types.MetricCategory.SETTING,
+            len(metric_settings),
+            extra={'step': step},
         )
+        return False
+    test_results: list[bool] = []
     for operation in operations_:
         metrics = random.sample(metric_settings, metric_state_counts)
         proposed_states = [consumer.mdib.xtra.mk_proposed_state(m.Handle) for m in metrics]
@@ -297,37 +336,40 @@ def test_6e(consumer: SdcConsumer):  # noqa: C901, PLR0912
         try:
             operation_result = fut.result(operation_timeout)
         except TimeoutError:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetMetricState operation not finished within the timeout of {operation_timeout} seconds',
+            logger.exception(
+                'SetMetricState operation not finished within the timeout of %s seconds',
+                operation_timeout,
+                extra={'step': step},
             )
+            test_results.append(False)
             continue
         if len(operation_result.report_parts) != 1:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetString operation finished with {len(operation_result.report_parts)} report parts, but '
-                f'expected exactly 1',
+            logger.error(
+                'SetString operation finished with %d report parts, but expected exactly 1',
+                len(operation_result.report_parts),
+                extra={'step': step},
             )
+            test_results.append(False)
             continue
         if operation_result.InvocationInfo.InvocationState in (
             msg_types.InvocationState.FINISHED,
             msg_types.InvocationState.FINISHED_MOD,
         ):
-            result_collector.ResultCollector.log_success(
-                step=step,
-                message='SetMetricState operation finished immediately responds with Fin',
-            )
+            logger.info('SetMetricState operation finished immediately responds with Fin', extra={'step': step})
+            test_results.append(True)
         else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetMetricState operation failed with invocation state '
-                f'{operation_result.InvocationInfo.InvocationState} and error '
-                f'{operation_result.InvocationInfo.InvocationError}: '
-                f'{operation_result.InvocationInfo.InvocationErrorMessage}',
+            logger.error(
+                'SetMetricState operation failed with invocation state %s and error %s: %s',
+                operation_result.InvocationInfo.InvocationState,
+                operation_result.InvocationInfo.InvocationError,
+                operation_result.InvocationInfo.InvocationErrorMessage,
+                extra={'step': step},
             )
+            test_results.append(False)
+    return any(test_results) and all(test_results)
 
 
-def test_6f(consumer: SdcConsumer):
+def test_6f(consumer: SdcConsumer) -> bool:
     """The Reference Provider invokes Activate:
     - Payload: 3 arguments
     - The Reference Provider immediately responds with Fin
@@ -348,11 +390,12 @@ def test_6f(consumer: SdcConsumer):
     try:
         activate_operation = consumer.mdib.get_entity(activate_operation_handle)
     except KeyError:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'no operation with handle "{activate_operation_handle}" found in MDIB',
+        logger.exception(
+            'no operation with handle "%s" found in MDIB',
+            activate_operation_handle,
+            extra={'step': step},
         )
-        return
+        return False
     expected_value = ''.join([argument.ArgValue for argument in arguments])
     observed = threading.Event()
 
@@ -373,22 +416,25 @@ def test_6f(consumer: SdcConsumer):
         try:
             operation_result = fut.result(operation_timeout)
         except TimeoutError:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'SetMetricState operation not finished within the timeout of {operation_timeout} seconds',
+            logger.exception(
+                'SetMetricState operation not finished within the timeout of %s seconds',
+                operation_timeout,
+                extra={'step': step},
             )
-            return
+            return False
         if operation_result.InvocationInfo.InvocationState in (msg_types.InvocationState.FINISHED,):
-            result_collector.ResultCollector.log_success(
-                step=step,
-                message=f'The metric with the handle "{activate_operation.descriptor.OperationTarget}" contains '
-                f'{expected_value} as @MetricValue/@Value.',
+            logger.info(
+                'The metric with the handle %s contains %s as @MetricValue/@Value.',
+                activate_operation.descriptor.OperationTarget,
+                expected_value,
+                extra={'step': step},
             )
-        else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'Activate operation failed with invocation state '
-                f'{operation_result.InvocationInfo.InvocationState} and error '
-                f'{operation_result.InvocationInfo.InvocationError}: '
-                f'{operation_result.InvocationInfo.InvocationErrorMessage}',
-            )
+            return True
+        logger.error(
+            'Activate operation failed with invocation state %s and error %s: %s',
+            operation_result.InvocationInfo.InvocationState,
+            operation_result.InvocationInfo.InvocationError,
+            operation_result.InvocationInfo.InvocationErrorMessage,
+            extra={'step': step},
+        )
+        return False

@@ -10,7 +10,7 @@ from concurrent import futures
 from typing import TYPE_CHECKING
 
 from pat import common
-from pat.consumer_tests import result_collector, step_1, step_2, step_3, step_4, step_5, step_6
+from pat.consumer_tests import step_1, step_2, step_3, step_4, step_5, step_6
 from sdc11073.consumer import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
@@ -100,22 +100,22 @@ def run_ref_test(
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
     execute_1a: bool,
     network_delay: float,
-) -> None:
+) -> bool:
     """Run reference test."""
     wsd = WSDiscovery(adapter)
     wsd.start()
-    if execute_1a:
-        step_1.test_1a(wsd, epr)
-    if not step_1.test_1b(wsd, epr):
-        return
+    res_1a = step_1.test_1a(wsd, epr) if execute_1a else True
+    res_1b = step_1.test_1b(wsd, epr)
+    if not res_1b:
+        return False
     services: list[Service] = wsd.search_services(timeout=-1)  # services have already been found in 1b
     service = next(s for s in services if s.epr == epr)
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
-    step_2.test_2a(consumer)
-    step_2.test_2b(consumer)
+    res_2a = step_2.test_2a(consumer)
+    res_2b = step_2.test_2b(consumer)
 
-    step_3.test_3a(consumer)
-    step_3.test_3b(consumer)
+    res_3a = step_3.test_3a(consumer)
+    res_3b = step_3.test_3b(consumer)
 
     mdib = ConsumerMdib(consumer, extras_cls=ConsumerMdibMethodsReferenceTest)
     mdib.init_mdib()
@@ -154,6 +154,12 @@ def run_ref_test(
         test_6d = thread_test_6d.result()
         test_6e = thread_test_6e.result()
         test_6f = thread_test_6f.result()
+    print('1a:', res_1a)
+    print('1b:', res_1b)
+    print('2a:', res_2a)
+    print('2b:', res_2b)
+    print('3a:', res_3a)
+    print('3b:', res_3b)
     print('4a:', test_4a)
     print('4b:', test_4b)
     print('4c:', test_4c)
@@ -170,6 +176,32 @@ def run_ref_test(
     print('6d:', test_6d)
     print('6e:', test_6e)
     print('6f:', test_6f)
+
+    results = [
+        res_1a,
+        res_1b,
+        res_2a,
+        res_2b,
+        res_3a,
+        res_3b,
+        test_4a,
+        test_4b,
+        test_4c,
+        test_4d,
+        test_4e,
+        test_4f,
+        test_4g,
+        test_4h,
+        test_4i,
+        test_5a,
+        test_5b,
+        test_6b,
+        test_6c,
+        test_6d,
+        test_6e,
+        test_6f,
+    ]
+    return all(r is True for r in results)
 
 
 if __name__ == '__main__':
@@ -190,7 +222,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
 
     args = parser.parse_args()
-    run_ref_test(
+    passed = run_ref_test(
         adapter=args.adapter,
         epr=args.epr,
         ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password)
@@ -199,5 +231,4 @@ if __name__ == '__main__':
         network_delay=args.network_delay,
         execute_1a=args.execute_1a,
     )
-    result_collector.ResultCollector.print_summary()
-    sys.exit(bool(result_collector.ResultCollector.failed))
+    sys.exit(0 if passed else 1)

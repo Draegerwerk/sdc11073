@@ -5,7 +5,6 @@ import logging
 import threading
 from collections.abc import Sequence
 
-from pat.consumer_tests import result_collector
 from sdc11073 import definitions_sdc, wsdiscovery
 
 __STEP__ = '1'
@@ -19,7 +18,7 @@ def on_hello(step: str, event: threading.Event, expected_epr: str, addr_from: st
         event.set()
 
 
-def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str):
+def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
     """The Reference Provider sends Hello messages in ad-hoc mode."""
     step = f'{__STEP__}a'
     timeout = 10.0
@@ -28,12 +27,10 @@ def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str):
     try:
         discovery.set_remote_service_hello_callback(observer)
         if sent_hello_event.wait(timeout):
-            result_collector.ResultCollector.log_success(step=step, message='Hello received in ad-hoc mode')
-        else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'Hello not received in ad-hoc mode within {timeout}s.',
-            )
+            logger.info('Hello received in ad-hoc mode', extra={'step': step})
+            return True
+        logger.error('Hello not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
+        return False
     finally:
         discovery.set_remote_service_hello_callback(None)
 
@@ -64,12 +61,9 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
         discovery.set_on_probe_matches_callback(observer)
         discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
         if probe_matches_event.wait(timeout):
-            result_collector.ResultCollector.log_success(step=step, message='Probe matches received in ad-hoc mode')
+            logger.info('Probe matches received in ad-hoc mode', extra={'step': step})
         else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'Probe matches not received in ad-hoc mode within {timeout}s.',
-            )
+            logger.error('Probe matches not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
     finally:
         discovery.set_on_probe_matches_callback(None)
     if not probe_matches_event.is_set():
@@ -81,12 +75,9 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
         discovery.set_remote_service_resolve_match_callback(observer)
         discovery._send_resolve(epr)  # noqa: SLF001
         if resolve_match_event.wait(timeout):
-            result_collector.ResultCollector.log_success(step=step, message='Resolve match received in ad-hoc mode')
+            logger.info('Resolve match received in ad-hoc mode', extra={'step': step})
         else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'Resolve match not received in ad-hoc mode within {timeout}s.',
-            )
+            logger.error('Resolve match not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
     finally:
         discovery.set_remote_service_resolve_match_callback(None)
     return resolve_match_event.is_set()

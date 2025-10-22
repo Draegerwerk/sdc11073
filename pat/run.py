@@ -10,10 +10,10 @@ import pathlib
 import sys
 import threading
 import uuid
+from concurrent import futures
 from typing import TYPE_CHECKING
 
 from pat import common, consumer, provider
-from pat.consumer_tests import result_collector
 
 if TYPE_CHECKING:
     import os
@@ -27,28 +27,28 @@ def run(
     epr: str,
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
     network_delay: float,
-) -> None:
+) -> bool:
     """Run tests."""
     with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
-    consumer_thread = threading.Thread(
-        target=consumer.run_ref_test,
-        kwargs={
-            'adapter': adapter,
-            'epr': epr,
-            'ssl_context_container': ssl_context_container,
-            'network_delay': network_delay,
-            'execute_1a': True,
-        },
-    )
-    consumer_thread.start()
-    threading.Thread(
-        target=provider.run_provider,
-        args=(mdib_path, adapter, epr, ssl_context_container),
-        daemon=True,
-    ).start()
-    consumer_thread.join(60 * 3)  # wai maximum of 3 minutes as test shouldn't take very long
+    # Run consumer in a thread pool to capture the boolean result
+
+    with futures.ThreadPoolExecutor(max_workers=1) as pool:
+        consumer_future = pool.submit(
+            consumer.run_ref_test,
+            adapter=adapter,
+            epr=epr,
+            ssl_context_container=ssl_context_container,
+            execute_1a=True,
+            network_delay=network_delay,
+        )
+        threading.Thread(
+            target=provider.run_provider,
+            args=(mdib_path, adapter, epr, ssl_context_container),
+            daemon=True,
+        ).start()
+        return bool(consumer_future.result(timeout=60 * 3))
 
 
 if __name__ == '__main__':
@@ -76,12 +76,11 @@ if __name__ == '__main__':
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
 
     args = parser.parse_args()
-    run(
+    passed = run(
         mdib_path=args.mdib_path,
         adapter=args.adapter,
         epr=args.epr,
         ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password) if args.tls else None,
         network_delay=args.network_delay,
     )
-    result_collector.ResultCollector.print_summary()
-    sys.exit(bool(result_collector.ResultCollector.failed))
+    sys.exit(0 if passed else 1)

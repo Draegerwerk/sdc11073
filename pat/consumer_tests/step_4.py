@@ -11,7 +11,6 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from pat.consumer_tests import result_collector
 from sdc11073.observableproperties import observables
 from sdc11073.xml_types import pm_qnames
 
@@ -251,21 +250,25 @@ def test_4e(mdib: ConsumerMdib) -> bool:
         timeout = alert_system.SelfCheckPeriod + network_delay
         with observables.bound_context(mdib, alert_by_handle=observer):
             if not first_update.wait(timeout):
-                result_collector.ResultCollector.log_failure(
-                    step=step,
-                    message=f'The reference provider did not produce alert system updates for '
-                    f'"{alert_system.Handle}" within {alert_system.SelfCheckPeriod} (+{network_delay}s network delay) '
-                    f'seconds.',
+                logger.error(
+                    'The reference provider did not produce alert system updates for "%s" within %s (+%ss network delay) seconds.',
+                    alert_system.Handle,
+                    alert_system.SelfCheckPeriod,
+                    network_delay,
+                    extra={'step': step},
                 )
+                test_results.append(False)
                 continue
             start = time.perf_counter()
             if not second_update.wait(timeout):
-                result_collector.ResultCollector.log_failure(
-                    step=step,
-                    message=f'The reference provider did not produce a second alert system update for '
-                    f'"{alert_system.Handle}" within {alert_system.SelfCheckPeriod} (+{network_delay}s network delay) '
-                    f'seconds.',
+                logger.error(
+                    'The reference provider did not produce a second alert system update for "%s" within %s (+%ss network delay) seconds.',
+                    alert_system.Handle,
+                    alert_system.SelfCheckPeriod,
+                    network_delay,
+                    extra={'step': step},
                 )
+                test_results.append(False)
                 continue
             duration = time.perf_counter() - start
             if alert_system.SelfCheckPeriod - network_delay <= duration <= alert_system.SelfCheckPeriod + network_delay:
