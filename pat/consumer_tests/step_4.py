@@ -403,15 +403,20 @@ def _verify_waveform_tests(  # noqa: PLR0913
         )
 
         for handle, updates in waveform_updates.items():
-            if any(len(samples_in_message) != samples_per_message for samples_in_message in updates):
-                logger.error(
-                    'The reference provider did not produce updates with at least %d samples for the '
-                    'RealTimeSampleArrayMetricDescriptor with the handle %s, but some update have a different number '
-                    'of samples.',
-                    samples_per_message,
-                    handle,
-                    extra={'step': step},
-                )
+            updates_not_sufficient = [
+                len(samples_in_message)
+                for samples_in_message  in updates
+                if len(samples_in_message) != samples_per_message
+            ]
+            logger.error(
+                'The reference provider did not produce updates with at least %d samples for the '
+                'RealTimeSampleArrayMetricDescriptor with the handle %s, but some update have a different number '
+                'of samples: %s.',
+                samples_per_message,
+                handle,
+                updates_not_sufficient,
+                extra={'step': step},
+            )
     return any(test_results) and all(test_results)
 
 
