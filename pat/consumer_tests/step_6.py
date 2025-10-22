@@ -17,6 +17,7 @@ from sdc11073.observableproperties import observables
 from sdc11073.xml_types import msg_types, pm_qnames, pm_types
 
 if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
     from concurrent.futures import Future
 
     from sdc11073.consumer import SdcConsumer, operations
@@ -40,7 +41,7 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
     operation_timeout = 5.0
     patient_context_update_timeout = 10.0
 
-    patient_context_descriptors: list[descriptorcontainers.PatientContextDescriptorContainer] = (
+    patient_context_descriptors: Sequence[descriptorcontainers.PatientContextDescriptorContainer] = (
         consumer.mdib.descriptions.NODETYPE.get(pm_qnames.PatientContextDescriptor, [])
     )
     if not patient_context_descriptors:
@@ -74,7 +75,12 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
 
     test_results: list[bool] = []
     for p in patient_context_descriptors:
-        for association in list(pm_types.ContextAssociation):
+        # set disassociated context is forbidden by 11073-10700 TR1638
+        for association in [
+            association
+            for association in pm_types.ContextAssociation
+            if association != pm_types.ContextAssociation.DISASSOCIATED
+        ]:
             pat: statecontainers.PatientContextStateContainer = typing.cast(
                 'statecontainers.PatientContextStateContainer',
                 context_service.mk_proposed_context_object(p.Handle),
@@ -211,19 +217,27 @@ def test_6d(consumer: SdcConsumer) -> bool:
     ]
     set_service: setservice.SetServiceClient = typing.cast('setservice.SetServiceClient', consumer.set_service_client)
 
-    operations_ = consumer.mdib.descriptions.NODETYPE.get(pm_qnames.SetStringOperationDescriptor)
+    operations_: Sequence[descriptorcontainers.SetStringOperationDescriptorContainer] = (
+        consumer.mdib.descriptions.NODETYPE.get(pm_qnames.SetStringOperationDescriptor, [])
+    )
     if not operations_:
         logger.error('The reference provider provides no set value operations', extra={'step': step})
         return False
 
     test_results: list[bool] = []
     for operation in operations_:
-        fut: Future[operations.OperationResult] = set_service.set_string(operation.Handle, uuid.uuid4().hex)
+        target = consumer.mdib.descriptions.handle.get(operation.OperationTarget)
+        if not isinstance(target, descriptorcontainers.EnumStringMetricDescriptorContainer):
+            msg = f'Expected EnumStringMetricDescriptorContainer, but got {type(target)}'
+            raise TypeError(msg)
+        value_to_be_set = random.choice([allowed_value.Value for allowed_value in target.AllowedValue])
+        fut: Future[operations.OperationResult] = set_service.set_string(operation.Handle, value_to_be_set)
         try:
             operation_result = fut.result(operation_timeout)
         except TimeoutError:
             logger.exception(
-                'SetString operation not finished within the timeout of %s seconds',
+                'The SetString operation with the handle %s did not finish within the timeout of %s seconds',
+                operation.Handle,
                 operation_timeout,
                 extra={'step': step},
             )
@@ -231,7 +245,8 @@ def test_6d(consumer: SdcConsumer) -> bool:
             continue
         if len(operation_result.report_parts) != len(expected_order):
             logger.error(
-                'SetString operation finished with %d report parts, but expected exactly %d',
+                'The SetString operation with the handle %s finished with %d report parts, but expected exactly %d',
+                operation.Handle,
                 len(operation_result.report_parts),
                 len(expected_order),
                 extra={'step': step},
@@ -244,7 +259,8 @@ def test_6d(consumer: SdcConsumer) -> bool:
             if report.InvocationInfo.InvocationState not in expected_order
         ):
             logger.error(
-                'SetString operation returned unexpected invocation state %s with error %s: %s',
+                'The SetString operation with the handle %s returned unexpected invocation state %s with error %s: %s',
+                operation.Handle,
                 report.InvocationInfo.InvocationState,
                 report.InvocationInfo.InvocationError,
                 report.InvocationInfo.InvocationErrorMessage,
@@ -257,10 +273,16 @@ def test_6d(consumer: SdcConsumer) -> bool:
             strict=True,
         ):
             if expected == actual:
-                logger.info('The answer of SetString operation is "%s" as expected', expected, extra={'step': step})
+                logger.info(
+                    'The answer of the SetString operation with the handle %s operation is "%s" as expected',
+                    operation.Handle,
+                    expected,
+                    extra={'step': step},
+                )
             else:
                 logger.error(
-                    'The answer of SetString operation is "%s", but expected "%s"',
+                    'The answer of the SetString operation with the handle %s operation is "%s", but expected "%s"',
+                    operation.Handle,
                     actual,
                     expected,
                     extra={'step': step},
