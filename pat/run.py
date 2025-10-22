@@ -9,7 +9,6 @@ import logging.config
 import pathlib
 import sys
 import threading
-import time
 import uuid
 from typing import TYPE_CHECKING
 
@@ -27,24 +26,29 @@ def run(
     adapter: str,
     epr: str,
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
-    samples_per_message: int,
+    network_delay: float,
 ) -> None:
     """Run tests."""
     with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
         logging_setup = json.load(f)
     logging.config.dictConfig(logging_setup)
+    consumer_thread = threading.Thread(
+        target=consumer.run_ref_test,
+        kwargs={
+            'adapter': adapter,
+            'epr': epr,
+            'ssl_context_container': ssl_context_container,
+            'network_delay': network_delay,
+            'execute_1a': True,
+        },
+    )
+    consumer_thread.start()
     threading.Thread(
         target=provider.run_provider,
         args=(mdib_path, adapter, epr, ssl_context_container),
         daemon=True,
     ).start()
-    time.sleep(10)
-    consumer.run_ref_test(
-        adapter=adapter,
-        epr=epr,
-        ssl_context_container=ssl_context_container,
-        samples_per_message_4f=samples_per_message,
-    )
+    consumer_thread.join(60 * 3)  # wai maximum of 3 minutes as test shouldn't take very long
 
 
 if __name__ == '__main__':
@@ -69,12 +73,7 @@ if __name__ == '__main__':
         help='Override MDIB file used by the provider.',
         default=pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml'),
     )
-    parser.add_argument(
-        '--samples-per-message',
-        type=int,
-        help='Number of samples per waveform message expected to be sent by the provider.',
-        default=100,
-    )
+    parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
 
     args = parser.parse_args()
     run(
@@ -82,7 +81,7 @@ if __name__ == '__main__':
         adapter=args.adapter,
         epr=args.epr,
         ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password) if args.tls else None,
-        samples_per_message=args.samples_per_message,
+        network_delay=args.network_delay,
     )
     result_collector.ResultCollector.print_summary()
     sys.exit(bool(result_collector.ResultCollector.failed))

@@ -52,7 +52,8 @@ def _verify_state_updates_in_time(
     node_types: Iterable[xml_utils.QName],
     updates_required_count: int,
     timeout: float,
-):
+) -> bool:
+    test_result = False
     collected_updates_within_timeout = threading.Event()
 
     update_queue = queue.Queue()
@@ -101,11 +102,12 @@ def _verify_state_updates_in_time(
         raise ValueError(msg)
     with observables.bound_context(mdib, **{mdib_observer: observer}):
         if collected_updates_within_timeout.wait(timeout):
-            result_collector.ResultCollector.log_success(
-                step=step,
-                message=f'The reference provider produced state updates '
-                f'"{update_queue.qsize()}/{updates_required_count}" which is enough within '
-                f'{timeout} seconds.',
+            logger.info(
+                'The reference provider produced state updates "%s/%s" which is enough within %s seconds.',
+                update_queue.qsize(),
+                updates_required_count,
+                timeout,
+                extra={'step': step},
             )
         else:
             result_collector.ResultCollector.log_failure(
@@ -114,6 +116,7 @@ def _verify_state_updates_in_time(
                 f'"{update_queue.qsize()}/{updates_required_count}" which is not enough within '
                 f'{timeout} seconds.',
             )
+    return test_result
 
 
 def test_4a(mdib: ConsumerMdib):
@@ -220,6 +223,7 @@ def test_4e(mdib: ConsumerMdib):  # noqa: C901
         return
     for alert_system in alert_systems:
         if alert_system.SelfCheckPeriod is None:
+            logger.debug('Skipping AlertSystemDescriptor "%s" without SelfCheckPeriod', alert_system.Handle, extra={'step': step})
             continue
         if alert_system.SelfCheckPeriod <= max_self_check_period:
             result_collector.ResultCollector.log_success(
@@ -394,14 +398,14 @@ def _verify_waveform_tests(  # noqa: PLR0913
                 )
 
 
-def test_4f(mdib: ConsumerMdib, samples_per_message: int | None = None, network_delay: float | None = None):  # noqa: PT028
+def test_4f(mdib: ConsumerMdib, network_delay: float | None = None):  # noqa: PT028
     """The Reference Provider provides 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message."""  # noqa: E501, W505
     _verify_waveform_tests(
         mdib=mdib,
         step=f'{__STEP__}f',
         at_least_waveform_descriptors=3,
         waveform_updates_per_second=10,
-        samples_per_message=samples_per_message if samples_per_message is not None else 100,
+        samples_per_message=100,
         # seconds, to allow for the updates to arrive
         timeout=1.0,
         # seconds, to allow for network delays and processing time
@@ -454,14 +458,14 @@ def test_4h(mdib: ConsumerMdib):
     )
 
 
-def test_4i(mdib: ConsumerMdib, samples_per_message: int | None = None, network_delay: float | None = None):  # noqa: PT028
+def test_4i(mdib: ConsumerMdib, network_delay: float | None = None):  # noqa: PT028
     """The Reference Provider provides 1 waveform (RealTimeSampleArrayMetric) x 2 messages per second x 50 samples per message (reduced amount of messages per second to cover slow networks)."""  # noqa: E501, W505
     _verify_waveform_tests(
         mdib=mdib,
         step=f'{__STEP__}i',
         at_least_waveform_descriptors=1,
         waveform_updates_per_second=2,
-        samples_per_message=samples_per_message if samples_per_message is not None else 50,
+        samples_per_message=50,
         # seconds, to allow for the updates to arrive
         timeout=1.0,
         # seconds, to allow for network delays and processing time

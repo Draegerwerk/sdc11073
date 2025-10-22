@@ -94,18 +94,18 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         super()._on_description_modification_report(received_message_data)
 
 
-def run_ref_test(  # noqa: PLR0913
+def run_ref_test(
     adapter: str,
     epr: str,
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+    execute_1a: bool,
     network_delay: float,
-    samples_per_message_4f: int,
-    samples_per_message_4i: int,
 ) -> None:
     """Run reference test."""
-    # Remark: 1a) is not testable because provider can't be forced to send a hello while this test is running.
     wsd = WSDiscovery(adapter)
     wsd.start()
+    if execute_1a:
+        step_1.test_1a(wsd, epr)
     if not step_1.test_1b(wsd, epr):
         return
     services: list[Service] = wsd.search_services(timeout=-1)  # services have already been found in 1b
@@ -127,10 +127,10 @@ def run_ref_test(  # noqa: PLR0913
             pool.submit(step_4.test_4c, mdib),
             pool.submit(step_4.test_4d, mdib),
             pool.submit(step_4.test_4e, mdib),
-            pool.submit(step_4.test_4f, mdib, samples_per_message_4f, network_delay),
+            pool.submit(step_4.test_4f, mdib, network_delay),
             pool.submit(step_4.test_4g, mdib),
             pool.submit(step_4.test_4h, mdib),
-            pool.submit(step_4.test_4i, mdib, samples_per_message_4i, network_delay),
+            pool.submit(step_4.test_4i, mdib, network_delay),
             pool.submit(step_5.test_5a, mdib),
             pool.submit(step_5.test_5b, mdib),
             pool.submit(step_6.test_6b, consumer),
@@ -152,18 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
-    parser.add_argument(
-        '--samples-per-message-4f',
-        type=int,
-        help='Number of samples per waveform message expected to be sent by the provider for test 4f.',
-        default=100,
-    )
-    parser.add_argument(
-        '--samples-per-message-4i',
-        type=int,
-        help='Number of samples per waveform message expected to be sent by the provider for test 4i.',
-        default=100,
-    )
+    parser.add_argument('--execute-1a', action='store_true', help='Execute test step 1a.')
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(step)s - %(message)s'))
@@ -179,8 +168,7 @@ if __name__ == '__main__':
         if args.certificate_folder
         else None,
         network_delay=args.network_delay,
-        samples_per_message_4f=args.samples_per_message_4f,
-        samples_per_message_4i=args.samples_per_message_4i,
+        execute_1a=args.execute_1a,
     )
     result_collector.ResultCollector.print_summary()
     sys.exit(bool(result_collector.ResultCollector.failed))

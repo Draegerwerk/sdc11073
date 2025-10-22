@@ -54,7 +54,7 @@ USE_REFERENCE_PARAMETERS = False
 # g) The Reference Provider provides changes for the following components:
 #   * At least 5 Clock or Battery object updates in 30 seconds (Component report)
 #   * At least 5 MDS or VMD updates in 30 seconds (Component report)
-# g) The Reference Provider provides changes for the following operational states:
+# h) The Reference Provider provides changes for the following operational states:
 #    At least 5 Operation updates in 30 seconds; enable/disable operations; some different than the ones mentioned
 #    above (Operational State Report)"""
 enable_4a = True

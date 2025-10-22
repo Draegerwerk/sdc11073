@@ -106,7 +106,7 @@ def test_6b(consumer: SdcConsumer):  # noqa: C901
                 if operation_result.InvocationInfo.InvocationState not in (msg_types.InvocationState.FINISHED, msg_types.InvocationState.FINISHED_MOD):
                     result_collector.ResultCollector.log_failure(
                         step=step,
-                        message=f'SetContextState operation failed with the following error '
+                        message=f'SetContextState operation failed with the state {operation_result.InvocationInfo.InvocationState} and the error '
                         f'{operation_result.InvocationInfo.InvocationError}: '
                         f'{operation_result.InvocationInfo.InvocationErrorMessage}',
                     )
@@ -218,6 +218,14 @@ def test_6d(consumer: SdcConsumer):
                 f'but expected exactly {len(expected_order)}',
             )
             continue
+        for report in (report for report in operation_result.report_parts if report.InvocationInfo.InvocationState not in expected_order):
+            result_collector.ResultCollector.log_failure(
+                step=step,
+                message=f'SetString operation returned unexpected invocation state '
+                f'{report.InvocationInfo.InvocationState} with error '
+                f'{report.InvocationInfo.InvocationError}: '
+                f'{report.InvocationInfo.InvocationErrorMessage}',
+            )
         for expected, actual in zip(
             expected_order,
             (p.InvocationInfo.InvocationState for p in operation_result.report_parts),

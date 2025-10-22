@@ -20,20 +20,21 @@ def test_2a(consumer: SdcConsumer):
         result = consumer._get_metadata()  # noqa: SLF001
         if result.action == 'http://schemas.xmlsoap.org/ws/2004/09/transfer/GetResponse':
             result_collector.ResultCollector.log_success(
-                step=step, message='Reference provider answers to a TransferGet.'
+                step=step, message='Reference provider answers to a TransferGet.',
             )
         else:
             result_collector.ResultCollector.log_failure(
                 step=step,
                 message=f'Unexpected action in TransferGet response: {result.action}',
             )
-        consumer.get_soap_client(consumer._device_location).close()  # noqa: SLF001
     except Exception as ex:
         logger.exception('The reference provider answers to a TransferGet', extra={'step': step})
         result_collector.ResultCollector.log_failure(
             step=step,
             message=f'Error during {step} reference provider answers to a TransferGet: {ex}',
         )
+    finally:
+        consumer.get_soap_client(consumer._device_location).close()  # noqa: SLF001
 
 
 def test_2b(consumer: SdcConsumer):
