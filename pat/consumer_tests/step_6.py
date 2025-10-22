@@ -390,7 +390,7 @@ def test_6f(consumer: SdcConsumer) -> bool:
     try:
         activate_operation = consumer.mdib.get_entity(activate_operation_handle)
     except KeyError:
-        logger.exception(
+        logger.error(  # noqa: TRY400
             'no operation with handle "%s" found in MDIB',
             activate_operation_handle,
             extra={'step': step},
