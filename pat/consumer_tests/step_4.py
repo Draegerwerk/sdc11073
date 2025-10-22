@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections
+import copy
 import functools
 import logging
 import queue
@@ -15,6 +16,7 @@ from sdc11073.observableproperties import observables
 from sdc11073.xml_types import pm_qnames
 
 if TYPE_CHECKING:
+    import decimal
     from collections.abc import Iterable, Sequence
 
     from sdc11073 import xml_utils
@@ -53,7 +55,6 @@ def _verify_state_updates_in_time(
     updates_required_count: int,
     timeout: float,
 ) -> bool:
-    test_result = False
     collected_updates_within_timeout = threading.Event()
 
     update_queue = queue.Queue()
@@ -109,19 +110,20 @@ def _verify_state_updates_in_time(
                 timeout,
                 extra={'step': step},
             )
-        else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'The reference provider produced state updates '
-                f'"{update_queue.qsize()}/{updates_required_count}" which is not enough within '
-                f'{timeout} seconds.',
-            )
-    return test_result
+            return True
+        logger.error(
+            'The reference provider produced state updates "%s/%s" which is not enough within %s seconds.',
+            update_queue.qsize(),
+            updates_required_count,
+            timeout,
+            extra={'step': step},
+        )
+        return False
 
 
-def test_4a(mdib: ConsumerMdib):
+def test_4a(mdib: ConsumerMdib) -> bool:
     """The Reference Provider produces at least 5 numeric metric updates in 30 seconds."""
-    _verify_state_updates_in_time(
+    return _verify_state_updates_in_time(
         mdib=mdib,
         step=f'{__STEP__}a',
         node_types=(pm_qnames.NumericMetricState,),
@@ -130,9 +132,9 @@ def test_4a(mdib: ConsumerMdib):
     )
 
 
-def test_4b(mdib: ConsumerMdib):
+def test_4b(mdib: ConsumerMdib) -> bool:
     """The Reference Provider produces at least 5 string metric updates (StringMetric or EnumStringMetric) in 30 seconds."""  # noqa: E501, W505
-    _verify_state_updates_in_time(
+    return _verify_state_updates_in_time(
         mdib=mdib,
         step=f'{__STEP__}b',
         node_types=(pm_qnames.StringMetricState, pm_qnames.EnumStringMetricState),
@@ -141,9 +143,9 @@ def test_4b(mdib: ConsumerMdib):
     )
 
 
-def test_4c(mdib: ConsumerMdib):
+def test_4c(mdib: ConsumerMdib) -> bool:
     """The Reference Provider produces at least 5 alert condition updates (AlertCondition or LimitAlertCondition) in 30 seconds."""  # noqa: E501, W505
-    _verify_state_updates_in_time(
+    return _verify_state_updates_in_time(
         mdib=mdib,
         step=f'{__STEP__}c',
         node_types=(pm_qnames.AlertConditionState, pm_qnames.LimitAlertConditionState),
@@ -152,9 +154,9 @@ def test_4c(mdib: ConsumerMdib):
     )
 
 
-def test_4d(mdib: ConsumerMdib):
+def test_4d(mdib: ConsumerMdib) -> bool:
     """The Reference Provider produces at least 5 alert signal updates in 30 seconds."""
-    _verify_state_updates_in_time(
+    return _verify_state_updates_in_time(
         mdib=mdib,
         step=f'{__STEP__}d',
         node_types=(pm_qnames.AlertSignalState,),
@@ -201,7 +203,7 @@ def _on_alert_system_update(  # noqa: PLR0913
                 second_update.set()
 
 
-def test_4e(mdib: ConsumerMdib):  # noqa: C901
+def test_4e(mdib: ConsumerMdib) -> bool:
     """The Reference Provider provides alert system self checks in accordance to the periodicity defined in the MDIB (at least every 10 seconds)."""  # noqa: E501, W505
     step = f'{__STEP__}e'
     max_self_check_period = 10
@@ -209,43 +211,29 @@ def test_4e(mdib: ConsumerMdib):  # noqa: C901
         pm_qnames.AlertSystemDescriptor,
         [],
     )
-    if not alert_systems:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message='The reference provider does not provide an AlertSystemDescriptor.',
+    alert_systems_with_self_check = [
+        alert_system for alert_system in alert_systems if alert_system.SelfCheckPeriod is not None
+    ]
+    if not alert_systems_with_self_check:
+        logger.error(
+            'The reference provider does not provide SelfCheckPeriod in any AlertSystemDescriptor.',
+            extra={'step': step},
         )
-        return
-    if all(alert_system.SelfCheckPeriod is None for alert_system in alert_systems):
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message='The reference provider does not provide SelfCheckPeriod in any AlertSystemDescriptor.',
-        )
-        return
-    for alert_system in alert_systems:
-        if alert_system.SelfCheckPeriod is None:
-            logger.debug('Skipping AlertSystemDescriptor "%s" without SelfCheckPeriod', alert_system.Handle, extra={'step': step})
-            continue
-        if alert_system.SelfCheckPeriod <= max_self_check_period:
-            result_collector.ResultCollector.log_success(
-                step=step,
-                message=f'The AlertSystemDescriptor {alert_system.Handle} has a SelfCheckPeriod of '
-                f'{alert_system.SelfCheckPeriod} seconds, which is at most {max_self_check_period} seconds.',
-            )
-        else:
-            result_collector.ResultCollector.log_failure(
-                step=step,
-                message=f'The AlertSystemDescriptor {alert_system.Handle} has a SelfCheckPeriod of '
-                f'{alert_system.SelfCheckPeriod} seconds, which is more than {max_self_check_period} seconds.',
-            )
+        return False
 
+    test_results: list[bool] = []
     network_delay = 1  # seconds, to allow for network delays and processing time
-    for alert_system in alert_systems:
-        if alert_system.SelfCheckPeriod is None:
-            logger.info(
-                'Skipping AlertSystemDescriptor "%s" without SelfCheckPeriod',
+    for alert_system in alert_systems_with_self_check:
+        if alert_system.SelfCheckPeriod > max_self_check_period:
+            logger.error(
+                'The AlertSystemDescriptor with the handle %s has a SelfCheckPeriod of %d seconds, which is '
+                'more than %d seconds.',
                 alert_system.Handle,
+                alert_system.SelfCheckPeriod,
+                max_self_check_period,
                 extra={'step': step},
             )
+            test_results.append(False)
             continue
         first_update = threading.Event()
         second_update = threading.Event()
@@ -281,26 +269,39 @@ def test_4e(mdib: ConsumerMdib):  # noqa: C901
                 continue
             duration = time.perf_counter() - start
             if alert_system.SelfCheckPeriod - network_delay <= duration <= alert_system.SelfCheckPeriod + network_delay:
-                result_collector.ResultCollector.log_success(
-                    step=step,
-                    message=f'The reference provider produced alert system self check updates in accordance to the '
-                    f'periodicity defined in the MDIB (but at most {max_self_check_period} seconds) for '
-                    f'"{alert_system.Handle}" within {alert_system.SelfCheckPeriod} '
-                    f'(+{network_delay}s network delay) seconds.',
+                logger.info(
+                    'The reference provider produced alert system self check updates in accordance to the '
+                    'periodicity defined in the MDIB (but at most %d seconds) for the AlertSystemDescriptor '
+                    'with the handle %s, within %d (+%d s network delay) seconds.',
+                    max_self_check_period,
+                    alert_system.Handle,
+                    alert_system.SelfCheckPeriod,
+                    network_delay,
+                    extra={'step': step},
                 )
+                test_results.append(True)
             else:
-                result_collector.ResultCollector.log_failure(
-                    step=step,
-                    message=f'The reference provider produced alert system self check updates for '
-                    f'"{alert_system.Handle}" with a duration of {duration:.2f} seconds, which is not in '
-                    f'accordance to the periodicity defined in the MDIB {alert_system.SelfCheckPeriod} seconds '
-                    f'(and at most {max_self_check_period} seconds).',
+                logger.error(
+                    'The reference provider produced alert system self check updates for the '
+                    'AlertSystemDescriptor with the handle %s with a duration of %.2f seconds, '
+                    'which is not in accordance to the periodicity defined in the MDIB %d seconds '
+                    '(and at most %d seconds).',
+                    alert_system.Handle,
+                    duration,
+                    alert_system.SelfCheckPeriod,
+                    max_self_check_period,
+                    extra={'step': step},
                 )
+                test_results.append(False)
+    return any(test_results) and all(test_results)
 
 
-def _on_waveform_updates(waveform_updates: dict, waveforms_by_handle: dict):
+def _on_waveform_updates(
+    waveform_updates: collections.defaultdict[str, list[Sequence[decimal.Decimal]]],
+    waveforms_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer],
+):
     for handle, state in waveforms_by_handle.items():
-        waveform_updates[handle].append(state)
+        waveform_updates[handle].append(copy.copy(state.MetricValue.Samples))
 
 
 def _verify_waveform_tests(  # noqa: PLR0913
@@ -311,28 +312,29 @@ def _verify_waveform_tests(  # noqa: PLR0913
     samples_per_message: int,
     timeout: float,
     network_delay: float,
-):
+) -> bool:
     waveform_descriptors = mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
     if len(waveform_descriptors) < at_least_waveform_descriptors:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'The reference provider does not provide at least {at_least_waveform_descriptors} '
-            f'RealTimeSampleArrayMetricDescriptor, but {len(waveform_descriptors)}.',
+        logger.error(
+            'The reference provider does not provide at least %d RealTimeSampleArrayMetricDescriptor, but %d',
+            at_least_waveform_descriptors,
+            len(waveform_descriptors),
+            extra={'step': step},
         )
-        return
+        return False
 
-    waveform_updates: dict[str, list[statecontainers.RealTimeSampleArrayMetricStateContainer]] = (
-        collections.defaultdict(list)
-    )
+    waveform_updates: dict[str, list[Sequence[decimal.Decimal]]] = collections.defaultdict(list)
     observer = functools.partial(_on_waveform_updates, waveform_updates)
     with observables.bound_context(mdib, waveform_by_handle=observer):
         time.sleep(timeout + network_delay)
     if len(waveform_updates) < at_least_waveform_descriptors:
-        result_collector.ResultCollector.log_failure(
-            step=step,
-            message=f'The reference provider did not produce updates for at least {at_least_waveform_descriptors} '
-            f'waveforms, but {len(waveform_updates)}.',
+        logger.error(
+            'The reference provider did not produce updates for at least %d waveforms, but %d',
+            at_least_waveform_descriptors,
+            len(waveform_updates),
+            extra={'step': step},
         )
+        return False
 
     # Track how many waveforms meet the criteria
     # check for equality is not reliable due to network delays
@@ -344,63 +346,73 @@ def _verify_waveform_tests(  # noqa: PLR0913
     waveforms_with_sufficient_samples = sum(
         1
         for updates in waveform_updates.values()
-        if all(len(update.MetricValue.Samples) >= samples_per_message for update in updates)
+        if all(len(samples_in_message) >= samples_per_message for samples_in_message in updates)
     )
 
+    test_results: list[bool] = []
     # Final check: at least the required number of waveforms must meet both criteria
     if waveforms_with_sufficient_updates >= at_least_waveform_descriptors:
-        result_collector.ResultCollector.log_success(
-            step=step,
-            message=f'At least {at_least_waveform_descriptors} waveforms produced sufficient updates '
-            f'({waveforms_with_sufficient_updates} waveforms met the criteria).',
+        logger.info(
+            'At least %d waveforms produced sufficient updates (%d waveforms met the criteria).',
+            at_least_waveform_descriptors,
+            waveforms_with_sufficient_updates,
+            extra={'step': step},
         )
+        test_results.append(True)
     else:
+        test_results.append(False)
+        logger.error(
+            'The reference provider did not produce updates for at least %d waveforms, but only %d',
+            at_least_waveform_descriptors,
+            waveforms_with_sufficient_updates,
+            extra={'step': step},
+        )
+
         for handle, updates in waveform_updates.items():
             if len(updates) < waveform_updates_per_second * timeout:
-                result_collector.ResultCollector.log_failure(
-                    step=step,
-                    message=f'The reference provider did not produce enough updates for waveform {handle}, '
-                    f'expected {waveform_updates_per_second * timeout} but only {len(updates)} updates were received.',
-                )
-            else:
-                result_collector.ResultCollector.log_success(
-                    step=step,
-                    message=f'The reference provider produced enough updates for waveform {handle}, '
-                    f'{len(updates)} updates were received.',
+                logger.error(
+                    'The reference provider did not produce enough updates for '
+                    'RealTimeSampleArrayMetricDescriptor with the handle %s. '
+                    'Expected at least %d/s updates but got %d.',
+                    handle,
+                    waveform_updates_per_second * timeout,
+                    len(updates),
+                    extra={'step': step},
                 )
 
     if waveforms_with_sufficient_samples >= at_least_waveform_descriptors:
-        result_collector.ResultCollector.log_success(
-            step=step,
-            message=f'At least {at_least_waveform_descriptors} waveforms produced sufficient samples per message '
-            f'({waveforms_with_sufficient_samples} waveforms met the criteria).',
+        logger.info(
+            'At least %d waveforms produced sufficient samples per message (%d waveforms met the criteria).',
+            at_least_waveform_descriptors,
+            waveforms_with_sufficient_samples,
+            extra={'step': step},
         )
+        test_results.append(True)
     else:
+        test_results.append(False)
+        logger.error(
+            'The reference provider did not produce enough samples per message for at least %d waveforms, but only %d',
+            at_least_waveform_descriptors,
+            waveforms_with_sufficient_samples,
+            extra={'step': step},
+        )
+
         for handle, updates in waveform_updates.items():
-            if all(len(update.MetricValue.Samples) >= samples_per_message for update in updates):
-                result_collector.ResultCollector.log_success(
-                    step=step,
-                    message=f'The reference provider produced updates with at least {samples_per_message} samples '
-                    f'for waveform {handle}.',
+            if any(len(samples_in_message) != samples_per_message for samples_in_message in updates):
+                logger.error(
+                    'The reference provider did not produce updates with at least %d samples for the '
+                    'RealTimeSampleArrayMetricDescriptor with the handle %s, but some update have a different number '
+                    'of samples.',
+                    samples_per_message,
+                    handle,
+                    extra={'step': step},
                 )
-            else:
-                updates_not_sufficient = [
-                    len(update.MetricValue.Samples)
-                    for update in updates
-                    if len(update.MetricValue.Samples) != samples_per_message
-                ]
-
-                result_collector.ResultCollector.log_failure(
-                    step=step,
-                    message=f'The reference provider did not produce updates with at least {samples_per_message} '
-                    f'samples for waveform {handle}, but some updates have a different number of samples '
-                    f'{", ".join(f"{samples}/{samples_per_message}" for samples in updates_not_sufficient)}.',
-                )
+    return any(test_results) and all(test_results)
 
 
-def test_4f(mdib: ConsumerMdib, network_delay: float | None = None):  # noqa: PT028
+def test_4f(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # noqa: PT028
     """The Reference Provider provides 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message."""  # noqa: E501, W505
-    _verify_waveform_tests(
+    return _verify_waveform_tests(
         mdib=mdib,
         step=f'{__STEP__}f',
         at_least_waveform_descriptors=3,
@@ -413,35 +425,38 @@ def test_4f(mdib: ConsumerMdib, network_delay: float | None = None):  # noqa: PT
     )
 
 
-def test_4g(mdib: ConsumerMdib):
+def test_4g(mdib: ConsumerMdib) -> bool:
     """The Reference Provider The Reference Provider provides changes for the following components:
     - At least 5 Clock or Battery object updates in 30 seconds (Component report)
     - At least 5 MDS or VMD updates in 30 seconds (Component report)
     """  # noqa: D205, D400, D415
     step = f'{__STEP__}g'
 
-    _verify_state_updates_in_time(
-        mdib=mdib,
-        step=step,
-        node_types=(pm_qnames.ClockState, pm_qnames.BatteryState),
-        updates_required_count=5,
-        timeout=30.0,
-    )
-    _verify_state_updates_in_time(
-        mdib=mdib,
-        step=step,
-        node_types=(pm_qnames.MdsState, pm_qnames.VmdState),
-        updates_required_count=5,
-        timeout=30.0,
-    )
+    test_results = [
+        _verify_state_updates_in_time(
+            mdib=mdib,
+            step=step,
+            node_types=(pm_qnames.ClockState, pm_qnames.BatteryState),
+            updates_required_count=5,
+            timeout=30.0,
+        ),
+        _verify_state_updates_in_time(
+            mdib=mdib,
+            step=step,
+            node_types=(pm_qnames.MdsState, pm_qnames.VmdState),
+            updates_required_count=5,
+            timeout=30.0,
+        ),
+    ]
+    return any(test_results) and all(test_results)
 
 
-def test_4h(mdib: ConsumerMdib):
+def test_4h(mdib: ConsumerMdib) -> bool:
     """The Reference Provider The Reference Provider provides changes for the following operational states:
 
     - At least 5 Operation updates in 30 seconds; enable/disable operations; some different than the ones mentioned above (Operational State Report)
     """  # noqa: D400, D415, E501, W505
-    _verify_state_updates_in_time(
+    return _verify_state_updates_in_time(
         mdib=mdib,
         step=f'{__STEP__}h',
         node_types=(
@@ -458,9 +473,9 @@ def test_4h(mdib: ConsumerMdib):
     )
 
 
-def test_4i(mdib: ConsumerMdib, network_delay: float | None = None):  # noqa: PT028
+def test_4i(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # noqa: PT028
     """The Reference Provider provides 1 waveform (RealTimeSampleArrayMetric) x 2 messages per second x 50 samples per message (reduced amount of messages per second to cover slow networks)."""  # noqa: E501, W505
-    _verify_waveform_tests(
+    return _verify_waveform_tests(
         mdib=mdib,
         step=f'{__STEP__}i',
         at_least_waveform_descriptors=1,

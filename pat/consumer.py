@@ -121,26 +121,55 @@ def run_ref_test(
     mdib.init_mdib()
 
     with futures.ThreadPoolExecutor() as pool:
-        threads = [
-            pool.submit(step_4.test_4a, mdib),
-            pool.submit(step_4.test_4b, mdib),
-            pool.submit(step_4.test_4c, mdib),
-            pool.submit(step_4.test_4d, mdib),
-            pool.submit(step_4.test_4e, mdib),
-            pool.submit(step_4.test_4f, mdib, network_delay),
-            pool.submit(step_4.test_4g, mdib),
-            pool.submit(step_4.test_4h, mdib),
-            pool.submit(step_4.test_4i, mdib, network_delay),
-            pool.submit(step_5.test_5a, mdib),
-            pool.submit(step_5.test_5b, mdib),
-            pool.submit(step_6.test_6b, consumer),
-            pool.submit(step_6.test_6c, consumer),
-            pool.submit(step_6.test_6d, consumer),
-            pool.submit(step_6.test_6e, consumer),
-            pool.submit(step_6.test_6f, consumer),
-        ]
-        for t in threads:
-            t.result()
+        thread_test_4a = pool.submit(step_4.test_4a, mdib)
+        thread_test_4b = pool.submit(step_4.test_4b, mdib)
+        thread_test_4c = pool.submit(step_4.test_4c, mdib)
+        thread_test_4d = pool.submit(step_4.test_4d, mdib)
+        thread_test_4e = pool.submit(step_4.test_4e, mdib)
+        thread_test_4f = pool.submit(step_4.test_4f, mdib, network_delay)
+        thread_test_4g = pool.submit(step_4.test_4g, mdib)
+        thread_test_4h = pool.submit(step_4.test_4h, mdib)
+        thread_test_4i = pool.submit(step_4.test_4i, mdib, network_delay)
+        thread_test_5a = pool.submit(step_5.test_5a, mdib)
+        thread_test_5b = pool.submit(step_5.test_5b, mdib)
+        thread_test_6b = pool.submit(step_6.test_6b, consumer)
+        thread_test_6c = pool.submit(step_6.test_6c, consumer)
+        thread_test_6d = pool.submit(step_6.test_6d, consumer)
+        thread_test_6e = pool.submit(step_6.test_6e, consumer)
+        thread_test_6f = pool.submit(step_6.test_6f, consumer)
+
+        test_4a = thread_test_4a.result()
+        test_4b = thread_test_4b.result()
+        test_4c = thread_test_4c.result()
+        test_4d = thread_test_4d.result()
+        test_4e = thread_test_4e.result()
+        test_4f = thread_test_4f.result()
+        test_4g = thread_test_4g.result()
+        test_4h = thread_test_4h.result()
+        test_4i = thread_test_4i.result()
+        test_5a = thread_test_5a.result()
+        test_5b = thread_test_5b.result()
+        test_6b = thread_test_6b.result()
+        test_6c = thread_test_6c.result()
+        test_6d = thread_test_6d.result()
+        test_6e = thread_test_6e.result()
+        test_6f = thread_test_6f.result()
+    print('4a:', test_4a)
+    print('4b:', test_4b)
+    print('4c:', test_4c)
+    print('4d:', test_4d)
+    print('4e:', test_4e)
+    print('4f:', test_4f)
+    print('4g:', test_4g)
+    print('4h:', test_4h)
+    print('4i:', test_4i)
+    print('5a:', test_5a)
+    print('5b:', test_5b)
+    print('6b:', test_6b)
+    print('6c:', test_6c)
+    print('6d:', test_6d)
+    print('6e:', test_6e)
+    print('6f:', test_6f)
 
 
 if __name__ == '__main__':
