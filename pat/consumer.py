@@ -108,7 +108,7 @@ def run_ref_test(  # noqa: PLR0915
     res_1b = step_1.test_1b(wsd, epr)
     if not res_1b:
         return False
-    services: list[Service] = wsd.search_services(timeout=-1)  # services have already been found in 1b
+    services = wsd.get_found_remote_services()  # services have already been found in 1b
     service = next(s for s in services if s.epr == epr)
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
     res_2a = step_2.test_2a(consumer)

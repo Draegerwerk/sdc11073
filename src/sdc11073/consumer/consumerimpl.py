@@ -30,6 +30,7 @@ from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeType
 
 from .components import default_sdc_consumer_components
 from .request_handler_deferred import EmptyResponse
+from ..pysoap import msgreader
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -624,7 +625,8 @@ class SdcConsumer:
             self.binary_peer_certificate = sock.getpeercert(binary_form=True)  # in case the application needs it...
             self._logger.info('Peer Certificate: {}', self.peer_certificate)  # noqa: PLE1205
 
-    def _get_metadata(self) -> mex_types.Metadata:
+    def transfer_get(self) -> msgreader.ReceivedMessage | None:
+        """Send transfer get request to provider and return received message."""
         _url = urlparse(self._device_location)
         soap_client = self.get_soap_client(self._device_location)
         nsh = self.sdc_definitions.data_model.ns_helper
@@ -632,8 +634,10 @@ class SdcConsumer:
                                      addr_to=self._device_location)
         message = self.msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
 
-        received_message_data = soap_client.post_message_to(_url.path, message, msg='getMetadata')
-        return mex_types.Metadata.from_node(received_message_data.p_msg.body_node)
+        return soap_client.post_message_to(_url.path, message, msg='getMetadata')
+
+    def _get_metadata(self) -> mex_types.Metadata:
+        return mex_types.Metadata.from_node(self.transfer_get().p_msg.body_node)
 
     def send_probe(self) -> ProbeMatchesType:
         """Send Probe directly to provider."""

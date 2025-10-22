@@ -4,8 +4,10 @@ import functools
 import logging
 import threading
 import time
+import typing
+from collections.abc import Iterator
 
-from sdc11073.mdib import ConsumerMdib
+from sdc11073.mdib import ConsumerMdib, descriptorcontainers
 from sdc11073.observableproperties import observables
 
 __STEP__ = '5'
@@ -93,42 +95,76 @@ def test_5a(mdib: ConsumerMdib) -> bool:
     return any(test_results) and all(test_results)
 
 
+T = typing.TypeVar('T')
+
+
+def _get_created_by_type(
+    dmr: msg_types.DescriptionModificationReport,
+    clazz: type[T],
+    modification_type: msg_types.DescriptionModificationType,
+) -> Iterator[T]:
+    for report_part in dmr.ReportPart:
+        report_part: msg_types.DescriptionModificationReportPart
+        if report_part.ModificationType == modification_type:
+            for descriptor in report_part.Descriptor:
+                if isinstance(descriptor, clazz):
+                    yield descriptor
+
+
 def _on_description_modification_report(
     step: str,
     created_vmds: set[str],
-    start_waiting_event: threading.Event,
-    delete_after_create_event: threading.Event,
+    vmd_created: threading.Event,
+    vmd_deleted: threading.Event,
     dmr: msg_types.DescriptionModificationReport,
 ):
-    for report_part in dmr.ReportPart:
-        report_part: msg_types.DescriptionModificationReportPart
-        logger.debug(
-            'received description modification report part %s with descriptor handles %s',
-            report_part.ModificationType,
-            [descriptor.Handle for descriptor in report_part.Descriptor],
-            extra={'step': step},
-        )
-        for descriptor in report_part.Descriptor:
-            if pm_qnames.VmdDescriptor != descriptor.NODETYPE:
-                continue
-            if report_part.ModificationType == msg_types.DescriptionModificationType.CREATE:
-                if descriptor.Handle in created_vmds:
-                    logger.error(
-                        'Descriptor already created with the handle "%s"',
-                        descriptor.Handle,
-                        extra={'step': step},
-                    )
-                else:
-                    created_vmds.add(descriptor.Handle)
-                    start_waiting_event.set()
-            if report_part.ModificationType == msg_types.DescriptionModificationType.DELETE:
-                if descriptor.Handle in created_vmds:
-                    logger.info(
-                        'VMD with the handle %s deleted after creation',
-                        descriptor.Handle,
-                        extra={'step': step},
-                    )
-                    delete_after_create_event.set()
+    for vmd_descriptor in _get_created_by_type(
+        dmr, descriptorcontainers.VmdDescriptorContainer, msg_types.DescriptionModificationType.CREATE
+    ):
+        logger.debug('Found created VmdDescriptor with the handle %s.', vmd_descriptor.Handle, extra={'step': step})
+        found_channel_descriptor = None
+        for channel_descriptor in _get_created_by_type(
+            dmr, descriptorcontainers.ChannelDescriptorContainer, msg_types.DescriptionModificationType.CREATE
+        ):
+            if channel_descriptor.parent_handle == vmd_descriptor.Handle:
+                logger.debug(
+                    'Found ChannelDescriptor with handle %s in created VMD %s.',
+                    channel_descriptor.Handle,
+                    vmd_descriptor.Handle,
+                    extra={'step': step},
+                )
+                found_channel_descriptor = channel_descriptor
+                break
+        if not found_channel_descriptor:  # update contains no channel descriptor, ignore create vmd
+            continue
+        for metric_descriptor in _get_created_by_type(
+            dmr, descriptorcontainers.AbstractMetricDescriptorContainer, msg_types.DescriptionModificationType.CREATE
+        ):
+            if metric_descriptor.parent_handle == found_channel_descriptor.Handle:
+                logger.debug(
+                    'Found MetricDescriptor with handle %s in created ChannelDescriptor %s.',
+                    metric_descriptor.Handle,
+                    found_channel_descriptor.Handle,
+                    extra={'step': step},
+                )
+                created_vmds.add(vmd_descriptor.Handle)
+                vmd_created.set()
+                break
+
+    if not vmd_created.is_set():
+        return  # only continue if a VMD with Channel and Metric has already been created
+    for vmd_descriptor in _get_created_by_type(
+        dmr, descriptorcontainers.VmdDescriptorContainer, msg_types.DescriptionModificationType.DELETE
+    ):
+        if vmd_descriptor.Handle in created_vmds:
+            if vmd_descriptor.Handle in created_vmds:
+                logger.info(
+                    'VMD with the handle %s deleted after creation.',
+                    vmd_descriptor.Handle,
+                    extra={'step': step},
+                )
+            vmd_deleted.set()
+            break
 
 
 def test_5b(mdib: ConsumerMdib) -> bool:
@@ -139,25 +175,25 @@ def test_5b(mdib: ConsumerMdib) -> bool:
     """  # noqa: D400, D415, E501, W505
     step = f'{__STEP__}b'
     timeout = 10.0
-    start_waiting_event = threading.Event()
-    delete_after_create_event = threading.Event()
+    vmd_created = threading.Event()
+    vmd_deleted = threading.Event()
 
     observer = functools.partial(
         _on_description_modification_report,
         step,
         set(),
-        start_waiting_event,
-        delete_after_create_event,
+        vmd_created,
+        vmd_deleted,
     )
     with observables.bound_context(mdib, description_modifications=observer):
-        if not start_waiting_event.wait(timeout):
+        if not vmd_created.wait(timeout):
             logger.error(
                 'No VMD was created within the timeout period of %s seconds',
                 timeout,
                 extra={'step': step},
             )
             return False
-        if delete_after_create_event.wait(timeout):
+        if vmd_deleted.wait(timeout):
             logger.info(
                 'VMD was created and deleted within the timeout period of %s seconds',
                 timeout,

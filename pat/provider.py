@@ -416,12 +416,21 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                 print(traceback.format_exc())
 
             # add or rm vmd
-            add_rm_metric_handle = 'add_rm_metric'
-            add_rm_channel_handle = 'add_rm_channel'
-            add_rm_vmd_handle = 'add_rm_vmd'
+            # Generate unique handles on each insertion to avoid recycling containment tree entries (PAT 5b requirement)
             add_rm_mds_handle = 'mds_0'
-            vmd_descriptor = sdc_provider.mdib.descriptions.handle.get_one(add_rm_vmd_handle, allow_none=True)
-            if vmd_descriptor is None:
+            # Find any existing VMDs that match the pattern 'add_rm_vmd_*'
+            existing_vmds = [
+                desc for desc in sdc_provider.mdib.descriptions.objects
+                if desc.Handle.startswith('add_rm_vmd_') and desc.parent_handle == add_rm_mds_handle
+            ]
+
+            if not existing_vmds:
+                # Create new VMD with unique timestamp-based handle
+                timestamp = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000)
+                add_rm_vmd_handle = f'add_rm_vmd_{timestamp}'
+                add_rm_channel_handle = f'add_rm_channel_{timestamp}'
+                add_rm_metric_handle = f'add_rm_metric_{timestamp}'
+
                 vmd = descriptorcontainers.VmdDescriptorContainer(add_rm_vmd_handle, add_rm_mds_handle)
                 channel = descriptorcontainers.ChannelDescriptorContainer(add_rm_channel_handle, add_rm_vmd_handle)
                 metric = descriptorcontainers.StringMetricDescriptorContainer(
@@ -437,8 +446,10 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                     mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(channel))
                     mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(metric))
             else:
+                # Remove the oldest VMD found
+                vmd_to_remove = existing_vmds[0]
                 with sdc_provider.mdib.descriptor_transaction() as mgr:
-                    mgr.remove_descriptor(add_rm_vmd_handle)
+                    mgr.remove_descriptor(vmd_to_remove.Handle)
 
             # enable disable operation
             with sdc_provider.mdib.operational_state_transaction() as mgr:

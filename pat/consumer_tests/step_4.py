@@ -343,33 +343,34 @@ def _verify_waveform_tests(  # noqa: PLR0913
 
     # Track how many waveforms meet the criteria
     # check for equality is not reliable due to network delays
-    waveforms_with_sufficient_updates = sum(
-        1 for updates in waveform_updates.values() if len(updates) >= waveform_updates_per_second * timeout
-    )
-    # check if all updates have at least samples_per_message samples.
-    # due to network delays, we cannot guarantee that all updates have exactly samples_per_message samples
-    waveforms_with_sufficient_samples = sum(
-        1
-        for updates in waveform_updates.values()
+    waveforms_with_sufficient_updates = {
+        handle: updates
+        for handle, updates in waveform_updates.items()
+        if len(updates) >= waveform_updates_per_second * timeout
+    }
+
+    waveforms_with_sufficient_samples = {
+        handle: updates
+        for handle, updates in waveforms_with_sufficient_updates.items()
         if all(len(samples_in_message) == samples_per_message for samples_in_message in updates)
-    )
+    }
 
     test_results: list[bool] = []
     # Final check: at least the required number of waveforms must meet both criteria
-    if waveforms_with_sufficient_updates >= at_least_waveform_descriptors:
+    if len(waveforms_with_sufficient_updates) >= at_least_waveform_descriptors:
         logger.info(
-            'At least %d waveforms produced sufficient updates (%d waveforms met the criteria).',
+            'At least %d waveforms produced sufficient updates (%s waveforms met the criteria).',
             at_least_waveform_descriptors,
-            waveforms_with_sufficient_updates,
+            ', '.join(waveforms_with_sufficient_updates.keys()),
             extra={'step': step},
         )
         test_results.append(True)
     else:
         test_results.append(False)
         logger.error(
-            'The reference provider did not produce updates for at least %d waveforms, but only %d',
+            'The reference provider did not produce updates for at least %d waveforms, but only for %s.',
             at_least_waveform_descriptors,
-            waveforms_with_sufficient_updates,
+            ', '.join(waveforms_with_sufficient_updates.keys()),
             extra={'step': step},
         )
 
@@ -385,27 +386,28 @@ def _verify_waveform_tests(  # noqa: PLR0913
                     extra={'step': step},
                 )
 
-    if waveforms_with_sufficient_samples >= at_least_waveform_descriptors:
+    if waveforms_with_sufficient_samples:
         logger.info(
             'At least %d waveforms produced sufficient samples per message (%d waveforms met the criteria).',
             at_least_waveform_descriptors,
-            waveforms_with_sufficient_samples,
+            len(waveforms_with_sufficient_samples),
             extra={'step': step},
         )
         test_results.append(True)
     else:
         test_results.append(False)
         logger.error(
-            'The reference provider did not produce enough samples per message for at least %d waveforms, but only %d',
+            'The reference provider did not produce enough samples per message for at least %d waveforms, '
+            'but only for %s.',
             at_least_waveform_descriptors,
-            waveforms_with_sufficient_samples,
+            ', '.join(waveforms_with_sufficient_samples.keys()),
             extra={'step': step},
         )
 
-        for handle, updates in waveform_updates.items():
+        for handle, updates in waveforms_with_sufficient_samples.items():
             updates_not_sufficient = [
                 len(samples_in_message)
-                for samples_in_message  in updates
+                for samples_in_message in updates
                 if len(samples_in_message) != samples_per_message
             ]
             logger.error(
@@ -417,6 +419,8 @@ def _verify_waveform_tests(  # noqa: PLR0913
                 updates_not_sufficient,
                 extra={'step': step},
             )
+
+
     return any(test_results) and all(test_results)
 
 

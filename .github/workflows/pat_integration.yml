@@ -9,8 +9,6 @@ on:
       - v*
 jobs:
   sdc11073_provider_v2:
-    env:
-      SDC11073_PAT_4F_SAMPLES_PER_MESSAGE: 10
     strategy:
       matrix:
         # macOS 15 has issues starting the http server in the provider, but only in the ci

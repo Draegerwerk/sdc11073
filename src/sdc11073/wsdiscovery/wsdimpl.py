@@ -119,7 +119,7 @@ def filter_services(
     services: Iterable[Service],
     types: Iterable[etree.QName] | None,
     scopes: wsd_types.ScopesType | None,
-) -> list[Service]:
+) -> Sequence[Service]:
     """Filter services that match types and scopes."""
     return [service for service in services if matches_filter(service, types, scopes)]
 
@@ -198,7 +198,7 @@ class WSDiscovery:
         scopes: wsd_types.ScopesType | None = None,
         timeout: int | float | None = 5,  # noqa: PYI041
         repeat_probe_interval: int | None = 3,
-    ) -> list[Service]:
+    ) -> Sequence[Service]:
         """Search for services that match given types and scopes.
 
         :param types: list of types that a service must have (all of them), no filtering if value is None
@@ -223,12 +223,18 @@ class WSDiscovery:
             now = time.monotonic()
         return filter_services(list(self._remote_services.values()), types, scopes)
 
+    def get_found_remote_services(
+        self, types: Iterable[etree.QName] | None = None, scopes: wsd_types.ScopesType | None = None,
+    ) -> Sequence[Service]:
+        """Get currently known remote services that match given types and scopes."""
+        return filter_services(list(self._remote_services.values()), types, scopes)
+
     def search_sdc_services(
         self,
         scopes: wsd_types.ScopesType | None = None,
         timeout: int | float | None = 5,  # noqa: PYI041
         repeat_probe_interval: int | None = 3,
-    ) -> list[Service]:
+    ) -> Sequence[Service]:
         """Search for sdc services that match given scopes.
 
         :param scopes: scopes to search for, no scopes filtering if value is None

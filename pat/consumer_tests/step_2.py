@@ -7,6 +7,7 @@ from sdc11073.consumer import ConsumerSubscription, SdcConsumer
 
 __STEP__ = '2'
 
+from sdc11073.namespaces import default_ns_helper
 
 logger = logging.getLogger('pat.consumer')
 
@@ -18,15 +19,21 @@ def test_2a(consumer: SdcConsumer) -> bool:
     # because consumer is not subscribed, the soap client needs to be manually started and stopped
     try:
         consumer.get_soap_client(consumer._device_location).connect()  # noqa: SLF001
-        _ = consumer._get_metadata()  # noqa: SLF001
+        received_transfer_get = consumer.transfer_get()
     except Exception:
         logger.exception('Error during TransferGet', extra={'step': step})
         return False
     finally:
         consumer.get_soap_client(consumer._device_location).close()  # noqa: SLF001
 
-    logger.info('Reference provider answers to a TransferGet.', extra={'step': step})
-    return True
+    if (
+        received_transfer_get is not None
+        and received_transfer_get.action == f'{default_ns_helper.WXF.namespace}/GetResponse'
+    ):
+        logger.info('Reference provider answers to a TransferGet.', extra={'step': step})
+        return True
+    logger.error('Reference provider does not answer correctly to a TransferGet.', extra={'step': step})
+    return False
 
 
 def test_2b(consumer: SdcConsumer) -> bool:
