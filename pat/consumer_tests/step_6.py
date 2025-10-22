@@ -79,7 +79,8 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
         for association in [
             association
             for association in pm_types.ContextAssociation
-            if association != pm_types.ContextAssociation.DISASSOCIATED
+            if association
+            not in (pm_types.ContextAssociation.DISASSOCIATED, pm_types.ContextAssociation.NO_ASSOCIATION)
         ]:
             pat: statecontainers.PatientContextStateContainer = typing.cast(
                 'statecontainers.PatientContextStateContainer',
