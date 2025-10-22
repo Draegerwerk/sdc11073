@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import pathlib
+import random
 import traceback
 from decimal import Decimal
 from time import sleep
@@ -116,8 +117,34 @@ def mk_all_services_except_localization(
     )
 
 
+class RealtimeGenerator4f(waveforms.WaveformGeneratorBase):
+    """Generator for 4f test."""
+
+    def __init__(self):
+        # unnecessary values, as we override next_samples
+        super().__init__(lambda _, __, ___: [], 0, 10, 1.1, 0.001)
+
+    def next_samples(self, _: int) -> list[float]:
+        """4f requires 100 samples per message."""
+        return [random.random() for _ in range(100)]
+
+
+class RealtimeGenerator4i(waveforms.WaveformGeneratorBase):
+    """Generator for 4i test."""
+
+    def __init__(self):
+        # unnecessary values, as we override next_samples
+        super().__init__(lambda _, __, ___: [], 0, 10, 1.1, 0.001)
+
+    def next_samples(self, _: int) -> list[float]:
+        """4f requires 100 samples per message."""
+        return [random.random() for _ in range(50)]
+
+
 def provide_realtime_data(sdc_provider: SdcProvider):
     """Provide realtime data."""
+    required_waveforms_4f = 3
+    required_waveforms_4i = 1
     waveform_provider = sdc_provider.waveform_provider
     if waveform_provider is None:
         return
@@ -127,9 +154,14 @@ def provide_realtime_data(sdc_provider: SdcProvider):
             for wv in sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
         ]
 
-    for waveform in waveform_handles:
-        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.0009)
-        waveform_provider.register_waveform_generator(waveform, wf_generator)
+    assert len(waveform_handles) >= required_waveforms_4f + required_waveforms_4i, (
+        'At least 4 waveforms required in MDIB for test 4f and 4i'
+    )
+    for i, waveform in enumerate(waveform_handles):
+        if i < required_waveforms_4f:
+            waveform_provider.register_waveform_generator(waveform, RealtimeGenerator4f())
+        elif i == required_waveforms_4f:
+            waveform_provider.register_waveform_generator(waveform, RealtimeGenerator4i())
 
 
 def run_provider(  # noqa: C901, PLR0912, PLR0915

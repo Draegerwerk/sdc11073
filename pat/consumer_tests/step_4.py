@@ -251,7 +251,8 @@ def test_4e(mdib: ConsumerMdib) -> bool:
         with observables.bound_context(mdib, alert_by_handle=observer):
             if not first_update.wait(timeout):
                 logger.error(
-                    'The reference provider did not produce alert system updates for "%s" within %s (+%ss network delay) seconds.',
+                    'The reference provider did not produce alert system updates for "%s" within %s '
+                    '(+%ss network delay) seconds.',
                     alert_system.Handle,
                     alert_system.SelfCheckPeriod,
                     network_delay,
@@ -262,7 +263,8 @@ def test_4e(mdib: ConsumerMdib) -> bool:
             start = time.perf_counter()
             if not second_update.wait(timeout):
                 logger.error(
-                    'The reference provider did not produce a second alert system update for "%s" within %s (+%ss network delay) seconds.',
+                    'The reference provider did not produce a second alert system update for "%s" within '
+                    '%s (+%ss network delay) seconds.',
                     alert_system.Handle,
                     alert_system.SelfCheckPeriod,
                     network_delay,
@@ -349,7 +351,7 @@ def _verify_waveform_tests(  # noqa: PLR0913
     waveforms_with_sufficient_samples = sum(
         1
         for updates in waveform_updates.values()
-        if all(len(samples_in_message) >= samples_per_message for samples_in_message in updates)
+        if all(len(samples_in_message) == samples_per_message for samples_in_message in updates)
     )
 
     test_results: list[bool] = []
