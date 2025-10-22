@@ -87,7 +87,7 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
             )
             pat.CoreData.Familyname = uuid.uuid4().hex
             pat.ContextAssociation = association
-            logger.info(
+            logger.debug(
                 'Set patient context with the descriptor handle "%s" to context association %s with family name %s',
                 p.Handle,
                 association,
@@ -105,8 +105,11 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
                     operation_result = fut.result(operation_timeout)
                 except TimeoutError:
                     logger.exception(
-                        'SetContextState operation not finished within the timeout of %s seconds',
+                        'The SetContextState operation with the handle %s not finished within the timeout of %s '
+                        'seconds for association %s',
+                        set_context_state_handle,
                         operation_timeout,
+                        association,
                         extra={'step': step},
                     )
                     test_results.append(False)
@@ -116,7 +119,10 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
                     msg_types.InvocationState.FINISHED_MOD,
                 ):
                     logger.error(
-                        'SetContextState operation failed with the state %s and the error %s: %s',
+                        'The SetContextState operation with the handle %s failed for association %s with the '
+                        'state %s and the error %s: %s',
+                        set_context_state_handle,
+                        association,
                         operation_result.InvocationInfo.InvocationState,
                         operation_result.InvocationInfo.InvocationError,
                         operation_result.InvocationInfo.InvocationErrorMessage,
@@ -226,9 +232,9 @@ def test_6d(consumer: SdcConsumer) -> bool:
 
     test_results: list[bool] = []
     for operation in operations_:
-        target = consumer.mdib.descriptions.handle.get(operation.OperationTarget)
+        target = consumer.mdib.descriptions.handle.get_one(operation.OperationTarget)
         if not isinstance(target, descriptorcontainers.EnumStringMetricDescriptorContainer):
-            msg = f'Expected EnumStringMetricDescriptorContainer, but got {type(target)}'
+            msg = f'Expected {descriptorcontainers.EnumStringMetricDescriptorContainer}, but got {type(target)}'
             raise TypeError(msg)
         value_to_be_set = random.choice([allowed_value.Value for allowed_value in target.AllowedValue])
         fut: Future[operations.OperationResult] = set_service.set_string(operation.Handle, value_to_be_set)

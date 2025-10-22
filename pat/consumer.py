@@ -104,7 +104,7 @@ def run_ref_test(
     """Run reference test."""
     wsd = WSDiscovery(adapter)
     wsd.start()
-    res_1a = step_1.test_1a(wsd, epr) if execute_1a else True
+    res_1a = step_1.test_1a(wsd, epr) if execute_1a else None
     res_1b = step_1.test_1b(wsd, epr)
     if not res_1b:
         return False
@@ -113,6 +113,8 @@ def run_ref_test(
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
     res_2a = step_2.test_2a(consumer)
     res_2b = step_2.test_2b(consumer)
+    if not res_2b:
+        return False
 
     res_3a = step_3.test_3a(consumer)
     res_3b = step_3.test_3b(consumer)
@@ -154,7 +156,8 @@ def run_ref_test(
         test_6d = thread_test_6d.result()
         test_6e = thread_test_6e.result()
         test_6f = thread_test_6f.result()
-    print('1a:', res_1a)
+    if execute_1a:
+        print('1a:', res_1a)
     print('1b:', res_1b)
     print('2a:', res_2a)
     print('2b:', res_2b)
@@ -178,7 +181,6 @@ def run_ref_test(
     print('6f:', test_6f)
 
     results = [
-        res_1a,
         res_1b,
         res_2a,
         res_2b,
@@ -201,7 +203,9 @@ def run_ref_test(
         test_6e,
         test_6f,
     ]
-    return all(r is True for r in results)
+    if execute_1a:
+        results.append(res_1a)
+    return any(results) and all(results)
 
 
 if __name__ == '__main__':
