@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     import sdc11073.certloader
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
-    from sdc11073.wsdiscovery.service import Service
 
 ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
