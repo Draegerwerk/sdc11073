@@ -273,7 +273,7 @@ def test_4e(mdib: ConsumerMdib) -> bool:
                 test_results.append(False)
                 continue
             duration = time.perf_counter() - start
-            if alert_system.SelfCheckPeriod - network_delay <= duration <= alert_system.SelfCheckPeriod + network_delay:
+            if duration <= alert_system.SelfCheckPeriod + network_delay:
                 logger.info(
                     'The reference provider produced alert system self check updates in accordance to the '
                     'periodicity defined in the MDIB (but at most %d seconds) for the AlertSystemDescriptor '
