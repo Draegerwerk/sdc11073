@@ -361,7 +361,7 @@ def _verify_waveform_tests(  # noqa: PLR0913
         logger.info(
             'At least %d waveforms produced sufficient updates (%s waveforms met the criteria).',
             at_least_waveform_descriptors,
-            ', '.join(waveforms_with_sufficient_updates.keys()),
+            list(waveforms_with_sufficient_updates.keys()),
             extra={'step': step},
         )
         test_results.append(True)
@@ -370,7 +370,7 @@ def _verify_waveform_tests(  # noqa: PLR0913
         logger.error(
             'The reference provider did not produce updates for at least %d waveforms, but only for %s.',
             at_least_waveform_descriptors,
-            ', '.join(waveforms_with_sufficient_updates.keys()),
+            list(waveforms_with_sufficient_updates.keys()),
             extra={'step': step},
         )
 
@@ -386,7 +386,7 @@ def _verify_waveform_tests(  # noqa: PLR0913
                     extra={'step': step},
                 )
 
-    if waveforms_with_sufficient_samples:
+    if len(waveforms_with_sufficient_samples) >= at_least_waveform_descriptors:
         logger.info(
             'At least %d waveforms produced sufficient samples per message (%d waveforms met the criteria).',
             at_least_waveform_descriptors,
@@ -400,11 +400,11 @@ def _verify_waveform_tests(  # noqa: PLR0913
             'The reference provider did not produce enough samples per message for at least %d waveforms, '
             'but only for %s.',
             at_least_waveform_descriptors,
-            ', '.join(waveforms_with_sufficient_samples.keys()),
+            list(waveforms_with_sufficient_samples.keys()),
             extra={'step': step},
         )
 
-        for handle, updates in waveforms_with_sufficient_samples.items():
+        for handle, updates in waveforms_with_sufficient_updates.items():
             updates_not_sufficient = [
                 len(samples_in_message)
                 for samples_in_message in updates
