@@ -63,7 +63,7 @@ def test_2b(consumer: SdcConsumer) -> bool:
             return False
     subscriptions: list[ConsumerSubscription] = list(consumer.subscription_mgr.subscriptions.values())
     subscriptions.sort(key=lambda s: s.granted_expires)
-    timeout = subscriptions[0].granted_expires + 1
+    timeout = subscriptions[0].expires_at + 1
     logger.info('Sleeping %d seconds to allow auto-renew of at least one subscription.', timeout, extra={'step': step})
     time.sleep(timeout)
     if subscriptions[0].is_subscribed:

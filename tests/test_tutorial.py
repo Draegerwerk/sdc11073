@@ -33,6 +33,7 @@ from tests import utils
 if TYPE_CHECKING:
     import os
 
+    from sdc11073.location import SdcLocation
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
@@ -50,7 +51,7 @@ __70041_MDIB_FINAL__ = __HERE__.joinpath('70041_MDIB_Final.xml')
 
 def create_generic_provider(
     wsdiscovery_instance: WSDiscovery,
-    location: str,
+    location: SdcLocation,
     mdib_path: str | os.PathLike[str],
     specific_components: SdcProviderComponents | None = None,
 ) -> SdcProvider:

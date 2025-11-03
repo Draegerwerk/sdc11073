@@ -91,7 +91,11 @@ def test_consumer_subscription_manager_paths_and_end():
     assert handled is sub
     assert sub.is_subscribed is False
     assert sub.end_status == 'DeviceShutdown'
-    assert sub.end_reason is not None
+
+    end_reason = evt.LanguageSpecificStringType()
+    end_reason.text = 'bye'
+    end_reason.lang = 'en-US'
+    assert sub.end_reason == end_reason
 
 
 class FakeSoapClient:
@@ -188,7 +192,7 @@ def test_subscribe_renew_get_status_unsubscribe_and_str_and_remaining():
     assert payload.attrib.get('foo') == 'bar'
 
     # renew success
-    got = sub.renew(20)
+    got = sub.renew(fake.subscribe_expires + 1)
     assert got == fake.renew_expires
     # get_status success
     got_status = sub.get_status()

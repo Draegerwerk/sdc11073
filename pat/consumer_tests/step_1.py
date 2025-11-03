@@ -60,13 +60,14 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
     try:
         discovery.set_on_probe_matches_callback(observer)
         discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
-        if probe_matches_event.wait(timeout):
-            logger.info('Probe matches received in ad-hoc mode', extra={'step': step})
-        else:
-            logger.error('Probe matches not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
+        result = probe_matches_event.wait(timeout)
     finally:
         discovery.set_on_probe_matches_callback(None)
-    if not probe_matches_event.is_set():
+    if result:
+        logger.info('Probe matches received in ad-hoc mode', extra={'step': step})
+    else:
+        logger.error('Probe matches not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
+    if not result:
         return False
 
     resolve_match_event = threading.Event()
@@ -74,13 +75,14 @@ def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
     try:
         discovery.set_remote_service_resolve_match_callback(observer)
         discovery._send_resolve(epr)  # noqa: SLF001
-        if resolve_match_event.wait(timeout):
-            logger.info('Resolve match received in ad-hoc mode', extra={'step': step})
-        else:
-            logger.error('Resolve match not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
+        result = resolve_match_event.wait(timeout)
     finally:
         discovery.set_remote_service_resolve_match_callback(None)
-    return resolve_match_event.is_set()
+    if result:
+        logger.info('Resolve match received in ad-hoc mode', extra={'step': step})
+    else:
+        logger.error('Resolve match not received in ad-hoc mode within %ss.', timeout, extra={'step': step})
+    return result
 
 
 def test_1c():

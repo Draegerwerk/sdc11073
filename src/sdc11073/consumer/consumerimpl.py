@@ -415,7 +415,7 @@ class SdcConsumer:
         dpws_hosted: HostedServiceType,
         filter_type: eventing_types.FilterType,
         actions: Iterable[DispatchKey],
-        expire_minutes: int = 60,
+        expire_seconds: int = 60,
         any_elements: list[xml_utils.LxmlElement] | None = None,
         any_attributes: dict | None = None,
     ) -> ConsumerSubscription:
@@ -425,14 +425,14 @@ class SdcConsumer:
                            This is the target for all subscribe/unsubscribe ... messages
         :param filter_type: the filter that is sent to device
         :param actions: a list of DispatchKeys that this subscription shall handle
-        :param expire_minutes: defaults to 60 seconds
+        :param expire_seconds: defaults to 60 seconds
         :param any_elements: optional list of lxml elements
         :param any_attributes: optional dictionary of name:str - value:str pairs
         :return: a subscription object that has callback already registered.
         """
         subscription = self.mk_subscription(dpws_hosted, filter_type, actions)
         properties.bind(subscription, notification_data=self._on_notification)
-        subscription.subscribe(expire_minutes, any_elements, any_attributes)
+        subscription.subscribe(expire_seconds, any_elements, any_attributes)
         return subscription
 
     def client(self, port_type_name: str) -> HostedServiceClient | None:

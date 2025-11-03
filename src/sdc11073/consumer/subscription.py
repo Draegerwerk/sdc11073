@@ -542,10 +542,7 @@ class ConsumerSubscriptionManager(
             for subscription in current_subscriptions:
                 try:
                     subscription.unsubscribe()
-                except HTTPException as ex:  # noqa: PERF203
-                    self._logger.info('unsubscribe failed got HTTPException: {}', ex)  # noqa: PLE1205
-                    ret = False
-                except Exception:
+                except Exception:  # noqa: PERF203
                     self._logger.exception('unsubscribe error')
                     ret = False
         return ret

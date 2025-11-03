@@ -21,7 +21,6 @@ if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
-ConsumerMdibMethods.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
 
 class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
@@ -31,6 +30,7 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         super().__init__(consumer_mdib, logger)
         self.alert_condition_type_concept_updates: list[float] = []  # for test 5a.1
         self._last_alert_condition_type_concept_updates = time.monotonic()  # timestamp
+        self.DETERMINATIONTIME_WARN_LIMIT = 2.0
 
         self.alert_condition_cause_remedy_updates: list[float] = []  # for test 5a.2
         self._last_alert_condition_cause_remedy_updates = time.monotonic()  # timestamp
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
-    parser.add_argument('--execute-1a', action='store_true', help='Execute test step 1a.')
+    parser.add_argument('--no-1a', action='store_true', help='Do not execute test step 1a.')
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(step)s - %(message)s'))
@@ -232,6 +232,6 @@ if __name__ == '__main__':
         if args.certificate_folder
         else None,
         network_delay=args.network_delay,
-        execute_1a=args.execute_1a,
+        execute_1a=not args.no_1a,
     )
     sys.exit(0 if passed else 1)

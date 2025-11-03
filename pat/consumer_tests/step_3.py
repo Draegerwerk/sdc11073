@@ -5,10 +5,11 @@ from __future__ import annotations
 import logging
 import typing
 
-from sdc11073.xml_types import actions, msg_types, pm_qnames
+from sdc11073.xml_types import actions, pm_qnames
 
 if typing.TYPE_CHECKING:
     from sdc11073.consumer import ContextServiceClient, GetServiceClient, SdcConsumer
+    from sdc11073.xml_types import msg_types
 
 __STEP__ = '3'
 logger = logging.getLogger(f'pat.consumer.step_{__STEP__}')

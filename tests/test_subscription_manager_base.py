@@ -65,10 +65,11 @@ def _mk_received(subscribe_msg: bytes, msg_reader: MessageReader) -> RequestData
 
 
 def test_roundtrip_data_repr():
-    r = RoundTripData([0.1, 0.2, 0.3], abs_max=1)
-    assert r.min == 0.1
-    assert r.max == 0.3
-    assert abs(r.avg - 0.2) < 1e-6
+    values = [0.1, 0.2, 0.3]
+    r = RoundTripData(values, abs_max=1)
+    assert r.min == min(values)
+    assert r.max == max(values)
+    assert r.avg == sum(values) / len(values)
     s = repr(r)
     assert 'min=' in s
     assert 'max=' in s
@@ -122,7 +123,7 @@ def test_subscribe_renew_get_status_and_unsubscribe_flow():
     response = mgr.on_subscribe_request(rd)
     resp_rd = msg_reader.read_received_message(response.serialize(validate=False), validate=False)
     body = evt.SubscribeResponse.from_node(resp_rd.p_msg.msg_node)
-    assert body.Expires > 0
+    assert body.Expires == 25
 
     # prepare GetStatus request with same identifier
     ident = next(iter(mgr._subscriptions.objects)).reference_parameters[0]
@@ -144,7 +145,7 @@ def test_subscribe_renew_get_status_and_unsubscribe_flow():
     rn_resp = mgr.on_renew_request(rd_rn)
     rn_rd = msg_reader.read_received_message(rn_resp.serialize(validate=False), validate=False)
     rn_body = evt.RenewResponse.from_node(rn_rd.p_msg.msg_node)
-    assert 0 < rn_body.Expires <= 30
+    assert rn_body.Expires== 30
 
     # unsubscribe success path
     unsub = evt.Unsubscribe()

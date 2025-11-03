@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 
 def run(
-    mdib_path: os.PathLike[str],
     adapter: str,
     epr: str,
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
@@ -45,7 +44,7 @@ def run(
         )
         threading.Thread(
             target=provider.run_provider,
-            args=(mdib_path, adapter, epr, ssl_context_container),
+            args=(adapter, epr, ssl_context_container),
             daemon=True,
         ).start()
         return bool(consumer_future.result(timeout=60 * 3))
@@ -58,7 +57,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--epr',
         help='Explicit endpoint reference to search for.',
-        default=f'urn:uuid:{uuid.uuid4()}',
+        default=uuid.uuid4().urn,
     )
     parser.add_argument(
         '--certificate-folder',
@@ -67,26 +66,14 @@ if __name__ == '__main__':
         default=pathlib.Path(__file__).parent.parent.joinpath('certs').resolve(),
     )
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.', default='dummypass')
-    parser.add_argument(
-        '--mdib-path',
-        type=pathlib.Path,
-        help='Override MDIB file used by the provider.',
-        default=pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml'),
-    )
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
 
     args = parser.parse_args()
 
     passed = run(
-        mdib_path=args.mdib_path,
         adapter=args.adapter,
         epr=args.epr,
-        ssl_context_container=common.get_ssl_context(
-            pathlib.Path(__file__).parent.joinpath('certs').resolve(),
-            'dummypass',
-        )
-        if args.tls
-        else None,
+        ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password) if args.tls else None,
         network_delay=args.network_delay,
     )
     sys.exit(0 if passed else 1)

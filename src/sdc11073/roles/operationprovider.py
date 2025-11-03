@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 class OperationProvider(providerbase.ProviderRole):
     """Handle operations that work on operation states.
 
-    Empty implementation, not needed/used for sdc11073 tests.
+    Provier handling the operation calls. Used for plug-a-thon tests.
     """
 
     def _handle_plugathon_activate(self, params: ExecuteParameters) -> ExecuteResult:
@@ -70,5 +70,4 @@ class OperationProvider(providerbase.ProviderRole):
                 operation_descriptor_container.OperationTarget,
                 operation_handler=self._handle_plugathon_activate,
             )
-        super().make_operation_instance(operation_descriptor_container, operation_cls_getter)
-        return None
+        return super().make_operation_instance(operation_descriptor_container, operation_cls_getter)

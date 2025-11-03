@@ -165,7 +165,6 @@ def provide_realtime_data(sdc_provider: SdcProvider):
 
 
 def run_provider(  # noqa: C901, PLR0912, PLR0915
-    mdib_path: os.PathLike[str],
     adapter: str,
     epr: str,
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
@@ -173,7 +172,7 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
     """Run provider until KeyboardError is raised."""
     wsd = WSDiscovery(adapter)
     wsd.start()
-    my_mdib = ProviderMdib.from_mdib_file(str(mdib_path))
+    my_mdib = ProviderMdib.from_mdib_file(str(pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')))
     print(f'UUID for this device is {epr}')
     loc = location.SdcLocation(
         fac='fac1',
@@ -472,18 +471,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run plug-a-thon test provider')
     parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
     parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
-    parser.add_argument(
-        '--mdib-path',
-        type=pathlib.Path,
-        help='Override MDIB file used by the provider.',
-        default=pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml'),
-    )
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
 
     args = parser.parse_args()
     run_provider(
-        mdib_path=args.mdib_path,
         adapter=args.adapter,
         epr=args.epr,
         ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password)

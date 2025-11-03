@@ -98,7 +98,7 @@ def test_5a(mdib: ConsumerMdib) -> bool:
 T = typing.TypeVar('T')
 
 
-def _get_created_by_type(
+def _iter_dmr_by_type(
     dmr: msg_types.DescriptionModificationReport,
     clazz: type[T],
     modification_type: msg_types.DescriptionModificationType,
@@ -118,12 +118,12 @@ def _on_description_modification_report(  # noqa: C901
     vmd_deleted: threading.Event,
     dmr: msg_types.DescriptionModificationReport,
 ):
-    for vmd_descriptor in _get_created_by_type(
+    for vmd_descriptor in _iter_dmr_by_type(
         dmr, descriptorcontainers.VmdDescriptorContainer, msg_types.DescriptionModificationType.CREATE,
     ):
         logger.debug('Found created VmdDescriptor with the handle %s.', vmd_descriptor.Handle, extra={'step': step})
         found_channel_descriptor = None
-        for channel_descriptor in _get_created_by_type(
+        for channel_descriptor in _iter_dmr_by_type(
             dmr, descriptorcontainers.ChannelDescriptorContainer, msg_types.DescriptionModificationType.CREATE,
         ):
             if channel_descriptor.parent_handle == vmd_descriptor.Handle:
@@ -137,7 +137,7 @@ def _on_description_modification_report(  # noqa: C901
                 break
         if not found_channel_descriptor:  # update contains no channel descriptor, ignore create vmd
             continue
-        for metric_descriptor in _get_created_by_type(
+        for metric_descriptor in _iter_dmr_by_type(
             dmr, descriptorcontainers.AbstractMetricDescriptorContainer, msg_types.DescriptionModificationType.CREATE,
         ):
             if metric_descriptor.parent_handle == found_channel_descriptor.Handle:
@@ -153,16 +153,15 @@ def _on_description_modification_report(  # noqa: C901
 
     if not vmd_created.is_set():
         return  # only continue if a VMD with Channel and Metric has already been created
-    for vmd_descriptor in _get_created_by_type(
+    for vmd_descriptor in _iter_dmr_by_type(
         dmr, descriptorcontainers.VmdDescriptorContainer, msg_types.DescriptionModificationType.DELETE,
     ):
         if vmd_descriptor.Handle in created_vmds:
-            if vmd_descriptor.Handle in created_vmds:
-                logger.info(
-                    'VMD with the handle %s deleted after creation.',
-                    vmd_descriptor.Handle,
-                    extra={'step': step},
-                )
+            logger.info(
+                'VMD with the handle %s deleted after creation.',
+                vmd_descriptor.Handle,
+                extra={'step': step},
+            )
             vmd_deleted.set()
             break
 

@@ -98,6 +98,8 @@ class DirectoryLogger(CommLogger):
         self._log_folder = pathlib.Path(log_folder)
         self._counter = 1
         self._io_lock = threading.Lock()
+        self._active_writers = 0
+        self._writers_done = threading.Condition()
 
         if log_in:
             self.handlers.update(
@@ -148,9 +150,9 @@ class DirectoryLogger(CommLogger):
         """
         super().stop()
         # Ensure no concurrent writes are in progress
-        with contextlib.suppress(Exception):  # noqa: SIM117
-            with self._io_lock:
-                pass
+        with self._writers_done:
+            while self._active_writers:
+                self._writers_done.wait()
         # On Windows, allow a short grace period for file system/indexers
         # to release any transient handles to freshly written files.
         if os.name == 'nt':
@@ -181,8 +183,16 @@ class DirectoryLogger(CommLogger):
 
     def _write_log(self, ttype: str, direction: str, msg: bytes, *infos: str) -> None:
         path = self._log_folder.joinpath(self._mk_filename(ttype, direction, *infos))
-        with self._io_lock:
-            path.write_bytes(msg)
+        with self._writers_done:
+            self._active_writers += 1
+        try:
+            with self._io_lock:
+                path.write_bytes(msg)
+        finally:
+            with self._writers_done:
+                self._active_writers -= 1
+                if self._active_writers == 0:
+                    self._writers_done.notify_all()
 
     class _GenericHandler(logging.Handler):
         def __init__(self, emit: Callable):
