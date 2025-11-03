@@ -420,7 +420,6 @@ def _verify_waveform_tests(  # noqa: PLR0913
                 extra={'step': step},
             )
 
-
     return any(test_results) and all(test_results)
 
 

@@ -111,7 +111,7 @@ def _iter_dmr_by_type(
                     yield descriptor
 
 
-def _on_description_modification_report(  # noqa: C901
+def _on_description_modification_report(
     step: str,
     created_vmds: set[str],
     vmd_created: threading.Event,
@@ -119,12 +119,16 @@ def _on_description_modification_report(  # noqa: C901
     dmr: msg_types.DescriptionModificationReport,
 ):
     for vmd_descriptor in _iter_dmr_by_type(
-        dmr, descriptorcontainers.VmdDescriptorContainer, msg_types.DescriptionModificationType.CREATE,
+        dmr,
+        descriptorcontainers.VmdDescriptorContainer,
+        msg_types.DescriptionModificationType.CREATE,
     ):
         logger.debug('Found created VmdDescriptor with the handle %s.', vmd_descriptor.Handle, extra={'step': step})
         found_channel_descriptor = None
         for channel_descriptor in _iter_dmr_by_type(
-            dmr, descriptorcontainers.ChannelDescriptorContainer, msg_types.DescriptionModificationType.CREATE,
+            dmr,
+            descriptorcontainers.ChannelDescriptorContainer,
+            msg_types.DescriptionModificationType.CREATE,
         ):
             if channel_descriptor.parent_handle == vmd_descriptor.Handle:
                 logger.debug(
@@ -138,7 +142,9 @@ def _on_description_modification_report(  # noqa: C901
         if not found_channel_descriptor:  # update contains no channel descriptor, ignore create vmd
             continue
         for metric_descriptor in _iter_dmr_by_type(
-            dmr, descriptorcontainers.AbstractMetricDescriptorContainer, msg_types.DescriptionModificationType.CREATE,
+            dmr,
+            descriptorcontainers.AbstractMetricDescriptorContainer,
+            msg_types.DescriptionModificationType.CREATE,
         ):
             if metric_descriptor.parent_handle == found_channel_descriptor.Handle:
                 logger.debug(
@@ -154,7 +160,9 @@ def _on_description_modification_report(  # noqa: C901
     if not vmd_created.is_set():
         return  # only continue if a VMD with Channel and Metric has already been created
     for vmd_descriptor in _iter_dmr_by_type(
-        dmr, descriptorcontainers.VmdDescriptorContainer, msg_types.DescriptionModificationType.DELETE,
+        dmr,
+        descriptorcontainers.VmdDescriptorContainer,
+        msg_types.DescriptionModificationType.DELETE,
     ):
         if vmd_descriptor.Handle in created_vmds:
             logger.info(

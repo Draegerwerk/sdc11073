@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
 
-
 class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
     """Consumer mdib reference test."""
 

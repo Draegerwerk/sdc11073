@@ -23,8 +23,6 @@ from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
-    import os
-
     import sdc11073.certloader
     from sdc11073.provider.components import SdcProviderComponents
 
@@ -419,7 +417,8 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
             add_rm_mds_handle = 'mds_0'
             # Find any existing VMDs that match the pattern 'add_rm_vmd_*'
             existing_vmds = [
-                desc for desc in sdc_provider.mdib.descriptions.objects
+                desc
+                for desc in sdc_provider.mdib.descriptions.objects
                 if desc.Handle.startswith('add_rm_vmd_') and desc.parent_handle == add_rm_mds_handle
             ]
 

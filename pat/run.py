@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING
 from pat import common, consumer, provider
 
 if TYPE_CHECKING:
-    import os
-
     import sdc11073.certloader
 
 

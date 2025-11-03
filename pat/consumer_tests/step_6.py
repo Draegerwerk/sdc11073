@@ -432,7 +432,12 @@ def test_6e(consumer: SdcConsumer) -> bool:
         start = time.perf_counter()
         if operation.MaxTimeToFinish is None:
             timeout = 10.0
-            logger.warning('SetMetricState operation with the handle %s has no MaxTimeToFinish, using default of %d seconds', operation.Handle, timeout, extra={'step': step})
+            logger.warning(
+                'SetMetricState operation with the handle %s has no MaxTimeToFinish, using default of %d seconds',
+                operation.Handle,
+                timeout,
+                extra={'step': step},
+            )
         else:
             timeout = operation.MaxTimeToFinish
         with observables.bound_context(consumer.mdib, metrics_by_handle=observer):
