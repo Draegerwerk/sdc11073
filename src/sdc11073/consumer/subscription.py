@@ -14,7 +14,7 @@ from lxml import etree
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
 from sdc11073.namespaces import EventingActions
-from sdc11073.pysoap.soapclient import HTTPException, HTTPReturnCodeError
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import SoapResponseError
 from sdc11073.xml_types import eventing_types as evt_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock

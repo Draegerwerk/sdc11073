@@ -61,7 +61,7 @@ if __name__ == '__main__':
         '--certificate-folder',
         type=pathlib.Path,
         help='Folder containing TLS artifacts.',
-        default=pathlib.Path(__file__).parent.parent.joinpath('certs').resolve(),
+        default=pathlib.Path(__file__).parent.joinpath('certs').resolve(),
     )
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.', default='dummypass')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
