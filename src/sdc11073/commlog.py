@@ -5,7 +5,6 @@ from __future__ import annotations
 import contextlib
 import functools
 import logging
-import os
 import pathlib
 import threading
 import time
