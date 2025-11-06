@@ -105,19 +105,29 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
                 pat=pat,
                 association_to_listen=association,
             )
+            if set_context_state.MaxTimeToFinish is None:
+                timeout = 10.0
+                logger.warning(
+                    'SetMetricState operation with the handle %s has no MaxTimeToFinish, using default of %d seconds',
+                    set_context_state.Handle,
+                    timeout,
+                    extra={'step': step},
+                )
+            else:
+                timeout = set_context_state.MaxTimeToFinish
             with observables.bound_context(consumer.mdib, context_by_handle=observer):
                 fut: Future[operations.OperationResult] = context_service.set_context_state(
                     set_context_state.Handle,
                     [pat],
                 )
                 try:
-                    operation_result = fut.result(set_context_state.MaxTimeToFinish)
+                    operation_result = fut.result(timeout)
                 except TimeoutError:
                     logger.exception(
                         'The SetContextState operation with the handle %s not finished within the timeout of %s '
                         'seconds for association %s',
                         set_context_state.Handle,
-                        set_context_state.MaxTimeToFinish,
+                        timeout,
                         association,
                         extra={'step': step},
                     )
@@ -183,21 +193,49 @@ def test_6c(consumer: SdcConsumer) -> bool:
         if len(state.AllowedRange) == 0:
             value = random.randint(1, 10000)
         else:
-            value = random.sample([state.AllowedRange[0].Lower, state.AllowedRange[0].Upper])
+            value = random.choice([state.AllowedRange[0].Lower, state.AllowedRange[0].Upper])
         fut: Future[operations.OperationResult] = set_service.set_numeric_value(
             operation.Handle,
             value,
         )
+        if operation.MaxTimeToFinish is None:
+            timeout = 10.0
+            logger.warning(
+                'SetMetricState operation with the handle %s has no MaxTimeToFinish, using default of %d seconds',
+                operation.Handle,
+                timeout,
+                extra={'step': step},
+            )
+        else:
+            timeout = operation.MaxTimeToFinish
         try:
-            operation_result = fut.result(operation.MaxTimeToFinish)
+            operation_result = fut.result(timeout)
         except TimeoutError:
             logger.exception(
                 'SetNumericValue operation not finished within the timeout of %s seconds',
-                operation.MaxTimeToFinish,
+                timeout,
                 extra={'step': step},
             )
             test_results.append(False)
             continue
+        if operation_result.set_response.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+            logger.error(
+                'SetNumericValue operation not immediately responded with %s but with invocation state '
+                '%s and error %s: %s',
+                msg_types.InvocationState.FINISHED,
+                operation_result.set_response.InvocationInfo.InvocationState,
+                operation_result.set_response.InvocationInfo.InvocationError,
+                operation_result.set_response.InvocationInfo.InvocationErrorMessage,
+                extra={'step': step},
+            )
+            test_results.append(False)
+        else:
+            logger.info(
+                'SetNumericValue operation immediately responded with %s as expected',
+                msg_types.InvocationState.FINISHED,
+                extra={'step': step},
+            )
+            test_results.append(True)
         if len(operation_result.report_parts) != 1:
             logger.error(
                 'SetNumericValue operation finished with %d report parts, but expected exactly 1',
@@ -206,11 +244,8 @@ def test_6c(consumer: SdcConsumer) -> bool:
             )
             test_results.append(False)
 
-        if operation_result.InvocationInfo.InvocationState in (
-            msg_types.InvocationState.FINISHED,
-            msg_types.InvocationState.FINISHED_MOD,
-        ):
-            logger.info('SetNumericValue operation finished immediately responds with Fin', extra={'step': step})
+        if operation_result.InvocationInfo.InvocationState == msg_types.InvocationState.FINISHED:
+            logger.info('OperationInvokedReport contains with Fin', extra={'step': step})
             test_results.append(True)
         else:
             logger.error(
@@ -224,7 +259,7 @@ def test_6c(consumer: SdcConsumer) -> bool:
     return any(test_results) and all(test_results)
 
 
-def test_6d(consumer: SdcConsumer) -> bool:
+def test_6d(consumer: SdcConsumer) -> bool:  # noqa: C901, PLR0912
     """The Reference Consumer invokes SetString:
     - The Reference Provider initiates a transaction that sends Wait, Start and Fin
     """  # noqa: D205, D400, D415
@@ -249,19 +284,51 @@ def test_6d(consumer: SdcConsumer) -> bool:
         if not isinstance(target, descriptorcontainers.EnumStringMetricDescriptorContainer):
             msg = f'Expected {descriptorcontainers.EnumStringMetricDescriptorContainer}, but got {type(target)}'
             raise TypeError(msg)
-        value_to_be_set = random.choice([allowed_value.Value for allowed_value in target.AllowedValue])
+        set_string_operation_state: statecontainers.SetStringOperationStateContainer = (
+            consumer.mdib.states.descriptor_handle.get_one(operation.Handle)
+        )
+        if len(set_string_operation_state.AllowedValues.Value) > 0:
+            value_to_be_set = random.choice(set_string_operation_state.AllowedValues.Value)
+        else:
+            value_to_be_set = random.choice([allowed_value.Value for allowed_value in target.AllowedValue])
+
+        if operation.MaxTimeToFinish is None:
+            timeout = 10.0
+            logger.warning(
+                'SetMetricState operation with the handle %s has no MaxTimeToFinish, using default of %d seconds',
+                operation.Handle,
+                timeout,
+                extra={'step': step},
+            )
+        else:
+            timeout = operation.MaxTimeToFinish
         fut: Future[operations.OperationResult] = set_service.set_string(operation.Handle, value_to_be_set)
         try:
-            operation_result = fut.result(operation.MaxTimeToFinish)
+            operation_result = fut.result(timeout)
         except TimeoutError:
             logger.exception(
                 'The SetString operation with the handle %s did not finish within the timeout of %s seconds',
                 operation.Handle,
-                operation.MaxTimeToFinish,
+                timeout,
                 extra={'step': step},
             )
             test_results.append(False)
             continue
+        if operation_result.set_response.InvocationInfo.InvocationState != msg_types.InvocationState.WAIT:
+            logger.error(
+                'SetString operation not responded with %s but with %s',
+                msg_types.InvocationState.WAIT,
+                operation_result.set_response.InvocationInfo.InvocationState,
+                extra={'step': step},
+            )
+            test_results.append(False)
+        else:
+            logger.info(
+                'SetString operation responded with %s as expected',
+                msg_types.InvocationState.WAIT,
+                extra={'step': step},
+            )
+            test_results.append(True)
         if len(operation_result.report_parts) != len(expected_order):
             logger.error(
                 'The SetString operation with the handle %s finished with %d report parts, but expected exactly %d',
@@ -326,7 +393,7 @@ def _observe_metric_value_change(
         for descriptor_handle, state in metrics_by_handle.items():
             if descriptor_handle not in expected_handles:
                 continue
-            metric_value = getattr(state.MetricValue, 'Value', None)
+            metric_value = state.MetricValue.Value if state.MetricValue is not None else None
             expected_value = expected_values_by_handle[descriptor_handle]
             logger.debug(
                 'received metric update for "%s" with value "%s" (expected "%s")',
@@ -381,7 +448,7 @@ def _propose_states(
     return proposed_states
 
 
-def test_6e(consumer: SdcConsumer) -> bool:
+def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
     """The Reference Consumer invokes SetMetricStates:
     - Payload: 2 metric states (settings; consider alert limits)
     - The Reference Provider immediately responds with Fin
@@ -443,7 +510,7 @@ def test_6e(consumer: SdcConsumer) -> bool:
         with observables.bound_context(consumer.mdib, metrics_by_handle=observer):
             fut: Future[operations.OperationResult] = set_service.set_metric_state(operation.Handle, proposed_states)
             try:
-                operation_result = fut.result(operation.MaxTimeToFinish)
+                operation_result = fut.result(timeout)
             except TimeoutError:
                 logger.exception(
                     'SetMetricState operation not finished within the timeout of %s seconds',
@@ -452,7 +519,25 @@ def test_6e(consumer: SdcConsumer) -> bool:
                 )
                 test_results.append(False)
                 continue
-            metrics_updated = observer_event.wait(timeout + 1 - time.perf_counter() - start)
+            metrics_updated = observer_event.wait(timeout + 1 - (time.perf_counter() - start))
+        if operation_result.set_response.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
+            logger.error(
+                'SetMetricState operation not immediately responded with %s but with invocation state '
+                '%s and error %s: %s',
+                msg_types.InvocationState.FINISHED,
+                operation_result.set_response.InvocationInfo.InvocationState,
+                operation_result.set_response.InvocationInfo.InvocationError,
+                operation_result.set_response.InvocationInfo.InvocationErrorMessage,
+                extra={'step': step},
+            )
+            test_results.append(False)
+        else:
+            logger.info(
+                'SetMetricState operation immediately responded with %s as expected',
+                msg_types.InvocationState.FINISHED,
+                extra={'step': step},
+            )
+            test_results.append(True)
         if len(operation_result.report_parts) != 1:
             logger.error(
                 'SetMetricState operation finished with %d report parts, but expected exactly 1',
@@ -500,6 +585,7 @@ def test_6f(consumer: SdcConsumer) -> bool:
     - Action: The Reference Provider accepts 3 arguments, concatenates them and writes them to the operation target's metric value
     """  # noqa: D205, D400, D415, E501, W505
     step = f'{__STEP__}f'
+    test_results: list[bool] = []
 
     # TODO: iterate over operations  # noqa: FIX002, TD002, TD003
     string_argument = msg_types.Argument()
@@ -523,6 +609,16 @@ def test_6f(consumer: SdcConsumer) -> bool:
         return False
     expected_value = ''.join([argument.ArgValue for argument in arguments])
     observed = threading.Event()
+    if activate_operation.MaxTimeToFinish is None:
+        timeout = 10.0
+        logger.warning(
+            'Activate operation with the handle %s has no MaxTimeToFinish, using default of %d seconds',
+            activate_operation.Handle,
+            timeout,
+            extra={'step': step},
+        )
+    else:
+        timeout = activate_operation.MaxTimeToFinish
 
     def _observe_operation_metric_value(metrics_by_handle: dict):
         if activate_operation.OperationTarget in metrics_by_handle:
@@ -539,27 +635,64 @@ def test_6f(consumer: SdcConsumer) -> bool:
     with observables.bound_context(consumer.mdib, metrics_by_handle=_observe_operation_metric_value):
         fut: Future = consumer.set_service_client.activate(activate_operation_handle, arguments)
         try:
-            operation_result = fut.result(activate_operation.MaxTimeToFinish)
+            operation_result = fut.result(timeout)
         except TimeoutError:
             logger.exception(
-                'SetMetricState operation not finished within the timeout of %s seconds',
+                'Activate operation not finished within the timeout of %s seconds',
                 activate_operation.MaxTimeToFinish,
                 extra={'step': step},
             )
             return False
-        if operation_result.InvocationInfo.InvocationState in (msg_types.InvocationState.FINISHED,):
+        if observed.wait(timeout):
             logger.info(
-                'The metric with the handle %s contains %s as @MetricValue/@Value.',
+                'The Reference Provider updated the metric with the handle %s to the expected value %s.',
                 activate_operation.OperationTarget,
                 expected_value,
                 extra={'step': step},
             )
-            return True
+            test_results.append(True)
+        else:
+            logger.error(
+                'The Reference Provider did not update the metric with the handle %s to the expected value %s '
+                'within the timeout of %s seconds.',
+                activate_operation.OperationTarget,
+                expected_value,
+                timeout,
+                extra={'step': step},
+            )
+            test_results.append(False)
+    if operation_result.set_response.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
         logger.error(
-            'Activate operation failed with invocation state %s and error %s: %s',
-            operation_result.InvocationInfo.InvocationState,
-            operation_result.InvocationInfo.InvocationError,
-            operation_result.InvocationInfo.InvocationErrorMessage,
+            'Activate operation not immediately responded with %s but with invocation state %s and error %s: %s',
+            msg_types.InvocationState.FINISHED,
+            operation_result.set_response.InvocationInfo.InvocationState,
+            operation_result.set_response.InvocationInfo.InvocationError,
+            operation_result.set_response.InvocationInfo.InvocationErrorMessage,
             extra={'step': step},
         )
-        return False
+        test_results.append(False)
+    else:
+        logger.info(
+            'Activate operation immediately responded with %s as expected',
+            msg_types.InvocationState.FINISHED,
+            extra={'step': step},
+        )
+        test_results.append(True)
+
+    if operation_result.InvocationInfo.InvocationState in (msg_types.InvocationState.FINISHED,):
+        logger.info(
+            'The metric with the handle %s contains %s as @MetricValue/@Value.',
+            activate_operation.OperationTarget,
+            expected_value,
+            extra={'step': step},
+        )
+        test_results.append(True)
+
+    logger.error(
+        'Activate operation failed with invocation state %s and error %s: %s',
+        operation_result.InvocationInfo.InvocationState,
+        operation_result.InvocationInfo.InvocationError,
+        operation_result.InvocationInfo.InvocationErrorMessage,
+        extra={'step': step},
+    )
+    return False

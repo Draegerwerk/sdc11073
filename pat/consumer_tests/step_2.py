@@ -63,10 +63,11 @@ def test_2b(consumer: SdcConsumer) -> bool:
             return False
     subscriptions: list[ConsumerSubscription] = list(consumer.subscription_mgr.subscriptions.values())
     subscriptions.sort(key=lambda s: s.granted_expires)
-    timeout = subscriptions[0].expires_at - time.time() + 1
+    timeout = subscriptions[0].granted_expires + 1
+    expires_at_before_renew = subscriptions[0].expires_at
     logger.info('Sleeping %d seconds to allow auto-renew of at least one subscription.', timeout, extra={'step': step})
     time.sleep(timeout)
-    if subscriptions[0].is_subscribed:
+    if subscriptions[0].is_subscribed and expires_at_before_renew < subscriptions[0].expires_at:
         logger.info('At least one subscription was auto-renewed successfully.', extra={'step': step})
         return True
     logger.error('No subscription was auto-renewed successfully.', extra={'step': step})

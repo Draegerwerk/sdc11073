@@ -192,7 +192,7 @@ def test_subscribe_renew_get_status_unsubscribe_and_str_and_remaining():
     assert payload.attrib.get('foo') == 'bar'
 
     # renew success
-    got = sub.renew(fake.subscribe_expires + 1)
+    got = sub.renew(fake.renew_expires + 1)
     assert got == fake.renew_expires
     # get_status success
     got_status = sub.get_status()

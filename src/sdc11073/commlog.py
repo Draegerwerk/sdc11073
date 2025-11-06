@@ -96,10 +96,8 @@ class DirectoryLogger(CommLogger):
     ):
         super().__init__()
         self._log_folder = pathlib.Path(log_folder)
-        self._counter = 1
         self._io_lock = threading.Lock()
-        self._active_writers = 0
-        self._writers_done = threading.Condition()
+        self._stop_called = threading.Event()
 
         if log_in:
             self.handlers.update(
@@ -142,21 +140,10 @@ class DirectoryLogger(CommLogger):
         super().start()
 
     def stop(self) -> None:
-        """Stop logger and wait for any in-flight writes.
-
-        On Windows, directory cleanup can fail if a write is still
-        completing. Ensure we block until all writes guarded by
-        ``_io_lock`` have finished after detaching handlers.
-        """
+        """Stop logger and wait for any in-flight writes."""
+        with self._io_lock:
+            self._stop_called.set()
         super().stop()
-        # Ensure no concurrent writes are in progress
-        with self._writers_done:
-            while self._active_writers:
-                self._writers_done.wait()
-        # On Windows, allow a short grace period for file system/indexers
-        # to release any transient handles to freshly written files.
-        if os.name == 'nt':
-            time.sleep(0.05)
 
     def _mk_filename(self, ip_type: str, direction: str, *infos: str) -> str:
         """Create file name.
@@ -177,22 +164,15 @@ class DirectoryLogger(CommLogger):
         assert direction in (self.D_IN, self.D_OUT)
         extension = 'wsdl' if ip_type == self.T_WSDL else 'xml'
         time_string = f'{time.time():06.3f}'[-8:]
-        self._counter += 1
         info_text = f'-{"-".join(infos)}' if infos else ''
         return f'{time_string}-{direction}-{ip_type}{info_text}.{extension}'
 
     def _write_log(self, ttype: str, direction: str, msg: bytes, *infos: str) -> None:
-        path = self._log_folder.joinpath(self._mk_filename(ttype, direction, *infos))
-        with self._writers_done:
-            self._active_writers += 1
-        try:
-            with self._io_lock:
-                path.write_bytes(msg)
-        finally:
-            with self._writers_done:
-                self._active_writers -= 1
-                if self._active_writers == 0:
-                    self._writers_done.notify_all()
+        with self._io_lock:
+            if self._stop_called.is_set():
+                return
+            path = self._log_folder.joinpath(self._mk_filename(ttype, direction, *infos))
+            path.write_bytes(msg)
 
     class _GenericHandler(logging.Handler):
         def __init__(self, emit: Callable):
