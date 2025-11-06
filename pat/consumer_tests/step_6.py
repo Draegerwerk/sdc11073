@@ -578,7 +578,7 @@ def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
     return any(test_results) and all(test_results)
 
 
-def test_6f(consumer: SdcConsumer) -> bool:
+def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
     """The Reference Provider invokes Activate:
     - Payload: 3 arguments
     - The Reference Provider immediately responds with Fin
@@ -687,12 +687,13 @@ def test_6f(consumer: SdcConsumer) -> bool:
             extra={'step': step},
         )
         test_results.append(True)
-
-    logger.error(
-        'Activate operation failed with invocation state %s and error %s: %s',
-        operation_result.InvocationInfo.InvocationState,
-        operation_result.InvocationInfo.InvocationError,
-        operation_result.InvocationInfo.InvocationErrorMessage,
-        extra={'step': step},
-    )
-    return False
+    else:
+        logger.error(
+            'Activate operation failed with invocation state %s and error %s: %s',
+            operation_result.InvocationInfo.InvocationState,
+            operation_result.InvocationInfo.InvocationError,
+            operation_result.InvocationInfo.InvocationErrorMessage,
+            extra={'step': step},
+        )
+        test_results.append(False)
+    return any(test_results) and all(test_results)
