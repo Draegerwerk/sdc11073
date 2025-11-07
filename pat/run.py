@@ -11,19 +11,15 @@ import sys
 import threading
 import uuid
 from concurrent import futures
-from typing import TYPE_CHECKING
 
-from pat import common, consumer, provider
-
-if TYPE_CHECKING:
-    import sdc11073.certloader
+from pat import consumer, provider
 
 
 def run(
     adapter: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
-        certificate_password: str | None,
+    certificate_password: str | None,
     network_delay: float,
 ) -> bool:
     """Run tests."""
