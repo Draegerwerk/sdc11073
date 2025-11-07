@@ -165,9 +165,13 @@ def provide_realtime_data(sdc_provider: SdcProvider):
 def run_provider(  # noqa: C901, PLR0912, PLR0915
     adapter: str,
     epr: str,
-    ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+    certificate_folder: pathlib.Path | None,
+    certificate_password: str | None,
 ):
     """Run provider until KeyboardError is raised."""
+    ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
+    if certificate_folder:
+        ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
     wsd = WSDiscovery(adapter)
     wsd.start()
     my_mdib = ProviderMdib.from_mdib_file(str(pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')))

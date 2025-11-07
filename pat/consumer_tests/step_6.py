@@ -496,7 +496,6 @@ def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
             step=step,
         )
         metrics_updated = False
-        start = time.perf_counter()
         if operation.MaxTimeToFinish is None:
             timeout = 10.0
             logger.warning(
@@ -508,6 +507,7 @@ def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
         else:
             timeout = operation.MaxTimeToFinish
         with observables.bound_context(consumer.mdib, metrics_by_handle=observer):
+            start = time.perf_counter()
             fut: Future[operations.OperationResult] = set_service.set_metric_state(operation.Handle, proposed_states)
             try:
                 operation_result = fut.result(timeout)
@@ -519,7 +519,8 @@ def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
                 )
                 test_results.append(False)
                 continue
-            metrics_updated = observer_event.wait(timeout + 1 - (time.perf_counter() - start))
+            metric_timeout = timeout + 1 - (time.perf_counter() - start)
+            metrics_updated = observer_event.wait(metric_timeout)
         if operation_result.set_response.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
             logger.error(
                 'SetMetricState operation not immediately responded with %s but with invocation state '
@@ -546,10 +547,7 @@ def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
             )
             test_results.append(False)
             continue
-        if operation_result.InvocationInfo.InvocationState not in (
-            msg_types.InvocationState.FINISHED,
-            msg_types.InvocationState.FINISHED_MOD,
-        ):
+        if operation_result.InvocationInfo.InvocationState != msg_types.InvocationState.FINISHED:
             logger.error(
                 'SetMetricState operation failed with invocation state %s and error %s: %s',
                 operation_result.InvocationInfo.InvocationState,
@@ -564,7 +562,7 @@ def test_6e(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
             logger.error(
                 'The Reference Provider did not report updated metric values for handles %s within %d seconds',
                 missing_handles,
-                timeout + 1,
+                metric_timeout,
                 extra={'step': step},
             )
             test_results.append(False)
@@ -639,7 +637,7 @@ def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
         except TimeoutError:
             logger.exception(
                 'Activate operation not finished within the timeout of %s seconds',
-                activate_operation.MaxTimeToFinish,
+                timeout,
                 extra={'step': step},
             )
             return False

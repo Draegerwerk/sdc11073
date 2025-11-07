@@ -92,68 +92,79 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         super()._on_description_modification_report(received_message_data)
 
 
-def run_ref_test(  # noqa: PLR0915
+def run_ref_test(  # noqa: PLR0913, PLR0915
     adapter: str,
     epr: str,
-    ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+    certificate_folder: pathlib.Path | None,
+    certificate_password: str | None,
     execute_1a: bool,
     network_delay: float,
 ) -> bool:
     """Run reference test."""
+    ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
+    if certificate_folder:
+        ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
     wsd = WSDiscovery(adapter)
-    wsd.start()
-    res_1a = step_1.test_1a(wsd, epr) if execute_1a else None
-    res_1b = step_1.test_1b(wsd, epr)
-    if not res_1b:
-        return False
+    try:
+        wsd.start()
+        res_1a = step_1.test_1a(wsd, epr) if execute_1a else None
+        res_1b = step_1.test_1b(wsd, epr)
+        if not res_1b:
+            return False
+    finally:
+        wsd.stop()
     services = wsd.get_found_remote_services()  # services have already been found in 1b
     service = next(s for s in services if s.epr == epr)
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
     res_2a = step_2.test_2a(consumer)
-    res_2b = step_2.test_2b(consumer)
-    if not res_2b:
-        return False
+    try:
+        res_2b = step_2.test_2b(consumer)
+        if not res_2b:
+            return False
 
-    res_3a = step_3.test_3a(consumer)
-    res_3b = step_3.test_3b(consumer)
+        res_3a = step_3.test_3a(consumer)
+        res_3b = step_3.test_3b(consumer)
 
-    mdib = ConsumerMdib(consumer, extras_cls=ConsumerMdibMethodsReferenceTest)
-    mdib.init_mdib()
+        mdib = ConsumerMdib(consumer, extras_cls=ConsumerMdibMethodsReferenceTest)
+        mdib.init_mdib()
 
-    with futures.ThreadPoolExecutor() as pool:
-        thread_test_4a = pool.submit(step_4.test_4a, mdib)
-        thread_test_4b = pool.submit(step_4.test_4b, mdib)
-        thread_test_4c = pool.submit(step_4.test_4c, mdib)
-        thread_test_4d = pool.submit(step_4.test_4d, mdib)
-        thread_test_4e = pool.submit(step_4.test_4e, mdib)
-        thread_test_4f = pool.submit(step_4.test_4f, mdib, network_delay)
-        thread_test_4g = pool.submit(step_4.test_4g, mdib)
-        thread_test_4h = pool.submit(step_4.test_4h, mdib)
-        thread_test_4i = pool.submit(step_4.test_4i, mdib, network_delay)
-        thread_test_5a = pool.submit(step_5.test_5a, mdib)
-        thread_test_5b = pool.submit(step_5.test_5b, mdib)
-        thread_test_6b = pool.submit(step_6.test_6b, consumer)
-        thread_test_6c = pool.submit(step_6.test_6c, consumer)
-        thread_test_6d = pool.submit(step_6.test_6d, consumer)
-        thread_test_6e = pool.submit(step_6.test_6e, consumer)
-        thread_test_6f = pool.submit(step_6.test_6f, consumer)
+        with futures.ThreadPoolExecutor() as pool:
+            thread_test_4a = pool.submit(step_4.test_4a, mdib)
+            thread_test_4b = pool.submit(step_4.test_4b, mdib)
+            thread_test_4c = pool.submit(step_4.test_4c, mdib)
+            thread_test_4d = pool.submit(step_4.test_4d, mdib)
+            thread_test_4e = pool.submit(step_4.test_4e, mdib)
+            thread_test_4f = pool.submit(step_4.test_4f, mdib, network_delay)
+            thread_test_4g = pool.submit(step_4.test_4g, mdib)
+            thread_test_4h = pool.submit(step_4.test_4h, mdib)
+            thread_test_4i = pool.submit(step_4.test_4i, mdib, network_delay)
+            thread_test_5a = pool.submit(step_5.test_5a, mdib)
+            thread_test_5b = pool.submit(step_5.test_5b, mdib)
+            thread_test_6b = pool.submit(step_6.test_6b, consumer)
+            thread_test_6c = pool.submit(step_6.test_6c, consumer)
+            thread_test_6d = pool.submit(step_6.test_6d, consumer)
+            thread_test_6e = pool.submit(step_6.test_6e, consumer)
+            thread_test_6f = pool.submit(step_6.test_6f, consumer)
 
-        test_4a = thread_test_4a.result()
-        test_4b = thread_test_4b.result()
-        test_4c = thread_test_4c.result()
-        test_4d = thread_test_4d.result()
-        test_4e = thread_test_4e.result()
-        test_4f = thread_test_4f.result()
-        test_4g = thread_test_4g.result()
-        test_4h = thread_test_4h.result()
-        test_4i = thread_test_4i.result()
-        test_5a = thread_test_5a.result()
-        test_5b = thread_test_5b.result()
-        test_6b = thread_test_6b.result()
-        test_6c = thread_test_6c.result()
-        test_6d = thread_test_6d.result()
-        test_6e = thread_test_6e.result()
-        test_6f = thread_test_6f.result()
+            test_4a = thread_test_4a.result()
+            test_4b = thread_test_4b.result()
+            test_4c = thread_test_4c.result()
+            test_4d = thread_test_4d.result()
+            test_4e = thread_test_4e.result()
+            test_4f = thread_test_4f.result()
+            test_4g = thread_test_4g.result()
+            test_4h = thread_test_4h.result()
+            test_4i = thread_test_4i.result()
+            test_5a = thread_test_5a.result()
+            test_5b = thread_test_5b.result()
+            test_6b = thread_test_6b.result()
+            test_6c = thread_test_6c.result()
+            test_6d = thread_test_6d.result()
+            test_6e = thread_test_6e.result()
+            test_6f = thread_test_6f.result()
+    finally:
+        consumer.stop_all()
+
     if execute_1a:
         print('1a:', res_1a)
     print('1b:', res_1b)
@@ -227,9 +238,8 @@ if __name__ == '__main__':
     passed = run_ref_test(
         adapter=args.adapter,
         epr=args.epr,
-        ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password)
-        if args.certificate_folder
-        else None,
+        certificate_folder=args.certificate_folder,
+        certificate_password=args.ssl_password,
         network_delay=args.network_delay,
         execute_1a=not args.no_1a,
     )

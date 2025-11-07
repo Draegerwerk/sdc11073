@@ -123,7 +123,7 @@ def test_subscribe_renew_get_status_and_unsubscribe_flow():
     response = mgr.on_subscribe_request(rd)
     resp_rd = msg_reader.read_received_message(response.serialize(validate=False), validate=False)
     body = evt.SubscribeResponse.from_node(resp_rd.p_msg.msg_node)
-    assert body.Expires == 25
+    assert body.Expires <= 25  # remaining seconds is used to calculate the Expires
 
     # prepare GetStatus request with same identifier
     ident = next(iter(mgr._subscriptions.objects)).reference_parameters[0]
@@ -136,6 +136,7 @@ def test_subscribe_renew_get_status_and_unsubscribe_flow():
     gs_rd = msg_reader.read_received_message(gs_resp.serialize(validate=False), validate=False)
     gs_body = evt.GetStatusResponse.from_node(gs_rd.p_msg.msg_node)
     assert gs_body.Expires > 0
+    assert gs_body.Expires <= 25
 
     # renew with too large expires -> capped by manager max (30)
     rn = evt.Renew()
@@ -145,7 +146,7 @@ def test_subscribe_renew_get_status_and_unsubscribe_flow():
     rn_resp = mgr.on_renew_request(rd_rn)
     rn_rd = msg_reader.read_received_message(rn_resp.serialize(validate=False), validate=False)
     rn_body = evt.RenewResponse.from_node(rn_rd.p_msg.msg_node)
-    assert rn_body.Expires == 30
+    assert rn_body.Expires <= 30  # remaining seconds is used to calculate the Expires
 
     # unsubscribe success path
     unsub = evt.Unsubscribe()

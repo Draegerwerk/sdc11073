@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 def run(
     adapter: str,
     epr: str,
-    ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
+    certificate_folder: pathlib.Path | None,
+        certificate_password: str | None,
     network_delay: float,
 ) -> bool:
     """Run tests."""
@@ -31,18 +32,19 @@ def run(
     logging.config.dictConfig(logging_setup)
     # Run consumer in a thread pool to capture the boolean result
 
-    with futures.ThreadPoolExecutor(max_workers=1) as pool:
+    with futures.ProcessPoolExecutor(max_workers=1) as pool:
         consumer_future = pool.submit(
             consumer.run_ref_test,
             adapter=adapter,
             epr=epr,
-            ssl_context_container=ssl_context_container,
+            certificate_folder=certificate_folder,
+            certificate_password=certificate_password,
             execute_1a=True,
             network_delay=network_delay,
         )
         threading.Thread(
             target=provider.run_provider,
-            args=(adapter, epr, ssl_context_container),
+            args=(adapter, epr, certificate_folder, certificate_password),
             daemon=True,
         ).start()
         return bool(consumer_future.result(timeout=60 * 3))
@@ -71,7 +73,8 @@ if __name__ == '__main__':
     passed = run(
         adapter=args.adapter,
         epr=args.epr,
-        ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password) if args.tls else None,
+        certificate_folder=args.certificate_folder,
+        certificate_password=args.ssl_password,
         network_delay=args.network_delay,
     )
     sys.exit(0 if passed else 1)
