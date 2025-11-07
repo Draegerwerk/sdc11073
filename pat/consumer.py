@@ -22,6 +22,14 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
 
+def _setup_logging():
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(step)s - %(message)s'))
+    logger = logging.getLogger('pat.consumer')
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+
+
 class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
     """Consumer mdib reference test."""
 
@@ -101,6 +109,8 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     network_delay: float,
 ) -> bool:
     """Run reference test."""
+    _setup_logging()
+
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
     if certificate_folder:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
@@ -111,9 +121,9 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
         res_1b = step_1.test_1b(wsd, epr)
         if not res_1b:
             return False
+        services = wsd.get_found_remote_services()  # services have already been found in 1b
     finally:
         wsd.stop()
-    services = wsd.get_found_remote_services()  # services have already been found in 1b
     service = next(s for s in services if s.epr == epr)
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
     res_2a = step_2.test_2a(consumer)
@@ -227,12 +237,6 @@ if __name__ == '__main__':
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
     parser.add_argument('--no-1a', action='store_true', help='Do not execute test step 1a.')
-
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(step)s - %(message)s'))
-    logger = logging.getLogger('pat.consumer')
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
 
     args = parser.parse_args()
     passed = run_ref_test(

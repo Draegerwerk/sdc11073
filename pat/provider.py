@@ -481,7 +481,6 @@ if __name__ == '__main__':
     run_provider(
         adapter=args.adapter,
         epr=args.epr,
-        ssl_context_container=common.get_ssl_context(args.certificate_folder, args.ssl_password)
-        if args.certificate_folder
-        else None,
+        certificate_folder=args.certificate_folder,
+        certificate_password=args.ssl_password,
     )
