@@ -8,7 +8,10 @@ import logging
 import pathlib
 import threading
 import time
+import warnings
 from typing import Any, Callable
+
+warnings.warn('commlog module is deprecated and will be removed in a future version.', DeprecationWarning, stacklevel=2)
 
 DISCOVERY_IN = 'sdc_comm.discovery.in'
 DISCOVERY_OUT = 'sdc_comm.discovery.out'

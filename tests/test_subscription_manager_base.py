@@ -145,7 +145,7 @@ def test_subscribe_renew_get_status_and_unsubscribe_flow():
     rn_resp = mgr.on_renew_request(rd_rn)
     rn_rd = msg_reader.read_received_message(rn_resp.serialize(validate=False), validate=False)
     rn_body = evt.RenewResponse.from_node(rn_rd.p_msg.msg_node)
-    assert rn_body.Expires== 30
+    assert rn_body.Expires == 30
 
     # unsubscribe success path
     unsub = evt.Unsubscribe()

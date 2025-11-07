@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Deprecation info to the `commlog` module.
+
 ### Changed
 
 - renamed parameter in ``SdcConsumer.do_subscribe`` from `expire_minutes` to `expire_seconds`. It was already handled as seconds but was named wrong [#436](https://github.com/Draegerwerk/sdc11073/pull/436)

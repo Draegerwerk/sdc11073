@@ -245,7 +245,7 @@ def test_6c(consumer: SdcConsumer) -> bool:
             test_results.append(False)
 
         if operation_result.InvocationInfo.InvocationState == msg_types.InvocationState.FINISHED:
-            logger.info('OperationInvokedReport contains with Fin', extra={'step': step})
+            logger.info('OperationInvokedReport contains invocation info Fin', extra={'step': step})
             test_results.append(True)
         else:
             logger.error(
