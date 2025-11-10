@@ -43,7 +43,7 @@ _mockhttpservers = {}
 _logger = logging.getLogger('sdc.mock')
 
 
-def dec_list(*args: list[int | float]) -> list[Decimal]:
+def dec_list(*args: float | str) -> list[Decimal]:
     """Convert a list of numbers to decimal."""
     return [Decimal(x) for x in args]
 
