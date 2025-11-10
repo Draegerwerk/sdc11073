@@ -1,5 +1,6 @@
 import copy
 import datetime
+import functools
 import logging
 import pathlib
 import socket
@@ -27,6 +28,7 @@ from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib
+from sdc11073.observableproperties import observables
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.msgreader import MdibVersionGroupReader
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
@@ -45,10 +47,9 @@ from sdc11073.provider.components import (SdcProviderComponents,
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.namespaces import default_ns_helper
+from sdc11073.mdib import statecontainers
 from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
-
-# ruff: noqa
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
@@ -114,6 +115,15 @@ def runtest_directed_probe(unit_test, sdc_client, sdc_device):
     unit_test.assertEqual(probe_match.XAddrs[0], sdc_device.get_xaddrs()[0])
     print(probe_matches)
 
+def _on_waveform_updates(
+        waveforms_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer],
+        handle: str,
+        event: Event,
+):
+    if handle in waveforms_by_handle:
+        if (waveforms_by_handle[handle].ActivationState == pm_types.ComponentActivation.OFF and
+                waveforms_by_handle[handle].MetricValue is None):
+            event.set()
 
 def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
     # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long.
@@ -148,18 +158,26 @@ def runtest_realtime_samples(unit_test, sdc_device, sdc_client):
             unit_test.assertEqual(w_a.annotations[0].Type,
                                   pm_types.CodedValue('a', 'b'))  # like in provide_realtime_data
 
-    # now disable one waveform
     d_handle = d_handles[0]
+    waveform_event = Event()
+
+    # now disable one waveform
     waveform_provider = sdc_device.waveform_provider
-    waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
-    time.sleep(0.5)
+
+    observ = functools.partial(_on_waveform_updates, handle=d_handle, event=waveform_event)
+    with observables.bound_context(client_mdib, waveform_by_handle=observ):
+        waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
+        unit_test.assertTrue(waveform_event.wait(NOTIFICATION_TIMEOUT))
+        assumed_time_of_deactivation = time.time()
+
     container = client_mdib.states.descriptor_handle.get_one(d_handle)
     unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.OFF)
     unit_test.assertTrue(container.MetricValue is None)
 
     rt_buffer = client_mdib.rt_buffers.get(d_handle)
     unit_test.assertEqual(len(rt_buffer.rt_data), client_mdib._max_realtime_samples)
-    unit_test.assertLess(rt_buffer.rt_data[-1].determination_time, time.time() - 0.4)
+    # check that no data with a "newer" DeterminationTime arrived after deactivating the SampleArrayGenerator
+    unit_test.assertLess(rt_buffer.rt_data[-1].determination_time, assumed_time_of_deactivation)
 
     # check waveform for completeness: the delta between all two-value-pairs of the triangle must be identical
     my_handle = d_handles[-1]
