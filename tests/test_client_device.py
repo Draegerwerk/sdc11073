@@ -12,46 +12,46 @@ import unittest
 import unittest.mock
 import uuid
 from decimal import Decimal
-from itertools import product
 from http.client import NotConnected
+from itertools import product
 from threading import Event
+
 from lxml import etree
 
 import sdc11073.certloader
 import sdc11073.definitions_sdc
-from sdc11073 import commlog
-from sdc11073 import loghelper
-from sdc11073 import observableproperties
+from sdc11073 import commlog, loghelper, observableproperties
+from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
-from sdc11073.mdib import ConsumerMdib
+from sdc11073.mdib import ConsumerMdib, statecontainers
+from sdc11073.namespaces import default_ns_helper
 from sdc11073.observableproperties import observables
+from sdc11073.provider.components import (
+    SdcProviderComponents,
+    default_sdc_provider_components_async,
+    default_sdc_provider_components_sync,
+)
+from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.msgreader import MdibVersionGroupReader
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
-from sdc11073.xml_types import pm_types, msg_types, msg_qnames as msg, pm_qnames as pm
+from sdc11073.roles.waveformprovider import waveforms
+from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import msg_qnames as msg
+from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-from sdc11073.consumer import SdcConsumer
-from sdc11073.consumer.components import SdcConsumerComponents
-from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
-from sdc11073.roles.waveformprovider import waveforms
-from sdc11073.provider.components import (SdcProviderComponents,
-                                          default_sdc_provider_components_async,
-                                          default_sdc_provider_components_sync)
-from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
-from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.namespaces import default_ns_helper
-from sdc11073.mdib import statecontainers
 from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
-
-# ruff: noqa
 
 ENABLE_COMMLOG = False
 if ENABLE_COMMLOG:
@@ -65,7 +65,6 @@ CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
-# mdib_70041 = '70041_MDIB_Final.xml'
 mdib_70041 = '70041_MDIB_multi.xml'
 
 
@@ -86,7 +85,7 @@ def provide_realtime_data(sdc_device):
     # make SinusGenerator (0x34F05501) the annotator source
     waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
                                                trigger_handle='0x34F05501',
-                                               annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506']
+                                               annotated_handles=['0x34F05500', '0x34F05501', '0x34F05506'],
                                                )
 
 
@@ -240,7 +239,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
     unit_test.assertEqual(cl_state1.PhysicalConnector, my_physical_connector)
 
     # set new Value
-    new_value = Decimal('13')
+    new_value = Decimal(13)
     logger.info('updating state {} value to {}', descriptor_handle, new_value)
 
     coll = observableproperties.SingleValueCollector(sdc_client,
@@ -264,8 +263,7 @@ def runtest_metric_reports(unit_test, sdc_device, sdc_client, logger, test_perio
 
 
 class ClientDeviceSSLIntegration(unittest.TestCase):
-    """
-    Integration test for the sdc11073 client and sdc11073 device regarding their usage of ssl context objects.
+    """Integration test for the sdc11073 client and sdc11073 device regarding their usage of ssl context objects.
     """
 
     @staticmethod
@@ -288,8 +286,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         return m
 
     def test_basic_connection_with_different_ssl_contexts(self):
-        """
-        Test that client and server contexts are used only for their intended purpose.
+        """Test that client and server contexts are used only for their intended purpose.
         """
         client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -384,8 +381,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
                             unittest.mock.call.listen() in sock.method_calls or set(sock.w).intersection(branches))
 
     def test_mk_ssl_contexts(self):
-        """
-        Test that sdc11073.certloader.mk_ssl_contexts_from_folder creates different contexts for client and device.
+        """Test that sdc11073.certloader.mk_ssl_contexts_from_folder creates different contexts for client and device.
         """
         original_ssl_context = ssl.SSLContext
 
@@ -435,7 +431,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
 
         time.sleep(0.5)
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher
+            action_dispatcher_class=RequestDispatcher,
         )
 
         x_addr = sdc_device.get_xaddrs()
@@ -499,8 +495,8 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
+        self.logger.info(f'############### start setUp {self._testMethodName} ##############')
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
@@ -516,7 +512,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
         specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher
+            action_dispatcher_class=RequestDispatcher,
         )
 
         x_addr = self.sdc_device.get_xaddrs()
@@ -528,13 +524,13 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                       log_prefix=self._testMethodName)
         self.sdc_client.start_all()  # with periodic reports and system error report
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
+        self.logger.info(f'############### setUp done {self._testMethodName} ##############')
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         try:
             if self.sdc_device:
@@ -549,7 +545,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_connect(self):
         runtest_basic_connect(self, self.sdc_client)
@@ -579,7 +575,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             # verify that device returns fault message on wrong subscription identifier
             # if s.dev_reference_param.has_parameters:
             if s.subscribe_response.SubscriptionManager.ReferenceParameters:
-                # ToDo: manipulate reference parameter
+                # TODO: manipulate reference parameter
                 pass
             else:
                 tmp = s.subscribe_response.SubscriptionManager.Address
@@ -613,7 +609,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     s.is_subscribed = True
 
     def test_client_stop(self):
-        """ verify that sockets get closed"""
+        """Verify that sockets get closed"""
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
 
@@ -735,7 +731,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.sdc_client = None
 
     def test_get_md_state_parameters(self):
-        """ verify that get_md_state correctly handles call parameters
+        """Verify that get_md_state correctly handles call parameters
         """
         cl_get_service = self.sdc_client.client('Get')
         result = cl_get_service.get_md_state(['0x34F05500'])
@@ -744,7 +740,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(0, len(result.result.MdState.State))
 
     def test_get_md_description_parameters(self):
-        """ verify that getMdDescription correctly handles call parameters
+        """Verify that getMdDescription correctly handles call parameters
         """
         cl_get_service = self.sdc_client.client('Get')
         message_data = cl_get_service.get_md_description(['not_existing_handle'])
@@ -758,7 +754,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertTrue(existing_handle.encode('utf-8') in message_data.p_msg.raw_data)
 
     def test_instance_id(self):
-        """ verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
+        """Verify that the client receives correct EpisodicMetricReports and PeriodicMetricReports"""
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
         self.assertEqual(self.sdc_device.mdib.sequence_id, cl_mdib.sequence_id)
@@ -771,7 +767,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         try:
             # no deferred action handling for easier debugging
             specific_components = SdcConsumerComponents(
-                action_dispatcher_class=RequestDispatcher
+                action_dispatcher_class=RequestDispatcher,
             )
             sdc_client = SdcConsumer(x_addr[0],
                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
@@ -809,7 +805,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertTrue(found)
 
     def test_alert_reports(self):
-        """ verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
+        """Verify that the client receives correct EpisodicAlertReports and PeriodicAlertReports"""
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
@@ -870,8 +866,9 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertGreaterEqual(len(report.ReportPart), 1)
 
     def test_set_patient_context_on_device(self):
-        """device updates patient.
-         verify that a notification device->client updates the client mdib."""
+        """Device updates patient.
+        verify that a notification device->client updates the client mdib.
+        """
         clientMdib = ConsumerMdib(self.sdc_client)
         clientMdib.init_mdib()
 
@@ -938,7 +935,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         storage = self.sdc_device.localization_storage
         storage.add(
             pm_types.LocalizedText('bla', lang='de-de', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS),
-            pm_types.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS)
+            pm_types.LocalizedText('foo', lang='en-en', ref='a', version=1, text_width=pm_types.LocalizedTextWidth.XS),
         )
 
         get_request_response = self.sdc_client.localization_service_client.get_supported_languages()
@@ -1124,7 +1121,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alert_state.Presence = True
             alert_state.ActualPriority = pm_types.AlertConditionPriority.HIGH
             limit_alert_state.ActualPriority = pm_types.AlertConditionPriority.MEDIUM
-            limit_alert_state.Limits = pm_types.Range(upper=Decimal('3'))
+            limit_alert_state.Limits = pm_types.Range(upper=Decimal(3))
 
         self.logger.info('changing alert state done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
@@ -1211,7 +1208,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         # wait for the next EpisodicMetricReport
         coll = observableproperties.SingleValueCollector(client_mdib, 'metrics_by_handle')
         descriptor_handle = '0x34F00100'
-        first_value = Decimal('12')
+        first_value = Decimal(12)
         with self.sdc_device.mdib.metric_state_transaction(set_determination_time=False) as mgr:
             st = mgr.get_state(descriptor_handle)
             if st.MetricValue is None:
@@ -1254,7 +1251,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertGreater(len(data.keys()), 0)  # at least one real time sample array
 
     def test_is_connected_unfriendly(self):
-        """ Test device stop without sending subscription end messages"""
+        """Test device stop without sending subscription end messages"""
         self.log_watcher.setPaused(True)
         time.sleep(1)
         self.assertEqual(self.sdc_client.is_connected, True)
@@ -1269,7 +1266,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.sdc_client.stop_all(unsubscribe=False)  # without unsubscribe, is faster and would make no sense anyway
 
     def test_is_connected_friendly(self):
-        """ Test device stop with sending subscription end messages"""
+        """Test device stop with sending subscription end messages"""
         self.log_watcher.setPaused(True)
         time.sleep(1)
         self.assertEqual(self.sdc_client.is_connected, True)
@@ -1380,8 +1377,8 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
+        self.logger.info(f'############### start setUp {self._testMethodName} ##############')
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = utils.random_location()
@@ -1439,12 +1436,12 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
                             (self.sdc_client_2, self.sdc_device_2))
 
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
+        self.logger.info(f'############### setUp done {self._testMethodName} ##############')
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         for sdc_client, sdc_device in self._all_cl_dev:
             sdc_client.stop_all()
@@ -1452,13 +1449,13 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
             sdc_device.stop_all()
         self.wsd.stop()
         sys.stderr.write(
-            '############### tearDown {} done, checking logs... ##############\n'.format(self._testMethodName))
+            f'############### tearDown {self._testMethodName} done, checking logs... ##############\n')
         try:
             self.log_watcher.check()
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_connect_common(self):
         runtest_basic_connect(self, self.sdc_client_1)
@@ -1476,8 +1473,8 @@ class Test_DeviceCommonHttpServer(unittest.TestCase):
 class Test_Client_SomeDevice_chunked(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
+        logging.getLogger('sdc').info(f'############### start setUp {self._testMethodName} ##############')
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd,
@@ -1504,13 +1501,13 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
+        logging.getLogger('sdc').info(f'############### setUp done {self._testMethodName} ##############')
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -1520,7 +1517,7 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_connect_chunked(self):
         runtest_basic_connect(self, self.sdc_client)
@@ -1529,14 +1526,14 @@ class Test_Client_SomeDevice_chunked(unittest.TestCase):
 class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
+        logging.getLogger('sdc').info(f'############### start setUp {self._testMethodName} ##############')
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
 
         specific_components = SdcProviderComponents(
             subscriptions_manager_class={'StateEvent': SubscriptionsManagerReferenceParamAsync},
-            soap_client_class=SoapClientAsync
+            soap_client_class=SoapClientAsync,
         )
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
                                                     log_prefix=f'{self._testMethodName}: ',
@@ -1561,13 +1558,13 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
+        logging.getLogger('sdc').info(f'############### setUp done {self._testMethodName} ##############')
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -1577,7 +1574,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_connect(self):
         # simply check that correct top node is returned
@@ -1605,7 +1602,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.assertEqual(get_request_result.msg_name, 'GetContextStatesResponse')
 
     def test_renew_get_status(self):
-        """ If renew and get_status work, then reference parameters based dispatching works. """
+        """If renew and get_status work, then reference parameters based dispatching works."""
         max_duration = self.sdc_device._max_subscription_duration
         for s in self.sdc_client._subscription_mgr.subscriptions.values():
             remaining_seconds = s.renew(max_duration + 100)  # very long
@@ -1623,8 +1620,8 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### start setUp {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
+        self.logger.info(f'############### start setUp {self._testMethodName} ##############')
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, mdib_70041,
@@ -1647,13 +1644,13 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         self.sdc_client.start_all()  # subscribe all
 
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        self.logger.info('############### setUp done {} ##############'.format(self._testMethodName))
+        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
+        self.logger.info(f'############### setUp done {self._testMethodName} ##############')
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -1663,7 +1660,7 @@ class Test_Client_SomeDevice_sync(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_connect_sync(self):
         # simply check that correct top node is returned
@@ -1872,7 +1869,7 @@ class TestWrongQualifiedName(unittest.TestCase):
             default_components=default_sdc_provider_components_async,
             max_subscription_duration=10,   # shorter duration for faster tests
             alternative_hostname="some_random_invalid_hostname",
-            log_prefix=f'{self._testMethodName}: '
+            log_prefix=f'{self._testMethodName}: ',
         )
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
