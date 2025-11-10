@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import copy
-from typing import Callable, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from lxml import etree
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 LxmlElement: TypeAlias = etree._Element  # noqa: SLF001
 
