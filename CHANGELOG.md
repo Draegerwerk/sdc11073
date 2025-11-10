@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Deprecation info to the `commlog` module.
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
+
+### Changed
+
+- renamed parameter in ``SdcConsumer.do_subscribe`` from `expire_minutes` to `expire_seconds`. It was already handled as seconds but was named wrong [#436](https://github.com/Draegerwerk/sdc11073/pull/436)
 
 ### Fixed
 

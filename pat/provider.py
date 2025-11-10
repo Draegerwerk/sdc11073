@@ -1,31 +1,17 @@
-"""Implementation of reference provider.
-
-The reference provider gets its parameters from environment variables:
-- adapter_ip specifies which ip address shall be used
-- ca_folder specifies where the communication certificates are located.
-- ref_fac, ref_poc and ref_bed specify the location values facility, point of care and bed.
-- ssl_passwd specifies an optional password for the certificates.
-
-If a value is not provided as environment variable, the default value (see code below) will be used.
-"""
+"""Implementation of reference provider driven by CLI configuration."""
 
 from __future__ import annotations
 
 import datetime
-import json
-import logging.config
-import os
 import pathlib
+import random
 import traceback
-import uuid
 from decimal import Decimal
 from time import sleep
 from typing import TYPE_CHECKING
 
-import sdc11073
-from sdc11073 import location, network
-from sdc11073.certloader import mk_ssl_contexts_from_folder
-from sdc11073.loghelper import LoggerAdapter
+from pat import common
+from sdc11073 import location
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
 from sdc11073.provider import SdcProvider, components
 from sdc11073.provider.servicesfactory import DPWSHostedService, HostedServices, mk_dpws_hosts
@@ -37,53 +23,8 @@ from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
+    import sdc11073.certloader
     from sdc11073.provider.components import SdcProviderComponents
-
-
-def get_network_adapter() -> network.NetworkAdapter:
-    """Get network adapter from environment or first loopback."""
-    if (ip := os.getenv('ref_ip')) is not None:  # noqa: SIM112
-        return network.get_adapter_containing_ip(ip)
-    # get next available loopback adapter
-    return next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
-
-
-def get_location() -> location.SdcLocation:
-    """Get location from environment or default."""
-    return location.SdcLocation(
-        fac=os.getenv('ref_fac', default='r_fac'),  # noqa: SIM112
-        poc=os.getenv('ref_poc', default='r_poc'),  # noqa: SIM112
-        bed=os.getenv('ref_bed', default='r_bed'),  # noqa: SIM112
-    )
-
-
-def get_ssl_context() -> sdc11073.certloader.SSLContextContainer | None:
-    """Get ssl context from environment or None."""
-    if (ca_folder := os.getenv('ref_ca')) is None:  # noqa: SIM112
-        return None
-    return mk_ssl_contexts_from_folder(
-        ca_folder,
-        private_key='user_private_key_encrypted.pem',
-        certificate='user_certificate_root_signed.pem',
-        ca_public_key='root_certificate.pem',
-        cyphers_file=None,
-        ssl_passwd=os.getenv('ref_ssl_passwd'),  # noqa: SIM112
-    )
-
-
-def get_epr() -> uuid.UUID:
-    """Get epr from environment or default."""
-    if (epr := os.getenv('ref_search_epr')) is not None:  # noqa: SIM112
-        return uuid.UUID(epr)
-    return uuid.UUID('12345678-6f55-11ea-9697-123456789abc')
-
-
-def get_mdib_path() -> pathlib.Path:
-    """Get mdib from environment or default mdib."""
-    if mdib_path := os.getenv('ref_mdib'):  # noqa:SIM112
-        return pathlib.Path(mdib_path)
-    return pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')
-
 
 numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
 string_metric_handle = 'string_metric_0.channel_0.vmd_0.mds_0'
@@ -112,7 +53,7 @@ USE_REFERENCE_PARAMETERS = False
 # g) The Reference Provider provides changes for the following components:
 #   * At least 5 Clock or Battery object updates in 30 seconds (Component report)
 #   * At least 5 MDS or VMD updates in 30 seconds (Component report)
-# g) The Reference Provider provides changes for the following operational states:
+# h) The Reference Provider provides changes for the following operational states:
 #    At least 5 Operation updates in 30 seconds; enable/disable operations; some different than the ones mentioned
 #    above (Operational State Report)"""
 enable_4a = True
@@ -150,6 +91,7 @@ enable_5a3 = True
 enable_6c = True
 enable_6d = True
 enable_6e = True
+enable_6f = True
 
 
 def mk_all_services_except_localization(
@@ -173,8 +115,34 @@ def mk_all_services_except_localization(
     )
 
 
+class RealtimeGenerator4f(waveforms.WaveformGeneratorBase):
+    """Generator for 4f test."""
+
+    def __init__(self):
+        # unnecessary values, as we override next_samples
+        super().__init__(lambda _, __, ___: [], 0, 10, 1.1, 0.001)
+
+    def next_samples(self, _: int) -> list[float]:
+        """4f requires 100 samples per message."""
+        return [random.random() for _ in range(100)]
+
+
+class RealtimeGenerator4i(waveforms.WaveformGeneratorBase):
+    """Generator for 4i test."""
+
+    def __init__(self):
+        # unnecessary values, as we override next_samples
+        super().__init__(lambda _, __, ___: [], 0, 10, 1.1, 0.001)
+
+    def next_samples(self, _: int) -> list[float]:
+        """4f requires 100 samples per message."""
+        return [random.random() for _ in range(50)]
+
+
 def provide_realtime_data(sdc_provider: SdcProvider):
     """Provide realtime data."""
+    required_waveforms_4f = 3
+    required_waveforms_4i = 1
     waveform_provider = sdc_provider.waveform_provider
     if waveform_provider is None:
         return
@@ -184,32 +152,35 @@ def provide_realtime_data(sdc_provider: SdcProvider):
             for wv in sdc_provider.mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)
         ]
 
-    for waveform in waveform_handles:
-        wf_generator = waveforms.SawtoothGenerator(min_value=0, max_value=10, waveform_period=1.1, sample_period=0.001)
-        waveform_provider.register_waveform_generator(waveform, wf_generator)
+    assert len(waveform_handles) >= required_waveforms_4f + required_waveforms_4i, (
+        'At least 4 waveforms required in MDIB for test 4f and 4i'
+    )
+    for i, waveform in enumerate(waveform_handles):
+        if i < required_waveforms_4f:
+            waveform_provider.register_waveform_generator(waveform, RealtimeGenerator4f())
+        elif i == required_waveforms_4f:
+            waveform_provider.register_waveform_generator(waveform, RealtimeGenerator4i())
 
 
-def run_provider():  # noqa: PLR0915, PLR0912, C901
+def run_provider(  # noqa: C901, PLR0912, PLR0915
+    adapter: str,
+    epr: str,
+    certificate_folder: pathlib.Path | None,
+    certificate_password: str | None,
+):
     """Run provider until KeyboardError is raised."""
-    with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
-        logging_setup = json.load(f)
-    logging.config.dictConfig(logging_setup)
-    xtra_log_config = os.getenv('ref_xtra_log_cnf')  # noqa:SIM112
-    if xtra_log_config is not None:
-        with pathlib.Path(xtra_log_config).open() as f:
-            logging_setup2 = json.load(f)
-            logging.config.dictConfig(logging_setup2)
-
-    logger = logging.getLogger('sdc')
-    logger = LoggerAdapter(logger)
-    logger.info('%s', 'start')
-    adapter_ip = get_network_adapter().ip
-    wsd = WSDiscovery(adapter_ip)
+    ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
+    if certificate_folder:
+        ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
+    wsd = WSDiscovery(adapter)
     wsd.start()
-    my_mdib = ProviderMdib.from_mdib_file(str(get_mdib_path()))
-    my_uuid = get_epr()
-    print(f'UUID for this device is {my_uuid}')
-    loc = get_location()
+    my_mdib = ProviderMdib.from_mdib_file(str(pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')))
+    print(f'UUID for this device is {epr}')
+    loc = location.SdcLocation(
+        fac='fac1',
+        poc='poc1',
+        bed='bed1',
+    )
     print(f'location for this device is {loc}')
     dpws_model = ThisModelType(
         manufacturer='sdc11073',
@@ -221,7 +192,6 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
     )
 
     dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
-    ssl_context = get_ssl_context()
     if USE_REFERENCE_PARAMETERS:
         tmp = {'StateEvent': SubscriptionsManagerReferenceParamAsync}
         specific_components = components.SdcProviderComponents(
@@ -258,8 +228,8 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
         dpws_model,
         dpws_device,
         my_mdib,
-        my_uuid,
-        ssl_context_container=ssl_context,
+        epr,
+        ssl_context_container=ssl_context_container,
         specific_components=specific_components,
         max_subscription_duration=15,
     )
@@ -272,6 +242,8 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
         sdc_provider.get_operation_by_handle('set_string_0.sco.mds_0').delayed_processing = False
     if enable_6e:
         sdc_provider.get_operation_by_handle('set_metric_0.sco.vmd_1.mds_0').delayed_processing = False
+    if enable_6f:
+        sdc_provider.get_operation_by_handle('activate_1.sco.mds_0').delayed_processing = False
 
     pm = my_mdib.data_model.pm_names
     pm_types = my_mdib.data_model.pm_types
@@ -338,7 +310,7 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
                             if not state.MetricValue:
                                 state.mk_metric_value()
                             if state.MetricValue.Value is None:
-                                state.MetricValue.Value = Decimal('0')
+                                state.MetricValue.Value = Decimal(0)
                             else:
                                 state.MetricValue.Value += Decimal(1)
                     if enable_5a3:
@@ -445,12 +417,22 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
                 print(traceback.format_exc())
 
             # add or rm vmd
-            add_rm_metric_handle = 'add_rm_metric'
-            add_rm_channel_handle = 'add_rm_channel'
-            add_rm_vmd_handle = 'add_rm_vmd'
+            # Generate unique handles on each insertion to avoid recycling containment tree entries (PAT 5b requirement)
             add_rm_mds_handle = 'mds_0'
-            vmd_descriptor = sdc_provider.mdib.descriptions.handle.get_one(add_rm_vmd_handle, allow_none=True)
-            if vmd_descriptor is None:
+            # Find any existing VMDs that match the pattern 'add_rm_vmd_*'
+            existing_vmds = [
+                desc
+                for desc in sdc_provider.mdib.descriptions.objects
+                if desc.Handle.startswith('add_rm_vmd_') and desc.parent_handle == add_rm_mds_handle
+            ]
+
+            if not existing_vmds:
+                # Create new VMD with unique timestamp-based handle
+                timestamp = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000)
+                add_rm_vmd_handle = f'add_rm_vmd_{timestamp}'
+                add_rm_channel_handle = f'add_rm_channel_{timestamp}'
+                add_rm_metric_handle = f'add_rm_metric_{timestamp}'
+
                 vmd = descriptorcontainers.VmdDescriptorContainer(add_rm_vmd_handle, add_rm_mds_handle)
                 channel = descriptorcontainers.ChannelDescriptorContainer(add_rm_channel_handle, add_rm_vmd_handle)
                 metric = descriptorcontainers.StringMetricDescriptorContainer(
@@ -466,8 +448,10 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
                     mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(channel))
                     mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(metric))
             else:
+                # Remove the oldest VMD found
+                vmd_to_remove = existing_vmds[0]
                 with sdc_provider.mdib.descriptor_transaction() as mgr:
-                    mgr.remove_descriptor(add_rm_vmd_handle)
+                    mgr.remove_descriptor(vmd_to_remove.Handle)
 
             # enable disable operation
             with sdc_provider.mdib.operational_state_transaction() as mgr:
@@ -485,4 +469,18 @@ def run_provider():  # noqa: PLR0915, PLR0912, C901
 
 
 if __name__ == '__main__':
-    run_provider()
+    import argparse
+
+    parser = argparse.ArgumentParser(description='run plug-a-thon test provider')
+    parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
+    parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
+    parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
+    parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
+
+    args = parser.parse_args()
+    run_provider(
+        adapter=args.adapter,
+        epr=args.epr,
+        certificate_folder=args.certificate_folder,
+        certificate_password=args.ssl_password,
+    )

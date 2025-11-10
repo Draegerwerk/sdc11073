@@ -1,7 +1,8 @@
 """The module contains example how to use sdc provider and consumer."""
+
 from __future__ import annotations
 
-import os
+import pathlib
 import time
 import unittest
 import uuid
@@ -30,6 +31,9 @@ from sdc11073.xml_types.wsd_types import ScopesType
 from tests import utils
 
 if TYPE_CHECKING:
+    import os
+
+    from sdc11073.location import SdcLocation
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
@@ -41,32 +45,36 @@ loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter
 SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 seconds is a good value.
 # Here this short timeout is used to accelerate the test.
 
-here = os.path.dirname(__file__)  # noqa: PTH120
-my_mdib_path = os.path.join(here, '70041_MDIB_Final.xml')  # noqa: PTH118
+__HERE__ = pathlib.Path(__file__).parent
+__70041_MDIB_FINAL__ = __HERE__.joinpath('70041_MDIB_Final.xml')
 
 
-def create_generic_provider(wsdiscovery_instance: WSDiscovery,
-                            location: str,
-                            mdib_path: str,
-                            specific_components: SdcProviderComponents | None = None) -> SdcProvider:
-    my_mdib = EntityProviderMdib.from_mdib_file(mdib_path)
+def create_generic_provider(
+    wsdiscovery_instance: WSDiscovery,
+    location: SdcLocation,
+    mdib_path: str | os.PathLike[str],
+    specific_components: SdcProviderComponents | None = None,
+) -> SdcProvider:
+    my_mdib = EntityProviderMdib.from_mdib_file(str(mdib_path))
     my_epr = uuid.uuid4().hex
-    this_model = ThisModelType(manufacturer='Draeger',
-                               manufacturer_url='www.draeger.com',
-                               model_name='TestDevice',
-                               model_number='1.0',
-                               model_url='www.draeger.com/model',
-                               presentation_url='www.draeger.com/model/presentation')
+    this_model = ThisModelType(
+        manufacturer='Draeger',
+        manufacturer_url='www.draeger.com',
+        model_name='TestDevice',
+        model_number='1.0',
+        model_url='www.draeger.com/model',
+        presentation_url='www.draeger.com/model/presentation',
+    )
 
-    this_device = ThisDeviceType(friendly_name='TestDevice',
-                                 firmware_version='Version1',
-                                 serial_number='12345')
-    sdc_provider = SdcProvider(wsdiscovery_instance,
-                               this_model,
-                               this_device,
-                               my_mdib,
-                               epr=my_epr,
-                               specific_components=specific_components)
+    this_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
+    sdc_provider = SdcProvider(
+        wsdiscovery_instance,
+        this_model,
+        this_device,
+        my_mdib,
+        epr=my_epr,
+        specific_components=specific_components,
+    )
     with sdc_provider.mdib.descriptor_transaction() as tr:
         for _, ent in sdc_provider.mdib.entities.items():  # noqa: PERF102
             ent.descriptor.SafetyClassification = pm_types.SafetyClassification.MED_A
@@ -89,18 +97,18 @@ class MyProvider1(ProviderRole):
     Operations with these codes already exist in the mdib that is used for this test.
     """
 
-    def __init__(self,
-                 mdib: ProviderMdibProtocol,
-                 log_prefix: str):
+    def __init__(self, mdib: ProviderMdibProtocol, log_prefix: str):
         super().__init__(mdib, log_prefix)
         self.operation1_called = 0
         self.operation1_args = None
         self.operation2_called = 0
         self.operation2_args = None
 
-    def make_operation_instance(self,
-                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
-                                operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
+    def make_operation_instance(
+        self,
+        operation_descriptor_container: AbstractOperationDescriptorProtocol,
+        operation_cls_getter: OperationClassGetter,
+    ) -> OperationDefinitionBase | None:
         """Create an operation instance if operation_descriptor_container matches this operation.
 
         If the role provider is responsible for handling of calls to this operation_descriptor_container,
@@ -113,13 +121,17 @@ class MyProvider1(ProviderRole):
             #
             # The following line shows how to provide your callback (in this case self._handle_operation_1).
             # This callback is called when a consumer calls the operation.
-            return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                operation_cls_getter,
-                                                                self._handle_operation_1)
+            return self._mk_operation_from_operation_descriptor(
+                operation_descriptor_container,
+                operation_cls_getter,
+                self._handle_operation_1,
+            )
         if operation_descriptor_container.coding == MY_CODE_2.coding:
-            return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                operation_cls_getter,
-                                                                self._handle_operation_2)
+            return self._mk_operation_from_operation_descriptor(
+                operation_descriptor_container,
+                operation_cls_getter,
+                self._handle_operation_2,
+            )
         return None
 
     def _handle_operation_1(self, params: ExecuteParameters) -> ExecuteResult:
@@ -156,16 +168,21 @@ class MyProvider2(ProviderRole):
         self.operation3_args = None
         self.operation3_called = 0
 
-    def make_operation_instance(self,
-                                operation_descriptor_container: AbstractOperationDescriptorProtocol,
-                                operation_cls_getter: OperationClassGetter) -> OperationDefinitionBase | None:
-
+    def make_operation_instance(
+        self,
+        operation_descriptor_container: AbstractOperationDescriptorProtocol,
+        operation_cls_getter: OperationClassGetter,
+    ) -> OperationDefinitionBase | None:
         if operation_descriptor_container.coding == MY_CODE_3.coding:
-            self._logger.info('instantiating operation 3 from existing descriptor handle=%s',
-                              operation_descriptor_container.Handle)
-            return self._mk_operation_from_operation_descriptor(operation_descriptor_container,
-                                                                operation_cls_getter,
-                                                                self._handle_operation_3)
+            self._logger.info(
+                'instantiating operation 3 from existing descriptor handle=%s',
+                operation_descriptor_container.Handle,
+            )
+            return self._mk_operation_from_operation_descriptor(
+                operation_descriptor_container,
+                operation_cls_getter,
+                self._handle_operation_3,
+            )
         return None
 
     def _handle_operation_3(self, params: ExecuteParameters) -> ExecuteResult:
@@ -191,10 +208,7 @@ class MyProductImpl(BaseProduct):
     Each role provider should handle one specific role, e.g. audio pause provider, clock provider, ...
     """
 
-    def __init__(self,
-                 mdib: ProviderMdibProtocol,
-                 sco: AbstractScoOperationsRegistry,
-                 log_prefix: str | None = None):
+    def __init__(self, mdib: ProviderMdibProtocol, sco: AbstractScoOperationsRegistry, log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)
         self.my_provider_1 = MyProvider1(mdib, log_prefix=log_prefix)
         self._ordered_providers.append(self.my_provider_1)
@@ -237,7 +251,7 @@ class TestTutorial(unittest.TestCase):
         my_ws_discovery.start()
 
         # to create a device, this what you usually do:
-        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
         self.my_providers.append(my_generic_provider)
 
     def test_search_provider(self):
@@ -246,10 +260,10 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
         self.my_providers.append(my_generic_provider1)
 
-        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, my_mdib_path)
+        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, __70041_MDIB_FINAL__)
         self.my_providers.append(my_generic_provider2)
 
         # Search for devices
@@ -266,13 +280,17 @@ class TestTutorial(unittest.TestCase):
         # (that can even be printers).
 
         # search for any device at my_location2
-        services = my_client_ws_discovery.search_services(scopes=ScopesType(self.my_location2.scope_string),
-                                                          timeout=SEARCH_TIMEOUT)
+        services = my_client_ws_discovery.search_services(
+            scopes=ScopesType(self.my_location2.scope_string),
+            timeout=SEARCH_TIMEOUT,
+        )
         self.assertEqual(len(services), 1)
 
         # search for medical devices at any location
-        services = my_client_ws_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter,
-                                                          timeout=SEARCH_TIMEOUT)
+        services = my_client_ws_discovery.search_services(
+            types=SdcV1Definitions.MedicalDeviceTypesFilter,
+            timeout=SEARCH_TIMEOUT,
+        )
         self.assertGreaterEqual(len(services), 2)
 
     def test_create_client(self):
@@ -281,7 +299,7 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
         self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
@@ -291,8 +309,10 @@ class TestTutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT,
-                                                          scopes=ScopesType(self.my_location.scope_string))
+        services = my_client_ws_discovery.search_services(
+            timeout=SEARCH_TIMEOUT,
+            scopes=ScopesType(self.my_location.scope_string),
+        )
         self.assertEqual(len(services), 1)  # both devices found
 
         my_consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
@@ -320,7 +340,7 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, my_mdib_path)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
         self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
@@ -330,8 +350,10 @@ class TestTutorial(unittest.TestCase):
         # there a different methods to detect devices:
         # without specifying a type and a location, every WsDiscovery compatible device will be detected
         # (that can even be printers).
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT,
-                                                          scopes=ScopesType(self.my_location.scope_string))
+        services = my_client_ws_discovery.search_services(
+            timeout=SEARCH_TIMEOUT,
+            scopes=ScopesType(self.my_location.scope_string),
+        )
         self.assertEqual(len(services), 1)  # both devices found
 
         my_consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
@@ -346,8 +368,9 @@ class TestTutorial(unittest.TestCase):
         self.assertEqual(len(patient_context_entities), 1)
         my_patient_context_entity = patient_context_entities[0]
         all_operation_entities = my_mdib.entities.by_node_type(pm.SetContextStateOperationDescriptor)
-        my_operations = [op for op in all_operation_entities if
-                         op.descriptor.OperationTarget == my_patient_context_entity.handle]
+        my_operations = [
+            op for op in all_operation_entities if op.descriptor.OperationTarget == my_patient_context_entity.handle
+        ]
         self.assertEqual(len(my_operations), 1)
         my_operation = my_operations[0]
 
@@ -358,8 +381,10 @@ class TestTutorial(unittest.TestCase):
         # => provider shall create a new state
         proposed_patient.Firstname = 'Jack'
         proposed_patient.Lastname = 'Miller'
-        future = context_service.set_context_state(operation_handle=my_operation.handle,
-                                                   proposed_context_states=[proposed_patient])
+        future = context_service.set_context_state(
+            operation_handle=my_operation.handle,
+            proposed_context_states=[proposed_patient],
+        )
         result = future.result(timeout=5)
         self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
         my_patient_context_entity.update()
@@ -379,11 +404,13 @@ class TestTutorial(unittest.TestCase):
 
         specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
         # use the minimalistic mdib from reference test:
-        mdib_path = os.path.join(here, '../pat/ReferenceTest/reference_mdib.xml')  # noqa: PTH118
-        my_generic_provider = create_generic_provider(my_ws_discovery,
-                                                      self.my_location,
-                                                      mdib_path,
-                                                      specific_components=specific_components)
+        mdib_path = __HERE__.joinpath('reference_mdib.xml')
+        my_generic_provider = create_generic_provider(
+            my_ws_discovery,
+            self.my_location,
+            mdib_path,
+            specific_components=specific_components,
+        )
 
         self.my_providers.append(my_generic_provider)
 
@@ -392,8 +419,10 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
-        services = my_client_ws_discovery.search_services(timeout=SEARCH_TIMEOUT,
-                                                          scopes=ScopesType(self.my_location.scope_string))
+        services = my_client_ws_discovery.search_services(
+            timeout=SEARCH_TIMEOUT,
+            scopes=ScopesType(self.my_location.scope_string),
+        )
         self.assertEqual(len(services), 1)
 
         self.service = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
@@ -412,7 +441,8 @@ class TestTutorial(unittest.TestCase):
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         self._logger.info('looking for operations with code %r', MY_CODE_1.coding)
         op_entity = operation_entities[0]
-        argument = 'foo'
+        argument = msg_types.Argument()
+        argument.ArgValue = 'foo'
         self._logger.info('calling operation %s, argument = %r', op_entity.handle, argument)
         future = my_consumer.set_service_client.activate(op_entity.handle, arguments=[argument])
         result = future.result()
@@ -447,7 +477,7 @@ class TestTutorial(unittest.TestCase):
         all_operations = my_mdib.entities.by_node_type(pm.SetValueOperationDescriptor)
         my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_entity.handle]
 
-        future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal('42'))
+        future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal(42))
         result = future.result()
         print(result)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
