@@ -7,14 +7,16 @@ from sdc11073.consumer.serviceclients.localizationservice import LocalizationSer
 from sdc11073.consumer.serviceclients.setservice import SetServiceClient
 from sdc11073.consumer.serviceclients.stateeventservice import StateEventClient
 from sdc11073.consumer.serviceclients.waveformservice import WaveformClient
+from sdc11073.consumer.subscription import ConsumerSubscription
 
 __all__ = [
-    'SdcConsumer',
     'CTreeServiceClient',
+    'ConsumerSubscription',
     'ContextServiceClient',
     'DescriptionEventClient',
     'GetServiceClient',
     'LocalizationServiceClient',
+    'SdcConsumer',
     'SetServiceClient',
     'StateEventClient',
     'WaveformClient',

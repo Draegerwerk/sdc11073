@@ -106,7 +106,10 @@ class TestDiscovery(unittest.TestCase):
     def test_discover(self):
         test_log.info('starting client...')
         test_log.info('starting service...')
-
+        on_probe = mock.MagicMock()
+        self.wsd_service.set_on_probe_callback(on_probe)
+        on_probe_matches = mock.MagicMock()
+        self.wsd_client.set_on_probe_matches_callback(on_probe_matches)
         self.wsd_service.start()
         self.wsd_client.start()
         time.sleep(0.1)
@@ -194,6 +197,9 @@ class TestDiscovery(unittest.TestCase):
             timeout=self.SEARCH_TIMEOUT,
         )
         self.assertEqual(len(services), 3)
+
+        on_probe.assert_called()
+        on_probe_matches.assert_called()
 
     def test_discover_service_first(self):
         test_log.info('starting service...')
