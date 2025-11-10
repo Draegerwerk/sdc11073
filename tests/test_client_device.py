@@ -208,11 +208,11 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
     unit_test.assertAlmostEqual(0.01 * len(values), dt, delta=0.5)
 
     # following test is disabled since it is testing network performance but not functionality
-    # age_data = client_mdib.xtra.get_wf_age_stdev()
-    # unit_test.assertLess(abs(age_data.mean_age), 1)
-    # unit_test.assertLess(abs(age_data.stdev), 0.5)
-    # unit_test.assertLess(abs(age_data.min_age), 1)
-    # unit_test.assertGreater(abs(age_data.max_age), 0.0)
+    # age_data = client_mdib.xtra.get_wf_age_stdev()  # noqa: ERA001
+    # unit_test.assertLess(abs(age_data.mean_age), 1)  # noqa: ERA001
+    # unit_test.assertLess(abs(age_data.stdev), 0.5)  # noqa: ERA001
+    # unit_test.assertLess(abs(age_data.min_age), 1)  # noqa: ERA001
+    # unit_test.assertGreater(abs(age_data.max_age), 0.0)  # noqa: ERA001
 
 
 def runtest_metric_reports(unit_test: unittest.TestCase,

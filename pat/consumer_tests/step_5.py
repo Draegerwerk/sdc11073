@@ -61,8 +61,8 @@ def test_5a(mdib: ConsumerMdib) -> bool:
 
     updates = mdib.xtra.alert_condition_cause_remedy_updates
     if len(updates) < expected_updates:
-        logger.error('Less than %d updates of Alert Condition cause-remedy information were recorded within %d seconds. '
-                     'Number of received updates: %d',
+        logger.error('Less than %d updates of Alert Condition cause-remedy information were recorded within %d seconds.'
+                     ' Number of received updates: %d',
                      expected_updates,
                      timeout,
                      len(updates),

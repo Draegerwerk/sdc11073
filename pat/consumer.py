@@ -45,7 +45,7 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         self.unit_of_measure_updates: list[float] = []  # for test 5a.3
         self._last_unit_of_measure_updates = time.monotonic()  # timestamp
 
-    def _on_description_modification_report(self, received_message_data: ReceivedMessage):  # noqa: C901
+    def _on_description_modification_report(self, received_message_data: ReceivedMessage):  # noqa: C901, PLR0912
         """For Test 5a.1 check if the concept description of updated alert condition Type changed.
 
         For Test 5a.2 check if alert condition cause-remedy information changed.
