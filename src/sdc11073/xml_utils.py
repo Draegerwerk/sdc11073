@@ -1,20 +1,13 @@
 """Module containing utilities and helper methods regarding xml."""
+
 from __future__ import annotations
 
 import copy
-import sys
-from typing import Callable
+from typing import Callable, TypeAlias
 
 from lxml import etree
 
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-
-    LxmlElement: TypeAlias = etree._Element  # noqa: SLF001
-else:
-    from typing_extensions import TypeAlias
-
-    LxmlElement: TypeAlias = etree._Element  # noqa: SLF001
+LxmlElement: TypeAlias = etree._Element  # noqa: SLF001
 
 
 def copy_element(node: LxmlElement, method: Callable[[LxmlElement], LxmlElement] = copy.deepcopy) -> LxmlElement:
