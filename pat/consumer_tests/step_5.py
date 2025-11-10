@@ -26,17 +26,19 @@ def test_5a(mdib: ConsumerMdib) -> bool:
     """  # noqa: D400, D415, E501, W505
     step = f'{__STEP__}a'
     max_time_between_updates = 10
+    expected_updates = 2
     # Wait at least twice the specified interval (plus a one-second margin)
     # so that at least two description updates of each specified type have to occur.
-    timeout = 2 * max_time_between_updates + 1
+    timeout = expected_updates * max_time_between_updates + 1
     time.sleep(timeout)
     test_results: list[bool] = []
 
     updates: list[float] = mdib.xtra.alert_condition_type_concept_updates
 
-    if len(updates) < 2:
-        logger.error('Less than 2 updates of Alert Condition Concept Description were recorded within %d seconds. '
+    if len(updates) < expected_updates:
+        logger.error('Less than %d updates of Alert Condition Concept Description were recorded within %d seconds. '
                      'Number of received updates: %d',
+                     expected_updates,
                      timeout,
                      len(updates),
                      extra={'step': step})
@@ -58,9 +60,10 @@ def test_5a(mdib: ConsumerMdib) -> bool:
         test_results.append(False)
 
     updates = mdib.xtra.alert_condition_cause_remedy_updates
-    if len(updates) < 2:
-        logger.error('Less than 2 updates of Alert Condition cause-remedy information were recorded within %d seconds. '
+    if len(updates) < expected_updates:
+        logger.error('Less than %d updates of Alert Condition cause-remedy information were recorded within %d seconds. '
                      'Number of received updates: %d',
+                     expected_updates,
                      timeout,
                      len(updates),
                      extra={'step': step})
@@ -82,9 +85,10 @@ def test_5a(mdib: ConsumerMdib) -> bool:
         test_results.append(False)
 
     updates = mdib.xtra.unit_of_measure_updates
-    if len(updates) < 2:
-        logger.error('Less than 2 updates of unit of measures were recorded within %d seconds. '
+    if len(updates) < expected_updates:
+        logger.error('Less than %d updates of unit of measures were recorded within %d seconds. '
                      'Number of received updates: %d',
+                     expected_updates,
                      timeout,
                      len(updates),
                      extra={'step': step})
