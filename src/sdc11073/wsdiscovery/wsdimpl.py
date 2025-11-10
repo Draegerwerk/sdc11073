@@ -22,7 +22,7 @@ from .service import Service
 
 if TYPE_CHECKING:
     import ipaddress
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
     from logging import Logger
 
     from lxml import etree
@@ -119,7 +119,7 @@ def filter_services(
     services: Iterable[Service],
     types: Iterable[etree.QName] | None,
     scopes: wsd_types.ScopesType | None,
-) -> list[Service]:
+) -> Sequence[Service]:
     """Filter services that match types and scopes."""
     return [service for service in services if matches_filter(service, types, scopes)]
 
@@ -169,8 +169,9 @@ class WSDiscovery:
         self._remote_service_hello_callback_types_filter = None
         self._remote_service_hello_callback_scopes_filter = None
         self._remote_service_bye_callback = None
-        self._remote_service_resolve_match_callback = None  # B.D.
+        self._remote_service_resolve_match_callback: Callable[[Service], None] | None = None  # B.D.
         self._on_probe_callback = None
+        self._probe_match_callback: Callable[[Sequence[Service]], None] | None = None
 
         self._logger = logger or logging.getLogger('sdc.discover')
         self.multicast_port = multicast_port
@@ -197,7 +198,7 @@ class WSDiscovery:
         scopes: wsd_types.ScopesType | None = None,
         timeout: int | float | None = 5,  # noqa: PYI041
         repeat_probe_interval: int | None = 3,
-    ) -> list[Service]:
+    ) -> Sequence[Service]:
         """Search for services that match given types and scopes.
 
         :param types: list of types that a service must have (all of them), no filtering if value is None
@@ -222,12 +223,18 @@ class WSDiscovery:
             now = time.monotonic()
         return filter_services(list(self._remote_services.values()), types, scopes)
 
+    def get_found_remote_services(
+        self, types: Iterable[etree.QName] | None = None, scopes: wsd_types.ScopesType | None = None,
+    ) -> Sequence[Service]:
+        """Get currently known remote services that match given types and scopes."""
+        return filter_services(list(self._remote_services.values()), types, scopes)
+
     def search_sdc_services(
         self,
         scopes: wsd_types.ScopesType | None = None,
         timeout: int | float | None = 5,  # noqa: PYI041
         repeat_probe_interval: int | None = 3,
-    ) -> list[Service]:
+    ) -> Sequence[Service]:
         """Search for sdc services that match given scopes.
 
         :param scopes: scopes to search for, no scopes filtering if value is None
@@ -317,7 +324,7 @@ class WSDiscovery:
 
     def set_remote_service_hello_callback(
         self,
-        callback: Callable,
+        callback: Callable[[str, Service], None] | None,
         types: list[etree.QName] | None = None,
         scopes: wsd_types.ScopesType | None = None,
     ):
@@ -353,6 +360,10 @@ class WSDiscovery:
         Set to None to disable callback.
         """
         self._on_probe_callback = callback
+
+    def set_on_probe_matches_callback(self, callback: Callable[[Sequence[Service]], None] | None):
+        """Set callback, which will be called when a probe matches message is received."""
+        self._probe_match_callback = callback
 
     def _add_remote_service(self, service: Service):
         if not service.epr:
@@ -446,6 +457,7 @@ class WSDiscovery:
             instance_id = app_sequence.InstanceId
         probe_matches = wsd_types.ProbeMatchesType.from_node(received_message.p_msg.msg_node)
         self._logger.debug('handle_received_message: len(ProbeMatch) = %d', len(probe_matches.ProbeMatch))
+        services: list[Service] = []
         for match in probe_matches.ProbeMatch:
             epr = match.EndpointReference.Address
             scopes = match.Scopes
@@ -457,6 +469,7 @@ class WSDiscovery:
                 instance_id,
                 metadata_version=match.MetadataVersion,
             )
+            services.append(service)
             self._add_remote_service(service)
             if match.XAddrs is None or len(match.XAddrs) == 0:
                 self._logger.info('%s(%s) has no Xaddr, sending resolve message', epr, addr_from)
@@ -467,6 +480,8 @@ class WSDiscovery:
             elif not match.Scopes:
                 self._logger.info('%s(%s) has no Scopes, sending resolve message', epr, addr_from)
                 self._send_resolve(epr)
+        if self._probe_match_callback is not None:
+            self._probe_match_callback(services)
 
     def _handle_received_resolve(self, received_message: ReceivedMessage, addr_from: str):
         resolve = wsd_types.ResolveType.from_node(received_message.p_msg.msg_node)
