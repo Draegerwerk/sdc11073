@@ -631,6 +631,7 @@ def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
                 observed.set()
 
     with observables.bound_context(consumer.mdib, metrics_by_handle=_observe_operation_metric_value):
+        start = time.perf_counter()
         fut: Future = consumer.set_service_client.activate(activate_operation_handle, arguments)
         try:
             operation_result = fut.result(timeout)
@@ -641,7 +642,8 @@ def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
                 extra={'step': step},
             )
             return False
-        if observed.wait(timeout):
+        metric_timeout = timeout + 1 - (time.perf_counter() - start)
+        if observed.wait(metric_timeout):
             logger.info(
                 'The Reference Provider updated the metric with the handle %s to the expected value %s.',
                 activate_operation.OperationTarget,
@@ -655,7 +657,7 @@ def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
                 'within the timeout of %s seconds.',
                 activate_operation.OperationTarget,
                 expected_value,
-                timeout,
+                metric_timeout,
                 extra={'step': step},
             )
             test_results.append(False)

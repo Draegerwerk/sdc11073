@@ -69,8 +69,8 @@ if __name__ == '__main__':
     passed = run(
         adapter=args.adapter,
         epr=args.epr,
-        certificate_folder=args.certificate_folder,
-        certificate_password=args.ssl_password,
+        certificate_folder=args.certificate_folder if args.tls else None,
+        certificate_password=args.ssl_password if args.tls else None,
         network_delay=args.network_delay,
     )
     sys.exit(0 if passed else 1)
