@@ -6,6 +6,7 @@ import pathlib
 import tempfile
 import unittest
 import uuid
+from pathlib import Path
 
 from sdc11073 import commlog
 
@@ -15,6 +16,11 @@ class TestCommLogger(unittest.TestCase):
     def _verify_files_in_directory(self, directory: pathlib.Path, expected_nbr_files: int):
         files = list(pathlib.Path.iterdir(directory))
         nbr_files = len(files)
+        if nbr_files != expected_nbr_files:
+            for nbr, file in enumerate(pathlib.Path.iterdir(directory)):
+                with Path.open(file, encoding='utf-8') as f:
+                    print(f'\nDATA OF {nbr} - {file.name}:\n{f.read()}\n', flush=True)
+
         self.assertEqual(expected_nbr_files,
                          nbr_files,
                          f'Expected number of files {expected_nbr_files} , found {nbr_files} , files: {files}')
