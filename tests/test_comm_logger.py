@@ -17,7 +17,7 @@ class TestCommLogger(unittest.TestCase):
         files = list(pathlib.Path.iterdir(directory))
         nbr_files = len(files)
         if nbr_files != expected_nbr_files:
-            for nbr, file in enumerate(pathlib.Path.iterdir(directory)):
+            for nbr, file in enumerate(files):
                 with Path.open(file, encoding='utf-8') as f:
                     print(f'\nDATA OF {nbr} - {file.name}:\n{f.read()}\n', flush=True)
 

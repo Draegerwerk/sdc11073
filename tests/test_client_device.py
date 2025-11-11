@@ -432,37 +432,35 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
     def _run_client_with_device(ssl_context_container: SSLContextContainer | None):
         basic_logging_setup()
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-        wsd = WSDiscovery('127.0.0.1')
-        wsd.start()
-        location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-        sdc_device = SomeDevice.from_mdib_file(wsd, None, mdib_70041, ssl_context_container=ssl_context_container)
-        sdc_device.start_all(periodic_reports_interval=1.0)
-        _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        sdc_device.set_location(location, _loc_validators)
-        provide_realtime_data(sdc_device)
+        with WSDiscovery('127.0.0.1') as wsd:
+            location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
+            sdc_device = SomeDevice.from_mdib_file(wsd, None, mdib_70041, ssl_context_container=ssl_context_container)
+            sdc_device.start_all(periodic_reports_interval=1.0)
+            _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+            sdc_device.set_location(location, _loc_validators)
+            provide_realtime_data(sdc_device)
 
-        time.sleep(0.5)
-        specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher,
-        )
+            time.sleep(0.5)
+            specific_components = SdcConsumerComponents(
+                action_dispatcher_class=RequestDispatcher,
+            )
 
-        x_addr = sdc_device.get_xaddrs()
-        sdc_client = SdcConsumer(
-            x_addr[0],
-            sdc_definitions=sdc_device.mdib.sdc_definitions,
-            ssl_context_container=ssl_context_container,
-            validate=CLIENT_VALIDATE,
-            specific_components=specific_components,
-        )
-        sdc_client.start_all(not_subscribed_actions=periodic_actions)
-        time.sleep(1.5)
+            x_addr = sdc_device.get_xaddrs()
+            sdc_client = SdcConsumer(
+                x_addr[0],
+                sdc_definitions=sdc_device.mdib.sdc_definitions,
+                ssl_context_container=ssl_context_container,
+                validate=CLIENT_VALIDATE,
+                specific_components=specific_components,
+            )
+            sdc_client.start_all(not_subscribed_actions=periodic_actions)
+            time.sleep(1.5)
 
-        log_watcher.setPaused(True)
-        if sdc_device:
-            sdc_device.stop_all()
-        if sdc_client:
-            sdc_client.stop_all()
-        wsd.stop()
+            log_watcher.setPaused(True)
+            if sdc_device:
+                sdc_device.stop_all()
+            if sdc_client:
+                sdc_client.stop_all()
 
         log_watcher.check()
 
@@ -1770,7 +1768,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.logger = get_logger_adapter('sdc.test')
         self.logger.info('############### start setUp %s ##############', self._testMethodName)
 
-        # test uses a simple self signed certificate, certificate verify would fail
+        # test uses a simple self-signed certificate, certificate verify would fail
         client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         server_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         client_ssl_context.check_hostname = False
@@ -1829,6 +1827,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.log_watcher.setPaused(True)
         self.sdc_device.stop_all()
         self.sdc_device_ssl.stop_all()
+        self.wsd.stop()
         try:
             self.log_watcher.check()
         except loghelper.LogWatchError as ex:
@@ -1918,6 +1917,7 @@ class TestQualifiedName(unittest.TestCase):
         self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_device.stop_all()
+        self.wsd.stop()
         try:
             self.log_watcher.check()
         except loghelper.LogWatchError as ex:
@@ -1981,6 +1981,7 @@ class TestWrongQualifiedName(unittest.TestCase):
         self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_device.stop_all()
+        self.wsd.stop()
         try:
             self.log_watcher.check()
         except loghelper.LogWatchError as ex:

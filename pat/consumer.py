@@ -122,16 +122,14 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
     if certificate_folder:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
-    wsd = WSDiscovery(adapter)
-    try:
-        wsd.start()
+
+    with WSDiscovery(adapter) as wsd:
         res_1a = step_1.test_1a(wsd, epr) if execute_1a else None
         res_1b = step_1.test_1b(wsd, epr)
         if not res_1b:
             return False
         services = wsd.get_found_remote_services()  # services have already been found in 1b
-    finally:
-        wsd.stop()
+
     service = next(s for s in services if s.epr == epr)
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
     res_2a = step_2.test_2a(consumer)

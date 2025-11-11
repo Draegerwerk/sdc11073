@@ -125,34 +125,37 @@ class Test_Hello_And_Bye(unittest.TestCase):
                 recv_bye.set()
 
         wsd_device = wsdiscovery.WSDiscovery('127.0.0.1')
-        wsd_device.start()
-        sdc_device = SomeDevice.from_mdib_file(wsdiscovery=wsd_device,
-                                               epr=device_uuid,
-                                               mdib_xml_path='70041_MDIB_Final.xml')
-
         wsd_obj = wsdiscovery.WSDiscovery('127.0.0.1')
+        try:
+            wsd_device.start()
+            sdc_device = SomeDevice.from_mdib_file(wsdiscovery=wsd_device,
+                                                   epr=device_uuid,
+                                                   mdib_xml_path='70041_MDIB_Final.xml')
 
-        wsd_obj.set_remote_service_hello_callback(callback=hello_callback,
-                                                  scopes=wsd_types.ScopesType(value=loc.scope_string))
-        wsd_obj.set_remote_service_bye_callback(callback=bye_callback)
+            wsd_obj.set_remote_service_hello_callback(callback=hello_callback,
+                                                      scopes=wsd_types.ScopesType(value=loc.scope_string))
+            wsd_obj.set_remote_service_bye_callback(callback=bye_callback)
 
-        wsd_obj.start()
+            wsd_obj.start()
 
-        self.assertFalse(recv_hello.wait(timeout=wait_for_callback))
-        self.assertFalse(recv_bye.wait(timeout=wait_for_callback))
+            self.assertFalse(recv_hello.wait(timeout=wait_for_callback))
+            self.assertFalse(recv_bye.wait(timeout=wait_for_callback))
 
-        sdc_device.start_all()
-        _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        sdc_device.set_location(location=loc, validators=_loc_validators)
+            sdc_device.start_all()
+            _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+            sdc_device.set_location(location=loc, validators=_loc_validators)
 
-        self.assertTrue(recv_hello.wait(timeout=wait_for_callback))
-        self.assertFalse(recv_bye.wait(timeout=wait_for_callback))
+            self.assertTrue(recv_hello.wait(timeout=wait_for_callback))
+            self.assertFalse(recv_bye.wait(timeout=wait_for_callback))
 
-        sdc_device.stop_all()
-        # Hint: the immediate call of wsd_device.stop() caused a dropping of Bye-messages
-        # (in networkingthread.py not all items in _send_queue were processed - this is fixed and tested here)
-        wsd_device.stop()
+            sdc_device.stop_all()
+        finally:
+            # Hint: the immediate call of wsd_device.stop() caused a dropping of Bye-messages
+            # (in networkingthread.py not all items in _send_queue were processed - this is fixed and tested here)
+            wsd_device.stop()
 
-        self.assertTrue(recv_bye.wait(timeout=wait_for_callback))
+            received = recv_bye.wait(timeout=wait_for_callback)
 
-        wsd_obj.stop()
+            wsd_obj.stop()
+
+        self.assertTrue(received)

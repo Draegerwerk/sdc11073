@@ -58,46 +58,43 @@ def set_ensemble_context(mdib: ConsumerMdib, sdc_consumer: SdcConsumer) -> None:
 if __name__ == '__main__':
     # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet)
     basic_logging_setup(level=logging.INFO)
-    my_discovery = WSDiscovery("127.0.0.1")
-    # start the discovery
-    my_discovery.start()
-    # we want to search until we found one device with this client
-    found_device = False
-    # loop until we found our provider
-    while not found_device:
-        # we now search explicitly for MedicalDevices on the network
-        # this will send a probe to the network and wait for responses
-        # See MDPWS discovery mechanisms for details
-        print('searching for sdc providers')
-        services = my_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
-        # now iterate through the discovered services to check if we foundDevice
-        # the specific provider we search for
-        for one_service in services:
-            print("Got service: {}".format(one_service.epr))
-            # the EndPointReference is created based on the UUID of the Provider
-            if one_service.epr == device_A_UUID.urn:
-                print("Got a match: {}".format(one_service))
-                # now create a new SDCClient (=Consumer) that can be used
-                # for all interactions with the communication partner
-                my_client = SdcConsumer.from_wsd_service(one_service, ssl_context_container=None)
-                # start all services on the client to make sure we get updates
-                my_client.start_all(not_subscribed_actions=periodic_actions)
-                # all data interactions happen through the MDIB (MedicalDeviceInformationBase)
-                # that contains data as described in the BICEPS standard
-                # this variable will contain the data from the provider
-                my_mdib = ConsumerMdib(my_client)
-                my_mdib.init_mdib()
-                # we can subscribe to updates in the MDIB through the
-                # Observable Properties in order to get a callback on
-                # specific changes in the MDIB
-                observableproperties.bind(my_mdib, metrics_by_handle=on_metric_update)
-                # in order to end the 'scan' loop
-                found_device = True
+    with WSDiscovery("127.0.0.1") as my_discovery:
+        # we want to search until we found one device with this client
+        found_device = False
+        # loop until we found our provider
+        while not found_device:
+            # we now search explicitly for MedicalDevices on the network
+            # this will send a probe to the network and wait for responses
+            # See MDPWS discovery mechanisms for details
+            print('searching for sdc providers')
+            services = my_discovery.search_services(types=SdcV1Definitions.MedicalDeviceTypesFilter)
+            # now iterate through the discovered services to check if we foundDevice
+            # the specific provider we search for
+            for one_service in services:
+                print("Got service: {}".format(one_service.epr))
+                # the EndPointReference is created based on the UUID of the Provider
+                if one_service.epr == device_A_UUID.urn:
+                    print("Got a match: {}".format(one_service))
+                    # now create a new SDCClient (=Consumer) that can be used
+                    # for all interactions with the communication partner
+                    my_client = SdcConsumer.from_wsd_service(one_service, ssl_context_container=None)
+                    # start all services on the client to make sure we get updates
+                    my_client.start_all(not_subscribed_actions=periodic_actions)
+                    # all data interactions happen through the MDIB (MedicalDeviceInformationBase)
+                    # that contains data as described in the BICEPS standard
+                    # this variable will contain the data from the provider
+                    my_mdib = ConsumerMdib(my_client)
+                    my_mdib.init_mdib()
+                    # we can subscribe to updates in the MDIB through the
+                    # Observable Properties in order to get a callback on
+                    # specific changes in the MDIB
+                    observableproperties.bind(my_mdib, metrics_by_handle=on_metric_update)
+                    # in order to end the 'scan' loop
+                    found_device = True
 
-                # now we demonstrate how to call a remote operation on the consumer
-                set_ensemble_context(my_mdib, my_client)
+                    # now we demonstrate how to call a remote operation on the consumer
+                    set_ensemble_context(my_mdib, my_client)
 
-
-    # endless loop to keep the client running and get notified on metric changes through callback
-    while True:
-        time.sleep(1)
+        # endless loop to keep the client running and get notified on metric changes through callback
+        while True:
+            time.sleep(1)

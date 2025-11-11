@@ -505,20 +505,20 @@ class TestDiscovery(unittest.TestCase):
 
     def test_ws_discovery_set_multicast_ttl(self):
         ttl = random.randint(0, 255)
-        wsd_client = wsdiscovery.WSDiscovery(
-            '127.0.0.1',
-            logger=loghelper.get_logger_adapter('wsd_client'),
-            multicast_port=self.MY_MULTICAST_PORT,
-            multicast_ttl=ttl,
-        )
-        wsd_client.start()
-        self.assertEqual(
-            ttl,
-            wsd_client._networking_thread.multi_out_uni_in_out.getsockopt(
-                socket.IPPROTO_IP,
-                socket.IP_MULTICAST_TTL,
-            ),
-        )
+        with wsdiscovery.WSDiscovery(
+                '127.0.0.1',
+                logger=loghelper.get_logger_adapter('wsd_client'),
+                multicast_port=self.MY_MULTICAST_PORT,
+                multicast_ttl=ttl,
+        ) as wsd_client:
+
+            self.assertEqual(
+                ttl,
+                wsd_client._networking_thread.multi_out_uni_in_out.getsockopt(
+                    socket.IPPROTO_IP,
+                    socket.IP_MULTICAST_TTL,
+                ),
+            )
 
 
 class TestNetworkingThread(unittest.TestCase):
