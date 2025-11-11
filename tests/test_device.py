@@ -1,24 +1,23 @@
+"""Tests for SDC Device functionality."""
+
 import logging
 import threading
 import time
 import unittest
 import uuid
+from typing import Any
 
 from sdc11073 import wsdiscovery
-from sdc11073.xml_types import pm_qnames
-from sdc11073.xml_types import pm_types
-from sdc11073.xml_types import wsd_types
-
+from sdc11073.xml_types import pm_qnames, pm_types, wsd_types
 from tests import utils
 from tests.mockstuff import SomeDevice
 
-
 # pylint: disable=protected-access
 
-class Test_Device(unittest.TestCase):
+class TestDevice(unittest.TestCase):
 
     def setUp(self):
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
@@ -28,17 +27,17 @@ class Test_Device(unittest.TestCase):
 
         time.sleep(0.1)  # allow full init of device
 
-        print('############### setUp done {} ##############'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        print(f'############### setUp done {self._testMethodName} ##############')
+        logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
 
     def tearDown(self):
-        print('############### tearDown {}... ##############'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### tearDown {} ... ##############'.format(self._testMethodName))
+        print(f'############### tearDown {self._testMethodName}... ##############')
+        logging.getLogger('sdc').info('############### tearDown %s ... ##############', self._testMethodName)
         self.sdc_device.stop_all()
         self.wsd.stop()
 
     def test_restart(self):
-        """ Starting 2nd device with existing mdib shall not raise an exception"""
+        """Starting 2nd device with existing mdib shall not raise an exception."""
         self.sdc_device.stop_all()
         sdc_device2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
         try:
@@ -48,10 +47,10 @@ class Test_Device(unittest.TestCase):
 
 
 
-class Test_Device_2_mds(unittest.TestCase):
+class TestDevice2Mds(unittest.TestCase):
 
     def setUp(self):
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_two_mds.xml')
@@ -60,12 +59,12 @@ class Test_Device_2_mds(unittest.TestCase):
 
         time.sleep(0.1)  # allow full init of device
 
-        print('############### setUp done {} ##############'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        print(f'############### setUp done {self._testMethodName} ##############')
+        logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
 
     def tearDown(self):
-        print('############### tearDown {}... ##############'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### tearDown {} ... ##############'.format(self._testMethodName))
+        print(f'############### tearDown {self._testMethodName}... ##############')
+        logging.getLogger('sdc').info('############### tearDown %s ... ##############', self._testMethodName)
         self.sdc_device.stop_all()
         self.wsd.stop()
 
@@ -105,11 +104,9 @@ class Test_Device_2_mds(unittest.TestCase):
 
 
 
-class Test_Hello_And_Bye(unittest.TestCase):
+class TestHelloAndBye(unittest.TestCase):
     def test_send_hello_and_bye_at_start_and_stop(self):
-        """
-        Test whether the device does not send hello on initialization but on start and send bye on stop.
-        """
+        """Tests whether the device does not send hello on initialization but on start and send bye on stop."""
         wait_for_callback = 3
         recv_hello = threading.Event()
         recv_bye = threading.Event()
@@ -117,10 +114,10 @@ class Test_Hello_And_Bye(unittest.TestCase):
         loc = utils.random_location()
         device_uuid = uuid.uuid4()
 
-        def hello_callback(_, __):
+        def hello_callback(_: Any, __: Any):
             recv_hello.set()
 
-        def bye_callback(_, epr):
+        def bye_callback(_: Any, epr: str):
             if epr == device_uuid.urn:
                 recv_bye.set()
 

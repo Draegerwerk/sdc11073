@@ -1,30 +1,34 @@
+"""SDC Consumer example that connects to a known provider by its UUID."""
+
 import logging
 import time
 import uuid
-from sdc11073.xml_types import pm_types, msg_types
+
+from sdc11073 import observableproperties
+from sdc11073.consumer import SdcConsumer
+from sdc11073.definitions_sdc import SdcV1Definitions
+from sdc11073.loghelper import basic_logging_setup
+from sdc11073.mdib import ConsumerMdib
+from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.actions import periodic_actions
-from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.definitions_sdc import SdcV1Definitions
-from sdc11073.consumer import SdcConsumer
-from sdc11073.mdib import ConsumerMdib
-from sdc11073 import observableproperties
-from sdc11073.loghelper import basic_logging_setup
+
 # This example shows how to implement a very simple SDC Consumer (client)
 # It will scan for SDC Providers and connect to on well known UUID
 
 # The provider we connect to is known by its UUID
 # The UUID is created from a base
-baseUUID = uuid.UUID('{cc013678-79f6-403c-998f-3cc0cc050230}')
-device_A_UUID = uuid.uuid5(baseUUID, "12345")
+BASEUUID = uuid.UUID('{cc013678-79f6-403c-998f-3cc0cc050230}')
+DEVICE_A_UUID = uuid.uuid5(BASEUUID, "12345")
 
 # callback function that will be called upon metric updates from the provider
-def on_metric_update(metrics_by_handle: dict):
+def _on_metric_update(metrics_by_handle: dict):
     # we get all changed handles as parameter, iterate over them and output
     print(f"Got update on: {list(metrics_by_handle.keys())}")
 
-def set_ensemble_context(mdib: ConsumerMdib, sdc_consumer: SdcConsumer) -> None:
-    # calling operation on remote device 
+def _set_ensemble_context(mdib: ConsumerMdib, sdc_consumer: SdcConsumer) -> None:
+    # calling operation on remote device
     print("Trying to set ensemble context of device A")
     # first we get the container to the element in the MDIB
     ensemble_descriptor_container = mdib.descriptions.NODETYPE.getOne(pm.EnsembleContextDescriptor)
@@ -50,13 +54,14 @@ def set_ensemble_context(mdib: ConsumerMdib, sdc_consumer: SdcConsumer) -> None:
         print(f'set ensemble context state failed state = {result.InvocationInfo.InvocationState}, '
               f'error = {result.InvocationInfo.InvocationError}, msg = {result.InvocationInfo.InvocationErrorMessage}')
     else:
-        print(f'set ensemble context was successful.')
+        print('set ensemble context was successful.')
 
 
 # main entry, will start to scan for the known provider and connect
 # runs forever and consumes metrics everafter
 if __name__ == '__main__':
-    # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet)
+    # start with discovery (MDPWS) that is running on the named adapter "Ethernet"
+    # (replace as you need it on your machine, e.g. "enet0" or "Ethernet)
     basic_logging_setup(level=logging.INFO)
     with WSDiscovery("127.0.0.1") as my_discovery:
         # we want to search until we found one device with this client
@@ -71,10 +76,10 @@ if __name__ == '__main__':
             # now iterate through the discovered services to check if we foundDevice
             # the specific provider we search for
             for one_service in services:
-                print("Got service: {}".format(one_service.epr))
+                print(f"Got service: {one_service.epr}")
                 # the EndPointReference is created based on the UUID of the Provider
-                if one_service.epr == device_A_UUID.urn:
-                    print("Got a match: {}".format(one_service))
+                if one_service.epr == DEVICE_A_UUID.urn:
+                    print(f"Got a match: {one_service}")
                     # now create a new SDCClient (=Consumer) that can be used
                     # for all interactions with the communication partner
                     my_client = SdcConsumer.from_wsd_service(one_service, ssl_context_container=None)
@@ -88,12 +93,12 @@ if __name__ == '__main__':
                     # we can subscribe to updates in the MDIB through the
                     # Observable Properties in order to get a callback on
                     # specific changes in the MDIB
-                    observableproperties.bind(my_mdib, metrics_by_handle=on_metric_update)
+                    observableproperties.bind(my_mdib, metrics_by_handle=_on_metric_update)
                     # in order to end the 'scan' loop
                     found_device = True
 
                     # now we demonstrate how to call a remote operation on the consumer
-                    set_ensemble_context(my_mdib, my_client)
+                    _set_ensemble_context(my_mdib, my_client)
 
         # endless loop to keep the client running and get notified on metric changes through callback
         while True:

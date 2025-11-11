@@ -391,7 +391,8 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                         with sdc_provider.mdib.component_state_transaction() as mgr:
                             state = mgr.get_state(battery_descriptor.Handle)
                             if state.Voltage is None:
-                                state.Voltage = pm_types.Measurement(value=Decimal('14.4'), unit=pm_types.CodedValue('xyz'))
+                                state.Voltage = pm_types.Measurement(value=Decimal('14.4'),
+                                                                     unit=pm_types.CodedValue('xyz'))
                             else:
                                 state.Voltage.MeasuredValue += Decimal('0.1')
                             print(f'battery voltage = {state.Voltage.MeasuredValue}')
@@ -417,7 +418,8 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                     print(traceback.format_exc())
 
                 # add or rm vmd
-                # Generate unique handles on each insertion to avoid recycling containment tree entries (PAT 5b requirement)
+                # Generate unique handles on each insertion to avoid recycling containment tree entries
+                # (PAT 5b requirement)
                 add_rm_mds_handle = 'mds_0'
                 # Find any existing VMDs that match the pattern 'add_rm_vmd_*'
                 existing_vmds = [
