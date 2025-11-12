@@ -44,6 +44,16 @@ class TestIsoDate(unittest.TestCase):
         self.assertEqual(parse_duration('P3DT5H13M17S'), 3600 * 24 * 3 + 3600 * 5 + 60 * 13 + 17)
         self.assertEqual(parse_duration('P3D'), 3600 * 24 * 3)
         self.assertEqual(parse_duration('-PT00H00M00.000001000S'), -0.000001)
+        with self.assertRaises(TypeError):
+            parse_duration(123)  # something else than a str
+        with self.assertRaises(ValueError):
+            parse_duration('PP')
+        with self.assertRaises(ValueError):
+            parse_duration('P1Y0M0DT0H0M1S')
+        with self.assertRaises(ValueError):
+            parse_duration('P0Y2M0DT0H0M1S')
+        with self.assertRaises(ValueError):
+            parse_duration('P1Y2M0DT0H0M1S')
 
     def test_parse_date_time(self):
         self.assertEqual(parse_date_time('2015-05-25'), date(2015, 5, 25))
@@ -120,3 +130,10 @@ class TestIsoDate(unittest.TestCase):
         )
         self.assertEqual(date_time_string(GYearMonth(2015, 5)), '2015-05')
         self.assertEqual(date_time_string(GYear(2015)), '2015')
+
+        class Dummy:
+            pass
+
+        with self.assertRaises(ValueError) as cm:
+            date_time_string(Dummy())
+        self.assertIn(f'cannot convert {Dummy.__name__} to ISO8601 datetime string', str(cm.exception))
