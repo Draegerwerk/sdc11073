@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import datetime
 import re
-from datetime import date, datetime, timedelta, tzinfo
 from decimal import Decimal
 from typing import NamedTuple, Union
 
@@ -54,7 +54,7 @@ def parse_duration(date_string: str) -> ParsedDurationType:
     if groups['years'] != 0 or groups['months'] != 0:
         msg = f'Unable to parse duration string {date_string} (Non zero year or month)'
         raise ValueError(msg)
-    ret = timedelta(
+    ret = datetime.timedelta(
         days=groups['days'],
         hours=groups['hours'],
         minutes=groups['minutes'],
@@ -62,7 +62,7 @@ def parse_duration(date_string: str) -> ParsedDurationType:
         weeks=groups['weeks'],
     )
     if groups['sign'] == '-':
-        ret = timedelta(0) - ret
+        ret = datetime.timedelta(0) - ret
     return ret.total_seconds()
 
 
@@ -95,26 +95,6 @@ class GYear(NamedTuple):  # noqa: D101
     year: int
 
 
-ZERO = timedelta(0)
-
-
-class UTC(tzinfo):
-    """Fixed offset in minutes east from UTC."""
-
-    def __init__(self, offset_minutes: int, tzname: str | None = None):
-        self._offset = timedelta(minutes=offset_minutes)
-        self._tzname = tzname
-
-    def utcoffset(self, dt) -> timedelta:  # noqa: ANN001, ARG002, D102
-        return self._offset
-
-    def tzname(self, dt) -> str | None:  # noqa: ANN001, ARG002, D102
-        return self._tzname
-
-    def dst(self, dt) -> timedelta:  # noqa: ANN001, ARG002, D102
-        return ZERO
-
-
 # regular expression to parse ISO 8601 date / datetime strings.
 
 _TZ_REGEX_STR = '(?P<tz>Z|((?P<tz_sign>[+-])(?P<tz_hours>[0-9]{1,2}):(?P<tz_minutes>[0-9]{1,2})))?'
@@ -127,7 +107,7 @@ _DATETIME_REGEX_RELAXED = re.compile(
 _year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?')
 
 
-DateTypeUnion = Union[GYear, GYearMonth, date, datetime]
+DateTypeUnion = Union[GYear, GYearMonth, datetime.date, datetime.datetime]
 
 
 def parse_date_time(date_time_str: str, strict: bool = True) -> DateTypeUnion | None:
@@ -139,27 +119,31 @@ def parse_date_time(date_time_str: str, strict: bool = True) -> DateTypeUnion | 
     if d_t is not None:
         groups = d_t.groupdict()
         year, month, day = int(groups['year']), int(groups['month']), int(groups['day'])
+        # year is 0000 is correct xml but not applicable in python
+        # https://www.w3.org/TR/xmlschema11-2/#dateTime (biceps uses xml schema v1.1)
+        if year == 0:
+            return None
         if groups['hour'] is None:  # only a date, no time
-            return date(year, month, day)
+            return datetime.date(year, month, day)
 
         tz_1st = groups['tz']
         tz_info = None
         if tz_1st is not None:
             if tz_1st == 'Z':
-                tz_info = UTC(0, 'UTC')
+                tz_info = datetime.timezone.utc
             elif tz_1st[0] in ('+', '-'):
                 tz_hours = int(groups['tz_hours'])
                 tz_minutes = int(groups['tz_minutes'])
                 offset = tz_hours * 60 + tz_minutes
                 if tz_1st[0] == '-':
                     offset *= -1
-                tz_info = UTC(offset, 'unknown')
+                tz_info = datetime.timezone(datetime.timedelta(minutes=offset), 'unknown')
 
         hour = int(groups['hour'])
         minute = int(groups.get('minute', '00'))
         second = float(groups.get('second', '0.0'))
         sec, micro_sec = int(second), int((second - int(second)) * 1000000)
-        return datetime(year, month, day, hour, minute, sec, micro_sec, tz_info)
+        return datetime.datetime(year, month, day, hour, minute, sec, micro_sec, tz_info)
 
     d_t = _year_month_regex.match(date_time_str)
     if d_t is not None:
@@ -182,10 +166,10 @@ def _mk_seconds_string(date_object: DateTypeUnion) -> str:
     return seconds_string
 
 
-def _mk_tz_string(date_object: DateTypeUnion) -> str:
+def _mk_tz_string(date_object: datetime.datetime) -> str:
     tz_string = ''
-    if date_object.tzinfo:
-        delta = date_object.tzinfo.utcoffset(None)
+    delta = date_object.utcoffset()
+    if delta is not None:
         tz_seconds = delta.seconds + (3600 * 24) * delta.days
         if tz_seconds == 0:
             tz_string = 'Z'
