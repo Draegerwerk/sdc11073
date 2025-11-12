@@ -50,43 +50,64 @@ class TestIsoDate(unittest.TestCase):
         self.assertEqual(parse_date_time('20150525'), date(2015, 5, 25))
         self.assertEqual(
             parse_date_time('2015-05-25T14:45:00'),
-            datetime(
+            datetime(  # noqa: DTZ001
                 2015,
                 5,
                 25,
                 14,
                 45,
                 00,
-                tzinfo=timezone.utc,
+                tzinfo=None,
             ),
         )
         self.assertEqual(
             parse_date_time('2015-05-25 14:45:00', strict=False),
-            datetime(
+            datetime(  # noqa: DTZ001
                 2015,
                 5,
                 25,
                 14,
                 45,
                 00,
-                tzinfo=timezone.utc,
+                tzinfo=None,
             ),
         )
         self.assertEqual(parse_date_time('2015-05-25 14:45:00'), date(2015, 5, 25))
         result = parse_date_time('2015-05-25T14:45:00+01:00')
         self.assertEqual(result.hour, 14)
-        self.assertEqual(result.tzinfo.utcoffset(0).seconds, 3600)
+        self.assertEqual(result.utcoffset().seconds, 3600)
         self.assertEqual(parse_date_time('2015-05'), GYearMonth(2015, 5))
         self.assertEqual(parse_date_time('2015'), GYear(2015))
 
     def test_date_time_string(self):
         self.assertEqual(date_time_string(date(2015, 5, 25)), '2015-05-25')
         self.assertEqual(
-            date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=timezone.utc)),
+            date_time_string(
+                datetime(  # noqa: DTZ001
+                    2015,
+                    5,
+                    25,
+                    14,
+                    45,
+                    00,
+                    tzinfo=None,
+                )
+            ),
             '2015-05-25T14:45:00',
         )
         self.assertEqual(
-            date_time_string(datetime(2015, 5, 25, 14, 45, 00, 5000, tzinfo=timezone.utc)),
+            date_time_string(
+                datetime(  # noqa: DTZ001
+                    2015,
+                    5,
+                    25,
+                    14,
+                    45,
+                    00,
+                    5000,
+                    tzinfo=None,
+                )
+            ),
             '2015-05-25T14:45:00.005',
         )
         self.assertEqual(
