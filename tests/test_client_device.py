@@ -1354,6 +1354,44 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(len(cl_mdib.states.objects), len(self.sdc_device.mdib.states.objects))
         self.assertEqual(len(cl_mdib.context_states.objects), len(self.sdc_device.mdib.context_states.objects))
 
+    def test_descriptor_lookup(self):
+        """Verify that descriptor lookup works on client mdib."""
+        mdib = ConsumerMdib(self.sdc_client)
+        mdib.init_mdib()
+
+        self.assertEqual(mdib.descriptions.objects, 104)
+        self.assertEqual(mdib.descriptions.handle, 104)
+        self.assertEqual(mdib.descriptions.parent_handle, 20)
+        self.assertEqual(mdib.descriptions.NODETYPE, 18)
+        self.assertEqual(mdib.descriptions.coding, 65)
+
+    def test_descriptor_lookup_condition_signaled(self):
+        """Verify that condition signaled descriptor lookup works on client mdib."""
+        mdib = ConsumerMdib(self.sdc_client)
+        mdib.init_mdib()
+        self.assertEqual(len(mdib.descriptions.condition_signaled), 1)
+        descriptors = mdib.descriptions.condition_signaled.get('0xD3C00100')
+        self.assertEqual(len(descriptors), 1)
+        self.assertEqual(descriptors[0].Handle, '0xD3C00100.loc.Vis')
+
+    def test_descriptor_lookup_source(self):
+        """Verify that source descriptor lookup works on client mdib."""
+        mdib = ConsumerMdib(self.sdc_client)
+        mdib.init_mdib()
+        self.assertEqual(len(mdib.descriptions.source), 4)
+        descriptors = mdib.descriptions.source.get('3569')
+        self.assertEqual(len(descriptors), 1)
+        self.assertEqual(descriptors[0].Handle, '0xD3C00100')
+        descriptors = mdib.descriptions.source.get('0x34F00150')
+        self.assertEqual(len(descriptors), 1)
+        self.assertEqual(descriptors[0].Handle, '0xD3C00109')
+        descriptors = mdib.descriptions.source.get('0x34F001F0')
+        self.assertEqual(len(descriptors), 1)
+        self.assertEqual(descriptors[0].Handle, '0xD3C00108')
+        descriptors = mdib.descriptions.source.get('numeric_metric_0.channel_0.vmd_0.mds_1')
+        self.assertEqual(len(descriptors), 1)
+        self.assertEqual(descriptors[0].Handle, 'alert_condition_0.vmd_0.mds_1')
+
 
 class Test_DeviceCommonHttpServer(unittest.TestCase):
 

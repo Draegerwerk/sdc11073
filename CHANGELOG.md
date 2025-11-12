@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
+- `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
 
 ## [v2.3.0] - 2025-07-08
 
