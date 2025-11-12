@@ -91,7 +91,7 @@ class TestIsoDate(unittest.TestCase):
                     45,
                     00,
                     tzinfo=None,
-                )
+                ),
             ),
             '2015-05-25T14:45:00',
         )
@@ -106,7 +106,7 @@ class TestIsoDate(unittest.TestCase):
                     00,
                     5000,
                     tzinfo=None,
-                )
+                ),
             ),
             '2015-05-25T14:45:00.005',
         )
