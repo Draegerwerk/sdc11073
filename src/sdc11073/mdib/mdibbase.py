@@ -95,8 +95,7 @@ class DescriptorsLookup(_MultikeyWithVersionLookup):
                        multikey.IndexDefinition(lambda obj: obj.ConditionSignaled, index_none_values=False))
         # an index to find all alert conditions for a metric (AlertCondition is the only class that has a
         # "Source" attribute, therefore this simple approach without type testing is sufficient):
-        self.add_index('source',
-                       multikey.IndexDefinition1n(lambda obj: [s.text for s in obj.Source], index_none_values=False))
+        self.add_index('source', multikey.IndexDefinition1n(lambda obj: obj.Source, index_none_values=False))
 
     def _save_version(self, obj: AbstractDescriptorContainer):
         self.handle_version_lookup[obj.Handle] = obj.DescriptorVersion
