@@ -3,6 +3,7 @@
 import io
 import logging
 import pathlib
+import sys
 import tempfile
 import unittest
 import uuid
@@ -19,7 +20,7 @@ class TestCommLogger(unittest.TestCase):
         if nbr_files != expected_nbr_files:
             for nbr, file in enumerate(files):
                 with Path.open(file, encoding='utf-8') as f:
-                    print(f'\nDATA OF {nbr} - {file.name}:\n{f.read()}\n', flush=True)
+                    sys.stderr.write(f'\nDATA OF {nbr} - {file.name}:\n{f.read()}\n')
 
         self.assertEqual(expected_nbr_files,
                          nbr_files,

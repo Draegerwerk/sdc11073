@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import datetime
 import functools
+import itertools
 import logging
 import pathlib
 import socket
@@ -20,14 +21,12 @@ import unittest.mock
 import uuid
 from decimal import Decimal
 from http.client import NotConnected
-from itertools import product
 from threading import Event
 from typing import Any
 
 from lxml import etree
 
-from sdc11073 import commlog, loghelper, observableproperties
-from sdc11073.certloader import SSLContextContainer, mk_ssl_contexts, mk_ssl_contexts_from_folder
+from sdc11073 import certloader, loghelper, observableproperties
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
@@ -35,7 +34,6 @@ from sdc11073.dispatch import RequestDispatcher
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
-from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib, statecontainers
 from sdc11073.namespaces import default_ns_helper
 from sdc11073.observableproperties import observables
@@ -59,16 +57,6 @@ from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
-
-ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    comm_logger = commlog.DirectoryLogger(
-        log_folder=r'c:\temp\sdc_commlog',
-        log_out=True,
-        log_in=True,
-        broadcast_ip_filter=None,
-    )
-    comm_logger.start()
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -336,7 +324,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         server_ssl_context.old_wrap_socket = server_ssl_context.wrap_socket
         server_ssl_context.wrap_socket = server_ssl_context_wrap_socket_mock
 
-        ssl_context_container = SSLContextContainer(
+        ssl_context_container = certloader.SSLContextContainer(
             client_context=client_ssl_context,
             server_context=server_ssl_context,
         )
@@ -414,7 +402,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         ssl_context_mock = unittest.mock.Mock(side_effect=ssl_context_init_side_effect)
 
         with unittest.mock.patch.object(ssl, 'SSLContext', new=ssl_context_mock):
-            return_value = mk_ssl_contexts(
+            return_value = certloader.mk_ssl_contexts(
                 key_file=unittest.mock.MagicMock(),
                 cert_file=unittest.mock.MagicMock(),
                 ca_file=unittest.mock.MagicMock(),
@@ -433,8 +421,8 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             context_mock.load_verify_locations.assert_called()
 
     @staticmethod
-    def _run_client_with_device(ssl_context_container: SSLContextContainer | None) -> None:
-        basic_logging_setup()
+    def _run_client_with_device(ssl_context_container: certloader.SSLContextContainer | None) -> None:
+        loghelper.basic_logging_setup()
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         with WSDiscovery('127.0.0.1') as wsd:
             location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
@@ -469,21 +457,21 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
     def test_mk_ssl_raises_file_not_found_error(self):
         """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
         with self.assertRaises(FileNotFoundError):
-            mk_ssl_contexts_from_folder(ca_folder=pathlib.Path())
+            certloader.mk_ssl_contexts_from_folder(ca_folder=pathlib.Path())
         with self.assertRaises(FileNotFoundError):
-            mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock())
+            certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock())
         with self.assertRaises(FileNotFoundError):
-            mk_ssl_contexts(
+            certloader.mk_ssl_contexts(
                 key_file=pathlib.Path(str(uuid.uuid4())),
                 cert_file=unittest.mock.MagicMock(),
             )
         with self.assertRaises(FileNotFoundError):
-            mk_ssl_contexts(
+            certloader.mk_ssl_contexts(
                 key_file=unittest.mock.MagicMock(),
                 cert_file=pathlib.Path(str(uuid.uuid4())),
             )
         with self.assertRaises(FileNotFoundError):
-            mk_ssl_contexts(
+            certloader.mk_ssl_contexts(
                 key_file=unittest.mock.MagicMock(),
                 cert_file=unittest.mock.MagicMock(),
                 ca_file=pathlib.Path(str(uuid.uuid4())),
@@ -493,7 +481,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
     def test_mk_ssl_raises_file_not_found_error_with_cipher_file(self, mocked: unittest.mock.MagicMock):
         """Verify that a FileNotFoundError is raised if a cypher file is specified but not found."""
         with self.assertRaises(FileNotFoundError):
-            mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
+            certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
         self.assertFalse(mocked.called)
 
     @unittest.mock.patch('sdc11073.certloader.mk_ssl_contexts')
@@ -506,17 +494,16 @@ secret_ciphers_string
 ignored"""
 
         read_text_mock.side_effect = _read_text
-        mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
+        certloader.mk_ssl_contexts_from_folder(ca_folder=unittest.mock.MagicMock(), cyphers_file='lorem')
         mk_ssl_contexts_mock.assert_called_once()
         self.assertEqual(mk_ssl_contexts_mock.call_args.args[3], 'secret_ciphers_string')
 
 
 class TestClientSomeDevice(unittest.TestCase):
     def setUp(self):
-        basic_logging_setup()
-        self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
-        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        self.logger = loghelper.get_logger_adapter('sdc.test')
+        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
@@ -548,13 +535,12 @@ class TestClientSomeDevice(unittest.TestCase):
         )
         self.sdc_client.start_all()  # with periodic reports and system error report
         time.sleep(1)
-        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
-        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        self.logger.info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
+        self.logger.info('############### tearDown %s ...  ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         try:
             if self.sdc_device:
@@ -569,7 +555,7 @@ class TestClientSomeDevice(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
+        self.logger.info('############### tearDown %s done  ##############', self._testMethodName)
 
     def test_basic_connect(self):
         runtest_basic_connect(self, self.sdc_client)
@@ -774,7 +760,10 @@ class TestClientSomeDevice(unittest.TestCase):
         cl_get_service = self.sdc_client.client('Get')
         message_data = cl_get_service.get_md_description(['not_existing_handle'])
         node = message_data.p_msg.msg_node
-        print(etree.tostring(node, pretty_print=True))
+        self.logger.info(
+            'Received message node in the response of GetMdDescriptionRequest:\n%s',
+            etree.tostring(node, pretty_print=True),
+        )
         descriptors = list(node[0])  # that is /m:GetMdDescriptionResponse/m:MdDescription/*
         self.assertEqual(len(descriptors), 0)
         existing_handle = '0x34F05500'
@@ -850,7 +839,7 @@ class TestClientSomeDevice(unittest.TestCase):
         now = time.time()
         max_float_diff_1ms = (now + 0.001) / now - 1
 
-        for _activation_state, _actual_priority, _presence in product(
+        for _activation_state, _actual_priority, _presence in itertools.product(
             list(pm_types.AlertActivation),
             list(pm_types.AlertConditionPriority),
             (True, False),
@@ -872,7 +861,7 @@ class TestClientSomeDevice(unittest.TestCase):
         alert_condition_state = self.sdc_device.mdib.states.NODETYPE[pm.AlertSignalState][0]
         descriptor_handle = alert_condition_state.DescriptorHandle
 
-        for _activation_state, _presence, _location, _slot in product(
+        for _activation_state, _presence, _location, _slot in itertools.product(
             list(pm_types.AlertActivation),
             list(pm_types.AlertSignalPresence),
             list(pm_types.AlertSignalPrimaryLocation),
@@ -1515,10 +1504,9 @@ class TestClientSomeDevice(unittest.TestCase):
 
 class TestDeviceCommonHttpServer(unittest.TestCase):
     def setUp(self):
-        basic_logging_setup()
-        self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
-        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        self.logger = loghelper.get_logger_adapter('sdc.test')
+        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         location = utils.random_location()
@@ -1582,25 +1570,24 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self._all_cl_dev = ((self.sdc_client_1, self.sdc_device_1), (self.sdc_client_2, self.sdc_device_2))
 
         time.sleep(1)
-        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
-        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        self.logger.info('############### setUp %s done ##############', self._testMethodName)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
+        self.logger.info('############### tearDown %s ... ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         for sdc_client, sdc_device in self._all_cl_dev:
             sdc_client.stop_all()
             time.sleep(0.1)
             sdc_device.stop_all()
         self.wsd.stop()
-        sys.stderr.write(f'############### tearDown {self._testMethodName} done, checking logs... ##############\n')
+        self.logger.info('############### tearDown %s done, checking logs... ##############', self._testMethodName)
         try:
             self.log_watcher.check()
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
+        self.logger.info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_basic_connect_common(self):
         runtest_basic_connect(self, self.sdc_client_1)
@@ -1617,9 +1604,8 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
 
 class TestClientSomeDeviceChunked(unittest.TestCase):
     def setUp(self):
-        basic_logging_setup()
-        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
-        logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        logging.getLogger('sdc').info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
@@ -1650,13 +1636,13 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
-        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
-        logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
+        logging.getLogger('sdc').info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
+        logging.getLogger('sdc').info('############### tearDown %s ... ##############', self._testMethodName)
+
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -1666,7 +1652,7 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
+        logging.getLogger('sdc').info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_basic_connect_chunked(self):
         runtest_basic_connect(self, self.sdc_client)
@@ -1674,9 +1660,8 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
 
 class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
     def setUp(self):
-        basic_logging_setup()
-        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
-        logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        logging.getLogger('sdc').info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
 
@@ -1713,13 +1698,12 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
-        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
-        logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
+        logging.getLogger('sdc').info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
+        logging.getLogger('sdc').info('############### tearDown %s ... ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -1729,7 +1713,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
+        logging.getLogger('sdc').info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_basic_connect(self):
         # simply check that correct top node is returned
@@ -1773,10 +1757,9 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
 
 class TestClientSomeDeviceSync(unittest.TestCase):
     def setUp(self):
-        basic_logging_setup()
-        self.logger = get_logger_adapter('sdc.test')
-        sys.stderr.write(f'\n############### start setUp {self._testMethodName} ##############\n')
-        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        self.logger = loghelper.get_logger_adapter('sdc.test')
+        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
@@ -1805,13 +1788,12 @@ class TestClientSomeDeviceSync(unittest.TestCase):
         self.sdc_client.start_all()  # subscribe all
 
         time.sleep(1)
-        sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
-        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        self.logger.info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
+        self.logger.info('############### tearDown %s ... ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -1821,7 +1803,7 @@ class TestClientSomeDeviceSync(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
+        self.logger.info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_basic_connect_sync(self):
         # simply check that correct top node is returned
@@ -1852,9 +1834,9 @@ class TestEncryptionCombinations(unittest.TestCase):
     """Check combinations of encrypted and unencrypted connections."""
 
     def setUp(self):
-        basic_logging_setup()
-        self.logger = get_logger_adapter('sdc.test')
-        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        self.logger = loghelper.get_logger_adapter('sdc.test')
+        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
 
         # test uses a simple self-signed certificate, certificate verify would fail
         client_ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -1875,7 +1857,7 @@ class TestEncryptionCombinations(unittest.TestCase):
             password='password',  # noqa: S106
         )
 
-        self.ssl_context_container = SSLContextContainer(
+        self.ssl_context_container = certloader.SSLContextContainer(
             client_context=client_ssl_context,
             server_context=server_ssl_context,
         )
@@ -1907,12 +1889,12 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.sdc_device_ssl.set_location(utils.random_location(), self._loc_validators)
 
         time.sleep(0.5)  # allow init of devices to complete
-        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        self.logger.info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.logger.info('############### tearDown %s ... ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_device.stop_all()
         self.sdc_device_ssl.stop_all()
@@ -1922,7 +1904,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+        self.logger.info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_basic_connect(self):
         """Verify correct behavior of different combinations (un)encrypted provider and (un)encrypted consumer."""
@@ -1990,9 +1972,9 @@ class TestQualifiedName(unittest.TestCase):
     """Check usage of full qualified name in device and client."""
 
     def setUp(self):
-        basic_logging_setup()
-        self.logger = get_logger_adapter('sdc.test')
-        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        self.logger = loghelper.get_logger_adapter('sdc.test')
+        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
 
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
@@ -2010,12 +1992,12 @@ class TestQualifiedName(unittest.TestCase):
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
         time.sleep(0.5)  # allow init of devices to complete
-        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        self.logger.info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.logger.info('############### tearDown %s ... ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_device.stop_all()
         self.wsd.stop()
@@ -2024,7 +2006,7 @@ class TestQualifiedName(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+        self.logger.info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_basic_connect(self):
         """Verify correct behavior with qualified full_qualified_name."""
@@ -2054,9 +2036,9 @@ class TestWrongQualifiedName(unittest.TestCase):
     """Check that wrong hostnames lead to no-connection."""
 
     def setUp(self):
-        basic_logging_setup()
-        self.logger = get_logger_adapter('sdc.test')
-        self.logger.info('############### start setUp %s ##############', self._testMethodName)
+        loghelper.basic_logging_setup()
+        self.logger = loghelper.get_logger_adapter('sdc.test')
+        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
 
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
@@ -2074,12 +2056,12 @@ class TestWrongQualifiedName(unittest.TestCase):
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
         time.sleep(0.5)  # allow init of devices to complete
-        self.logger.info('############### setUp done %s ##############', self._testMethodName)
+        self.logger.info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        self.logger.info('############### tearDown %s ... ##############\n', self._testMethodName)
+        self.logger.info('############### tearDown %s ... ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_device.stop_all()
         self.wsd.stop()
@@ -2088,7 +2070,7 @@ class TestWrongQualifiedName(unittest.TestCase):
         except loghelper.LogWatchError as ex:
             sys.stderr.write(repr(ex))
             raise
-        self.logger.info('############### tearDown %s done ##############\n', self._testMethodName)
+        self.logger.info('############### tearDown %s done ##############', self._testMethodName)
 
     def test_no_connect(self):
         x_addr = self.sdc_device.get_xaddrs()[0]

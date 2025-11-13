@@ -7,26 +7,17 @@ import time
 import unittest
 from decimal import Decimal
 
-from sdc11073 import commlog, loghelper, observableproperties
+from sdc11073 import loghelper, observableproperties
 from sdc11073.consumer import SdcConsumer
 from sdc11073.consumer.components import SdcConsumerComponents
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
-from sdc11073.loghelper import basic_logging_setup
 from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDeviceEntityMdib
-
-ENABLE_COMMLOG = False
-if ENABLE_COMMLOG:
-    comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
-                                          log_out=True,
-                                          log_in=True,
-                                          broadcast_ip_filter=None)
-    comm_logger.start()
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
@@ -40,7 +31,7 @@ class TestEntityOperations(unittest.TestCase):
     """Test role providers (located in sdc11073.roles)."""
 
     def setUp(self):
-        basic_logging_setup()
+        loghelper.basic_logging_setup()
         self._logger = logging.getLogger('sdc.test')
         self._logger.info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')

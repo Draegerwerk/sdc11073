@@ -7,7 +7,7 @@ import unittest
 import uuid
 from typing import Any
 
-from sdc11073 import wsdiscovery
+from sdc11073 import loghelper, wsdiscovery
 from sdc11073.xml_types import pm_qnames, pm_types, wsd_types
 from tests import utils
 from tests.mockstuff import SomeDevice
@@ -17,6 +17,7 @@ from tests.mockstuff import SomeDevice
 class TestDevice(unittest.TestCase):
 
     def setUp(self):
+        loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
@@ -26,12 +27,9 @@ class TestDevice(unittest.TestCase):
         self.sdc_device.set_location(utils.random_location(), self._locValidators)
 
         time.sleep(0.1)  # allow full init of device
-
-        print(f'############### setUp done {self._testMethodName} ##############')
         logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
 
     def tearDown(self):
-        print(f'############### tearDown {self._testMethodName}... ##############')
         logging.getLogger('sdc').info('############### tearDown %s ... ##############', self._testMethodName)
         self.sdc_device.stop_all()
         self.wsd.stop()
@@ -50,6 +48,7 @@ class TestDevice(unittest.TestCase):
 class TestDevice2Mds(unittest.TestCase):
 
     def setUp(self):
+        loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
@@ -58,12 +57,9 @@ class TestDevice2Mds(unittest.TestCase):
         self._locValidators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
 
         time.sleep(0.1)  # allow full init of device
-
-        print(f'############### setUp done {self._testMethodName} ##############')
         logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
 
     def tearDown(self):
-        print(f'############### tearDown {self._testMethodName}... ##############')
         logging.getLogger('sdc').info('############### tearDown %s ... ##############', self._testMethodName)
         self.sdc_device.stop_all()
         self.wsd.stop()
@@ -107,6 +103,7 @@ class TestDevice2Mds(unittest.TestCase):
 class TestHelloAndBye(unittest.TestCase):
     def test_send_hello_and_bye_at_start_and_stop(self):
         """Tests whether the device does not send hello on initialization but on start and send bye on stop."""
+        loghelper.basic_logging_setup()
         wait_for_callback = 3
         recv_hello = threading.Event()
         recv_bye = threading.Event()
