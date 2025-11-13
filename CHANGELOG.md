@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Deprecation info to the `commlog` module.
+- support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
 
 ### Changed
 
