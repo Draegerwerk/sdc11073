@@ -131,7 +131,7 @@ class TestContainerProperties(unittest.TestCase):
         result = DoB.mk_value_object('2003-06-30')
         self.assertEqual(result, datetime.date(2003, 6, 30))
 
-        for text in ('foo', '0001-06-30', '01-00-01', '01-01-00'):  # several invalid strings
+        for text in ('foo', '00010-06-30', '01-00-01', '01-01-00'):  # several invalid strings
             result = DoB.mk_value_object(text)
             self.assertTrue(result is None, msg=f'result of {text} should be None, but it is {result}')
 
