@@ -14,7 +14,6 @@ from sdc11073 import xml_utils
 from sdc11073.mdib.statecontainers import AllowedValuesType
 from sdc11073.namespaces import docname_from_qname, text_to_qname
 from sdc11073.xml_types import pm_qnames as pm
-from sdc11073.xml_types.isoduration import UTC
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.xml_structure import (
     AnyEtreeNodeProperty,
@@ -132,7 +131,7 @@ class TestContainerProperties(unittest.TestCase):
         result = DoB.mk_value_object('2003-06-30')
         self.assertEqual(result, datetime.date(2003, 6, 30))
 
-        for text in ('foo', '0000-06-30', '01-00-01', '01-01-00'):  # several invalid strings
+        for text in ('foo', '00010-06-30', '01-00-01', '01-01-00'):  # several invalid strings
             result = DoB.mk_value_object(text)
             self.assertTrue(result is None, msg=f'result of {text} should be None, but it is {result}')
 
@@ -144,25 +143,25 @@ class TestContainerProperties(unittest.TestCase):
         result = DoB.mk_value_object('2003-06-30T15:53:12Z')
         self.assertEqual(result.second, 12)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tzinfo.utcoffset(0), datetime.timedelta(0))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(0))
 
         # add time zone UTC
         result = DoB.mk_value_object('2003-06-30T15:53:12.4Z')
         self.assertEqual(result.second, 12)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tzinfo.utcoffset(0), datetime.timedelta(0))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(0))
 
         # add time zone +6hours
         result = DoB.mk_value_object('2003-06-30T15:53:12.4+6:02')
         self.assertEqual(result.second, 12)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tzinfo.utcoffset(0), datetime.timedelta(minutes=60 * 6 + 2))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(minutes=60 * 6 + 2))
 
         # add time zone -3hours
         result = DoB.mk_value_object('2003-06-30T15:53:12.4-03:01')
         self.assertEqual(result.second, 12)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tzinfo.utcoffset(0), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
+        self.assertEqual(result.utcoffset(), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
 
     def test_date_of_birth_to_string(self):
         date_string = DoB._mk_datestring(datetime.date(2004, 3, 6))
@@ -177,19 +176,65 @@ class TestContainerProperties(unittest.TestCase):
         date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000))  # noqa: DTZ001
         self.assertEqual(date_string, '2004-03-06T14:15:16.7')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(0, 'UTC')))
+        date_string = DoB._mk_datestring(
+            datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=datetime.timezone.utc),
+        )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7Z')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(180, 'UTC+1')))
+        date_string = DoB._mk_datestring(
+            datetime.datetime(
+                2004,
+                3,
+                6,
+                14,
+                15,
+                16,
+                700000,
+                tzinfo=datetime.timezone(datetime.timedelta(minutes=180), 'UTC+1'),
+            ),
+        )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:00')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(-120, 'UTC+1')))
+        date_string = DoB._mk_datestring(
+            datetime.datetime(
+                2004,
+                3,
+                6,
+                14,
+                15,
+                16,
+                700000,
+                tzinfo=datetime.timezone(datetime.timedelta(minutes=-120), 'UTC+1'),
+            ),
+        )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:00')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(181, 'UTC+1')))
+        date_string = DoB._mk_datestring(
+            datetime.datetime(
+                2004,
+                3,
+                6,
+                14,
+                15,
+                16,
+                700000,
+                tzinfo=datetime.timezone(datetime.timedelta(minutes=181), 'UTC+1'),
+            ),
+        )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:01')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=UTC(-121, 'UTC+1')))
+        date_string = DoB._mk_datestring(
+            datetime.datetime(
+                2004,
+                3,
+                6,
+                14,
+                15,
+                16,
+                700000,
+                tzinfo=datetime.timezone(datetime.timedelta(minutes=-121), 'UTC+1'),
+            ),
+        )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:01')
 
     def test_attribute_property_base(self):
