@@ -1490,9 +1490,15 @@ class Test_Client_SomeDevice(unittest.TestCase):  # noqa: N801
         descriptors = mdib.descriptions.source.get('3569')
         self.assertEqual(1, len(descriptors))
         self.assertEqual('0xD3C00100', descriptors[0].Handle)
+        self.assertEqual('0xD3C00100',  mdib.descriptions.source.get_one('3569').Handle)
         descriptors = mdib.descriptions.source.get('0x34F00150')
-        self.assertEqual(1, len(descriptors))
-        self.assertEqual('0xD3C00109', descriptors[0].Handle)
+        self.assertEqual(2, len(descriptors))
+        exp_handles = [d.Handle for d in descriptors]
+        self.assertIn('0xD3C00109', exp_handles)
+        self.assertIn('0xD3C00108', exp_handles)
+        with self.assertRaises(ValueError) as cm:
+            mdib.descriptions.source.get_one('0x34F00150')
+        self.assertIn('"0x34F00150" has 2 objects', str(cm.exception))
         descriptors = mdib.descriptions.source.get('0x34F001F0')
         self.assertEqual(1, len(descriptors))
         self.assertEqual('0xD3C00108', descriptors[0].Handle)

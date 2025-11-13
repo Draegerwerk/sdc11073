@@ -377,6 +377,7 @@
                 <pm:ConceptDescription Lang="en-US">Inspiratory oxygen concentration &lt; low limit</pm:ConceptDescription>
               </pm:Type>
               <pm:Source>0x34F001F0</pm:Source>
+              <pm:Source>0x34F00150</pm:Source>
               <pm:MaxLimits/>
             </pm:AlertCondition>
           </pm:AlertSystem>

@@ -104,8 +104,7 @@ _DATETIME_REGEX = re.compile('^' + _DATE_REGEX_STR + '(T' + _TIME_REGEX_STR + _T
 _DATETIME_REGEX_RELAXED = re.compile(
     '^' + _DATE_REGEX_STR + '([T, ]' + _TIME_REGEX_STR + _TZ_REGEX_STR + ')?',
 )  # allows space between date and time
-_year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?')
-
+_year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?$')
 
 DateTypeUnion = Union[GYear, GYearMonth, datetime.date, datetime.datetime]
 
@@ -121,8 +120,9 @@ def parse_date_time(date_time_str: str, strict: bool = True) -> DateTypeUnion | 
         year, month, day = int(groups['year']), int(groups['month']), int(groups['day'])
         # year is 0000 is correct xml but not applicable in python
         # https://www.w3.org/TR/xmlschema11-2/#dateTime (biceps uses xml schema v1.1)
-        if year == 0:
-            return None
+        if year < datetime.MINYEAR or year > datetime.MAXYEAR:
+            msg = f'Year {year} is out of range for datetime object {[datetime.MINYEAR, datetime.MAXYEAR]}'
+            raise ValueError(msg)
         if groups['hour'] is None:  # only a date, no time
             return datetime.date(year, month, day)
 

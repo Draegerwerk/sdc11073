@@ -1,7 +1,7 @@
 """Unit tests for isoduration module."""
 
+import datetime
 import unittest
-from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from sdc11073.xml_types.isoduration import (
@@ -56,11 +56,11 @@ class TestIsoDate(unittest.TestCase):
             parse_duration('P1Y2M0DT0H0M1S')
 
     def test_parse_date_time(self):
-        self.assertEqual(parse_date_time('2015-05-25'), date(2015, 5, 25))
-        self.assertEqual(parse_date_time('20150525'), date(2015, 5, 25))
+        self.assertEqual(parse_date_time('2015-05-25'), datetime.date(2015, 5, 25))
+        self.assertEqual(parse_date_time('20150525'), datetime.date(2015, 5, 25))
         self.assertEqual(
             parse_date_time('2015-05-25T14:45:00'),
-            datetime(  # noqa: DTZ001
+            datetime.datetime(  # noqa: DTZ001
                 2015,
                 5,
                 25,
@@ -72,7 +72,7 @@ class TestIsoDate(unittest.TestCase):
         )
         self.assertEqual(
             parse_date_time('2015-05-25 14:45:00', strict=False),
-            datetime(  # noqa: DTZ001
+            datetime.datetime(  # noqa: DTZ001
                 2015,
                 5,
                 25,
@@ -82,18 +82,25 @@ class TestIsoDate(unittest.TestCase):
                 tzinfo=None,
             ),
         )
-        self.assertEqual(parse_date_time('2015-05-25 14:45:00'), date(2015, 5, 25))
+        self.assertEqual(parse_date_time('2015-05-25 14:45:00'), datetime.date(2015, 5, 25))
         result = parse_date_time('2015-05-25T14:45:00+01:00')
         self.assertEqual(result.hour, 14)
         self.assertEqual(result.utcoffset().seconds, 3600)
         self.assertEqual(parse_date_time('2015-05'), GYearMonth(2015, 5))
         self.assertEqual(parse_date_time('2015'), GYear(2015))
+        with self.assertRaises(ValueError) as cm:
+            parse_date_time(f'{datetime.MINYEAR - 1:04d}-05-25')
+        self.assertEqual(
+            f'Year {datetime.MINYEAR - 1} is out of range for datetime object {[datetime.MINYEAR, datetime.MAXYEAR]}',
+            str(cm.exception),
+        )
+        self.assertIsNone(parse_date_time(f'{datetime.MAXYEAR + 1:04d}-05-25'))
 
     def test_date_time_string(self):
-        self.assertEqual(date_time_string(date(2015, 5, 25)), '2015-05-25')
+        self.assertEqual(date_time_string(datetime.date(2015, 5, 25)), '2015-05-25')
         self.assertEqual(
             date_time_string(
-                datetime(  # noqa: DTZ001
+                datetime.datetime(  # noqa: DTZ001
                     2015,
                     5,
                     25,
@@ -107,7 +114,7 @@ class TestIsoDate(unittest.TestCase):
         )
         self.assertEqual(
             date_time_string(
-                datetime(  # noqa: DTZ001
+                datetime.datetime(  # noqa: DTZ001
                     2015,
                     5,
                     25,
@@ -121,11 +128,31 @@ class TestIsoDate(unittest.TestCase):
             '2015-05-25T14:45:00.005',
         )
         self.assertEqual(
-            date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=timezone(timedelta(minutes=60)))),
+            date_time_string(
+                datetime.datetime(
+                    2015,
+                    5,
+                    25,
+                    14,
+                    45,
+                    00,
+                    tzinfo=datetime.timezone(datetime.timedelta(minutes=60)),
+                ),
+            ),
             '2015-05-25T14:45:00+01:00',
         )
         self.assertEqual(
-            date_time_string(datetime(2015, 5, 25, 14, 45, 00, tzinfo=timezone(timedelta(minutes=-60)))),
+            date_time_string(
+                datetime.datetime(
+                    2015,
+                    5,
+                    25,
+                    14,
+                    45,
+                    00,
+                    tzinfo=datetime.timezone(datetime.timedelta(minutes=-60)),
+                ),
+            ),
             '2015-05-25T14:45:00-01:00',
         )
         self.assertEqual(date_time_string(GYearMonth(2015, 5)), '2015-05')
