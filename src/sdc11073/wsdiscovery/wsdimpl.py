@@ -192,6 +192,13 @@ class WSDiscovery:
             self._stop_threads()
             self._server_started = False
 
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        self.stop()
+
     def search_services(
         self,
         types: Iterable[etree.QName] | None = None,

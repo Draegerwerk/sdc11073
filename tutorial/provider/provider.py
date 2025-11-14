@@ -1,3 +1,5 @@
+"""SDC Provider Example."""
+
 from __future__ import annotations
 
 import logging
@@ -14,8 +16,7 @@ from sdc11073.roles.product import ExtendedProduct
 from sdc11073.wsdiscovery import WSDiscoverySingleAdapter
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types import pm_types
-from sdc11073.xml_types.dpws_types import ThisDeviceType
-from sdc11073.xml_types.dpws_types import ThisModelType
+from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 # example SDC provider (device) that sends out metrics every now and then
 
@@ -27,7 +28,7 @@ my_uuid = uuid.uuid5(base_uuid, "12345")
 
 
 # setting the local ensemble context upfront
-def set_local_ensemble_context(mdib: ProviderMdib, ensemble_extension_string: str):
+def _set_local_ensemble_context(mdib: ProviderMdib, ensemble_extension_string: str):
     descriptor_container = mdib.descriptions.NODETYPE.get_one(pm.EnsembleContextDescriptor)
     if not descriptor_container:
         print("No ensemble contexts in mdib")
@@ -35,8 +36,8 @@ def set_local_ensemble_context(mdib: ProviderMdib, ensemble_extension_string: st
     all_ensemble_context_states = mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])
     with mdib.context_state_transaction() as mgr:
         # set all to currently associated Locations to Disassociated
-        associated_ensemble_context_states = [l for l in all_ensemble_context_states if
-                                              l.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
+        associated_ensemble_context_states = [ens_state for ens_state in all_ensemble_context_states if
+                                              ens_state.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED]
         for tmp in associated_ensemble_context_states:
             ensemble_context_state = mgr.get_context_state(tmp.DescriptorHandle, tmp.Handle)
             ensemble_context_state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
@@ -49,65 +50,65 @@ def set_local_ensemble_context(mdib: ProviderMdib, ensemble_extension_string: st
 
 
 if __name__ == '__main__':
-    # start with discovery (MDPWS) that is running on the named adapter "Ethernet" (replace as you need it on your machine, e.g. "enet0" or "Ethernet")
+    # start with discovery (MDPWS) that is running on the named adapter "Ethernet"
+    # (replace as you need it on your machine, e.g. "enet0" or "Ethernet")
     basic_logging_setup(level=logging.INFO)
 
-    my_discovery = WSDiscoverySingleAdapter("Loopback Pseudo-Interface 1")
-    # start the discovery
-    my_discovery.start()
-    # create a local mdib that will be sent out on the network, the mdib is based on a XML file
-    my_mdib = ProviderMdib.from_mdib_file("mdib.xml")
-    print("My UUID is {}".format(my_uuid))
-    # set a location context to allow easy discovery
-    my_location = SdcLocation(fac='HOSP', poc='CU2', bed='BedSim')
-    # set model information for discovery
-    dpws_model = ThisModelType(manufacturer='Draeger',
-                               manufacturer_url='www.draeger.com',
-                               model_name='TestDevice',
-                               model_number='1.0',
-                               model_url='www.draeger.com/model',
-                               presentation_url='www.draeger.com/model/presentation')
-    dpws_device = ThisDeviceType(friendly_name='TestDevice',
-                                 firmware_version='Version1',
-                                 serial_number='12345')
-    # create a device (provider) class that will do all the SDC magic
-    # set role provider that supports Ensemble Contexts.
-    specific_components = SdcProviderComponents(role_provider_class=ExtendedProduct)
-    sdc_provider = SdcProvider(ws_discovery=my_discovery,
-                               epr=my_uuid,
-                               this_model=dpws_model,
-                               this_device=dpws_device,
-                               device_mdib_container=my_mdib,
-                               specific_components=specific_components
-                               )
-    # start the local device and make it discoverable
-    sdc_provider.start_all()
-    # set the local ensemble context to ease discovery based on ensemble ID
-    set_local_ensemble_context(my_mdib, "MyEnsemble")
-    # set the location on our device
-    sdc_provider.set_location(my_location)
-    # create one local numeric metric that will change later on
-    # get all metrics from the mdib (as described in the file)
-    all_metric_descrs = [c for c in my_mdib.descriptions.objects if c.NODETYPE == pm.NumericMetricDescriptor]
-    # now change all the metrics in one transaction
-    with my_mdib.metric_state_transaction() as transaction_mgr:
-        for metric_descr in all_metric_descrs:
-            # get the metric state of this specific metric
-            st = transaction_mgr.get_state(metric_descr.Handle)
-            # create a value in case it is not there yet
-            st.mk_metric_value()
-            # set the value and some other fields to a fixed value
-            st.MetricValue.Value = Decimal(1.0)
-            st.MetricValue.ActiveDeterminationPeriod = 1494554822450
-            st.MetricValue.Validity = pm_types.MeasurementValidity.VALID
-            st.ActivationState = pm_types.ComponentActivation.ON
+    with WSDiscoverySingleAdapter("Loopback Pseudo-Interface 1") as my_discovery:
 
-    # now iterate forever and change the value every few seconds
-    metric_value = 0
-    while True:
-        metric_value += 1
+        # create a local mdib that will be sent out on the network, the mdib is based on an XML file
+        my_mdib = ProviderMdib.from_mdib_file("mdib.xml")
+        print(f"My UUID is {my_uuid}")
+        # set a location context to allow easy discovery
+        my_location = SdcLocation(fac='HOSP', poc='CU2', bed='BedSim')
+        # set model information for discovery
+        dpws_model = ThisModelType(manufacturer='Draeger',
+                                   manufacturer_url='www.draeger.com',
+                                   model_name='TestDevice',
+                                   model_number='1.0',
+                                   model_url='www.draeger.com/model',
+                                   presentation_url='www.draeger.com/model/presentation')
+        dpws_device = ThisDeviceType(friendly_name='TestDevice',
+                                     firmware_version='Version1',
+                                     serial_number='12345')
+        # create a device (provider) class that will do all the SDC magic
+        # set role provider that supports Ensemble Contexts.
+        specific_components = SdcProviderComponents(role_provider_class=ExtendedProduct)
+        sdc_provider = SdcProvider(ws_discovery=my_discovery,
+                                   epr=my_uuid,
+                                   this_model=dpws_model,
+                                   this_device=dpws_device,
+                                   device_mdib_container=my_mdib,
+                                   specific_components=specific_components,
+                                   )
+        # start the local device and make it discoverable
+        sdc_provider.start_all()
+        # set the local ensemble context to ease discovery based on ensemble ID
+        _set_local_ensemble_context(my_mdib, "MyEnsemble")
+        # set the location on our device
+        sdc_provider.set_location(my_location)
+        # create one local numeric metric that will change later on
+        # get all metrics from the mdib (as described in the file)
+        all_metric_descrs = [c for c in my_mdib.descriptions.objects if pm.NumericMetricDescriptor == c.NODETYPE]
+        # now change all the metrics in one transaction
         with my_mdib.metric_state_transaction() as transaction_mgr:
-            for metricDescr in all_metric_descrs:
-                st = transaction_mgr.get_state(metricDescr.Handle)
-                st.MetricValue.Value = Decimal(metric_value)
-        time.sleep(5)
+            for metric_descr in all_metric_descrs:
+                # get the metric state of this specific metric
+                st = transaction_mgr.get_state(metric_descr.Handle)
+                # create a value in case it is not there yet
+                st.mk_metric_value()
+                # set the value and some other fields to a fixed value
+                st.MetricValue.Value = Decimal('1.0')
+                st.MetricValue.ActiveDeterminationPeriod = 1494554822450
+                st.MetricValue.Validity = pm_types.MeasurementValidity.VALID
+                st.ActivationState = pm_types.ComponentActivation.ON
+
+        # now iterate forever and change the value every few seconds
+        metric_value = 0
+        while True:
+            metric_value += 1
+            with my_mdib.metric_state_transaction() as transaction_mgr:
+                for metric_descr in all_metric_descrs:
+                    st = transaction_mgr.get_state(metric_descr.Handle)
+                    st.MetricValue.Value = Decimal(metric_value)
+            time.sleep(5)

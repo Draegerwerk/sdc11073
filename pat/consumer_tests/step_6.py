@@ -442,7 +442,8 @@ def _propose_states(
         elif pm_qnames.StringMetricState == proposed_state.NODETYPE:
             proposed_state.MetricValue.Value = ''.join(random.choice(string.ascii_letters) for _ in range(10))
         elif pm_qnames.NumericMetricState == proposed_state.NODETYPE:
-            proposed_state.MetricValue.Value = decimal.Decimal(str(random.random()))
+            # only 5 decimal places because of float conversion error
+            proposed_state.MetricValue.Value = decimal.Decimal(f"{random.uniform(0, 100):.5f}")
         else:
             raise NotImplementedError(proposed_state.NODETYPE)
     return proposed_states

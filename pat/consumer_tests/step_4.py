@@ -434,7 +434,7 @@ def test_4f(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # 
         # seconds, to allow for the updates to arrive
         timeout=1.0,
         # seconds, to allow for network delays and processing time
-        network_delay=network_delay if network_delay is not None else 0.1,
+        network_delay=network_delay if network_delay is not None else 0.5,
     )
 
 
@@ -497,5 +497,5 @@ def test_4i(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # 
         # seconds, to allow for the updates to arrive
         timeout=1.0,
         # seconds, to allow for network delays and processing time
-        network_delay=network_delay if network_delay is not None else 0.1,
+        network_delay=network_delay if network_delay is not None else 0.5,
     )
