@@ -280,6 +280,9 @@ def runtest_metric_reports(
 class ClientDeviceSSLIntegration(unittest.TestCase):
     """Integration test for client/device SSL context usage."""
 
+    def setUp(self):
+        loghelper.basic_logging_setup()
+
     @staticmethod
     def wrap_socket(self, sock, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN205, PLW0211
         def accept(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
@@ -422,7 +425,6 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
 
     @staticmethod
     def _run_client_with_device(ssl_context_container: certloader.SSLContextContainer | None) -> None:
-        loghelper.basic_logging_setup()
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         with WSDiscovery('127.0.0.1') as wsd:
             location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
