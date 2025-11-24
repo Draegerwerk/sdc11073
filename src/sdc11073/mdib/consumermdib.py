@@ -218,7 +218,7 @@ class ConsumerMdib(mdibbase.MdibBase):
             raise ApiUsageError('ConsumerMdib is already initialized')
         # first start receiving notifications, then call get_mdib.
         # Otherwise, we might miss notifications.
-        self._xtra.bind_to_client_obsrvables()
+        self._xtra.bind_to_client_observables()
         self.reload_all()
         self._sdc_client.set_mdib(self)  # pylint: disable=protected-access
         self._logger.info('initializing mdib done')
