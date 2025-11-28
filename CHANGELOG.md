@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - `isoduration.UTC` class. Use `datetime.timezone.utc` instead. [#435](https://github.com/Draegerwerk/sdc11073/pull/445)
+- support for python 3.9
 
 ## [v2.3.0] - 2025-07-08
 

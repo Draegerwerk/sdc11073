@@ -8,7 +8,7 @@ import traceback
 from collections import deque
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
@@ -18,6 +18,7 @@ from . import mdibbase
 from .consumermdibxtra import ConsumerMdibMethods
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from decimal import Decimal
     from enum import Enum
 
