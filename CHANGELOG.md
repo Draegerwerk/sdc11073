@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecation info to the `commlog` module.
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
 - context manager support to `WSDiscovery`.
+- `tzinfo` for `GYear` and `GYearMonth` types [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 
 ### Changed
 
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
 - `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
 - fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
+- parsing of duration and datetimes [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 
 ### Removed
 

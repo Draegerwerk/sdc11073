@@ -33,6 +33,7 @@ dependencies = [
     'lxml>=2.3',  # do not use lxml>=6, because it breaks the schema validator
     'ifaddr',
     'aiohttp',
+    "isodate>=0.7.2",
 ]
 
 [project.urls]
@@ -49,6 +50,8 @@ test = [
     "pytest-cov",
     "pytest-xdist[psutil]",
     "sdc11073[lz4]",
+    "hypothesis[zoneinfo]>=6.148.2; platform_system == 'Windows'",
+    "hypothesis>=6.148.2; platform_system != 'Windows'",
 ]
 mypy = [
     "mypy",
