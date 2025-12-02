@@ -3,6 +3,7 @@
 import datetime
 import decimal
 import re
+import sys
 
 import pytest
 from hypothesis import assume, given
@@ -29,7 +30,7 @@ def timezones(draw: st.DrawFn) -> datetime.tzinfo:
     timezone = draw(st.timezones())
     delta = timezone.utcoffset(None)
     if delta is None:
-        return datetime.UTC
+        return datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc
     return datetime.timezone(datetime.timedelta(seconds=delta.total_seconds()))
 
 
