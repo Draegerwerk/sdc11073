@@ -13,6 +13,7 @@ from src.sdc11073.xml_types.xml_structure import ContainerProperty, NodeTextQNam
 from sdc11073 import xml_utils
 from sdc11073.mdib.statecontainers import AllowedValuesType
 from sdc11073.namespaces import docname_from_qname, text_to_qname
+from sdc11073.xml_types import isoduration
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.pm_types import CodedValue
 from sdc11073.xml_types.xml_structure import (
@@ -129,110 +130,106 @@ class TestContainerProperties(unittest.TestCase):
 
     def test_date_of_birth_regex(self):
         result = DoB.mk_value_object('2003-06-30')
-        self.assertEqual(result, datetime.date(2003, 6, 30))
+        self.assertEqual(result, isoduration.XsdDatetime(2003, 6, 30))
 
         for text in ('foo', '00010-06-30', '01-00-01', '01-01-00'):  # several invalid strings
             result = DoB.mk_value_object(text)
             self.assertTrue(result is None, msg=f'result of {text} should be None, but it is {result}')
 
         result = DoB.mk_value_object('2003-06-30T14:53:12.4')
-        self.assertEqual(result, datetime.datetime(2003, 6, 30, 14, 53, 12, 400000))  # noqa: DTZ001
-        self.assertEqual(result.tzinfo, None)
+        self.assertEqual(result, isoduration.XsdDatetime(2003, 6, 30, 14, 53, 12.400000))
+        self.assertEqual(result.tz_info, None)
 
         # add time zone UTC
         result = DoB.mk_value_object('2003-06-30T15:53:12Z')
         self.assertEqual(result.second, 12)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.utcoffset(), datetime.timedelta(0))
+        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(0))
 
         # add time zone UTC
         result = DoB.mk_value_object('2003-06-30T15:53:12.4Z')
-        self.assertEqual(result.second, 12)
+        self.assertEqual(result.second, 12.4)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.utcoffset(), datetime.timedelta(0))
+        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(0))
 
         # add time zone +6hours
-        result = DoB.mk_value_object('2003-06-30T15:53:12.4+6:02')
-        self.assertEqual(result.second, 12)
+        result = DoB.mk_value_object('2003-06-30T15:53:12.4+06:02')
+        self.assertEqual(result.second, 12.4)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.utcoffset(), datetime.timedelta(minutes=60 * 6 + 2))
+        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(minutes=60 * 6 + 2))
 
         # add time zone -3hours
         result = DoB.mk_value_object('2003-06-30T15:53:12.4-03:01')
-        self.assertEqual(result.second, 12)
+        self.assertEqual(result.second, 12.4)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.utcoffset(), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
+        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
 
     def test_date_of_birth_to_string(self):
-        date_string = DoB._mk_datestring(datetime.date(2004, 3, 6))
+        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6))
         self.assertEqual(date_string, '2004-03-06')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16))  # noqa: DTZ001
+        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6, 14, 15, 16))
         self.assertEqual(date_string, '2004-03-06T14:15:16')
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 4, 5, 6))  # noqa: DTZ001
+        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6, 4, 5, 6))
         self.assertEqual(date_string, '2004-03-06T04:05:06')  # verify leading zeros in date and time
 
-        date_string = DoB._mk_datestring(datetime.datetime(2004, 3, 6, 14, 15, 16, 700000))  # noqa: DTZ001
+        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6, 14, 15, 16.700000))
         self.assertEqual(date_string, '2004-03-06T14:15:16.7')
 
         date_string = DoB._mk_datestring(
-            datetime.datetime(2004, 3, 6, 14, 15, 16, 700000, tzinfo=datetime.timezone.utc),
+            isoduration.XsdDatetime(2004, 3, 6, 14, 15, 16.700000, tz_info=datetime.timezone.utc),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7Z')
 
         date_string = DoB._mk_datestring(
-            datetime.datetime(
+            isoduration.XsdDatetime(
                 2004,
                 3,
                 6,
                 14,
                 15,
-                16,
-                700000,
-                tzinfo=datetime.timezone(datetime.timedelta(minutes=180), 'UTC+1'),
+                16.700000,
+                tz_info=datetime.timezone(datetime.timedelta(minutes=180), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:00')
 
         date_string = DoB._mk_datestring(
-            datetime.datetime(
+            isoduration.XsdDatetime(
                 2004,
                 3,
                 6,
                 14,
                 15,
-                16,
-                700000,
-                tzinfo=datetime.timezone(datetime.timedelta(minutes=-120), 'UTC+1'),
+                16.700000,
+                tz_info=datetime.timezone(datetime.timedelta(minutes=-120), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:00')
 
         date_string = DoB._mk_datestring(
-            datetime.datetime(
+            isoduration.XsdDatetime(
                 2004,
                 3,
                 6,
                 14,
                 15,
-                16,
-                700000,
-                tzinfo=datetime.timezone(datetime.timedelta(minutes=181), 'UTC+1'),
+                16.700000,
+                tz_info=datetime.timezone(datetime.timedelta(minutes=181), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:01')
 
         date_string = DoB._mk_datestring(
-            datetime.datetime(
+            isoduration.XsdDatetime(
                 2004,
                 3,
                 6,
                 14,
                 15,
-                16,
-                700000,
-                tzinfo=datetime.timezone(datetime.timedelta(minutes=-121), 'UTC+1'),
+                16.700000,
+                tz_info=datetime.timezone(datetime.timedelta(minutes=-121), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:01')

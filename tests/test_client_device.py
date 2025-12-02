@@ -917,7 +917,7 @@ class TestClientSomeDevice(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = isoduration.XsdDatetime(2012, 3, 15, 13, 12, 11, tzinfo=datetime.timezone.utc)
+            st.CoreData.DateOfBirth = isoduration.XsdDatetime(2012, 3, 15, 13, 12, 11, tz_info=datetime.timezone.utc)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(
             pm.PatientContextState,

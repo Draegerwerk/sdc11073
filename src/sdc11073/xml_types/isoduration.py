@@ -94,11 +94,11 @@ class XsdDatetime:
     """xsd:gYear, xsd:gYearMonth, xsd:date and xsd:dateTime."""
 
     year: int
-    month: int | None
-    day: int | None
-    hour: int | None
-    minute: int | None
-    second: float | None
+    month: int | None = None
+    day: int | None = None
+    hour: int | None = None
+    minute: int | None = None
+    second: float | None = None
     end_of_day: bool = False
     tz_info: datetime.tzinfo | None = None
 
