@@ -187,7 +187,7 @@ def _parse_float(value: str) -> int | None:
 def _parse_tz(groups: Mapping[str, str]) -> datetime.timezone | None:
     tz_info = groups.get(_RegexKeys.TZ_INFO)
     if tz_info is not None:
-        return datetime.UTC
+        return datetime.UTC if sys.version_info < (3, 11) else datetime.timezone.utc  # support 3.10
     tz_sign = groups.get(_RegexKeys.TZ_SIGN)
     if tz_sign is None:
         return None
