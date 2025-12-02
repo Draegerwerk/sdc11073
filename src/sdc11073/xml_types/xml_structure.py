@@ -1576,7 +1576,7 @@ class DateOfBirthProperty(_ElementBase):
     ):
         super().__init__(
             sub_element_name,
-            ClassCheckConverter(datetime, date),
+            ClassCheckConverter(isoduration.XsdDatetime),
             default_py_value,
             implied_py_value,
             is_optional,
@@ -1609,11 +1609,11 @@ class DateOfBirthProperty(_ElementBase):
         sub_element.text = date_string
 
     @staticmethod
-    def mk_value_object(date_string: str) -> isoduration.DateTypeUnion | None:
+    def mk_value_object(date_string: str) -> isoduration.XsdDatetime | None:
         """Parse isoduration string."""
         return isoduration.parse_date_time(date_string)
 
     @staticmethod
-    def _mk_datestring(date_object: date | datetime | isoduration.GYear | isoduration.GYearMonth | None) -> str:
+    def _mk_datestring(date_object: isoduration.XsdDatetime | None) -> str:
         """Create isoduration string."""
-        return isoduration.date_time_string(date_object)
+        return str(date_object) if date_object is not None else ''

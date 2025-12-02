@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from lxml import etree
 
     from sdc11073 import xml_utils
-    from sdc11073.xml_types.isoduration import DateTypeUnion, DurationType
+    from sdc11073.xml_types.isoduration import DurationType, XsdDatetime
 
 
 class SafetyClassification(StringEnum):
@@ -1244,7 +1244,7 @@ class PatientDemographicsCoreData(BaseDemographics):
     NODETYPE = pm.PatientDemographicsCoreData
     Sex: SexType | None = cp.NodeEnumTextProperty(pm.Sex, Sex, is_optional=True)
     PatientType: PatientTypeType | None = cp.NodeEnumTextProperty(pm.PatientType, PatientType, is_optional=True)
-    DateOfBirth: DateTypeUnion | None = cp.DateOfBirthProperty(pm.DateOfBirth, is_optional=True)
+    DateOfBirth: XsdDatetime | None = cp.DateOfBirthProperty(pm.DateOfBirth, is_optional=True)
     Height: Measurement | None = cp.SubElementProperty(pm.Height, value_class=Measurement, is_optional=True)
     Weight: Measurement | None = cp.SubElementProperty(pm.Weight, value_class=Measurement, is_optional=True)
     Race: CodedValue | None = cp.SubElementProperty(pm.Race, value_class=CodedValue, is_optional=True)
