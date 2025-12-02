@@ -5,9 +5,9 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import decimal
-import enum
 import io
 import re
+import sys
 import typing
 from typing import TYPE_CHECKING
 
@@ -42,7 +42,17 @@ def duration_string(seconds: DurationType) -> str:
 
 
 ##### Date Time ######
-class _RegexKeys(enum.StrEnum):
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from enum import Enum
+
+    class StrEnum(str, Enum):  # noqa: D101
+        def __str__(self):
+            return self.value
+
+
+class _RegexKeys(StrEnum):
     """Regex group names for date time parsing."""
 
     YEAR = 'year'
