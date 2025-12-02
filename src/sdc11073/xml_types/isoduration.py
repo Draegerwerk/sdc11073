@@ -9,7 +9,7 @@ import enum
 import io
 import re
 import typing
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 import isodate
 

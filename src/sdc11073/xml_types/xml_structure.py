@@ -12,8 +12,7 @@ from __future__ import annotations
 import copy
 import time
 from abc import ABC, abstractmethod
-from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from lxml import etree
 
@@ -36,7 +35,7 @@ from .dataconverters import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from decimal import Decimal
 
     from sdc11073.mdib.containerbase import ContainerBase
@@ -969,13 +968,15 @@ class ExtensionLocalValue(list[xml_utils.LxmlElement]):
     compare_method: Callable[[xml_utils.LxmlElement, xml_utils.LxmlElement], bool] = _compare_extension
     """may be overwritten by user if a custom comparison behaviour is required"""
 
+    __hash__ = list.__hash__
+
     def __eq__(self, other: Sequence) -> bool:
         try:
             if len(self) != len(other):
                 return False
         except TypeError:  # len of other cannot be determined
             return False
-        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
+        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other, strict=False))
 
     def __ne__(self, other: ExtensionLocalValue):
         return not self == other
