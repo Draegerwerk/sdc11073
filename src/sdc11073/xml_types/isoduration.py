@@ -97,6 +97,7 @@ MAX_DAY: typing.Final[int] = 31
 MAX_HOUR: typing.Final[int] = 23
 MAX_MINUTE: typing.Final[int] = 59
 MAX_SECOND: typing.Final[float] = 60.0  # due to floats, this max value is exclusive
+MAX_TZ_OFFSET_SECONDS: typing.Final[int] = 14 * 3600  # 14 hours
 
 
 @dataclasses.dataclass(frozen=True)
@@ -150,10 +151,20 @@ class XsdDatetime:
             if self.day is None:
                 raise ValueError('end_of_day cannot be true if day is not present')
 
+    def __validate_tz(self):
+        if self.tz_info is not None:
+            offset = self.tz_info.utcoffset(None)
+            if offset is None:
+                return
+            if not (-MAX_TZ_OFFSET_SECONDS <= offset.total_seconds() <= MAX_TZ_OFFSET_SECONDS):
+                msg = 'Timezone offset is greater than 14:00h'
+                raise ValueError(msg)
+
     def __post_init__(self):
         self.__validate_date()
         self.__validate_time()
         self.__validate_eod()
+        self.__validate_tz()
 
     def __str__(self) -> str:
         """Convert date time to str."""

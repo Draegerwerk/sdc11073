@@ -4,6 +4,7 @@ import datetime
 import decimal
 import re
 import sys
+from typing import Literal
 
 import pytest
 from hypothesis import assume, given
@@ -259,3 +260,36 @@ def test_xsddatetime_end_of_day_excludes_time_components(  # noqa: PLR0913
 def test_xsddatetime_end_of_day_requires_day(year: int, month: int) -> None:
     with pytest.raises(ValueError, match='end_of_day cannot be true if day is not present'):
         _make_datetime(year=year, month=month, end_of_day=True)
+
+
+@given(year=years(), tz_minute=minutes().filter(lambda x: x != 0), sign=st.sampled_from(['-', '+']))
+def test_timezone_needs_to_be_14_00_at_max(year: int, tz_minute: int, sign: Literal['-', '+']) -> None:
+    multiplier = 1 if sign == '+' else -1
+    with pytest.raises(ValueError, match='Timezone offset is greater than 14:00h'):
+        isoduration.XsdDatetime(
+            year=year,
+            tz_info=datetime.timezone(datetime.timedelta(hours=multiplier * 14, minutes=multiplier * tz_minute)),
+        )
+    with pytest.raises(ValueError, match='Timezone hour is 14 but minute is not zero'):
+        isoduration.parse_date_time(f'{"-" if year < 0 else ""}{abs(year):04d}{sign}14:{tz_minute:02d}')
+
+
+class MyTimezone(datetime.tzinfo):
+    def utcoffset(self, _: datetime.datetime | None) -> None:
+        return None
+
+    def tzname(self, _: datetime.datetime | None) -> str:
+        return ''
+
+    def dst(self, _: datetime.datetime | None) -> None:
+        return None
+
+
+@given(year=years())
+def test_empty_string_for_utcoffset_none(year: int) -> None:
+    tz = MyTimezone()
+    dt = isoduration.XsdDatetime(year=year, tz_info=tz)
+    expected = f'{"-" if year < 0 else ""}{abs(year):04d}'
+    assert str(dt) == expected
+
+    assert isoduration._tz_to_string(tz) == ''
