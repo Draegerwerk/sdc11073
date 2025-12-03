@@ -15,13 +15,15 @@ from sdc11073.xml_types import isoduration
 
 @given(timedelta=st.timedeltas())
 def test_duration_parsing(timedelta: datetime.timedelta) -> None:
+    """Test that durations can be converted to string and back."""
     duration_string = isoduration.duration_string(timedelta.total_seconds())
-    seconds = isoduration.parse_duration(duration_string)
-    assert seconds == timedelta.total_seconds()
+    duration_seconds = isoduration.parse_duration(duration_string)
+    assert duration_seconds == timedelta.total_seconds()
 
 
 @pytest.mark.parametrize('duration', ['P1Y2M', '-P3Y', 'P0Y5M', 'P2Y0M', 'P1Y2M3DT4H5M6S'])
 def test_parse_duration_raises_value_error_for_years_months(duration: str) -> None:
+    """Test that durations with years or months raise ValueError."""
     with pytest.raises(ValueError, match=f'Duration {duration} with years or months is not supported'):
         isoduration.parse_duration(duration)
 
@@ -124,6 +126,7 @@ def xsd_datetimes(draw: st.DrawFn) -> isoduration.XsdDatetime:
 
 @given(dt=xsd_datetimes())
 def test_date_time(dt: isoduration.XsdDatetime) -> None:
+    """Test that XsdDatetime string representation can be parsed back."""
     assert dt == isoduration.parse_date_time(str(dt))
 
 
@@ -144,18 +147,21 @@ def _make_datetime(**overrides: str | float | bool | datetime.tzinfo) -> isodura
 
 @given(year=years(), month=st.integers().filter(lambda x: x < 1 or x > isoduration.MAX_MONTH))
 def test_xsddatetime_invalid_month_raises_value_error(year: int, month: int) -> None:
+    """Test that invalid month raises ValueError."""
     with pytest.raises(ValueError, match=f'{month} is not a valid month'):
         _make_datetime(year=year, month=month)
 
 
 @given(year=years(), month=months(), day=st.integers().filter(lambda x: x < 1 or x > isoduration.MAX_DAY))
 def test_xsddatetime_invalid_day_raises_value_error(year: int, month: int, day: int) -> None:
+    """Test that invalid day raises ValueError."""
     with pytest.raises(ValueError, match=f'{day} is not a valid day'):
         _make_datetime(year=year, month=month, day=day)
 
 
 @given(year=years(), month=months(), day=days(), hour=st.integers().filter(lambda x: x < 0 or x > isoduration.MAX_HOUR))
 def test_xsddatetime_invalid_hour_raises_value_error(year: int, month: int, day: int, hour: int) -> None:
+    """Test that invalid hour raises ValueError."""
     with pytest.raises(ValueError, match=f'{hour} is not a valid hour'):
         _make_datetime(year=year, month=month, day=day, hour=hour)
 
@@ -176,6 +182,7 @@ def test_xsddatetime_invalid_minute_raises_value_error(  # noqa: PLR0913
     minute: int,
     second: float,
 ) -> None:
+    """Test that invalid minute raises ValueError."""
     with pytest.raises(ValueError, match=f'{minute} is not a valid minute'):
         _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
@@ -196,18 +203,21 @@ def test_xsddatetime_invalid_second_raises_value_error(  # noqa: PLR0913
     minute: int,
     second: float,
 ) -> None:
+    """Test that invalid second raises ValueError."""
     with pytest.raises(ValueError, match=f'{re.escape(repr(second))} is not a valid second'):
         _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 
 @given(year=years(), day=days())
 def test_xsddatetime_day_without_month_raises_value_error(year: int, day: int) -> None:
+    """Test that day without month raises ValueError."""
     with pytest.raises(ValueError, match='day cannot be present without month'):
         _make_datetime(year=year, day=day)
 
 
 @given(year=years(), month=months(), hour=hours(), minute=minutes(), second=seconds())
 def test_xsddatetime_hour_requires_day(year: int, month: int, hour: int, minute: int, second: int) -> None:
+    """Test that hour without day raises ValueError."""
     with pytest.raises(ValueError, match='hour cannot be present without day, minute and second'):
         _make_datetime(year=year, month=month, hour=hour, minute=minute, second=second)
 
@@ -228,6 +238,7 @@ def test_xsddatetime_time_requires_hours_minutes_second(  # noqa: PLR0913
     minute: int | None,
     second: int | None,
 ) -> None:
+    """Test that partial time components raise ValueError."""
     all_times = all(p is not None for p in (hour, minute, second))
     any_times = any(p is not None for p in (hour, minute, second))
     assume(not all_times)
@@ -252,18 +263,21 @@ def test_xsddatetime_end_of_day_excludes_time_components(  # noqa: PLR0913
     minute: int,
     second: int,
 ) -> None:
+    """Test that end_of_day=True with hour, minute or second raises ValueError."""
     with pytest.raises(ValueError, match='end_of_day cannot be true if hour, minute or second is present'):
         _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second, end_of_day=True)
 
 
 @given(year=years(), month=months())
 def test_xsddatetime_end_of_day_requires_day(year: int, month: int) -> None:
+    """Test that end_of_day=True without day raises ValueError."""
     with pytest.raises(ValueError, match='end_of_day cannot be true if day is not present'):
         _make_datetime(year=year, month=month, end_of_day=True)
 
 
 @given(year=years(), tz_minute=minutes().filter(lambda x: x != 0), sign=st.sampled_from(['-', '+']))
 def test_timezone_needs_to_be_14_00_at_max(year: int, tz_minute: int, sign: Literal['-', '+']) -> None:
+    """Test that timezone offsets greater than 14:00h raise ValueError."""
     multiplier = 1 if sign == '+' else -1
     with pytest.raises(ValueError, match='Timezone offset is greater than 14:00h'):
         isoduration.XsdDatetime(
@@ -287,6 +301,7 @@ class MyTimezone(datetime.tzinfo):
 
 @given(year=years())
 def test_empty_string_for_utcoffset_none(year: int) -> None:
+    """Test that a tzinfo with utcoffset returning None results in no timezone string."""
     tz = MyTimezone()
     dt = isoduration.XsdDatetime(year=year, tz_info=tz)
     expected = f'{"-" if year < 0 else ""}{abs(year):04d}'
