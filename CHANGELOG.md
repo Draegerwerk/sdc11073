@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
 - `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
-- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
+- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification 
+- deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
 
 ### Removed
 
