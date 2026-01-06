@@ -4,7 +4,7 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.3] - 2025-12-16
+## [1.3.3] - 2026-01-06
 
 ### Fixed
 - accessing a multikey may lead to IndexError [#359](https://github.com/Draegerwerk/sdc11073/issues/359)
