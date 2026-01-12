@@ -499,7 +499,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                                                    report: OperationInvokedReport):
         """Check mdib_version_group and process report it if okay."""
         if not self._pre_check_report_ok(mdib_version_group, report,
-                                         self.process_incoming_operational_states_report):
+                                         self._process_incoming_operational_states_report):
             return
         with self.mdib_lock:
             self._process_incoming_operational_states_report(mdib_version_group, report)

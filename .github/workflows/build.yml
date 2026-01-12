@@ -114,8 +114,8 @@ jobs:
           retention-days: 5
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
-          token: "8c8b98c0-4c00-4f83-a598-81f3857e63e9" # https://github.com/codecov/codecov-action/issues/837#issuecomment-1530053511
+          token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
