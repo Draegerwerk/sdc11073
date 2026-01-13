@@ -164,7 +164,8 @@ class HttpServerThreadBase(threading.Thread):
     def stop(self):
         """Stop the http server."""
         if not self.started_evt.is_set():
-            raise RuntimeError('http server was not started yet')
+            self.logger.warning('http server was not started yet - cannot be stopped')
+            return
         self._stop_requested = True
         self.httpd.shutdown()
         self.httpd.server_close()
