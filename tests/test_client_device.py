@@ -1521,9 +1521,12 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
             supported_encodings=compression.CompressionHandler.available_encodings[:],
             logger=logging.getLogger('sdc.common_http_srv_a'),
         )
+        self.logger.info('Starting http server ...')
         self.httpserver.start()
-        self.httpserver.started_evt.wait(timeout=5)
-        self.logger.info('common http server A listens on port %d', self.httpserver.my_port)
+        if not self.httpserver.started_evt.wait(timeout=60):
+            exception_msg = "Http server could not be started within 60 seconds."
+            raise RuntimeError(exception_msg)
+        self.logger.info('Http server started on port %d', self.httpserver.my_port)
 
         self.sdc_device_1 = SomeDevice.from_mdib_file(
             self.wsd,
