@@ -101,7 +101,7 @@ class DiscoProxyClient:
         self._http_server.start()
 
         if not self._http_server.started_evt.wait(timeout=http_server_timeout):
-            msg = f"Http server could not be started within {http_server_timeout} seconds."
+            msg = f'Http server could not be started within {http_server_timeout} seconds.'
             raise RuntimeError(msg)
         self._logger.info('Http server started. Serving EventSink on %s', self._http_server.base_url)
         self._my_server_port = self._http_server.my_port

@@ -776,7 +776,7 @@ class SdcConsumer:
             self._logger.info('Starting http server ...')
             self._http_server.start()
             if not self._http_server.started_evt.wait(timeout=http_server_timeout):
-                msg = "Http server could not be started within {http_server_timeout} seconds."
+                msg = 'Http server could not be started within {http_server_timeout} seconds.'
                 raise RuntimeError(msg)
             # it sometimes still happens that http server is not completely started without waiting.
             # find better solution, see issue #320

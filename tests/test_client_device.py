@@ -3,6 +3,7 @@
 This module exercises various client/device interactions, SSL contexts,
 waveforms, alerts, and subscription handling.
 """
+
 from __future__ import annotations
 
 import copy
@@ -1487,7 +1488,7 @@ class TestClientSomeDevice(unittest.TestCase):
         descriptors = mdib.descriptions.source.get('3569')
         self.assertEqual(1, len(descriptors))
         self.assertEqual('0xD3C00100', descriptors[0].Handle)
-        self.assertEqual('0xD3C00100',  mdib.descriptions.source.get_one('3569').Handle)
+        self.assertEqual('0xD3C00100', mdib.descriptions.source.get_one('3569').Handle)
         descriptors = mdib.descriptions.source.get('0x34F00150')
         self.assertEqual(2, len(descriptors))
         exp_handles = [d.Handle for d in descriptors]
@@ -1524,7 +1525,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.logger.info('Starting http server ...')
         self.httpserver.start()
         if not self.httpserver.started_evt.wait(timeout=60):
-            exception_msg = "Http server could not be started within 60 seconds."
+            exception_msg = 'Http server could not be started within 60 seconds.'
             raise RuntimeError(exception_msg)
         self.logger.info('Http server started on port %d', self.httpserver.my_port)
 

@@ -478,7 +478,7 @@ class SdcProvider:
             # first start http server, the services need to know the ip port number
             self._http_server.start()
             if not self._http_server.started_evt.wait(timeout=http_server_timeout):
-                msg = f"Http server could not be started within {http_server_timeout} seconds."
+                msg = f'Http server could not be started within {http_server_timeout} seconds.'
                 raise RuntimeError(msg)
 
         host_ips = self._wsdiscovery.get_active_addresses()

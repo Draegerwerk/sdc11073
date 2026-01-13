@@ -1,4 +1,5 @@
 """HTTP server implementation with threading and request dispatching."""
+
 from __future__ import annotations
 
 import logging
@@ -29,11 +30,13 @@ class _ThreadInfo:
 class _ThreadingHTTPServer(HTTPServer):
     """Each request is handled in a thread."""
 
-    def __init__(self,
-                 logger: LoggerAdapter,
-                 server_address: tuple[str, int],
-                 chunk_size: int,
-                 supported_encodings: Iterable[str]):
+    def __init__(
+        self,
+        logger: LoggerAdapter,
+        server_address: tuple[str, int],
+        chunk_size: int,
+        supported_encodings: Iterable[str],
+    ):
         self.daemon_threads = True
         self.threads = []
         self.logger = logger
@@ -42,7 +45,7 @@ class _ThreadingHTTPServer(HTTPServer):
         self.supported_encodings = supported_encodings
         super().__init__(server_address, DispatchingRequestHandler)
 
-    def process_request_thread(self, request, client_address): # noqa: ANN001
+    def process_request_thread(self, request, client_address):  # noqa: ANN001
         """Same as in BaseServer but as a thread."""  # noqa: D401
         try:
             self.finish_request(request, client_address)
@@ -57,11 +60,11 @@ class _ThreadingHTTPServer(HTTPServer):
                 if thread_info.request == request:
                     self.threads.remove(thread_info)
 
-    def process_request(self, request, client_address): # noqa: ANN001
+    def process_request(self, request, client_address):  # noqa: ANN001
         """Start a new thread to process the request."""
-        thread = threading.Thread(target=self.process_request_thread,
-                                  args=(request, client_address),
-                                  name=f'SubscrRecv{client_address}')
+        thread = threading.Thread(
+            target=self.process_request_thread, args=(request, client_address), name=f'SubscrRecv{client_address}',
+        )
         thread.daemon = True
         self.threads.append(_ThreadInfo(thread, request, client_address))
         thread.start()
@@ -81,20 +84,22 @@ class _ThreadingHTTPServer(HTTPServer):
                     # the connection is already closed
                     continue
                 except Exception as ex:  # noqa: BLE001
-                    self.logger.warning('error closing socket for notifications from %s: %s',
-                                        thread_info.client_address,
-                                        ex)
+                    self.logger.warning(
+                        'error closing socket for notifications from %s: %s', thread_info.client_address, ex,
+                    )
 
 
 class HttpServerThreadBase(threading.Thread):
     """A Thread running a ThreadingHTTPServer."""
 
-    def __init__(self,
-                 my_ipaddress: str,
-                 ssl_context: certloader.SSLContextContainer | None,
-                 supported_encodings: Iterable[str],
-                 logger: logging.Logger | LoggerAdapter,
-                 chunk_size: int=0):
+    def __init__(
+        self,
+        my_ipaddress: str,
+        ssl_context: certloader.SSLContextContainer | None,
+        supported_encodings: Iterable[str],
+        logger: logging.Logger | LoggerAdapter,
+        chunk_size: int = 0,
+    ):
         """Run a ThreadingHTTPServer in a thread, so that it can be stopped without blocking.
 
         Handling of requests happens in two stages:
@@ -129,10 +134,9 @@ class HttpServerThreadBase(threading.Thread):
         self._stop_requested = False
         try:
             myport = 0  # zero means that OS selects a free port
-            self.httpd = _ThreadingHTTPServer(self.logger,
-                                              (self._my_ipaddress, myport),
-                                              self.chunk_size,
-                                              self.supported_encodings)
+            self.httpd = _ThreadingHTTPServer(
+                self.logger, (self._my_ipaddress, myport), self.chunk_size, self.supported_encodings,
+            )
             self.my_port = self.httpd.server_port
             self.logger.info('starting http server on %s:%s', self._my_ipaddress, self.my_port)
             if self._ssl_context:
