@@ -1,3 +1,4 @@
+"""Test SoapClient - e.g. error handling."""
 from http.client import HTTPException, NotConnected
 from unittest import TestCase, mock
 
@@ -17,12 +18,14 @@ class TestSoapClient(TestCase):
         """Create the soap client used in the test."""
         self.logger = get_logger_adapter('test')
 
-        self.soap_client = SoapClient(netloc='127.0.0.1:9999',
-                                      socket_timeout=10,
-                                      logger=self.logger,
-                                      ssl_context=None,
-                                      sdc_definitions=SdcV1Definitions,
-                                      msg_reader=MessageReader(SdcV1Definitions, None, self.logger, validate=False))
+        self.soap_client = SoapClient(
+            netloc='127.0.0.1:9999',
+            socket_timeout=10,
+            logger=self.logger,
+            ssl_context=None,
+            sdc_definitions=SdcV1Definitions,
+            msg_reader=MessageReader(SdcV1Definitions, None, self.logger, validate=False),
+        )
 
     def test_get_from_url(self):
         """Check error handling of get_from_url method."""
@@ -34,7 +37,7 @@ class TestSoapClient(TestCase):
 
         # http connection raises an exception => exception is delegated to caller
         for exception in (HTTPException('mock'), OSError('mock'), Exception('mock')):
-            mocked_connection, http_response = self._setup_mock(body)
+            mocked_connection, _ = self._setup_mock(body)
 
             mocked_connection.getresponse.side_effect = exception
             self.assertRaises(exception.__class__, self.soap_client.get_from_url, 'foo', '')
@@ -81,8 +84,9 @@ class TestSoapClient(TestCase):
         # returned status >= 300 => raise HTTPReturnCodeError, connection stays open
         mocked_connection, http_response = self._setup_mock(body)
         http_response.status = 333
-        self.assertRaises(HTTPReturnCodeError, self.soap_client.post_message_to, 'renew', created_message,
-                          validate=False)
+        self.assertRaises(
+            HTTPReturnCodeError, self.soap_client.post_message_to, 'renew', created_message, validate=False,
+        )
         self.assertFalse(self.soap_client.is_closed())
 
     def _setup_mock(self, body: bytes) -> tuple[mock.MagicMock, mock.MagicMock]:
@@ -97,6 +101,20 @@ class TestSoapClient(TestCase):
         http_response.getheader.side_effect = [f'{len(body)}', None]  # content length, transfer-encoding
         http_response.read.return_value = body
         mocked_connection.getresponse.return_value = http_response
-        self.soap_client._http_connection = mocked_connection  # noqa: SLF001
-        self.soap_client._has_connection_error = False # noqa: SLF001
+        self.soap_client._http_connection = mocked_connection
+        self.soap_client._has_connection_error = False
         return mocked_connection, http_response
+
+    def test_prepare_message(self):
+        """Test the _prepare_message method."""
+        created_message = mock.MagicMock()
+
+        request_manipulator = mock.MagicMock()
+        request_manipulator.manipulate_soapenvelope = mock.MagicMock()
+        return_value = self.soap_client._prepare_message(
+            created_message=created_message, request_manipulator=request_manipulator, validate=True,
+        )
+
+        created_message.serialize.assert_called_once_with(request_manipulator=request_manipulator, validate=False)
+        self.assertTrue(request_manipulator.manipulate_string.called)
+        self.assertEqual(return_value, request_manipulator.manipulate_string.return_value)
