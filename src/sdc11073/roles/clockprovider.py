@@ -11,11 +11,10 @@ from .nomenclature import NomenclatureCodes
 from .providerbase import OperationClassGetter, ProviderRole
 
 if TYPE_CHECKING:
-    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
+    from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
     from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
-    from sdc11073.xml_types.pm_types import CodedValue, SafetyClassification
 
 
 class GenericSDCClockProvider(ProviderRole):
@@ -161,22 +160,3 @@ class GenericSDCClockProvider(ProviderRole):
             params.operation_instance.operation_target_handle,
             self._mdib.data_model.msg_types.InvocationState.FINISHED,
         )
-
-    def _create_clock_descriptor_container(
-        self,
-        handle: str,
-        parent_handle: str,
-        coded_value: CodedValue,
-        safety_classification: SafetyClassification,
-    ) -> AbstractDescriptorProtocol:
-        """Create a ClockDescriptorContainer with the given properties.
-
-        :param handle: Handle of the new container
-        :param parent_handle: Handle of the parent
-        :param coded_value: a pmtypes.CodedValue instance that defines what this onject represents in medical terms.
-        :param safety_classification: a pmtypes.SafetyClassification value
-        :return: the created object
-        """
-        model = self._mdib.data_model
-        cls = model.get_descriptor_container_class(model.pm_names.ClockDescriptor)
-        return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
