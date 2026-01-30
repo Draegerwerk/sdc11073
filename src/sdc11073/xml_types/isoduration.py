@@ -21,6 +21,15 @@ DurationType = decimal.Decimal | int | float
 ParsedDurationType = float
 
 
+__SDPI_REGEX_DURATION__ = re.compile(r'^PT(\d+H)?(\d+M)?(\d+(.\d+)?S)?(?<!PT)$')
+
+pattern = re.compile(
+    r'^PT'
+    r'(?:(?P<hours>\d+)H)?'
+    r'(?:(?P<minutes>\d+)M)?'
+    r'(?:(?P<seconds>\d+)(?:\.(?P<microseconds>\d+))?S)?'
+    r'(?<!PT)$'
+)
 def parse_duration(date_string: str) -> ParsedDurationType:
     """Parse an ISO 8601 durations into a float value containing seconds.
 
@@ -29,6 +38,7 @@ def parse_duration(date_string: str) -> ParsedDurationType:
       -PnnYnnMnnDTnnHnnMnnS  complete duration specification
     Years and month are not supported, values must be zero!
     """
+    # TODO: remove isodate package and parse duration manually
     duration = isodate.parse_duration(date_string)
     if isinstance(duration, isodate.Duration):
         msg = f'Duration {date_string} with years or months is not supported'
@@ -37,8 +47,37 @@ def parse_duration(date_string: str) -> ParsedDurationType:
 
 
 def duration_string(seconds: DurationType) -> str:
-    """Create an ISO 8601 durations value containing seconds."""
-    return isodate.duration_isoformat(datetime.timedelta(seconds=float(seconds)))
+    r"""Create an ISO 8601 durations value containing seconds.
+
+    Note: Smaller fractions than microseconds are truncated. The referenced ISO8601 from 1988 in XML 1.1 does not
+    restrict the precision, but in part 2 5.4 the minimal supported fraction-second duration is set to milliseconds
+    https://www.w3.org/TR/xmlschema11-2/#partial-implementation, so microseconds should be safe
+    Days are not allowed by sdpi and has to follow the regex ^PT(\d+H)?(\d+M)?(\d+(.\d+)?S)?(?<!PT)$.
+    """
+    if seconds < 0:
+        raise ValueError('Negative durations are not supported')
+    if seconds == 0:
+        return 'PT0S'
+    duration = io.StringIO()
+    duration.write('PT')
+    tdt = datetime.timedelta(seconds=float(seconds))
+    microseconds = (tdt.days * 24 * 60 * 60 + tdt.seconds) * 1e6 + tdt.microseconds
+    seconds, microseconds = divmod(microseconds, 1e6)
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours > 0:
+        duration.write(f'{int(hours)}H')
+    if minutes > 0:
+        duration.write(f'{int(minutes)}M')
+    if seconds > 0:
+        duration.write(f'{int(seconds)}')
+    if microseconds > 0:
+        if seconds == 0:
+            duration.write('0')
+        duration.write(f'.{str(int(microseconds)).rstrip("0")}S')
+    elif seconds > 0:
+        duration.write('S')
+    return duration.getvalue()
 
 
 ##### Date Time ######
@@ -125,24 +164,18 @@ class XsdDatetime:
                 raise ValueError('day cannot be present without month')
 
     def __validate_time(self):
-        if self.hour is not None:
+        if any(v is not None for v in (self.hour, self.minute, self.second)):
+            if self.day is None or self.hour is None or self.minute is None or self.second is None:
+                raise ValueError('hour, minute and second must all be set together with day')
             if not (0 <= self.hour <= MAX_HOUR):
                 msg = f'{self.hour} is not a valid hour'
                 raise ValueError(msg)
-            if self.day is None or self.minute is None or self.second is None:
-                raise ValueError('hour cannot be present without day, minute and second')
-        if self.minute is not None:
             if not (0 <= self.minute <= MAX_MINUTE):
                 msg = f'{self.minute} is not a valid minute'
                 raise ValueError(msg)
-            if self.hour is None or self.second is None:
-                raise ValueError('minute cannot be present without hour and second')
-        if self.second is not None:
             if not (0.0 <= self.second < MAX_SECOND):
                 msg = f'{self.second} is not a valid second'
                 raise ValueError(msg)
-            if self.hour is None or self.minute is None:
-                raise ValueError('second cannot be present without hour and minute')
 
     def __validate_eod(self):
         if self.end_of_day:

@@ -13,12 +13,21 @@ from hypothesis import strategies as st
 from sdc11073.xml_types import isoduration
 
 
-@given(timedelta=st.timedeltas())
-def test_duration_parsing(timedelta: datetime.timedelta) -> None:
+@given(st.timedeltas(max_value=datetime.timedelta(microseconds=-1)))
+def test_negative_durations_are_not_allowed(timedelta: datetime.timedelta) -> None:
+    """Test that negative durations raise ValueError."""
+    with pytest.raises(ValueError, match='Negative durations are not supported'):
+        isoduration.duration_string(timedelta.total_seconds())
+
+
+@given(second=st.floats(min_value=0, allow_nan=False, allow_infinity=False))
+def test_duration_parsing(second: float) -> None:
     """Test that durations can be converted to string and back."""
-    duration_string = isoduration.duration_string(timedelta.total_seconds())
+    duration_string = isoduration.duration_string(second)
     duration_seconds = isoduration.parse_duration(duration_string)
-    assert duration_seconds == timedelta.total_seconds()
+    if duration_seconds != second:
+        print(duration_seconds)
+    assert duration_seconds == second
 
 
 @pytest.mark.parametrize('duration', ['P1Y2M', '-P3Y', 'P0Y5M', 'P2Y0M', 'P1Y2M3DT4H5M6S'])
@@ -159,11 +168,20 @@ def test_xsddatetime_invalid_day_raises_value_error(year: int, month: int, day: 
         _make_datetime(year=year, month=month, day=day)
 
 
-@given(year=years(), month=months(), day=days(), hour=st.integers().filter(lambda x: x < 0 or x > isoduration.MAX_HOUR))
-def test_xsddatetime_invalid_hour_raises_value_error(year: int, month: int, day: int, hour: int) -> None:
+@given(
+    year=years(),
+    month=months(),
+    day=days(),
+    hour=st.integers().filter(lambda x: x < 0 or x > isoduration.MAX_HOUR),
+    minute=minutes(),
+    second=seconds(),
+)
+def test_xsddatetime_invalid_hour_raises_value_error(  # noqa: PLR0913
+    year: int, month: int, day: int, hour: int, minute: int, second: float
+) -> None:
     """Test that invalid hour raises ValueError."""
     with pytest.raises(ValueError, match=f'{hour} is not a valid hour'):
-        _make_datetime(year=year, month=month, day=day, hour=hour)
+        _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 
 @given(
@@ -215,13 +233,6 @@ def test_xsddatetime_day_without_month_raises_value_error(year: int, day: int) -
         _make_datetime(year=year, day=day)
 
 
-@given(year=years(), month=months(), hour=hours(), minute=minutes(), second=seconds())
-def test_xsddatetime_hour_requires_day(year: int, month: int, hour: int, minute: int, second: int) -> None:
-    """Test that hour without day raises ValueError."""
-    with pytest.raises(ValueError, match='hour cannot be present without day, minute and second'):
-        _make_datetime(year=year, month=month, hour=hour, minute=minute, second=second)
-
-
 @given(
     year=years(),
     month=months(),
@@ -243,7 +254,7 @@ def test_xsddatetime_time_requires_hours_minutes_second(  # noqa: PLR0913
     any_times = any(p is not None for p in (hour, minute, second))
     assume(not all_times)
     assume(any_times)
-    with pytest.raises(ValueError, match='cannot be present without'):
+    with pytest.raises(ValueError, match='hour, minute and second must all be set together with day'):
         _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 

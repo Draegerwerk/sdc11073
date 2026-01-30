@@ -19,9 +19,8 @@ from lxml import etree
 from sdc11073 import xml_utils
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import QN_TYPE, docname_from_qname, text_to_qname
-
-from . import isoduration
-from .dataconverters import (
+from sdc11073.xml_types import isoduration
+from sdc11073.xml_types.dataconverters import (
     BooleanConverter,
     ClassCheckConverter,
     DecimalConverter,
@@ -962,13 +961,11 @@ def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement
     return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
 
 
-class ExtensionLocalValue(list[xml_utils.LxmlElement]):
+class ExtensionLocalValue(list[xml_utils.LxmlElement]):  # noqa: PLW1641
     """Value of an extension."""
 
     compare_method: Callable[[xml_utils.LxmlElement, xml_utils.LxmlElement], bool] = _compare_extension
     """may be overwritten by user if a custom comparison behaviour is required"""
-
-    __hash__ = list.__hash__
 
     def __eq__(self, other: Sequence) -> bool:
         try:
@@ -976,7 +973,7 @@ class ExtensionLocalValue(list[xml_utils.LxmlElement]):
                 return False
         except TypeError:  # len of other cannot be determined
             return False
-        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other, strict=False))
+        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other, strict=True))
 
     def __ne__(self, other: ExtensionLocalValue):
         return not self == other
@@ -1560,7 +1557,7 @@ class DateOfBirthProperty(_ElementBase):
 
     Time zone info can be provided:
        UTC can be specified by appending a Z character, e.g. 2002-09-24Z
-       other timezones by adding a positive or negative time behind the date, e.g. 2002.09-24-06:00, 2002-09-24+06:00
+       other timezones by adding a positive or negative time behind the date, e.g. 2002-09-24-06:00, 2002-09-24+06:00
     xsd:time is hh:mm:ss format, e.g. 9:30:10, 9:30:10.5. All components are required.
     Time zone handling is identical to date type
 
@@ -1583,7 +1580,7 @@ class DateOfBirthProperty(_ElementBase):
             is_optional,
         )
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> isoduration.XsdDatetime | None:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
