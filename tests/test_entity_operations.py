@@ -1,7 +1,7 @@
 """The module tests operations with provider and consumer that use entity mdibs."""
+
 from __future__ import annotations
 
-import datetime
 import logging
 import time
 import unittest
@@ -14,7 +14,7 @@ from sdc11073.dispatch import RequestDispatcher
 from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
 from sdc11073.roles.nomenclature import NomenclatureCodes
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types import isoduration, msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDeviceEntityMdib
@@ -43,9 +43,11 @@ class TestEntityOperations(unittest.TestCase):
 
     def _init_provider_consumer(self, mdib_file: str = default_mdib_file):
         self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(
-            self.wsd, None,
+            self.wsd,
+            None,
             mdib_file,
-            max_subscription_duration=10)  # shorter duration for faster tests
+            max_subscription_duration=10,
+        )  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_provider.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -58,11 +60,13 @@ class TestEntityOperations(unittest.TestCase):
         )
 
         x_addr = self.sdc_provider.get_xaddrs()
-        self.sdc_consumer = SdcConsumer(x_addr[0],
-                                        sdc_definitions=self.sdc_provider.mdib.sdc_definitions,
-                                        ssl_context_container=None,
-                                        validate=CLIENT_VALIDATE,
-                                        specific_components=specific_components)
+        self.sdc_consumer = SdcConsumer(
+            x_addr[0],
+            sdc_definitions=self.sdc_provider.mdib.sdc_definitions,
+            ssl_context_container=None,
+            validate=CLIENT_VALIDATE,
+            specific_components=specific_components,
+        )
         self.sdc_consumer.start_all()  # with periodic reports and system error report
         time.sleep(1)
 
@@ -106,8 +110,9 @@ class TestEntityOperations(unittest.TestCase):
         # initially the device shall not have any patient
         self.assertEqual(len(my_patient_entity.states), 0)
         operation_entities = client_mdib.entities.by_node_type(pm.SetContextStateOperationDescriptor)
-        pat_op_entities = [ent for ent in operation_entities
-                           if ent.descriptor.OperationTarget == my_patient_entity.handle]
+        pat_op_entities = [
+            ent for ent in operation_entities if ent.descriptor.OperationTarget == my_patient_entity.handle
+        ]
         self.assertEqual(len(pat_op_entities), 1)
         my_operation = pat_op_entities[0]
         self._logger.info('Handle for SetContextState Operation = %s', my_operation.handle)
@@ -171,8 +176,10 @@ class TestEntityOperations(unittest.TestCase):
         self.assertEqual(patient_context_state_container.CoreData.Height.MeasuredValue, Decimal('88.2'))
         self.assertEqual(patient_context_state_container.CoreData.Weight.MeasuredValue, Decimal('68.2'))
         self.assertEqual(patient_context_state_container.CoreData.Race, pm_types.CodedValue('somerace'))
-        self.assertNotEqual(patient_context_state_container.Handle,
-                            my_patient_entity.handle)  # device replaced it with its own handle
+        self.assertNotEqual(
+            patient_context_state_container.Handle,
+            my_patient_entity.handle,
+        )  # device replaced it with its own handle
         self.assertEqual(patient_context_state_container.ContextAssociation, pm_types.ContextAssociation.ASSOCIATED)
         self.assertIsNotNone(patient_context_state_container.BindingMdibVersion)
         self.assertIsNotNone(patient_context_state_container.BindingStartTime)
@@ -235,7 +242,7 @@ class TestEntityOperations(unittest.TestCase):
         st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
         st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
         st.CoreData.Race = pm_types.CodedValue('123', 'def')
-        st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)  # noqa: DTZ001
+        st.CoreData.DateOfBirth = isoduration.XsdDatetime(2012, 3, 15, 13, 12, 11)
 
         coll = observableproperties.SingleValueCollector(self.sdc_consumer, 'episodic_context_report')
         with self.sdc_provider.mdib.context_state_transaction() as mgr:
@@ -341,8 +348,10 @@ class TestEntityOperations(unittest.TestCase):
         alert_system_entities = self.sdc_provider.mdib.entities.by_node_type(pm.AlertSystemDescriptor)
         for alert_system_entity in alert_system_entities:
             if alert_system_entity.handle != alert_system_entity_off.handle:
-                self.assertEqual(alert_system_entity.state.SystemSignalActivation[0].State,
-                                 pm_types.AlertActivation.PAUSED)
+                self.assertEqual(
+                    alert_system_entity.state.SystemSignalActivation[0].State,
+                    pm_types.AlertActivation.PAUSED,
+                )
 
         future = set_service.activate(operation_handle=cancel_entity.handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
@@ -352,8 +361,7 @@ class TestEntityOperations(unittest.TestCase):
         for alert_system_entity in alert_system_entities:
             if alert_system_entity.handle != alert_system_entity_off.handle:
                 alert_system_entity.update()
-                self.assertEqual(alert_system_entity.state.SystemSignalActivation[0].State,
-                                 pm_types.AlertActivation.ON)
+                self.assertEqual(alert_system_entity.state.SystemSignalActivation[0].State, pm_types.AlertActivation.ON)
 
         # now remove all alert systems from provider mdib and verify that operation now fails
         alert_system_entities = self.sdc_provider.mdib.entities.by_node_type(pm.AlertSystemDescriptor)
@@ -439,9 +447,11 @@ class TestEntityOperations(unittest.TestCase):
         metric_entities = self.sdc_provider.mdib.entities.by_node_type(pm.NumericMetricDescriptor)
         my_metric_entity = metric_entities[0]
 
-        new_operation_entity = self.sdc_provider.mdib.entities.new_entity(pm.SetMetricStateOperationDescriptor,
-                                                                        handle='HANDLE_FOR_MY_TEST',
-                                                                        parent_handle=my_sco.handle)
+        new_operation_entity = self.sdc_provider.mdib.entities.new_entity(
+            pm.SetMetricStateOperationDescriptor,
+            handle='HANDLE_FOR_MY_TEST',
+            parent_handle=my_sco.handle,
+        )
         my_code = pm_types.CodedValue('99999')
         new_operation_entity.descriptor.Type = my_code
         new_operation_entity.descriptor.SafetyClassification = pm_types.SafetyClassification.INF
@@ -454,7 +464,9 @@ class TestEntityOperations(unittest.TestCase):
         role_provider = self.sdc_provider.product_lookup[my_sco.handle]
 
         op = role_provider.metric_provider.make_operation_instance(
-            new_operation_entity.descriptor, sco.operation_cls_getter)
+            new_operation_entity.descriptor,
+            sco.operation_cls_getter,
+        )
         sco.register_operation(op)
         self.sdc_provider.mdib.xtra.mk_state_containers_for_all_descriptors()
         set_service = self.sdc_consumer.client('Set')
@@ -470,8 +482,10 @@ class TestEntityOperations(unittest.TestCase):
         operation_handle = new_operation_entity.handle
         new_lifetime_period = 42.5
         consumer_entity.state.LifeTimePeriod = new_lifetime_period
-        future = set_service.set_metric_state(operation_handle=operation_handle,
-                                              proposed_metric_states=[consumer_entity.state])
+        future = set_service.set_metric_state(
+            operation_handle=operation_handle,
+            proposed_metric_states=[consumer_entity.state],
+        )
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
@@ -491,9 +505,11 @@ class TestEntityOperations(unittest.TestCase):
         sco_entities = self.sdc_provider.mdib.entities.by_node_type(pm.ScoDescriptor)
         my_sco_entity = sco_entities[0]
 
-        operation_entity = self.sdc_provider.mdib.entities.new_entity(pm.SetComponentStateOperationDescriptor,
-                                                                      'HANDLE_FOR_MY_TEST',
-                                                                      my_sco_entity.handle)
+        operation_entity = self.sdc_provider.mdib.entities.new_entity(
+            pm.SetComponentStateOperationDescriptor,
+            'HANDLE_FOR_MY_TEST',
+            my_sco_entity.handle,
+        )
 
         operation_entity.descriptor.SafetyClassification = pm_types.SafetyClassification.INF
         operation_entity.descriptor.OperationTarget = my_channel_entity.handle
@@ -503,8 +519,7 @@ class TestEntityOperations(unittest.TestCase):
 
         sco = self.sdc_provider._sco_operations_registries[my_sco_entity.handle]
         role_provider = self.sdc_provider.product_lookup[my_sco_entity.handle]
-        op = role_provider.make_operation_instance(operation_entity.descriptor,
-                                                   sco.operation_cls_getter)
+        op = role_provider.make_operation_instance(operation_entity.descriptor, sco.operation_cls_getter)
         sco.register_operation(op)
         self.sdc_provider.mdib.xtra.mk_state_containers_for_all_descriptors()
         set_service = self.sdc_consumer.client('Set')
@@ -513,12 +528,15 @@ class TestEntityOperations(unittest.TestCase):
 
         proposed_component_state = my_channel_entity.state
         self.assertIsNone(
-            proposed_component_state.OperatingHours)  # just to be sure that we know the correct intitial value
+            proposed_component_state.OperatingHours,
+        )  # just to be sure that we know the correct intitial value
         before_state_version = proposed_component_state.StateVersion
         new_operating_hours = 42
         proposed_component_state.OperatingHours = new_operating_hours
-        future = set_service.set_component_state(operation_handle=operation_entity.handle,
-                                                 proposed_component_states=[proposed_component_state])
+        future = set_service.set_component_state(
+            operation_handle=operation_entity.handle,
+            proposed_component_states=[proposed_component_state],
+        )
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
@@ -569,15 +587,17 @@ class TestEntityOperations(unittest.TestCase):
             received_message = coll.result(timeout=5)
             my_msg_types = received_message.msg_reader.msg_types
             operation_invoked_report = my_msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
-            self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
-                             my_msg_types.InvocationState.WAIT)
+            self.assertEqual(
+                operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
+                my_msg_types.InvocationState.WAIT,
+            )
             state = result.InvocationInfo.InvocationState
             self.assertEqual(state, my_msg_types.InvocationState.FINISHED)
             self.assertIsNone(result.InvocationInfo.InvocationError)
             self.assertEqual(0, len(result.InvocationInfo.InvocationErrorMessage))
             time.sleep(0.5)
             # disable delayed processing
-            self._logger.info("disable delayed processing")
+            self._logger.info('disable delayed processing')
             operation.delayed_processing = False  # first OperationInvokedReport shall have InvocationState.FINISHED
             coll = observableproperties.SingleValueCollector(self.sdc_consumer, 'operation_invoked_report')
             future = set_service.set_string(operation_handle=my_operation_entity.handle, requested_string=value)
@@ -585,8 +605,10 @@ class TestEntityOperations(unittest.TestCase):
             received_message = coll.result(timeout=5)
             my_msg_types = received_message.msg_reader.msg_types
             operation_invoked_report = my_msg_types.OperationInvokedReport.from_node(received_message.p_msg.msg_node)
-            self.assertEqual(operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
-                             my_msg_types.InvocationState.FINISHED)
+            self.assertEqual(
+                operation_invoked_report.ReportPart[0].InvocationInfo.InvocationState,
+                my_msg_types.InvocationState.FINISHED,
+            )
             state = result.InvocationInfo.InvocationState
             self.assertEqual(state, my_msg_types.InvocationState.FINISHED)
             self.assertIsNone(result.InvocationInfo.InvocationError)
@@ -646,10 +668,12 @@ class TestEntityOperations(unittest.TestCase):
         my_operation_entities = self.sdc_provider.mdib.entities.by_coding(coding)
         my_operation_entity = my_operation_entities[0]
 
-        for value in (Decimal(1), Decimal(42), 1.1, 10, "12"):
+        for value in (Decimal(1), Decimal(42), 1.1, 10, '12'):
             self._logger.info('metric value = %s', value)
-            future = set_service.set_numeric_value(operation_handle=my_operation_entity.handle,
-                                                   requested_numeric_value=value)
+            future = set_service.set_numeric_value(
+                operation_handle=my_operation_entity.handle,
+                requested_numeric_value=value,
+            )
             result = future.result(timeout=SET_TIMEOUT)
             state = result.InvocationInfo.InvocationState
             self.assertEqual(state, msg_types.InvocationState.FINISHED)

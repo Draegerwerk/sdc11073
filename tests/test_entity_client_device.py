@@ -1,7 +1,7 @@
 """The module tests functionality between consumer and provider, both using entity based mdibs."""
+
 from __future__ import annotations
 
-import datetime
 import logging
 import sys
 import time
@@ -22,7 +22,7 @@ from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import pm_qnames, pm_types
+from sdc11073.xml_types import isoduration, pm_qnames, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDeviceEntityMdib
@@ -43,21 +43,20 @@ def provide_realtime_data(sdc_provider: SdcProvider):
     waveform_provider = sdc_provider.waveform_provider
     if waveform_provider is None:
         return
-    iterator = cycle([waveforms.SawtoothGenerator,
-                     waveforms.SinusGenerator,
-                     waveforms.TriangleGenerator])
+    iterator = cycle([waveforms.SawtoothGenerator, waveforms.SinusGenerator, waveforms.TriangleGenerator])
     waveform_entities = sdc_provider.mdib.entities.by_node_type(pm_qnames.RealTimeSampleArrayMetricDescriptor)
     for i, waveform_entity in enumerate(waveform_entities):
         cls = iterator.__next__()
-        gen = cls(min_value=1, max_value=i+10, waveform_period=1.1, sample_period=0.01)
+        gen = cls(min_value=1, max_value=i + 10, waveform_period=1.1, sample_period=0.01)
         waveform_provider.register_waveform_generator(waveform_entity.handle, gen)
 
         if i == 2:
             # make this generator the annotator source
-            waveform_provider.add_annotation_generator(pm_types.CodedValue('a', 'b'),
-                                                       trigger_handle=waveform_entity.handle,
-                                                       annotated_handles=[waveform_entities[0].handle],
-                                                       )
+            waveform_provider.add_annotation_generator(
+                pm_types.CodedValue('a', 'b'),
+                trigger_handle=waveform_entity.handle,
+                annotated_handles=[waveform_entities[0].handle],
+            )
 
 
 class TestClientSomeDeviceXml(unittest.TestCase):
@@ -74,7 +73,11 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
     def _init_provider_consumer(self, mdib_file: str = default_mdib_file):
         self.sdc_provider = SomeDeviceEntityMdib.from_mdib_file(
-            self.wsd, None, mdib_file, max_subscription_duration=10)  # shorter duration for faster tests
+            self.wsd,
+            None,
+            mdib_file,
+            max_subscription_duration=10,
+        )  # shorter duration for faster tests
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_provider.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -88,11 +91,13 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         )
 
         x_addr = self.sdc_provider.get_xaddrs()
-        self.sdc_consumer = SdcConsumer(x_addr[0],
-                                        sdc_definitions=self.sdc_provider.mdib.sdc_definitions,
-                                        ssl_context_container=None,
-                                        validate=CLIENT_VALIDATE,
-                                        specific_components=specific_components)
+        self.sdc_consumer = SdcConsumer(
+            x_addr[0],
+            sdc_definitions=self.sdc_provider.mdib.sdc_definitions,
+            ssl_context_container=None,
+            validate=CLIENT_VALIDATE,
+            specific_components=specific_components,
+        )
         self.sdc_consumer.start_all()  # with periodic reports and system error report
         time.sleep(1)
         sys.stderr.write(f'\n############### setUp done {self._testMethodName} ##############\n')
@@ -137,7 +142,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)  # noqa: DTZ001
+            st.CoreData.DateOfBirth = isoduration.XsdDatetime(2012, 3, 15, 13, 12, 11)
             handles.append(st.Handle)
             new_states.append(st)
 
@@ -160,10 +165,14 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         self.assertLess(self.sdc_provider.mdib.mdib_version - consumer_mdib.mdib_version, 2)
         if consumer_mdib._maintain_xml_tree:
             # check also in DOM tree
-            self.assertLess(self.sdc_provider.mdib.mdib_version
-                            - int(consumer_mdib.get_mdib_response_node.get('MdibVersion')), 2)
-            self.assertLess(self.sdc_provider.mdib.mdib_version
-                            - int(consumer_mdib.get_mdib_response_node[0].get('MdibVersion')), 2)
+            self.assertLess(
+                self.sdc_provider.mdib.mdib_version - int(consumer_mdib.get_mdib_response_node.get('MdibVersion')),
+                2,
+            )
+            self.assertLess(
+                self.sdc_provider.mdib.mdib_version - int(consumer_mdib.get_mdib_response_node[0].get('MdibVersion')),
+                2,
+            )
 
             msg_reader._validate_node(consumer_mdib.get_mdib_response_node)
         self.assertEqual(len(self.sdc_provider.mdib.entities), len(consumer_mdib.entities))
@@ -213,8 +222,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         metric_entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         provider_entity = metric_entities[0]
 
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'metric_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'metric_handles')
 
         # set value of a metric
         first_value = Decimal(12)
@@ -244,8 +252,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         provider_entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.AlertConditionDescriptor)
         provider_entity = provider_entities[0]
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'alert_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'alert_handles')
 
         with self.sdc_provider.mdib.alert_state_transaction() as mgr:
             # mgr automatically increases the StateVersion
@@ -265,8 +272,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         channel_entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.ChannelDescriptor)
         provider_channel_entity = channel_entities[0]
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'component_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'component_handles')
 
         old_state_version = provider_channel_entity.state.StateVersion
         with self.sdc_provider.mdib.component_state_transaction() as mgr:
@@ -287,8 +293,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.ActivateOperationDescriptor)
         provider_entity = entities[0]
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'operation_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'operation_handles')
         provider_entity.state.OperatingMode = pm_types.OperatingMode.NA
 
         with self.sdc_provider.mdib.operational_state_transaction() as mgr:
@@ -384,8 +389,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         initial_state_version = consumer_entity.state.StateVersion
 
         # now update a metric descriptor and wait for the next DescriptionModificationReport
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'updated_descriptors_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'updated_descriptors_handles')
 
         new_determination_period = 3.14159
         provider_entity = self.sdc_provider.mdib.entities.by_handle(consumer_entity.handle)
@@ -407,8 +411,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         # now update a channel descriptor and wait for the next DescriptionModificationReport
         channel_descriptor_handle = consumer_entity.descriptor.parent_handle  #'2.1.6.1'  # a channel
         consumer_entity = consumer_mdib.entities.by_handle(channel_descriptor_handle)
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'updated_descriptors_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'updated_descriptors_handles')
         new_concept_description = 'foo bar'
         provider_entity = self.sdc_provider.mdib.entities.by_handle(channel_descriptor_handle)
         provider_entity.descriptor.Type.ConceptDescription[0].text = new_concept_description
@@ -437,24 +440,27 @@ class TestClientSomeDeviceXml(unittest.TestCase):
 
         # test creating a numeric descriptor
         # coll: wait for the next DescriptionModificationReport
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'new_descriptors_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'new_descriptors_handles')
 
         new_handle = 'a_generated_descriptor'
 
-        new_entity = self.sdc_provider.mdib.entities.new_entity(pm.NumericMetricDescriptor,
-                                                                new_handle,
-                                                                channel_descriptor_handle)
+        new_entity = self.sdc_provider.mdib.entities.new_entity(
+            pm.NumericMetricDescriptor,
+            new_handle,
+            channel_descriptor_handle,
+        )
         new_entity.descriptor.Type = pm_types.CodedValue('12345')
         new_entity.descriptor.Unit = pm_types.CodedValue('hector')
         new_entity.descriptor.Resolution = Decimal('0.42')
 
         # verify that it is possible to create an entity with same handle twice
-        self.assertRaises(ValueError, self.sdc_provider.mdib.entities.new_entity,
-                          pm.NumericMetricDescriptor,
-                          new_handle,
-                          channel_descriptor_handle,
-                          )
+        self.assertRaises(
+            ValueError,
+            self.sdc_provider.mdib.entities.new_entity,
+            pm.NumericMetricDescriptor,
+            new_handle,
+            channel_descriptor_handle,
+        )
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             mgr.write_entity(new_entity)
@@ -470,13 +476,14 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         provider_mds_entity = entities[0]
 
         # coll: wait for the next DescriptionModificationReport
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'new_descriptors_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'new_descriptors_handles')
         new_battery_handle = 'new_battery_handle'
         node_name = pm.BatteryDescriptor
-        new_entity = self.sdc_provider.mdib.entities.new_entity(node_name,
-                                                                new_battery_handle,
-                                                                provider_mds_entity.handle)
+        new_entity = self.sdc_provider.mdib.entities.new_entity(
+            node_name,
+            new_battery_handle,
+            provider_mds_entity.handle,
+        )
         new_entity.descriptor.Type = pm_types.CodedValue('23456')
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
@@ -491,8 +498,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         self.assertEqual(consumer_entity.descriptor.Handle, new_battery_handle)
 
         # test deleting a descriptor
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'deleted_descriptors_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'deleted_descriptors_handles')
         provider_channel_entity = self.sdc_provider.mdib.entities.by_handle(channel_descriptor_handle)
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
@@ -504,8 +510,7 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         # test deleting a context descriptor
         entities = self.sdc_provider.mdib.entities.by_node_type(pm_qnames.PatientContextDescriptor)
         patient_entity = entities[0]
-        coll = observableproperties.SingleValueCollector(consumer_mdib,
-                                                         'updated_descriptors_handles')
+        coll = observableproperties.SingleValueCollector(consumer_mdib, 'updated_descriptors_handles')
 
         with self.sdc_provider.mdib.descriptor_transaction() as mgr:
             mgr.write_entity(patient_entity)
@@ -513,4 +518,4 @@ class TestClientSomeDeviceXml(unittest.TestCase):
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         entity = consumer_mdib.entities.by_handle(patient_entity.handle)
         # now DescriptorVersion shall be incremented
-        self.assertEqual(patient_entity.descriptor.DescriptorVersion +1, entity.descriptor.DescriptorVersion)
+        self.assertEqual(patient_entity.descriptor.DescriptorVersion + 1, entity.descriptor.DescriptorVersion)

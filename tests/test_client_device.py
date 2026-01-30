@@ -3,6 +3,7 @@
 This module exercises various client/device interactions, SSL contexts,
 waveforms, alerts, and subscription handling.
 """
+
 from __future__ import annotations
 
 import copy
@@ -50,8 +51,8 @@ from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import isoduration, msg_types, pm_types
 from sdc11073.xml_types import msg_qnames as msg
-from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
@@ -916,7 +917,7 @@ class TestClientSomeDevice(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11, tzinfo=datetime.timezone.utc)
+            st.CoreData.DateOfBirth = isoduration.XsdDatetime(2012, 3, 15, 13, 12, 11, tz_info=datetime.timezone.utc)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(
             pm.PatientContextState,
@@ -1487,7 +1488,7 @@ class TestClientSomeDevice(unittest.TestCase):
         descriptors = mdib.descriptions.source.get('3569')
         self.assertEqual(1, len(descriptors))
         self.assertEqual('0xD3C00100', descriptors[0].Handle)
-        self.assertEqual('0xD3C00100',  mdib.descriptions.source.get_one('3569').Handle)
+        self.assertEqual('0xD3C00100', mdib.descriptions.source.get_one('3569').Handle)
         descriptors = mdib.descriptions.source.get('0x34F00150')
         self.assertEqual(2, len(descriptors))
         exp_handles = [d.Handle for d in descriptors]

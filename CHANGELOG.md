@@ -12,16 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecation info to the `commlog` module.
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
 - context manager support to `WSDiscovery`.
+- `isoduration.XsdDatetime` [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 
 ### Changed
 
 - renamed parameter in ``SdcConsumer.do_subscribe`` from `expire_minutes` to `expire_seconds`. It was already handled as seconds but was named wrong [#436](https://github.com/Draegerwerk/sdc11073/pull/436)
+- `PatientDemographicsCoreData.DateOfBirth` now requires `isoduration.XsdDatetime` as type [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 
 ### Fixed
 
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
 - `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
-- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification 
+- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
+- parsing of duration and datetimes [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 - deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
 
 ### Removed

@@ -2,29 +2,34 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
+import decimal
+import io
 import re
-from decimal import Decimal
-from typing import NamedTuple, Union
+import sys
+import typing
+from typing import TYPE_CHECKING
 
-ISO8601_PERIOD_REGEX = re.compile(
-    r'^(?P<sign>[+-])?'
-    r'P(?!\b)'
-    r'(?P<years>[0-9]+([,.][0-9]+)?Y)?'
-    r'(?P<months>[0-9]+([,.][0-9]+)?M)?'
-    r'(?P<weeks>[0-9]+([,.][0-9]+)?W)?'
-    r'(?P<days>[0-9]+([,.][0-9]+)?D)?'
-    r'((?P<separator>T)(?P<hours>[0-9]+([,.][0-9]+)?H)?'
-    r'(?P<minutes>[0-9]+([,.][0-9]+)?M)?'
-    r'(?P<seconds>[0-9]+([,.][0-9]+)?S)?)?$',
+import isodate
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+
+DurationType = decimal.Decimal | int | float
+ParsedDurationType = float
+
+
+__SDPI_REGEX_DURATION__ = re.compile(r'^PT(\d+H)?(\d+M)?(\d+(.\d+)?S)?(?<!PT)$')
+
+pattern = re.compile(
+    r'^PT'
+    r'(?:(?P<hours>\d+)H)?'
+    r'(?:(?P<minutes>\d+)M)?'
+    r'(?:(?P<seconds>\d+)(?:\.(?P<microseconds>\d+))?S)?'
+    r'(?<!PT)$'
 )
-
-# regular expression to parse ISO duration strings.
-
-DurationType = Union[Decimal, int, float]
-ParsedDurationType = Union[int, float]
-
-
 def parse_duration(date_string: str) -> ParsedDurationType:
     """Parse an ISO 8601 durations into a float value containing seconds.
 
@@ -33,168 +38,254 @@ def parse_duration(date_string: str) -> ParsedDurationType:
       -PnnYnnMnnDTnnHnnMnnS  complete duration specification
     Years and month are not supported, values must be zero!
     """
-    if not isinstance(date_string, str):
-        msg = f'Expecting a string {date_string}'
-        raise TypeError(msg)
-    match = ISO8601_PERIOD_REGEX.match(date_string)
-    if not match:
-        msg = f'Unable to parse duration string {date_string}'
-        raise ValueError(msg)
-    groups = match.groupdict()
-    for key, val in groups.items():
-        if key not in ('separator', 'sign'):
-            if val is None:
-                groups[key] = '0n'
-            if key in ('years', 'months'):
-                groups[key] = Decimal(groups[key][:-1].replace(',', '.'))
-            else:
-                # these values are passed into a timedelta object,
-                # which works with floats.
-                groups[key] = float(groups[key][:-1].replace(',', '.'))
-    if groups['years'] != 0 or groups['months'] != 0:
-        msg = f'Unable to parse duration string {date_string} (Non zero year or month)'
-        raise ValueError(msg)
-    ret = datetime.timedelta(
-        days=groups['days'],
-        hours=groups['hours'],
-        minutes=groups['minutes'],
-        seconds=groups['seconds'],
-        weeks=groups['weeks'],
-    )
-    if groups['sign'] == '-':
-        ret = datetime.timedelta(0) - ret
-    return ret.total_seconds()
+    # TODO: remove isodate package and parse duration manually
+    duration = isodate.parse_duration(date_string)
+    if isinstance(duration, isodate.Duration):
+        msg = f'Duration {date_string} with years or months is not supported'
+        raise ValueError(msg)  # noqa: TRY004
+    return duration.total_seconds()
 
 
 def duration_string(seconds: DurationType) -> str:
-    """Create an ISO 8601 durations value containing seconds."""
-    sign = '-' if seconds < 0 else ''
-    fraction = abs(seconds - int(seconds))
-    seconds = abs(int(seconds))
-    minutes, sec = divmod(seconds, 60)
+    r"""Create an ISO 8601 durations value containing seconds.
+
+    Note: Smaller fractions than microseconds are truncated. The referenced ISO8601 from 1988 in XML 1.1 does not
+    restrict the precision, but in part 2 5.4 the minimal supported fraction-second duration is set to milliseconds
+    https://www.w3.org/TR/xmlschema11-2/#partial-implementation, so microseconds should be safe
+    Days are not allowed by sdpi and has to follow the regex ^PT(\d+H)?(\d+M)?(\d+(.\d+)?S)?(?<!PT)$.
+    """
+    if seconds < 0:
+        raise ValueError('Negative durations are not supported')
+    if seconds == 0:
+        return 'PT0S'
+    duration = io.StringIO()
+    duration.write('PT')
+    tdt = datetime.timedelta(seconds=float(seconds))
+    microseconds = (tdt.days * 24 * 60 * 60 + tdt.seconds) * 1e6 + tdt.microseconds
+    seconds, microseconds = divmod(microseconds, 1e6)
+    minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    if fraction == 0:
-        fraction_string = ''
-    else:
-        fraction_string = f'{fraction:.9f}'[1:]  # starting from dot char
-        while fraction_string[-1] == '0':
-            fraction_string = fraction_string[:-1]
-    if days == 0:
-        return f'{sign}PT{hours}H{minutes}M{sec}{fraction_string}S'
-    return f'{sign}P0Y0M{days}DT{hours}H{minutes}M{sec}{fraction_string}S'
+    if hours > 0:
+        duration.write(f'{int(hours)}H')
+    if minutes > 0:
+        duration.write(f'{int(minutes)}M')
+    if seconds > 0:
+        duration.write(f'{int(seconds)}')
+    if microseconds > 0:
+        if seconds == 0:
+            duration.write('0')
+        duration.write(f'.{str(int(microseconds)).rstrip("0")}S')
+    elif seconds > 0:
+        duration.write('S')
+    return duration.getvalue()
 
 
 ##### Date Time ######
-class GYearMonth(NamedTuple):  # noqa: D101
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from enum import Enum
+
+    class StrEnum(str, Enum):  # noqa: D101
+        def __str__(self):
+            return self.value
+
+
+class _RegexKeys(StrEnum):
+    """Regex group names for date time parsing."""
+
+    YEAR = 'year'
+    MONTH = 'month'
+    DAY = 'day'
+    HOUR = 'hour'
+    MINUTE = 'minute'
+    SECOND = 'second'
+    EOD = 'eod'  # end of day
+    TZ_INFO = 'tz_info'
+    TZ_SIGN = 'tz_sign'
+    TZ_HOUR = 'tz_hour'
+    TZ_MINUTE = 'tz_minute'
+
+
+# https://www.w3.org/TR/xmlschema11-2/#rf-lexicalMappings-datetime
+__YEAR_FRAG__ = rf'(?P<{_RegexKeys.YEAR}>-?(?:[1-9]\d\d\d+|0\d\d\d))'
+__MONTH_FRAG__ = rf'(?P<{_RegexKeys.MONTH}>0[1-9]|1[0-2])'
+__DAY_FRAG__ = rf'(?P<{_RegexKeys.DAY}>0[1-9]|[12]\d|3[01])'
+__HOUR_FRAG__ = rf'(?P<{_RegexKeys.HOUR}>[01]\d|2[0-3])'
+__MINUTE_FRAG__ = rf'(?P<{_RegexKeys.MINUTE}>[0-5]\d)'
+__SECOND_FRAG__ = rf'(?P<{_RegexKeys.SECOND}>[0-5]\d(\.\d+)?)'
+__END_OF_DAY_FRAG__ = rf'(?P<{_RegexKeys.EOD}>24\:00\:00(\.0+)?)'
+# allow >14:00 here but check it manually later
+__TIMEZONE_FRAG__ = (
+    rf'((?P<{_RegexKeys.TZ_INFO}>Z)|(?P<{_RegexKeys.TZ_SIGN}>[+-])'
+    rf'((?P<{_RegexKeys.TZ_HOUR}>[0]\d|1[0-4]):(?P<{_RegexKeys.TZ_MINUTE}>[0-5]\d)))'
+)
+
+DATETIME_PATTERN: typing.Final[re.Pattern[str]] = re.compile(
+    rf'^{__YEAR_FRAG__}'
+    rf'(?:-{__MONTH_FRAG__}'
+    rf'(?:-{__DAY_FRAG__}'
+    rf'(?:T(?:{__HOUR_FRAG__}:{__MINUTE_FRAG__}:{__SECOND_FRAG__}|{__END_OF_DAY_FRAG__}))?'
+    rf')?'
+    rf')?'
+    rf'{__TIMEZONE_FRAG__}?$',
+)
+
+MAX_MONTH: typing.Final[int] = 12
+MAX_DAY: typing.Final[int] = 31
+MAX_HOUR: typing.Final[int] = 23
+MAX_MINUTE: typing.Final[int] = 59
+MAX_SECOND: typing.Final[float] = 60.0  # due to floats, this max value is exclusive
+MAX_TZ_OFFSET_SECONDS: typing.Final[int] = 14 * 3600  # 14 hours
+
+
+@dataclasses.dataclass(frozen=True)
+class XsdDatetime:
+    """xsd:gYear, xsd:gYearMonth, xsd:date and xsd:dateTime."""
+
     year: int
-    month: int
+    month: int | None = None
+    day: int | None = None
+    hour: int | None = None
+    minute: int | None = None
+    second: float | None = None
+    end_of_day: bool = False
+    tz_info: datetime.tzinfo | None = None
+
+    def __validate_date(self):
+        if self.month is not None and not (1 <= self.month <= MAX_MONTH):
+            msg = f'{self.month} is not a valid month'
+            raise ValueError(msg)
+        if self.day is not None:
+            if not (1 <= self.day <= MAX_DAY):
+                msg = f'{self.day} is not a valid day'
+                raise ValueError(msg)
+            if self.month is None:
+                raise ValueError('day cannot be present without month')
+
+    def __validate_time(self):
+        if any(v is not None for v in (self.hour, self.minute, self.second)):
+            if self.day is None or self.hour is None or self.minute is None or self.second is None:
+                raise ValueError('hour, minute and second must all be set together with day')
+            if not (0 <= self.hour <= MAX_HOUR):
+                msg = f'{self.hour} is not a valid hour'
+                raise ValueError(msg)
+            if not (0 <= self.minute <= MAX_MINUTE):
+                msg = f'{self.minute} is not a valid minute'
+                raise ValueError(msg)
+            if not (0.0 <= self.second < MAX_SECOND):
+                msg = f'{self.second} is not a valid second'
+                raise ValueError(msg)
+
+    def __validate_eod(self):
+        if self.end_of_day:
+            if self.hour is not None or self.minute is not None or self.second is not None:
+                raise ValueError('end_of_day cannot be true if hour, minute or second is present')
+            if self.day is None:
+                raise ValueError('end_of_day cannot be true if day is not present')
+
+    def __validate_tz(self):
+        if self.tz_info is not None:
+            offset = self.tz_info.utcoffset(None)
+            if offset is None:
+                return
+            if not (-MAX_TZ_OFFSET_SECONDS <= offset.total_seconds() <= MAX_TZ_OFFSET_SECONDS):
+                msg = 'Timezone offset is greater than 14:00h'
+                raise ValueError(msg)
+
+    def __post_init__(self):
+        self.__validate_date()
+        self.__validate_time()
+        self.__validate_eod()
+        self.__validate_tz()
+
+    def __str__(self) -> str:
+        """Convert date time to str."""
+        parsed = io.StringIO()
+        sign = '-' if self.year < 0 else ''
+        parsed.write(f'{sign}{abs(self.year):04d}')  # ensure that the year is at least 4 digits (without the sign)
+        if self.month is not None:
+            parsed.write(f'-{self.month:02d}')
+        if self.day is not None:
+            parsed.write(f'-{self.day:02d}')
+        if self.end_of_day:
+            parsed.write('T24:00:00')
+        elif self.hour is not None and self.minute is not None and self.second is not None:
+            parsed.write(f'T{self.hour:02d}:{self.minute:02d}:')
+            # ensure that all decimal places are present (e.g. prevent scientific notation)
+            s = format(decimal.Decimal(repr(self.second)), 'f').rstrip('0').rstrip('.')
+            parsed.write(f'0{s}' if self.second < 10.0 else s)  # noqa: PLR2004
+
+        parsed.write(_tz_to_string(self.tz_info))
+        return parsed.getvalue()
 
 
-class GYear(NamedTuple):  # noqa: D101
-    year: int
+def _parse_integer(value: str) -> int | None:
+    return int(value) if value is not None else None
 
 
-# regular expression to parse ISO 8601 date / datetime strings.
-
-_TZ_REGEX_STR = '(?P<tz>Z|((?P<tz_sign>[+-])(?P<tz_hours>[0-9]{1,2}):(?P<tz_minutes>[0-9]{1,2})))?'
-_DATE_REGEX_STR = '(?P<year>[0-9]{4})-?(?P<month>1[0-2]|0[1-9])-?(?P<day>[0-9]{1,2})'
-_TIME_REGEX_STR = '(?P<hour>2[0-3]|[01][0-9]):?(?P<minute>[0-5][0-9]):(?P<second>[0-5][0-9]([.][0-9]+)?)'
-_DATETIME_REGEX = re.compile('^' + _DATE_REGEX_STR + '(T' + _TIME_REGEX_STR + _TZ_REGEX_STR + ')?')
-_DATETIME_REGEX_RELAXED = re.compile(
-    '^' + _DATE_REGEX_STR + '([T, ]' + _TIME_REGEX_STR + _TZ_REGEX_STR + ')?',
-)  # allows space between date and time
-_year_month_regex = re.compile('^(?P<year>[0-9]{4})(-(?P<month>1[0-2]|0[1-9]))?$')
-
-DateTypeUnion = Union[GYear, GYearMonth, datetime.date, datetime.datetime]
+def _parse_float(value: str) -> int | None:
+    return float(value) if value is not None else None
 
 
-def parse_date_time(date_time_str: str, strict: bool = True) -> DateTypeUnion | None:
+def _parse_tz(groups: Mapping[str, str]) -> datetime.timezone | None:
+    tz_info = groups.get(_RegexKeys.TZ_INFO)
+    if tz_info is not None:
+        return datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc  # support 3.10
+    tz_sign = groups.get(_RegexKeys.TZ_SIGN)
+    if tz_sign is None:
+        return None
+    tz_hour = groups[_RegexKeys.TZ_HOUR]
+    tz_minute = groups[_RegexKeys.TZ_MINUTE]
+    tz_hour = int(tz_hour)
+    tz_minute = int(tz_minute)
+    if tz_hour == 14 and tz_minute != 0:  # noqa: PLR2004
+        msg = 'Timezone hour is 14 but minute is not zero'
+        raise ValueError(msg)
+    offset = tz_hour * 60 + tz_minute
+    if tz_sign == '-':
+        offset *= -1
+    return datetime.timezone(datetime.timedelta(minutes=offset))
+
+
+def parse_date_time(date_time_str: str) -> XsdDatetime | None:
     """Parse a date time string.
 
-    String can be  xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear.
+    String can be xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear.
     """
-    d_t = _DATETIME_REGEX.match(date_time_str) if strict else _DATETIME_REGEX_RELAXED.match(date_time_str)
-    if d_t is not None:
-        groups = d_t.groupdict()
-        year, month, day = int(groups['year']), int(groups['month']), int(groups['day'])
-        # year is 0000 is correct xml but not applicable in python
-        # https://www.w3.org/TR/xmlschema11-2/#dateTime (biceps uses xml schema v1.1)
-        if year < datetime.MINYEAR or year > datetime.MAXYEAR:
-            msg = f'Year {year} is out of range for datetime object {[datetime.MINYEAR, datetime.MAXYEAR]}'
-            raise ValueError(msg)
-        if groups['hour'] is None:  # only a date, no time
-            return datetime.date(year, month, day)
-
-        tz_1st = groups['tz']
-        tz_info = None
-        if tz_1st is not None:
-            if tz_1st == 'Z':
-                tz_info = datetime.timezone.utc
-            elif tz_1st[0] in ('+', '-'):
-                tz_hours = int(groups['tz_hours'])
-                tz_minutes = int(groups['tz_minutes'])
-                offset = tz_hours * 60 + tz_minutes
-                if tz_1st[0] == '-':
-                    offset *= -1
-                tz_info = datetime.timezone(datetime.timedelta(minutes=offset), 'unknown')
-
-        hour = int(groups['hour'])
-        minute = int(groups.get('minute', '00'))
-        second = float(groups.get('second', '0.0'))
-        sec, micro_sec = int(second), int((second - int(second)) * 1000000)
-        return datetime.datetime(year, month, day, hour, minute, sec, micro_sec, tz_info)
-
-    d_t = _year_month_regex.match(date_time_str)
-    if d_t is not None:
-        groups = d_t.groupdict()
-        year, month = groups['year'], groups['month']
-        return GYear(int(year)) if month is None else GYearMonth(int(year), int(month))
-
-    return None
+    match = DATETIME_PATTERN.match(date_time_str)
+    if match is None:
+        return None
+    groups = match.groupdict()
+    year = int(groups['year'])
+    tz = _parse_tz(groups)
+    month = _parse_integer(groups.get(_RegexKeys.MONTH))
+    day = _parse_integer(groups.get(_RegexKeys.DAY))
+    hour = _parse_integer(groups.get(_RegexKeys.HOUR))
+    minute = _parse_integer(groups.get(_RegexKeys.MINUTE))
+    second = _parse_float(groups.get(_RegexKeys.SECOND))
+    return XsdDatetime(
+        year=year,
+        month=month,
+        day=day,
+        hour=hour,
+        minute=minute,
+        second=second,
+        end_of_day=groups.get(_RegexKeys.EOD) is not None,
+        tz_info=tz,
+    )
 
 
-def _mk_seconds_string(date_object: DateTypeUnion) -> str:
-    if date_object.microsecond > 0:
-        seconds = float(date_object.second) + float(date_object.microsecond) / 1e6
-        seconds_string = f'{seconds:06.03f}'
-        # remove trailing zeros
-        while seconds_string[-1] == '0':
-            seconds_string = seconds_string[:-1]
-    else:
-        seconds_string = f'{date_object.second:02d}'
-    return seconds_string
-
-
-def _mk_tz_string(date_object: datetime.datetime) -> str:
-    tz_string = ''
-    delta = date_object.utcoffset()
-    if delta is not None:
-        tz_seconds = delta.seconds + (3600 * 24) * delta.days
-        if tz_seconds == 0:
-            tz_string = 'Z'
-        if tz_seconds != 0:
-            minutes, _ = divmod(abs(tz_seconds), 60)
-            hours, minutes = divmod(minutes, 60)
-            sign = '+' if tz_seconds > 0 else '-'
-            tz_string = f'{sign}{hours:02d}:{minutes:02d}'
-    return tz_string
-
-
-def date_time_string(date_object: DateTypeUnion) -> str:
-    """Convert date time to str."""
-    if hasattr(date_object, 'hour'):  # datetime object
-        date_string = (
-            f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}T{date_object.hour:02d}:'
-            f'{date_object.minute:02d}:{_mk_seconds_string(date_object)}{_mk_tz_string(date_object)}'
-        )
-    elif hasattr(date_object, 'day'):  # date object
-        date_string = f'{date_object.year:4d}-{date_object.month:02d}-{date_object.day:02d}'
-    elif hasattr(date_object, 'month'):  # GYearMonth object
-        date_string = f'{date_object.year:4d}-{date_object.month:02d}'
-    elif hasattr(date_object, 'year'):  # GYear object
-        date_string = f'{date_object.year:4d}'
-    else:
-        msg = f'cannot convert {date_object.__class__.__name__} to ISO8601 datetime string'
-        raise ValueError(msg)
-    return date_string
+def _tz_to_string(tz: datetime.tzinfo | None) -> str:
+    if tz is None:
+        return ''
+    delta = tz.utcoffset(None)
+    if delta is None:
+        return ''
+    if delta == datetime.timedelta(0):
+        return 'Z'  # utc
+    tz_seconds = int(delta.total_seconds())
+    hours, remainder = divmod(abs(tz_seconds), 3600)
+    minutes = remainder // 60
+    sign = '+' if tz_seconds >= 0 else '-'
+    return f'{sign}{hours:02d}:{minutes:02d}'
