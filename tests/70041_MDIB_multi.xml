@@ -98,28 +98,6 @@
               <pm:ConceptDescription Lang="en-US">An Operation to associate the not-associated, pre-assoiciated or disassociated Patient of a System Context.</pm:ConceptDescription>
             </pm:Type>
           </pm:Operation>
-          <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="SVO.39.CL.mds0" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="CL.mds0" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
-            <ext:Extension>
-              <msg:Retrievability>
-                <msg:By Method="Get"/>
-                <msg:By Method="Ep"/>
-              </msg:Retrievability>
-            </ext:Extension>
-            <pm:Type Code="128505">
-              <pm:ConceptDescription Lang="en-US">An operation to Set the active reference source of a clock for time synchronization.</pm:ConceptDescription>
-            </pm:Type>
-          </pm:Operation>
-          <pm:Operation xsi:type="pm:SetStringOperationDescriptor" Handle="SVO.40.CL.mds0" DescriptorVersion="2" SafetyClassification="MedA" OperationTarget="CL.mds0" MaxTimeToFinish="PT00H00M02S" Retriggerable="false">
-            <ext:Extension>
-              <msg:Retrievability>
-                <msg:By Method="Get"/>
-                <msg:By Method="Ep"/>
-              </msg:Retrievability>
-            </ext:Extension>
-            <pm:Type Code="68632">
-              <pm:ConceptDescription Lang="en-US">An operation to set the time zone of a clock.</pm:ConceptDescription>
-            </pm:Type>
-          </pm:Operation>
         </pm:Sco>
         <pm:MetaData>
           <pm:Udi>
@@ -156,25 +134,6 @@
             </ext:Extension>
           </pm:LocationContext>
         </pm:SystemContext>
-        <pm:Clock Handle="CL.mds0" DescriptorVersion="2">
-          <ext:Extension>
-            <msg:Retrievability>
-              <msg:By Method="Get"/>
-              <msg:By Method="Ep"/>
-            </msg:Retrievability>
-          </ext:Extension>
-          <pm:TimeProtocol Code="532224">
-            <pm:ConceptDescription Lang="en-US">None</pm:ConceptDescription>
-          </pm:TimeProtocol>
-          <pm:TimeProtocol Code="532225">
-            <pm:ConceptDescription Lang="en-US">NTPv3</pm:ConceptDescription>
-          </pm:TimeProtocol>
-          <pm:TimeProtocol Code="532234">
-            <pm:ConceptDescription Lang="en-US">EBWW</pm:ConceptDescription>
-          </pm:TimeProtocol>
-        </pm:Clock>
-		
-		
         <pm:Vmd Handle="2.1.1" DescriptorVersion="2" SafetyClassification="MedA">
           <ext:Extension>
             <msg:Retrievability>

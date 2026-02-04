@@ -1465,11 +1465,11 @@ class TestClientSomeDevice(unittest.TestCase):
         mdib = ConsumerMdib(self.sdc_client)
         mdib.init_mdib()
 
-        self.assertEqual(104, len(mdib.descriptions.objects))
-        self.assertEqual(104, len(mdib.descriptions.handle))
+        self.assertEqual(102, len(mdib.descriptions.objects))
+        self.assertEqual(102, len(mdib.descriptions.handle))
         self.assertEqual(20, len(mdib.descriptions.parent_handle))
         self.assertEqual(18, len(mdib.descriptions.NODETYPE))
-        self.assertEqual(65, len(mdib.descriptions.coding))
+        self.assertEqual(64, len(mdib.descriptions.coding))
 
     def test_descriptor_lookup_condition_signaled(self):
         """Verify that condition signaled descriptor lookup works on client mdib."""
