@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pathlib
-import time
 import unittest
 import uuid
 from decimal import Decimal
@@ -12,9 +11,8 @@ from typing import TYPE_CHECKING
 from sdc11073 import network
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
-from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
-from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
+from sdc11073.mdib import ConsumerMdib, ProviderMdib
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.components import SdcProviderComponents
 from sdc11073.provider.operations import ExecuteResult
@@ -55,7 +53,7 @@ def create_generic_provider(
     mdib_path: str | os.PathLike[str],
     specific_components: SdcProviderComponents | None = None,
 ) -> SdcProvider:
-    my_mdib = EntityProviderMdib.from_mdib_file(str(mdib_path))
+    my_mdib = ProviderMdib.from_mdib_file(str(mdib_path))
     my_epr = uuid.uuid4().hex
     this_model = ThisModelType(
         manufacturer='Draeger',
@@ -323,7 +321,7 @@ class TestTutorial(unittest.TestCase):
         # The mdib collects all data and makes it easily available for the test
         # The MdibBase wraps data in "container" objects.
         # The basic idea is that every node that has a handle becomes directly accessible via its handle.
-        my_mdib = EntityConsumerMdib(my_consumer)
+        my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()  # my_mdib keeps itself now updated
 
         # now query some data
@@ -359,7 +357,7 @@ class TestTutorial(unittest.TestCase):
         my_consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         self.my_consumers.append(my_consumer)
         my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
-        my_mdib = EntityConsumerMdib(my_consumer)
+        my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
         # we want to set a patient.
@@ -376,9 +374,12 @@ class TestTutorial(unittest.TestCase):
 
         # make a proposed new patient context:
         context_service = my_consumer.context_service_client
-        proposed_patient = my_patient_context_entity.new_state()
-        # The new state has  as a placeholder the descriptor handle as handle
+
+        proposed_patient = my_mdib.xtra.mk_proposed_state(my_patient_context_entity.handle, copy_current_state=False)
+
+        # The new state has as a placeholder the descriptor handle as handle
         # => provider shall create a new state
+        proposed_patient.Handle = my_patient_context_entity.descriptor.Handle
         proposed_patient.Firstname = 'Jack'
         proposed_patient.Lastname = 'Miller'
         future = context_service.set_context_state(
@@ -386,8 +387,10 @@ class TestTutorial(unittest.TestCase):
             proposed_context_states=[proposed_patient],
         )
         result = future.result(timeout=5)
-        self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
+        self.assertEqual(msg_types.InvocationState.FINISHED, result.InvocationInfo.InvocationState)
+        self.assertFalse(len(my_patient_context_entity.states))
         my_patient_context_entity.update()
+        self.assertEqual(1, len(my_patient_context_entity.states))
         # provider should have replaced the placeholder handle with a new one.
         self.assertFalse(proposed_patient.Handle in my_patient_context_entity.states)
 
@@ -429,11 +432,9 @@ class TestTutorial(unittest.TestCase):
         my_consumer = self.service
         self.my_consumers.append(my_consumer)
         my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
-        my_mdib = EntityConsumerMdib(my_consumer)
+        my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
-        sco_handle = 'sco.mds0'
-        my_product_impl = my_generic_provider.product_lookup[sco_handle]
         # call activate operation:
         # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
@@ -441,30 +442,32 @@ class TestTutorial(unittest.TestCase):
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         self._logger.info('looking for operations with code %r', MY_CODE_1.coding)
         op_entity = operation_entities[0]
+
+        my_product_impl = my_generic_provider.product_lookup[op_entity.parent_handle]
+
         argument = msg_types.Argument()
         argument.ArgValue = 'foo'
         self._logger.info('calling operation %s, argument = %r', op_entity.handle, argument)
         future = my_consumer.set_service_client.activate(op_entity.handle, arguments=[argument])
-        result = future.result()
-        print(result)
-        self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)
+        result = future.result(5)
+        self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
+        self.assertEqual(1, my_product_impl.my_provider_1.operation1_called)
         args = my_product_impl.my_provider_1.operation1_args
         self.assertEqual(1, len(args))
         self.assertEqual(args[0].ArgValue, 'foo')
 
         # call set_string operation
-        sco_handle = 'sco.vmd1.mds0'
-        my_product_impl = my_generic_provider.product_lookup[sco_handle]
-
         self._logger.info('looking for operations with code %r', MY_CODE_2.coding)
         op_entities = my_mdib.entities.by_coding(MY_CODE_2.coding)
         my_op = op_entities[0]
+
+        my_product_impl = my_generic_provider.product_lookup[my_op.parent_handle]
+
         for value in ('foo', 'bar'):
             self._logger.info('calling operation %s, argument = %r', my_op.handle, value)
             future = my_consumer.set_service_client.set_string(my_op.handle, value)
-            result = future.result()
-            print(result)
-            time.sleep(1)
+            result = future.result(5)
+            self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
             op_target_entity = my_mdib.entities.by_handle(my_op.descriptor.OperationTarget)
             self.assertEqual(op_target_entity.state.MetricValue.Value, value)
@@ -478,8 +481,8 @@ class TestTutorial(unittest.TestCase):
         my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_entity.handle]
 
         future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal(42))
-        result = future.result()
-        print(result)
+        result = future.result(5)
+        self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
         ent = my_mdib.entities.by_handle(op_target_entity.handle)
         self.assertEqual(ent.state.MetricValue.Value, 42)
