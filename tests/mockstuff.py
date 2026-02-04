@@ -3,6 +3,7 @@
 It contains simplified replacements for WsDiscovery and Subscription on devices side.
 It also contains SdcProvider implementations that simplify the instantiation of a device.
 """
+
 from __future__ import annotations
 
 import logging
@@ -14,7 +15,6 @@ from urllib.parse import SplitResult
 
 from lxml import etree
 
-from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
@@ -75,10 +75,7 @@ class TestDevSubscription(BicepsSubscription):
     expires = 60
     notify_ref = 'a ref string'
 
-    def __init__(self,
-                 filter_: list[str],
-                 soap_client_pool: SoapClientPool,
-                 msg_factory: MessageFactory):
+    def __init__(self, filter_: list[str], soap_client_pool: SoapClientPool, msg_factory: MessageFactory):
         notify_ref_node = etree.Element(ns_hlp.WSE.tag('References'))
         ident_node = etree.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
         ident_node.text = self.notify_ref
@@ -91,29 +88,43 @@ class TestDevSubscription(BicepsSubscription):
         subscribe_request.Delivery.NotifyTo.Mode = self.mode
         max_subscription_duration = 42
         subscr_mgr = None
-        super().__init__(subscr_mgr, subscribe_request, accepted_encodings, base_urls, max_subscription_duration,
-                         soap_client_pool, msg_factory=msg_factory, log_prefix='test')
+        super().__init__(
+            subscr_mgr,
+            subscribe_request,
+            accepted_encodings,
+            base_urls,
+            max_subscription_duration,
+            soap_client_pool,
+            msg_factory=msg_factory,
+            log_prefix='test',
+        )
         self.reports = []
 
     def send_notification_report(self, body_node: LxmlElement, action: str):
         """Send notification to subscriber."""
-        info_block = HeaderInformationBlock(action=action,
-                                            addr_to=self.notify_to_address,
-                                            reference_parameters=self.notify_ref_params)
+        info_block = HeaderInformationBlock(
+            action=action,
+            addr_to=self.notify_to_address,
+            reference_parameters=self.notify_ref_params,
+        )
         message = self._mk_notification_message(info_block, body_node)
         self.reports.append(message)
 
     async def async_send_notification_report(self, body_node: LxmlElement, action: str):
         """Send notification to subscriber."""
-        info_block = HeaderInformationBlock(action=action,
-                                            addr_to=self.notify_to_address,
-                                            reference_parameters=self.notify_ref_params)
+        info_block = HeaderInformationBlock(
+            action=action,
+            addr_to=self.notify_to_address,
+            reference_parameters=self.notify_ref_params,
+        )
         message = self._mk_notification_message(info_block, body_node)
         self.reports.append(message)
 
-    async def async_send_notification_end_message(self,
-                                                  code: str = 'SourceShuttingDown',
-                                                  reason: str = 'Event source going off line.'):
+    async def async_send_notification_end_message(
+        self,
+        code: str = 'SourceShuttingDown',
+        reason: str = 'Event source going off line.',
+    ):
         """Do nothing.
 
         Implementation not needed for tests.
@@ -123,27 +134,29 @@ class TestDevSubscription(BicepsSubscription):
 class SomeDevice(SdcProvider):
     """A device used for unit tests. Some values are predefined."""
 
-    def __init__(self,  # noqa: PLR0913
-                 wsdiscovery: WsDiscoveryProtocol,
-                 mdib_xml_data: bytes,
-                 epr: str | uuid.UUID | None = None,
-                 validate: bool = True,
-                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
-                 max_subscription_duration: int = 15,
-                 log_prefix: str = '',
-                 default_components: SdcProviderComponents | None = None,
-                 specific_components: SdcProviderComponents | None = None,
-                 chunk_size: int = 0,
-                 alternative_hostname: str | None = None):
-        model = ThisModelType(manufacturer='Example Manufacturer',
-                              manufacturer_url='www.example-manufacturer.com',
-                              model_name='SomeDevice',
-                              model_number='1.0',
-                              model_url='www.example-manufacturer.com/whatever/you/want/model',
-                              presentation_url='www.example-manufacturer.com/whatever/you/want/presentation')
-        device = ThisDeviceType(friendly_name='Py SomeDevice',
-                                firmware_version='0.99',
-                                serial_number='12345')
+    def __init__(  # noqa: PLR0913
+        self,
+        wsdiscovery: WsDiscoveryProtocol,
+        mdib_xml_data: bytes,
+        epr: str | uuid.UUID | None = None,
+        validate: bool = True,
+        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+        max_subscription_duration: int = 15,
+        log_prefix: str = '',
+        default_components: SdcProviderComponents | None = None,
+        specific_components: SdcProviderComponents | None = None,
+        chunk_size: int = 0,
+        alternative_hostname: str | None = None,
+    ):
+        model = ThisModelType(
+            manufacturer='Example Manufacturer',
+            manufacturer_url='www.example-manufacturer.com',
+            model_name='SomeDevice',
+            model_number='1.0',
+            model_url='www.example-manufacturer.com/whatever/you/want/model',
+            presentation_url='www.example-manufacturer.com/whatever/you/want/presentation',
+        )
+        device = ThisDeviceType(friendly_name='Py SomeDevice', firmware_version='0.99', serial_number='12345')
 
         device_mdib_container = ProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
         device_mdib_container.instance_id = 1  # set the optional value
@@ -155,105 +168,51 @@ class SomeDevice(SdcProvider):
                 mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText(model.ModelName[0].text))
                 mds_descriptor.MetaData.SerialNumber.append('ABCD-1234')
                 mds_descriptor.MetaData.ModelNumber = '0.99'
-        super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
-                         ssl_context_container=ssl_context_container,
-                         max_subscription_duration=max_subscription_duration,
-                         log_prefix=log_prefix,
-                         default_components=default_components,
-                         specific_components=specific_components,
-                         chunk_size=chunk_size,
-                         alternative_hostname=alternative_hostname)
+        super().__init__(
+            wsdiscovery,
+            model,
+            device,
+            device_mdib_container,
+            epr,
+            validate,
+            ssl_context_container=ssl_context_container,
+            max_subscription_duration=max_subscription_duration,
+            log_prefix=log_prefix,
+            default_components=default_components,
+            specific_components=specific_components,
+            chunk_size=chunk_size,
+            alternative_hostname=alternative_hostname,
+        )
 
     @classmethod
-    def from_mdib_file(cls,  # noqa: PLR0913
-                       wsdiscovery: WsDiscoveryProtocol,
-                       epr: str | uuid.UUID | None,
-                       mdib_xml_path: str | pathlib.Path,
-                       validate: bool = True,
-                       ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
-                       max_subscription_duration: int = 15,
-                       log_prefix: str = '',
-                       default_components: SdcProviderComponents | None = None,
-                       specific_components: SdcProviderComponents | None = None,
-                       chunk_size: int = 0,
-                       alternative_hostname: str | None = None) -> SomeDevice:
+    def from_mdib_file(  # noqa: PLR0913
+        cls,
+        wsdiscovery: WsDiscoveryProtocol,
+        epr: str | uuid.UUID | None,
+        mdib_xml_path: str | pathlib.Path,
+        validate: bool = True,
+        ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
+        max_subscription_duration: int = 15,
+        log_prefix: str = '',
+        default_components: SdcProviderComponents | None = None,
+        specific_components: SdcProviderComponents | None = None,
+        chunk_size: int = 0,
+        alternative_hostname: str | None = None,
+    ) -> SomeDevice:
         """Construct class with path to a mdib file."""
         mdib_xml_path = pathlib.Path(mdib_xml_path)
         if not mdib_xml_path.is_absolute():
             mdib_xml_path = pathlib.Path(__file__).parent.joinpath(mdib_xml_path)
-        return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
-                   max_subscription_duration=max_subscription_duration,
-                   log_prefix=log_prefix,
-                   default_components=default_components, specific_components=specific_components,
-                   chunk_size=chunk_size,
-                   alternative_hostname=alternative_hostname)
-
-
-class SomeDeviceEntityMdib(SdcProvider):
-    """A device used for unit tests. Some values are predefined."""
-
-    def __init__(self,  # noqa: PLR0913
-                 wsdiscovery: WsDiscoveryProtocol,
-                 mdib_xml_data: bytes,
-                 epr: str | uuid.UUID | None = None,
-                 validate: bool = True,
-                 ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
-                 max_subscription_duration: int = 15,
-                 log_prefix: str = '',
-                 default_components: SdcProviderComponents | None = None,
-                 specific_components: SdcProviderComponents | None = None,
-                 chunk_size: int = 0,
-                 alternative_hostname: str | None = None):
-        model = ThisModelType(manufacturer='Example Manufacturer',
-                              manufacturer_url='www.example-manufacturer.com',
-                              model_name='SomeDevice',
-                              model_number='1.0',
-                              model_url='www.example-manufacturer.com/whatever/you/want/model',
-                              presentation_url='www.example-manufacturer.com/whatever/you/want/presentation')
-        device = ThisDeviceType(friendly_name='Py SomeDevice',
-                                firmware_version='0.99',
-                                serial_number='12345')
-
-        device_mdib_container = EntityProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
-        device_mdib_container.instance_id = 1  # set the optional value
-        # set Metadata
-        mds_entities = device_mdib_container.entities.by_parent_handle(None)
-        for mds_entity in mds_entities:
-            mds_descriptor = mds_entity.descriptor
-            if mds_descriptor.MetaData is not None:
-                mds_descriptor.MetaData.Manufacturer.append(pm_types.LocalizedText('Example Manufacturer'))
-                mds_descriptor.MetaData.ModelName.append(pm_types.LocalizedText(model.ModelName[0].text))
-                mds_descriptor.MetaData.SerialNumber.append('ABCD-1234')
-                mds_descriptor.MetaData.ModelNumber = '0.99'
-        super().__init__(wsdiscovery, model, device, device_mdib_container, epr, validate,
-                         ssl_context_container=ssl_context_container,
-                         max_subscription_duration=max_subscription_duration,
-                         log_prefix=log_prefix,
-                         default_components=default_components,
-                         specific_components=specific_components,
-                         chunk_size=chunk_size,
-                         alternative_hostname=alternative_hostname)
-
-    @classmethod
-    def from_mdib_file(cls,  # noqa: PLR0913
-                       wsdiscovery: WsDiscoveryProtocol,
-                       epr: str | uuid.UUID | None,
-                       mdib_xml_path: str | pathlib.Path,
-                       validate: bool = True,
-                       ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
-                       max_subscription_duration: int = 15,
-                       log_prefix: str = '',
-                       default_components: SdcProviderComponents | None = None,
-                       specific_components: SdcProviderComponents | None = None,
-                       chunk_size: int = 0,
-                       alternative_hostname: str | None = None) -> SomeDeviceEntityMdib:
-        """Construct class with path to a mdib file."""
-        mdib_xml_path = pathlib.Path(mdib_xml_path)
-        if not mdib_xml_path.is_absolute():
-            mdib_xml_path = pathlib.Path(__file__).parent.joinpath(mdib_xml_path)
-        return cls(wsdiscovery, mdib_xml_path.read_bytes(), epr, validate, ssl_context_container,
-                   max_subscription_duration=max_subscription_duration,
-                   log_prefix=log_prefix,
-                   default_components=default_components, specific_components=specific_components,
-                   chunk_size=chunk_size,
-                   alternative_hostname=alternative_hostname)
+        return cls(
+            wsdiscovery,
+            mdib_xml_path.read_bytes(),
+            epr,
+            validate,
+            ssl_context_container,
+            max_subscription_duration=max_subscription_duration,
+            log_prefix=log_prefix,
+            default_components=default_components,
+            specific_components=specific_components,
+            chunk_size=chunk_size,
+            alternative_hostname=alternative_hostname,
+        )
