@@ -504,7 +504,7 @@ class SdcConsumer:
         fixed_renew_interval: float | None = None,
         shared_http_server: Any | None = None,
         check_get_service: bool = True,
-        http_server_timeout: float = 60.0,
+        http_server_start_timeout: float = 60.0,
     ) -> None:
         """Start background threads, read metadata from device, instantiate detected port type clients and subscribe.
 
@@ -515,7 +515,7 @@ class SdcConsumer:
         :param shared_http_server: if provided, use this http server, else client creates its own.
         :param check_get_service: if True (default) it checks that a GetService is detected,
                which is the minimal requirement for a sdc provider.
-        :param http_server_timeout: timeout to start the internal http server, if created.
+        :param http_server_start_timeout: timeout to start the internal http server, if created.
         :return: None
         """
         self._not_subscribed_actions_param = not_subscribed_actions
@@ -544,7 +544,7 @@ class SdcConsumer:
             msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
             raise RuntimeError(msg)
 
-        self._start_event_sink(shared_http_server, http_server_timeout)
+        self._start_event_sink(shared_http_server, http_server_start_timeout)
 
         # start subscription manager
         subscription_manager_class = self._components.subscription_manager_class
@@ -762,7 +762,7 @@ class SdcConsumer:
                 return cls(self, soap_client, hosted, port_type)
         return None
 
-    def _start_event_sink(self, shared_http_server: Any, http_server_timeout: float = 60.0):
+    def _start_event_sink(self, shared_http_server: Any, http_server_start_timeout: float = 60.0):
         if shared_http_server is None:
             self._is_internal_http_server = True
             ssl_context_container = self._ssl_context_container if self.is_ssl_connection else None
@@ -775,8 +775,8 @@ class SdcConsumer:
             )
             self._logger.info('Starting http server ...')
             self._http_server.start()
-            if not self._http_server.started_evt.wait(timeout=http_server_timeout):
-                msg = 'Http server could not be started within {http_server_timeout} seconds.'
+            if not self._http_server.started_evt.wait(timeout=http_server_start_timeout):
+                msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
                 raise RuntimeError(msg)
             # it sometimes still happens that http server is not completely started without waiting.
             # find better solution, see issue #320

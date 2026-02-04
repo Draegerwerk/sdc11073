@@ -426,14 +426,14 @@ class SdcProvider:
         start_rtsample_loop: bool = True,
         periodic_reports_interval: float | None = None,
         shared_http_server=None,  # noqa: ANN001
-        http_server_timeout: float = 60.0,
+        http_server_start_timeout: float = 60.0,
     ):
         """Start all background threads.
 
         :param start_rtsample_loop: flag
         :param periodic_reports_interval: if provided, a value in seconds
         :param shared_http_server: if provided, use this http server, else device creates its own.
-        :param http_server_timeout: time to wait for http server to start
+        :param http_server_start_timeout: time to wait for http server to start
         :return:
         """
         if periodic_reports_interval or self._mdib.retrievability_periodic:
@@ -449,13 +449,13 @@ class SdcProvider:
             self._periodic_reports_handler = PeriodicReportsNullHandler()
         self._start_services(
             shared_http_server=shared_http_server,
-            http_server_timeout=http_server_timeout,
+            http_server_start_timeout=http_server_start_timeout,
         )
 
         if start_rtsample_loop:
             self.start_rt_sample_loop()
 
-    def _start_services(self, shared_http_server=None, http_server_timeout: float = 60.0):  # noqa: ANN001
+    def _start_services(self, shared_http_server=None, http_server_start_timeout: float = 60.0):  # noqa: ANN001
         """Start the services."""
         self._logger.info('starting services, addr = %r', self._wsdiscovery.get_active_addresses())
         for sco in self._sco_operations_registries.values():
@@ -477,8 +477,8 @@ class SdcProvider:
 
             # first start http server, the services need to know the ip port number
             self._http_server.start()
-            if not self._http_server.started_evt.wait(timeout=http_server_timeout):
-                msg = f'Http server could not be started within {http_server_timeout} seconds.'
+            if not self._http_server.started_evt.wait(timeout=http_server_start_timeout):
+                msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
                 raise RuntimeError(msg)
 
         host_ips = self._wsdiscovery.get_active_addresses()

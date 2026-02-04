@@ -94,14 +94,14 @@ class DiscoProxyClient:
         self._my_server_port = None
         self.subscribe_response = None
 
-    def start(self, subscribe: bool = True, http_server_timeout: float = 60.0):
+    def start(self, subscribe: bool = True, http_server_start_timeout: float = 60.0):
         """Subscribe."""
         # first start http server, the services need to know the ip port number
         self._logger.info('Starting http server ...')
         self._http_server.start()
 
-        if not self._http_server.started_evt.wait(timeout=http_server_timeout):
-            msg = f'Http server could not be started within {http_server_timeout} seconds.'
+        if not self._http_server.started_evt.wait(timeout=http_server_start_timeout):
+            msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
             raise RuntimeError(msg)
         self._logger.info('Http server started. Serving EventSink on %s', self._http_server.base_url)
         self._my_server_port = self._http_server.my_port
@@ -351,10 +351,10 @@ if __name__ == '__main__':
         for the_service in the_services:
             log.info('found service: %r', the_service)
 
-    def main(http_server_timeout: float = 60.0):
+    def main(http_server_start_timeout: float = 60.0):
         """Execute disco proxy.
 
-        param http_server_timeout: timeout to start the internal http server
+        param http_server_start_timeout: timeout to start the internal http server
         """
         # example code how to use the DiscoProxyClient.
         # It assumes a discovery proxy is reachable on disco_ip address.
@@ -383,7 +383,7 @@ if __name__ == '__main__':
         )
 
         proxy = DiscoProxyClient(disco_ip, my_ip, ssl_contexts)
-        proxy.start(http_server_timeout=http_server_timeout)
+        proxy.start(http_server_start_timeout=http_server_start_timeout)
         try:
             services = proxy.search_services()
             log_services(logger, services)

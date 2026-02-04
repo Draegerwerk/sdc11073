@@ -17,5 +17,5 @@ class TestConsumerWithFailure(unittest.TestCase):
             sdc_consumer._network_adapter.ip = '123.456.789.000'
 
             with self.assertRaises(RuntimeError) as context:
-                sdc_consumer._start_event_sink(shared_http_server=None, http_server_timeout=0)
+                sdc_consumer._start_event_sink(shared_http_server=None, http_server_start_timeout=0)
             self.assertIn('Http server could not be started', str(context.exception))

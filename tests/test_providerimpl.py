@@ -22,7 +22,7 @@ class TestProviderHttpServerTimeout(unittest.TestCase):
             protocol_definition=SdcV1Definitions,
         )
 
-    def test_http_server_timeout_small_value(self):
+    def test_not_started_http_server_exception(self):
         """Test that a non-started HTTP server causes a RuntimeError."""
         provider = SdcProvider(
             ws_discovery=mock.MagicMock(),
