@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING
 from sdc11073 import network
 from sdc11073.consumer import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
-from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
-from sdc11073.entity_mdib.entity_providermdib import EntityProviderMdib
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
+from sdc11073.mdib import ConsumerMdib, ProviderMdib
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.components import SdcProviderComponents
 from sdc11073.provider.operations import ExecuteResult
@@ -55,7 +54,7 @@ def create_generic_provider(
     mdib_path: str | os.PathLike[str],
     specific_components: SdcProviderComponents | None = None,
 ) -> SdcProvider:
-    my_mdib = EntityProviderMdib.from_mdib_file(str(mdib_path))
+    my_mdib = ProviderMdib.from_mdib_file(str(mdib_path))
     my_epr = uuid.uuid4().hex
     this_model = ThisModelType(
         manufacturer='Draeger',
@@ -323,7 +322,7 @@ class TestTutorial(unittest.TestCase):
         # The mdib collects all data and makes it easily available for the test
         # The MdibBase wraps data in "container" objects.
         # The basic idea is that every node that has a handle becomes directly accessible via its handle.
-        my_mdib = EntityConsumerMdib(my_consumer)
+        my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()  # my_mdib keeps itself now updated
 
         # now query some data
@@ -359,7 +358,7 @@ class TestTutorial(unittest.TestCase):
         my_consumer = SdcConsumer.from_wsd_service(services[0], ssl_context_container=None)
         self.my_consumers.append(my_consumer)
         my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
-        my_mdib = EntityConsumerMdib(my_consumer)
+        my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
         # we want to set a patient.
@@ -376,9 +375,12 @@ class TestTutorial(unittest.TestCase):
 
         # make a proposed new patient context:
         context_service = my_consumer.context_service_client
-        proposed_patient = my_patient_context_entity.new_state()
-        # The new state has  as a placeholder the descriptor handle as handle
+
+        proposed_patient = my_mdib.xtra.mk_proposed_state(my_patient_context_entity.handle, copy_current_state=False)
+
+        # The new state has as a placeholder the descriptor handle as handle
         # => provider shall create a new state
+        proposed_patient.Handle = my_patient_context_entity.descriptor.Handle
         proposed_patient.Firstname = 'Jack'
         proposed_patient.Lastname = 'Miller'
         future = context_service.set_context_state(
@@ -386,8 +388,10 @@ class TestTutorial(unittest.TestCase):
             proposed_context_states=[proposed_patient],
         )
         result = future.result(timeout=5)
-        self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
+        self.assertEqual(msg_types.InvocationState.FINISHED, result.InvocationInfo.InvocationState)
+        self.assertFalse(len(my_patient_context_entity.states))
         my_patient_context_entity.update()
+        self.assertEqual(1, len(my_patient_context_entity.states))
         # provider should have replaced the placeholder handle with a new one.
         self.assertFalse(proposed_patient.Handle in my_patient_context_entity.states)
 
@@ -429,7 +433,7 @@ class TestTutorial(unittest.TestCase):
         my_consumer = self.service
         self.my_consumers.append(my_consumer)
         my_consumer.start_all(not_subscribed_actions=periodic_actions_and_system_error_report)
-        my_mdib = EntityConsumerMdib(my_consumer)
+        my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
         sco_handle = 'sco.mds0'
