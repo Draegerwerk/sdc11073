@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pathlib
-import time
 import unittest
 import uuid
 from decimal import Decimal
@@ -436,8 +435,6 @@ class TestTutorial(unittest.TestCase):
         my_mdib = ConsumerMdib(my_consumer)
         my_mdib.init_mdib()
 
-        sco_handle = 'sco.mds0'
-        my_product_impl = my_generic_provider.product_lookup[sco_handle]
         # call activate operation:
         # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
@@ -445,30 +442,32 @@ class TestTutorial(unittest.TestCase):
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
         self._logger.info('looking for operations with code %r', MY_CODE_1.coding)
         op_entity = operation_entities[0]
+
+        my_product_impl = my_generic_provider.product_lookup[op_entity.parent_handle]
+
         argument = msg_types.Argument()
         argument.ArgValue = 'foo'
         self._logger.info('calling operation %s, argument = %r', op_entity.handle, argument)
         future = my_consumer.set_service_client.activate(op_entity.handle, arguments=[argument])
-        result = future.result()
-        print(result)
-        self.assertEqual(my_product_impl.my_provider_1.operation1_called, 1)
+        result = future.result(5)
+        self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
+        self.assertEqual(1, my_product_impl.my_provider_1.operation1_called)
         args = my_product_impl.my_provider_1.operation1_args
         self.assertEqual(1, len(args))
         self.assertEqual(args[0].ArgValue, 'foo')
 
         # call set_string operation
-        sco_handle = 'sco.vmd1.mds0'
-        my_product_impl = my_generic_provider.product_lookup[sco_handle]
-
         self._logger.info('looking for operations with code %r', MY_CODE_2.coding)
         op_entities = my_mdib.entities.by_coding(MY_CODE_2.coding)
         my_op = op_entities[0]
+
+        my_product_impl = my_generic_provider.product_lookup[my_op.parent_handle]
+
         for value in ('foo', 'bar'):
             self._logger.info('calling operation %s, argument = %r', my_op.handle, value)
             future = my_consumer.set_service_client.set_string(my_op.handle, value)
-            result = future.result()
-            print(result)
-            time.sleep(1)
+            result = future.result(5)
+            self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
             self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
             op_target_entity = my_mdib.entities.by_handle(my_op.descriptor.OperationTarget)
             self.assertEqual(op_target_entity.state.MetricValue.Value, value)
@@ -482,8 +481,8 @@ class TestTutorial(unittest.TestCase):
         my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_entity.handle]
 
         future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal(42))
-        result = future.result()
-        print(result)
+        result = future.result(5)
+        self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
         self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
         ent = my_mdib.entities.by_handle(op_target_entity.handle)
         self.assertEqual(ent.state.MetricValue.Value, 42)
