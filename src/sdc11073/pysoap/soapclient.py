@@ -1,3 +1,5 @@
+"""SOAP Client implementation."""
+
 from __future__ import annotations
 
 import logging
@@ -70,24 +72,27 @@ class SoapClientProtocol(Protocol):
 
     sock_name: tuple[str, int] | None
 
-    def __init__(self,
-                 netloc: str,
-                 socket_timeout: int | float,
-                 logger: LoggerAdapter,
-                 ssl_context: SSLContext | None,
-                 sdc_definitions: type[BaseDefinitions],
-                 msg_reader: MessageReader,
-                 supported_encodings: Iterable[str] | str = None,
-                 request_encodings: Iterable[str] | str = None,
-                 chunk_size: int = 0):
-        ...
+    def __init__(  # noqa: PLR0913
+        self,
+        netloc: str,
+        socket_timeout: float,
+        logger: LoggerAdapter,
+        ssl_context: SSLContext | None,
+        sdc_definitions: type[BaseDefinitions],
+        msg_reader: MessageReader,
+        supported_encodings: Iterable[str] | None = None,
+        request_encodings: Iterable[str] | None = None,
+        chunk_size: int = 0,
+    ): ...
 
-    def post_message_to(self, hosted_service_path: str,
-                        message: CreatedMessage,
-                        msg: str = '',
-                        request_manipulator: RequestManipulatorProtocol | None = None,
-                        validate: bool = True,
-                        ) -> ReceivedMessage | None:
+    def post_message_to(
+        self,
+        hosted_service_path: str,
+        message: CreatedMessage,
+        msg: str = '',
+        request_manipulator: RequestManipulatorProtocol | None = None,
+        validate: bool = True,
+    ) -> ReceivedMessage | None:
         """Send the message and return None if the response is empty else the received response."""
         ...
 
@@ -110,22 +115,24 @@ class SoapClientProtocol(Protocol):
 
 
 class SoapClient:
-    """SOAP Client wraps a http connection. It can send / receive SoapEnvelopes."""
+    """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
 
     _used_soap_clients = 0
 
     roundtrip_time = observableproperties.ObservableProperty()
 
-    def __init__(self,
-                 netloc: str,
-                 socket_timeout: int | float,
-                 logger: LoggerAdapter,
-                 ssl_context: SSLContext | None,
-                 sdc_definitions: type[BaseDefinitions],
-                 msg_reader: MessageReader,
-                 supported_encodings: Iterable[str] | str = None,
-                 request_encodings: Iterable[str] | str = None,
-                 chunk_size: int = 0):
+    def __init__(  # noqa: PLR0913
+        self,
+        netloc: str,
+        socket_timeout: float,
+        logger: LoggerAdapter,
+        ssl_context: SSLContext | None,
+        sdc_definitions: type[BaseDefinitions],
+        msg_reader: MessageReader,
+        supported_encodings: Iterable[str] | None = None,
+        request_encodings: Iterable[str] | None = None,
+        chunk_size: int = 0,
+    ):
         """Connect to one url.
 
         :param netloc: the location of the service (domain name:port) ###url of the service
@@ -152,8 +159,9 @@ class SoapClient:
         self.__class__._used_soap_clients += 1  # noqa: SLF001
         self._client_number = self.__class__._used_soap_clients  # noqa: SLF001
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
-        self.supported_encodings = supported_encodings if supported_encodings is not None \
-            else CompressionHandler.available_encodings
+        self.supported_encodings = (
+            supported_encodings if supported_encodings is not None else CompressionHandler.available_encodings
+        )
         # request_encodings contains the compression algorithms that the other side accepts ( set at runtime)
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
@@ -190,8 +198,12 @@ class SoapClient:
         self._http_connection = self._mk_http_connection()
         self._http_connection.connect()  # connect now so that we have own address and port for logging
         self.sock_name = self._http_connection.sock.getsockname()
-        self._log.info('soap client No. {} uses connection={}:{}',
-                       self._client_number, self.sock_name[0], self.sock_name[1])
+        self._log.info(
+            'soap client No. {} uses connection={}:{}',
+            self._client_number,
+            self.sock_name[0],
+            self.sock_name[1],
+        )
 
     def close(self):
         """Close connection."""
@@ -210,17 +222,18 @@ class SoapClient:
         return self._http_connection is None or self._http_connection.sock is None
 
     @staticmethod
-    def _prepare_message(created_message: CreatedMessage,
-                         request_manipulator: RequestManipulatorProtocol | None,
-                         validate: bool) -> bytes:
+    def _prepare_message(
+        created_message: CreatedMessage,
+        request_manipulator: RequestManipulatorProtocol | None,
+        validate: bool,
+    ) -> bytes:
         if hasattr(request_manipulator, 'manipulate_soapenvelope'):
             tmp = request_manipulator.manipulate_soapenvelope(created_message.p_msg)
             if tmp:
                 created_message.p_msg = tmp
                 # in this case do not validate , because the manipulator might intentionally have created invalid xml.
                 validate = False
-        xml_request = created_message.serialize(request_manipulator=request_manipulator,
-                                                validate=validate)
+        xml_request = created_message.serialize(request_manipulator=request_manipulator, validate=validate)
 
         if hasattr(request_manipulator, 'manipulate_string'):
             tmp = request_manipulator.manipulate_string(xml_request)
@@ -228,12 +241,14 @@ class SoapClient:
                 xml_request = tmp
         return xml_request
 
-    def post_message_to(self, path: str,
-                        created_message: CreatedMessage,
-                        msg: str = '',
-                        request_manipulator: RequestManipulatorProtocol | None = None,
-                        validate: bool = True,
-                        ) -> ReceivedMessage | None:
+    def post_message_to(
+        self,
+        path: str,
+        created_message: CreatedMessage,
+        msg: str = '',
+        request_manipulator: RequestManipulatorProtocol | None = None,
+        validate: bool = True,
+    ) -> ReceivedMessage | None:
         """Post created message to netloc/path.
 
         :param path: url path component
@@ -263,7 +278,7 @@ class SoapClient:
             raise HTTPReturnCodeError(http_response.status, http_response.reason, soap_fault)
         return message_data
 
-    def _send_soap_request(self, path: str, xml: bytes, log_msg: str) -> tuple[HTTPResponse, bytes]:
+    def _send_soap_request(self, path: str, xml: bytes, log_msg: str) -> tuple[HTTPResponse, bytes]:  # noqa: PLR0915, PLR0912, C901
         """Send SOAP request."""
         logging.getLogger(commlog.SOAP_REQUEST_OUT).debug(xml, extra={'http_method': 'POST'})
         self._log.debug("{}:POST to netloc='{}' path='{}'", log_msg, self._netloc, path)
@@ -285,7 +300,7 @@ class SoapClient:
                     break
         # split message into chunks?
         if self._chunk_size > 0:
-            headers['transfer-encoding'] = "chunked"
+            headers['transfer-encoding'] = 'chunked'
             xml = mk_chunks(xml, self._chunk_size)
         else:
             headers['Content-Length'] = str(len(xml))
@@ -294,22 +309,32 @@ class SoapClient:
         try:
             self._http_connection.request('POST', path, body=xml, headers=headers)
         except HTTPException as ex:
-            self._log.warn("{}: could not send request, http exception = {!r}", log_msg, ex)
+            self._log.warn('{}: could not send request, http exception = {!r}', log_msg, ex)
             self._close_without_lock()
             self._has_connection_error = True
             raise NotConnected from ex
         except OSError as ex:
             if ex.errno in (10053, 10054):
-                self._log.warn("{}: could not send request to {}, OSError={!r}", log_msg, self.netloc, ex)
+                self._log.warn('{}: could not send request to {}, OSError={!r}', log_msg, self.netloc, ex)
             else:
-                self._log.warn("{}: could not send request to {}, OSError={}", log_msg, self.netloc,
-                               traceback.format_exc())
+                self._log.warn(
+                    '{}: could not send request to {}, OSError={}',
+                    log_msg,
+                    self.netloc,
+                    traceback.format_exc(),
+                )
             self._has_connection_error = True
             self._close_without_lock()
             raise NotConnected from ex
-        except Exception as ex:  # noqa: BLE001
-            self._log.warn("{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}", log_msg,
-                           self._netloc, path, ex, traceback.format_exc())
+        except Exception as ex:
+            self._log.warn(
+                "{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}",
+                log_msg,
+                self._netloc,
+                path,
+                ex,
+                traceback.format_exc(),
+            )
             self._has_connection_error = True
             self._close_without_lock()
             raise NotConnected from ex
@@ -318,22 +343,33 @@ class SoapClient:
         try:
             response = self._http_connection.getresponse()
         except HTTPException as ex:
-            self._log.warn("{}: could not receive response, http exception = {!r} ", log_msg, ex)
+            self._log.warn('{}: could not receive response, http exception = {!r} ', log_msg, ex)
             self._has_connection_error = True
             self._close_without_lock()
             raise NotConnected from ex
         except OSError as ex:
             if ex.errno in (10053, 10054):
-                self._log.warn("{}: could not receive response, OSError={!r}", log_msg, ex)
+                self._log.warn('{}: could not receive response, OSError={!r}', log_msg, ex)
             else:
-                self._log.warn("{}: could not receive response, OSError={!r} ({!r})\n{}", log_msg, ex.errno,
-                               ex, traceback.format_exc())
+                self._log.warn(
+                    '{}: could not receive response, OSError={!r} ({!r})\n{}',
+                    log_msg,
+                    ex.errno,
+                    ex,
+                    traceback.format_exc(),
+                )
             self._has_connection_error = True
             self._close_without_lock()
             raise NotConnected from ex
-        except Exception as ex:  # noqa: BLE001
-            self._log.warn("{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
-                           log_msg, self._netloc, path, ex, traceback.format_exc())
+        except Exception as ex:
+            self._log.warn(
+                "{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
+                log_msg,
+                self._netloc,
+                path,
+                ex,
+                traceback.format_exc(),
+            )
             self._has_connection_error = True
             self._close_without_lock()
             raise NotConnected from ex
@@ -342,8 +378,13 @@ class SoapClient:
 
         if response.status >= 300:  # noqa: PLR2004
             self._log.error(
-                "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'", log_msg,
-                self._netloc, path, response.status, content.decode('utf-8'))
+                "{}: POST to netloc='{}' path='{}': could not send request, HTTP response={}\ncontent='{}'",
+                log_msg,
+                self._netloc,
+                path,
+                response.status,
+                content.decode('utf-8'),
+            )
             try:
                 tmp = self._msg_reader.read_received_message(content)
             except etree.XMLSyntaxError as ex:
@@ -377,7 +418,7 @@ class SoapClient:
 
         if not url.startswith('/'):
             url = '/' + url
-        self._log.debug("{} Get {}/{}", msg, self._netloc, url)
+        self._log.debug('{} Get {}/{}', msg, self._netloc, url)
         with self._lock:
             self._http_connection.request('GET', url, headers=self._get_headers)
             response = self._http_connection.getresponse()
@@ -388,7 +429,7 @@ class SoapClient:
                 if enc in self.supported_encodings:
                     content = CompressionHandler.decompress_payload(enc, _content)
                 else:
-                    self._log.warn("{}: unsupported compression ", headers['content-encoding'])
+                    self._log.warn('{}: unsupported compression ', headers['content-encoding'])
                     raise UnknownTransferEncoding
             else:
                 content = _content
