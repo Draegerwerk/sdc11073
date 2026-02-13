@@ -9,6 +9,7 @@ from unittest import mock
 
 from lxml import etree
 from src.sdc11073.xml_types.xml_structure import ContainerProperty, NodeTextQNameListProperty
+from tutorial.codedvaluecomparator import _coded_value_comparator
 
 from sdc11073 import xml_utils
 from sdc11073.mdib.statecontainers import AllowedValuesType
@@ -416,8 +417,10 @@ class TestContainerProperties(unittest.TestCase):
 
     def test_sub_element_property(self):
         dummy = DummySubElement()
-        self.assertEqual(dummy.sub_elem_mand, CodedValue('foo'))
-        self.assertEqual(DummySubElement.sub_elem_mand.get_actual_value(dummy), CodedValue('foo'))
+        self.assertTrue(_coded_value_comparator(dummy.sub_elem_mand, CodedValue('foo')))
+        self.assertTrue(
+            _coded_value_comparator(DummySubElement.sub_elem_mand.get_actual_value(dummy), CodedValue('foo')),
+        )
 
         self.assertEqual(dummy.sub_elem_opt, None)
         self.assertEqual(DummySubElement.sub_elem_opt.get_actual_value(dummy), None)
@@ -433,8 +436,10 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(1, len(node[0].attrib))
 
         dummy.sub_elem_opt = CodedValue('foo', 'bar')
-        self.assertEqual(dummy.sub_elem_opt, CodedValue('foo', 'bar'))
-        self.assertEqual(DummySubElement.sub_elem_opt.get_actual_value(dummy), CodedValue('foo', 'bar'))
+        self.assertTrue(_coded_value_comparator(dummy.sub_elem_opt, CodedValue('foo', 'bar')))
+        self.assertTrue(
+            _coded_value_comparator(DummySubElement.sub_elem_opt.get_actual_value(dummy), CodedValue('foo', 'bar')),
+        )
         node = dummy.mk_node()
         self.assertEqual(2, len(node))
         self.assertEqual(node[0].text, None)

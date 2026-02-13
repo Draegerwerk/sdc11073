@@ -57,7 +57,11 @@ class TestSubscriptionsManager(SubscriptionsManagerBase):
 
 def _mk_received(subscribe_msg: bytes, msg_reader: MessageReader) -> RequestData:
     rd = RequestData(
-        {}, '/uuid', 'peer', subscribe_msg, msg_reader.read_received_message(subscribe_msg, validate=False),
+        {},
+        '/uuid',
+        'peer',
+        subscribe_msg,
+        msg_reader.read_received_message(subscribe_msg, validate=False),
     )
     # simulate provider dispatcher consuming the first path segment (uuid)
     rd.consume_current_path_element()
@@ -180,7 +184,7 @@ def test_send_notification_report_error_handling():
         ConnectionRefusedError('x'),
         HTTPReturnCodeError(500, 'err', None),
         http.client.NotConnected(),
-        socket.timeout(),
+        socket.timeout(),  # noqa: UP041
     ):
         mgr._send_notification_report(DummySub(exc), etree.Element('n'), 'act')
 

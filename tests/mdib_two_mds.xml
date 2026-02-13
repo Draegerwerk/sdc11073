@@ -4,12 +4,12 @@ MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" In
 	<ns3:Mdib MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" InstanceId="0">
 		<MdDescription DescriptionVersion="1">
 			<Mds Handle="mds0" DescriptorVersion="0" SafetyClassification="MedA">
-				<Type Code="130535">
+				<Type Code="130535" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1">
 					<ConceptDescription Lang="en-US">not settable metrics</ConceptDescription>
 				</Type>
 				<AlertSystem SelfCheckPeriod="PT5S" Handle="asy.mds0" DescriptorVersion="0" SafetyClassification="MedA">
 					<AlertCondition Kind="Phy" Priority="Me" Handle="ac0.mds0" DescriptorVersion="0" SafetyClassification="MedA">
-						<Type Code="262108‬">
+						<Type Code="262108">
 							<ConceptDescription Lang="en-US">dummy condition</ConceptDescription>
 						</Type>
 						<Source>mds0</Source>
@@ -287,7 +287,7 @@ MdibVersion="5795" SequenceId="urn:uuid:4ed313b2-f925-418a-8476-6f3b4d06ee3e" In
 				</Vmd>
 			</Mds>
 			<Mds Handle="mds_1">
-				<Type Code="67108866">
+				<Type Code="67108866" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1">
 					<ConceptDescription Lang="en-US">SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.</ConceptDescription>
 				</Type>
 				<SystemContext Handle="SC.mds1" DescriptorVersion="0">

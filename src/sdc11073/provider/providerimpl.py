@@ -1,11 +1,15 @@
-"""The module implements the SdcProvider."""
+"""The module implements the SdcProvider and declares the components of a SdcProvider.
+
+The component declaration enables dependency injection.
+"""
 
 from __future__ import annotations
 
 import copy
 import threading
 import uuid
-from typing import TYPE_CHECKING, Any, Protocol
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 from urllib.parse import SplitResult
 
 import sdc11073.certloader
@@ -22,31 +26,119 @@ from sdc11073.exceptions import ApiUsageError
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.namespaces import WSA_ANONYMOUS
+from sdc11073.provider import (
+    ContainmentTreeService,
+    ContextService,
+    DescriptionEventService,
+    GetService,
+    SetService,
+    StateEventService,
+    WaveformService,
+)
+from sdc11073.provider.operations import get_operation_class
+from sdc11073.provider.periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
+from sdc11073.provider.porttypes.localizationservice import LocalizationService, LocalizationStorage
+from sdc11073.provider.sco import ScoOperationsRegistry
+from sdc11073.provider.scopesfactory import mk_scopes
+from sdc11073.provider.servicesfactory import HostedServices, mk_all_services
+from sdc11073.provider.subscriptionmgr import PathDispatchingSubscriptionsManager
+from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerPathAsync
+from sdc11073.pysoap.msgfactory import MessageFactory
+from sdc11073.pysoap.msgreader import MessageReader
+from sdc11073.pysoap.soapclient import SoapClient
+from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapclientpool import SoapClientPool
 from sdc11073.xml_types import mex_types
 from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisModelType
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
-from .periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
-
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from enum import Enum
 
+    from lxml import etree
+
     from sdc11073.location import SdcLocation
-    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
-    from sdc11073.provider.porttypes.localizationservice import LocalizationStorage
+    from sdc11073.namespaces import PrefixNamespace
+    from sdc11073.provider.operations import OperationDefinitionBase
+    from sdc11073.provider.protocols.productprotocol import ProductProtocol
+    from sdc11073.provider.protocols.waveformprotocol import WaveformProviderProtocol
+    from sdc11073.provider.sco import AbstractScoOperationsRegistry
+    from sdc11073.provider.subscriptionmgr_base import SubscriptionManagerProtocol
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
-    from sdc11073.roles.protocols import ProductProtocol, WaveformProviderProtocol
+    from sdc11073.wsdiscovery.wsdiscoveryprotocols import WsDiscoveryProtocol
     from sdc11073.xml_types.msg_types import AbstractSet
     from sdc11073.xml_types.pm_types import InstanceIdentifier
     from sdc11073.xml_types.wsd_types import ScopesType
 
-    from .components import SdcProviderComponents
-    from .operations import OperationDefinitionBase
+
+# Dependency injection: This class defines which component implementations the sdc device will use.
+@dataclass
+class SdcProviderComponents:
+    """Dependency injection: This class defines which component implementations the sdc provider will use."""
+
+    """The module declares the components of a provider.
+
+    This serves as dependency injection.
+    """
+    soap_client_class: type[Any]
+    msg_factory_class: type[MessageFactory]
+    msg_reader_class: type[MessageReader]
+    client_msg_reader_class: type[MessageReader]  # the corresponding reader for client
+    xml_reader_class: type[MessageReader]  # needed to read xml based mdib files
+    services_factory: Callable[[SdcProvider, SdcProviderComponents, dict], HostedServices]
+    operation_cls_getter: Callable[[etree.QName], type]
+    sco_operations_registry_class: type[AbstractScoOperationsRegistry]
+    subscriptions_manager_class: dict[str, type[SubscriptionManagerProtocol]]
+    scopes_factory: Callable[[ProviderMdibProtocol], ScopesType]
+    hosted_services: dict
+    additional_schema_specs: set[PrefixNamespace] = field(default_factory=set)
+
+
+@dataclass
+class RoleProviderComponents:
+    """Carrier of the role provider implementations."""
+
+    role_provider_class: type = None
+    waveform_provider_class: type | None = None
+
+
+DEFAULT_SDC_PROVIDER_COMPONENTS_SYNC = SdcProviderComponents(
+    soap_client_class=SoapClient,
+    msg_factory_class=MessageFactory,
+    msg_reader_class=MessageReader,
+    client_msg_reader_class=MessageReader,
+    xml_reader_class=MessageReader,
+    services_factory=mk_all_services,
+    operation_cls_getter=get_operation_class,
+    sco_operations_registry_class=ScoOperationsRegistry,
+    subscriptions_manager_class={
+        'StateEvent': PathDispatchingSubscriptionsManager,
+        'Set': PathDispatchingSubscriptionsManager,
+    },
+    scopes_factory=mk_scopes,
+    # this defines the structure of the services: keys are the names of the dpws hosts,
+    # value is a list of port type implementation classes
+    hosted_services={
+        'Get': [GetService, LocalizationService],
+        'StateEvent': [StateEventService, ContextService, DescriptionEventService, WaveformService],
+        'Set': [SetService],
+        'ContainmentTree': [ContainmentTreeService],
+    },
+)
+
+# async variant
+DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC = copy.deepcopy(DEFAULT_SDC_PROVIDER_COMPONENTS_SYNC)
+DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC.soap_client_class = SoapClientAsync
+DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC.subscriptions_manager_class = {
+    'StateEvent': SubscriptionsManagerPathAsync,
+    'Set': SubscriptionsManagerPathAsync,
+}
 
 
 class _PathElementDispatcher(PathElementRegistry):
@@ -68,19 +160,6 @@ class _PathElementDispatcher(PathElementRegistry):
         return dispatcher.on_get(request_data)
 
 
-class WsDiscoveryProtocol(Protocol):
-    """WsDiscoveryProtocol is the interface that SdcProvider expects."""
-
-    def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa: D102
-        ...
-
-    def get_active_addresses(self) -> list:  # noqa: D102
-        ...
-
-    def clear_service(self, epr: str):  # noqa: D102
-        ...
-
-
 class SdcProvider:
     """SdcProvider is the host for sdc services, subscription manager etc."""
 
@@ -98,8 +177,8 @@ class SdcProvider:
         max_subscription_duration: int = 15,
         socket_timeout: int | float | None = None,  # noqa: PYI041
         log_prefix: str = '',
-        default_components: SdcProviderComponents | None = None,
-        specific_components: SdcProviderComponents | None = None,
+        components: SdcProviderComponents = DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC,
+        role_provider_components: RoleProviderComponents = None,
         chunk_size: int = 0,
         alternative_hostname: str | None = None,
     ):
@@ -117,7 +196,8 @@ class SdcProvider:
         :param socket_timeout: timeout for tcp sockets that send notifications.
                                If None, it is set to max_subscription_duration * 1.2
         :param log_prefix: a string
-        :param specific_components: a SdcProviderComponents instance
+        :param components: a SdcProviderComponents instance
+        :param role_provider_components: a RoleProviderComponents instance
         :param chunk_size: if value > 0, messages are split into chunks of this size.
         :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical
                                      ipv4 address (can be used to use full qualified hostname)
@@ -135,14 +215,13 @@ class SdcProvider:
         self._max_subscription_duration = max_subscription_duration
         self._socket_timeout = socket_timeout or int(max_subscription_duration * 1.2)
         self._log_prefix = log_prefix
-        if default_components is None:
-            from .components import default_sdc_provider_components  # lazy import avoids cyclic import  # noqa: PLC0415
 
-            default_components = default_sdc_provider_components
-        self._components = copy.deepcopy(default_components)
-        if specific_components is not None:
-            # merge specific stuff into _components
-            self._components.merge(specific_components)
+        # entries of components will be modified, so copy it to avoid side effects
+        self._components = copy.deepcopy(components)
+
+        self._role_provider_components = (
+            copy.deepcopy(role_provider_components) if role_provider_components else RoleProviderComponents()
+        )
         self.chunk_size = chunk_size
         self._alternative_hostname = alternative_hostname
         self._mdib.log_prefix = log_prefix
@@ -160,14 +239,13 @@ class SdcProvider:
         self.collect_rt_samples_period = 0.1  # in seconds
         self.contextstates_in_getmdib = self.DEFAULT_CONTEXTSTATES_IN_GETMDIB  # can be overridden per instance
         # look for schemas added by services and components spec
-        additional_schema_specs = set(self._components.additional_schema_specs)
         for hosted_service in self._components.hosted_services.values():
             for port_type_impl in hosted_service:
-                additional_schema_specs.update(port_type_impl.additional_namespaces)
+                self._components.additional_schema_specs.update(port_type_impl.additional_namespaces)
         logger = loghelper.get_logger_adapter('sdc.device.msgreader', log_prefix)
         self.msg_reader = self._components.msg_reader_class(
             self._mdib.sdc_definitions,
-            list(additional_schema_specs),
+            list(self._components.additional_schema_specs),
             logger,
             validate=validate,
         )
@@ -175,7 +253,7 @@ class SdcProvider:
         logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
         self.msg_factory = self._components.msg_factory_class(
             self._mdib.sdc_definitions,
-            list(additional_schema_specs),
+            list(self._components.additional_schema_specs),
             logger=logger,
             validate=validate,
         )
@@ -256,30 +334,35 @@ class SdcProvider:
             )
             self._subscriptions_managers[name] = mgr
 
-        services_factory = self._components.services_factory
-        self.hosted_services = services_factory(self, self._components, self._subscriptions_managers)
+        self.hosted_services = self._components.services_factory(self, self._components, self._subscriptions_managers)
         for dpws_service in self.hosted_services.dpws_hosted_services.values():
             self._hosted_service_dispatcher.register_instance(dpws_service.path_element, dpws_service)
 
-        cls = self._components.sco_operations_registry_class
-        pm_names = self._mdib.data_model.pm_names
+        entities = self._mdib.entities.by_node_type(self._mdib.data_model.pm_names.ScoDescriptor)
 
-        entities = self._mdib.entities.by_node_type(pm_names.ScoDescriptor)
-        for entity in entities:
-            sco_operations_registry = cls(
-                self.hosted_services.set_service,
-                self._components.operation_cls_getter,
+        if self._role_provider_components.role_provider_class is not None:
+            for entity in entities:
+                sco_operations_registry = self._components.sco_operations_registry_class(
+                    self.hosted_services.set_service,
+                    self._components.operation_cls_getter,
+                    self._mdib,
+                    entity.descriptor,
+                    log_prefix=self._log_prefix,
+                )
+                self._sco_operations_registries[entity.handle] = sco_operations_registry
+
+                product_roles = self._role_provider_components.role_provider_class(
+                    self._mdib,
+                    sco_operations_registry,
+                    self._log_prefix,
+                )
+                self.product_lookup[entity.handle] = product_roles
+                product_roles.init_operations()
+        if self._role_provider_components.waveform_provider_class is not None:
+            self.waveform_provider = self._role_provider_components.waveform_provider_class(
                 self._mdib,
-                entity.descriptor,
-                log_prefix=self._log_prefix,
+                self._log_prefix,
             )
-            self._sco_operations_registries[entity.handle] = sco_operations_registry
-
-            product_roles = self._components.role_provider_class(self._mdib, sco_operations_registry, self._log_prefix)
-            self.product_lookup[entity.handle] = product_roles
-            product_roles.init_operations()
-        if self._components.waveform_provider_class is not None:
-            self.waveform_provider = self._components.waveform_provider_class(self._mdib, self._log_prefix)
 
         # product roles might have added descriptors, set source mds for all
         self._mdib.xtra.set_all_source_mds()
@@ -602,7 +685,7 @@ class SdcProvider:
             port_type_impl = self.hosted_services.waveform_service
             port_type_impl.send_realtime_samples_report(rt_states, self._mdib.mdib_version_group)
 
-    def set_used_compression(self, *compression_methods: str):
+    def set_used_compression(self, *compression_methods: str | None):
         """Set supported compression methods, e.g. 'gzip'."""
         del self._compression_methods[:]
         self._compression_methods.extend(compression_methods)

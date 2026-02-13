@@ -8,7 +8,7 @@
             <msg:By Method="Ep"/>
           </msg:Retrievability>
         </ext:Extension>
-        <pm:Type Code="70041">
+        <pm:Type Code="70041" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1">
           <pm:ConceptDescription Lang="en-US">Anesthesia System</pm:ConceptDescription>
         </pm:Type>
         <pm:ProductionSpecification>
@@ -1354,7 +1354,7 @@
 	  
 	  </pm:Mds>
       <pm:Mds Handle="mds_1">
-          <pm:Type Code="67108866">
+          <pm:Type Code="67108866" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1">
               <pm:ConceptDescription Lang="en-US">SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.</pm:ConceptDescription>
           </pm:Type>
           <pm:Vmd Handle="vmd_0.mds_1">

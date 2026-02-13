@@ -1,42 +1,25 @@
+"""Unit tests for pm_types module."""
+
 import unittest
 from unittest import mock
-from lxml import etree
 
-from sdc11073.xml_types import pm_types, xml_structure, basetypes
+from lxml import etree
+from tutorial.codedvaluecomparator import _coded_value_comparator
+
+from sdc11073.xml_types import basetypes, pm_types, xml_structure
 
 
 class TestPmTypes(unittest.TestCase):
-
-    def test_coded_value(self):
+    def test_coded_value_translation_comparison(self):
         c1 = pm_types.CodedValue('42')
-        c2 = pm_types.CodedValue('42', coding_system='abc')
-        self.assertTrue(c1.is_equivalent(pm_types.CodedValue('42')))
-        # test with explicit coding system
-        self.assertTrue(c1.is_equivalent(pm_types.Coding('42', pm_types.DEFAULT_CODING_SYSTEM, None)))
-        # test with explicit coding system and different version
-        self.assertFalse(c1.is_equivalent(pm_types.Coding('42', pm_types.DEFAULT_CODING_SYSTEM, '1')))
-        # it shall be possible to compare with a Coding instance
-        self.assertTrue(c1.is_equivalent(pm_types.Coding('42')))
-        # different coding system
-        self.assertFalse(c2.is_equivalent(pm_types.Coding('42')))
+        c2 = pm_types.CodedValue('42')
+        with self.assertRaises(RuntimeError):
+            _ = c1 == c2
 
-        # if two CodedValue instances are compared, the translations shall also be handled
-        c2.Translation.append(pm_types.Translation('41'))
-        self.assertTrue(c2.is_equivalent(pm_types.Coding('41')))
-        c3 = pm_types.CodedValue('44')
-        c3.Translation.append(pm_types.Translation('41'))  # same translation as c2
-        self.assertTrue(c2.is_equivalent(c3))
-
-    def test_have_matching_codes(self):
-        c1 = pm_types.CodedValue('42', coding_system='abc')
-        c1.Translation.append(pm_types.Translation('41'))
-        self.assertTrue(pm_types.have_matching_codes(c1, pm_types.Coding('42', coding_system='abc')))
-        self.assertTrue(pm_types.have_matching_codes(c1, pm_types.Coding('41')))
-        self.assertFalse(pm_types.have_matching_codes(c1, pm_types.Coding('41', coding_system='abc')))
-
-        c2 = pm_types.CodedValue('xxx', coding_system='abc')
-        c2.Translation.append(pm_types.Translation('41'))
-        self.assertTrue(pm_types.have_matching_codes(c1, c2))
+        t1 = pm_types.Translation('42-2')
+        t2 = pm_types.Translation('42-2')
+        with self.assertRaises(RuntimeError):
+            _ = t1 == t2
 
     def test_allowed_value(self):
         """Verify that value is an empty string if text of Value node is empty."""
@@ -46,13 +29,13 @@ class TestPmTypes(unittest.TestCase):
                 </pm:Type>
               </pm:AllowedValue>
 """
-        node = etree.fromstring(text.format('')) # noqa: S320
+        node = etree.fromstring(text.format(''))
         allowed_value1 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value1.Value, '')
         generated_node = allowed_value1.as_etree_node(etree.QName('foo', 'bar'), {})
         self.assertEqual('', generated_node[0].text)
 
-        node = etree.fromstring(text.format('foobar')) # noqa: S320
+        node = etree.fromstring(text.format('foobar'))
         allowed_value2 = pm_types.AllowedValue.from_node(node)
         self.assertEqual(allowed_value2.Value, 'foobar')
 
@@ -63,20 +46,21 @@ class TestPmTypes(unittest.TestCase):
                       <pm:Arg xmlns:dd="dummy">dd:Something</pm:Arg>
                   </pm:Argument>
         """
-        node = etree.fromstring(text.format('')) # noqa: S320
+        node = etree.fromstring(text.format(''))
         arg = pm_types.ActivateOperationDescriptorArgument.from_node(node)
-        self.assertEqual(arg.ArgName, pm_types.CodedValue("202890"))
-        self.assertEqual(arg.Arg, etree.QName("dummy", "Something"))
+        self.assertTrue(_coded_value_comparator(arg.ArgName, pm_types.CodedValue('202890')))
+        self.assertEqual(arg.Arg, etree.QName('dummy', 'Something'))
         # verify that as_etree_node -> from_node conversion creates an identical arg
         node2 = arg.as_etree_node(
-            etree.QName("http://standards.ieee.org/downloads/11073/11073-10207-2017/participant", 'Argument'),
-            ns_map={"pm": "http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"})
+            etree.QName('http://standards.ieee.org/downloads/11073/11073-10207-2017/participant', 'Argument'),
+            ns_map={'pm': 'http://standards.ieee.org/downloads/11073/11073-10207-2017/participant'},
+        )
         arg2 = pm_types.ActivateOperationDescriptorArgument.from_node(node2)
-        self.assertEqual(arg, arg2)
+        self.assertTrue(_coded_value_comparator(arg.ArgName, arg2.ArgName))
+        self.assertEqual(arg.Arg, arg2.Arg)
 
 
 class TestExtensions(unittest.TestCase):
-
     def test_compare_extensions(self):
         xml = b"""
         <pm:Identification xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant"
@@ -89,9 +73,9 @@ class TestExtensions(unittest.TestCase):
             </ext:Extension>
         </pm:Identification>
         """
-        self.assertNotEqual(etree.fromstring(xml), etree.fromstring(xml))  # noqa: S320
-        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml)) # noqa: S320
-        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml)) # noqa: S320
+        self.assertNotEqual(etree.fromstring(xml), etree.fromstring(xml))
+        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml))
+        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml))
         self.assertEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertEqual(inst1, inst2)
         self.assertEqual(inst1.ExtExtension, tuple(inst2.ExtExtension))
@@ -106,7 +90,7 @@ class TestExtensions(unittest.TestCase):
                     </ext:Extension>
                 </pm:Identification>
                 """
-        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(another_xml)) # noqa: S320
+        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(another_xml))
         self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertNotEqual(inst1, inst2)
 
@@ -116,7 +100,7 @@ class TestExtensions(unittest.TestCase):
                 <foo someattr="somevalue"/>
             </ext:Extension>
         """
-        xml1 = etree.fromstring(xml1)  # noqa: S320
+        xml1 = etree.fromstring(xml1)
 
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         self.assertFalse(inst1 == 42)
@@ -143,8 +127,8 @@ class TestExtensions(unittest.TestCase):
             </ext:Extension>
         </pm:Identification>
         """
-        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml1)) # noqa: S320
-        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml2)) # noqa: S320
+        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml1))
+        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml2))
         self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertNotEqual(inst1, inst2)
 
@@ -167,11 +151,10 @@ class TestExtensions(unittest.TestCase):
             </ext:Extension>
         </pm:Identification>
         """
-        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml1)) # noqa: S320
-        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml2)) # noqa: S320
+        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml1))
+        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml2))
         self.assertEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertEqual(inst1, inst2)
-
 
     def test_fails_with_qname(self):
         xml1 = etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -180,14 +163,14 @@ class TestExtensions(unittest.TestCase):
         <what:ItIsNotKnown>
                 <what:Unknown>what:lorem</what:Unknown>
         </what:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         xml2 = etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
         xmlns:who="123.456.789">
         <who:ItIsNotKnown>
                 <who:Unknown>who:lorem</who:Unknown>
         </who:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         self.assertNotEqual(etree.tostring(xml1), etree.tostring(xml2))
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
@@ -195,14 +178,15 @@ class TestExtensions(unittest.TestCase):
 
     def test_ignore_not_needed_namespaces(self):
         xml1 = etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" 
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
 xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant">
 <what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         xml2 = etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:what="123.456.789">
+<ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
+xmlns:what="123.456.789">
 <what:ItIsNotKnown><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         self.assertNotEqual(etree.tostring(xml1), etree.tostring(xml2))
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
@@ -218,11 +202,11 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
 <what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
 <!--This is an xml comment and should be ignored during comparison-->
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         xml2 = etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
 <what:ItIsNotKnown xmlns:what="123.456.789"><what:Unknown>What does this mean?</what:Unknown></what:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertEqual(inst1, inst2)
@@ -238,14 +222,14 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
                 <bar anotherattr="differentvalue"/>
             </ext:Extension>
         """
-        xml1 = etree.fromstring(xml1) # noqa: S320
-        xml2 = etree.fromstring(xml2) # noqa: S320
+        xml1 = etree.fromstring(xml1)
+        xml2 = etree.fromstring(xml2)
 
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertNotEqual(inst1, inst2)
 
-        def _my_comparer(_, __): # noqa: ANN001 ANN202
+        def _my_comparer(_, __):  # noqa: ANN001 ANN202
             return True
 
         orig_method = xml_structure.ExtensionLocalValue.compare_method
@@ -255,19 +239,19 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
 
     def test_cdata(self):
         xml1 = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-                        <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
-                        <what:ItIsNotKnown xmlns:what="123.456.789">
-                        <![CDATA[<some test data & stuff>]]>
-                        <what:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></what:Unknown></what:ItIsNotKnown>
-                        </ext:Extension>"""
+                <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <what:ItIsNotKnown xmlns:what="123.456.789">
+                <![CDATA[<some test data & stuff>]]>
+                <what:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></what:Unknown></what:ItIsNotKnown>
+                </ext:Extension>"""
         xml2 = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-                        <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
-                        <who:ItIsNotKnown xmlns:who="123.456.789">
-                        <![CDATA[<some test data & stuff>]]>
-                        <who:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></who:Unknown></who:ItIsNotKnown>
-                        </ext:Extension>"""
-        xml1 = etree.fromstring(xml1) # noqa: S320
-        xml2 = etree.fromstring(xml2) # noqa: S320
+                <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension">
+                <who:ItIsNotKnown xmlns:who="123.456.789">
+                <![CDATA[<some test data & stuff>]]>
+                <who:Unknown>What does this mean?<![CDATA[Test this CDATA section]]></who:Unknown></who:ItIsNotKnown>
+                </ext:Extension>"""
+        xml1 = etree.fromstring(xml1)
+        xml2 = etree.fromstring(xml2)
 
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
@@ -290,8 +274,8 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
                 <bar anotherattr="differentvalue"/>
             </ext:Extension>
         """
-        xml1 = etree.fromstring(xml1) # noqa: S320
-        xml2 = etree.fromstring(xml2) # noqa: S320
+        xml1 = etree.fromstring(xml1)
+        xml2 = etree.fromstring(xml2)
 
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
@@ -323,18 +307,20 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         </pm:Identification>
         """
 
-        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml1)) # noqa: S320
-        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml2)) # noqa: S320
-        inst3 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml3)) # noqa: S320
+        inst1 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml1))
+        inst2 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml2))
+        inst3 = pm_types.InstanceIdentifier.from_node(etree.fromstring(xml3))
         self.assertNotEqual(inst1.ExtExtension, inst2.ExtExtension)
         self.assertEqual(len(inst3.ExtExtension), 0)
         # assign a tuple with values from inst1 to inst3
         inst3.ExtExtension = tuple(inst1.ExtExtension)
         self.assertTrue(isinstance(inst3.ExtExtension, xml_structure.ExtensionLocalValue))
         self.assertEqual(inst1.ExtExtension, inst3.ExtExtension)
+
         # assign a generator with values from inst2 to inst3
         def my_generator():
             yield from inst2.ExtExtension
+
         inst3.ExtExtension = my_generator()
         self.assertEqual(inst2.ExtExtension, inst3.ExtExtension)
 
@@ -343,7 +329,7 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
         xmlns:what="123.456.789">
         <what:ItIsNotKnown><what:Unknown>what:lorem</what:Unknown></what:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         xml2 = etree.fromstring(b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <ext:Extension xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension"
         xmlns:what="123.456.789">
@@ -351,7 +337,7 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         dsafasdf
         <what:Unknown>what:lorem</what:Unknown>
         </what:ItIsNotKnown>
-</ext:Extension>""") # noqa: S320
+</ext:Extension>""")
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertEqual(inst1, inst2)
@@ -361,17 +347,17 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
             <ext:Extension xmlns:ext="__ExtensionPoint__">
                 <foo someattr="somevalue"/>
             </ext:Extension>
-        """)  # noqa: S320
+        """)
         xml2 = etree.fromstring(b"""
             <ext:Extension xmlns:ext="__ExtensionPoint__">
                 <foo someattr="somevalue"/>
             </ext:Extension>
-        """)  # noqa: S320
+        """)
         inst1 = xml_structure.ExtensionLocalValue([xml1])
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertEqual(inst1, inst2)
-        self.assertTrue(inst1 == inst1)
-        self.assertFalse(inst1 != inst1)
+        self.assertTrue(inst1 == inst1)  # noqa: PLR0124
+        self.assertFalse(inst1 != inst1)  # noqa: PLR0124
         self.assertTrue(inst1 == inst2)
         self.assertFalse(inst1 != inst2)
 
@@ -379,12 +365,11 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
             <ext:Extension xmlns:ext="__ExtensionPoint__">
                 <bar anotherattr="differentvalue"/>
             </ext:Extension>
-        """)  # noqa: S320
+        """)
         inst2 = xml_structure.ExtensionLocalValue([xml2])
         self.assertNotEqual(inst1, inst2)
         self.assertFalse(inst1 == inst2)
         self.assertTrue(inst1 != inst2)
-
 
     def test_element_with_text_list(self):
         """Verify that a ElementWithTextList.text is a list even if text of node is None or element does not exist."""
@@ -400,9 +385,7 @@ xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant
         # test the case that the element that is supposed to contain the text does not exist.
         obj = basetypes.ElementWithTextList()
         mocked = unittest.mock.MagicMock(side_effect=xml_structure.ElementNotFoundError)
-        with unittest.mock.patch.object(xml_structure.NodeTextListProperty,
-                                        '_get_element_by_child_name',
-                                        new=mocked):
+        with unittest.mock.patch.object(xml_structure.NodeTextListProperty, '_get_element_by_child_name', new=mocked):
             obj.update_from_node(node)
             self.assertEqual(obj.text, [])
             mocked.assert_called_once()

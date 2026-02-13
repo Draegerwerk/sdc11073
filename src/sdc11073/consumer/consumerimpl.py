@@ -8,7 +8,7 @@ import logging
 import ssl
 import traceback
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
@@ -17,38 +17,85 @@ from lxml import etree
 import sdc11073.certloader
 from sdc11073 import commlog, loghelper, network, xml_utils
 from sdc11073 import observableproperties as properties
+from sdc11073.consumer import (
+    ContextServiceClient,
+    CTreeServiceClient,
+    DescriptionEventClient,
+    GetServiceClient,
+    LocalizationServiceClient,
+    SetServiceClient,
+    StateEventClient,
+    WaveformClient,
+)
+from sdc11073.consumer.operations import OperationsManager, OperationsManagerProtocol
+from sdc11073.consumer.request_handler_deferred import DispatchKeyRegistryDeferred, EmptyResponse
+from sdc11073.consumer.subscription import ConsumerSubscriptionManager
 from sdc11073.definitions_base import ProtocolsRegistry
 from sdc11073.dispatch import DispatchKey, MessageConverterMiddleware
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.namespaces import EventingActions
+from sdc11073.pysoap.msgfactory import MessageFactory
+from sdc11073.pysoap.msgreader import MessageReader
+from sdc11073.pysoap.soapclient import SoapClient
 from sdc11073.xml_types import eventing_types, mex_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeType
 
-from .components import default_sdc_consumer_components
-from .request_handler_deferred import EmptyResponse
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
-    from sdc11073.consumer.subscription import ConsumerSubscriptionManagerProtocol
+    from sdc11073.consumer.subscription import (
+        ConsumerSubscription,
+        ConsumerSubscriptionManagerProtocol,
+    )
     from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
+    from sdc11073.dispatch.dispatchkey import RequestDispatcherProtocol
     from sdc11073.dispatch.request import RequestData
-    from sdc11073.entity_mdib.entity_consumermdib import EntityConsumerMdib
     from sdc11073.mdib.consumermdib import ConsumerMdib
+    from sdc11073.namespaces import PrefixNamespace
     from sdc11073.pysoap import msgreader
-    from sdc11073.pysoap.msgfactory import MessageFactory
-    from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
+    from sdc11073.pysoap.msgreader import ReceivedMessage
     from sdc11073.pysoap.soapclient import SoapClientProtocol
     from sdc11073.wsdiscovery.service import Service
     from sdc11073.xml_types.mex_types import HostedServiceType
 
-    from .components import SdcConsumerComponents
-    from .subscription import ConsumerSubscription
+
+@dataclass
+class SdcConsumerComponents:
+    """Dependency injection: This class defines which component implementations the sdc consumer will use."""
+
+    soap_client_class: type[SoapClientProtocol]
+    msg_factory_class: type[MessageFactory]
+    msg_reader_class: type[MessageReader]
+    action_dispatcher_class: type[RequestDispatcherProtocol]
+    subscription_manager_class: type[ConsumerSubscriptionManagerProtocol]
+    operations_manager_class: type[OperationsManagerProtocol]
+    service_handlers: set[type[HostedServiceClient]] = field(default_factory=set)
+    additional_schema_specs: set[PrefixNamespace] = field(default_factory=set)
+
+
+DEFAULT_SDC_CONSUMER_COMPONENTS = SdcConsumerComponents(
+    soap_client_class=SoapClient,
+    msg_factory_class=MessageFactory,
+    msg_reader_class=MessageReader,
+    action_dispatcher_class=DispatchKeyRegistryDeferred,  # defaults to deferred handling
+    subscription_manager_class=ConsumerSubscriptionManager,
+    operations_manager_class=OperationsManager,
+    service_handlers={
+        CTreeServiceClient,
+        GetServiceClient,
+        StateEventClient,
+        ContextServiceClient,
+        WaveformClient,
+        SetServiceClient,
+        DescriptionEventClient,
+        LocalizationServiceClient,
+    },
+)
 
 
 class HostedServiceDescription:
@@ -208,8 +255,7 @@ class SdcConsumer:
         epr: str | uuid.UUID | None = None,
         validate: bool = True,
         log_prefix: str = '',
-        default_components: SdcConsumerComponents | None = None,
-        specific_components: SdcConsumerComponents | None = None,
+        components: SdcConsumerComponents = DEFAULT_SDC_CONSUMER_COMPONENTS,
         request_chunk_size: int = 0,
         socket_timeout: int = 5,
         force_ssl_connect: bool = False,
@@ -224,7 +270,7 @@ class SdcConsumer:
         :param ssl_context_container: used for ssl connection to device and for own HTTP Server (notifications receiver)
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
-        :param specific_components: a SdcConsumerComponents instance or None
+        :param components: a SdcConsumerComponents instance
         :param request_chunk_size: if value > 0, message is split into chunks of this size
         :param socket_timeout: timeout for connections to provider
         :param force_ssl_connect: True: only accept ssl connections (requires a ssl_context_container)
@@ -250,11 +296,9 @@ class SdcConsumer:
 
         self._device_location = device_location
         self.sdc_definitions = sdc_definitions
-        if default_components is None:
-            default_components = default_sdc_consumer_components
-        self._components = copy.deepcopy(default_components)
-        if specific_components is not None:
-            self._components.merge(specific_components)
+
+        # entries of components will be modified, so copy it to avoid side effects
+        self._components = copy.deepcopy(components)
 
         self.subscription_status: dict[str, bool] = {}
 
@@ -292,27 +336,22 @@ class SdcConsumer:
         self.binary_peer_certificate = None
         self.all_subscribed = False
         # look for schemas added by services and components spec
-        additional_schema_specs = set(self._components.additional_schema_specs)
         for handler_cls in self._components.service_handlers:
-            additional_schema_specs.update(handler_cls.additional_namespaces)
-        msg_reader_cls = self._components.msg_reader_class
-        self.msg_reader = msg_reader_cls(
+            self._components.additional_schema_specs.update(handler_cls.additional_namespaces)
+        self.msg_reader = self._components.msg_reader_class(
             self.sdc_definitions,
-            list(additional_schema_specs),
+            list(self._components.additional_schema_specs),
             self._logger,
             validate=validate,
         )
 
-        msg_factory_cls = self._components.msg_factory_class
-        self.msg_factory = msg_factory_cls(
+        self.msg_factory = self._components.msg_factory_class(
             self.sdc_definitions,
-            list(additional_schema_specs),
+            list(self._components.additional_schema_specs),
             self._logger,
             validate=validate,
         )
-
-        action_dispatcher_class = self._components.action_dispatcher_class
-        self._services_dispatcher = action_dispatcher_class(log_prefix)
+        self._services_dispatcher = self._components.action_dispatcher_class(log_prefix)
 
         self._notifications_splitter = _NotificationsSplitter(self)
 
@@ -329,7 +368,7 @@ class SdcConsumer:
         self._shared_http_server_param: Any | None = None
         self._check_get_service_param: bool | None = None
 
-    def set_mdib(self, mdib: ConsumerMdib | EntityConsumerMdib | None):
+    def set_mdib(self, mdib: ConsumerMdib | None):
         """SdcConsumer sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib is not None:
             raise ApiUsageError('SdcConsumer has already an registered mdib')
@@ -498,7 +537,7 @@ class SdcConsumer:
         """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(  # noqa: C901, PLR0915
+    def start_all(  # noqa: C901
         self,
         not_subscribed_actions: Iterable[str] | None = None,
         fixed_renew_interval: float | None = None,
@@ -547,8 +586,7 @@ class SdcConsumer:
         self._start_event_sink(shared_http_server, http_server_start_timeout)
 
         # start subscription manager
-        subscription_manager_class = self._components.subscription_manager_class
-        self._subscription_mgr = subscription_manager_class(
+        self._subscription_mgr = self._components.subscription_manager_class(
             self.msg_reader,
             self.msg_factory,
             self.sdc_definitions.data_model,
@@ -571,8 +609,7 @@ class SdcConsumer:
                 self.all_subscribed = False
 
         # start operationInvoked subscription and tell all
-        operations_manager_class = self._components.operations_manager_class
-        self.operations_manager = operations_manager_class(self.msg_reader, self.log_prefix)
+        self.operations_manager = self._components.operations_manager_class(self.msg_reader, self.log_prefix)
         properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
         for client in self._service_clients.values():
             client.set_operations_manager(self.operations_manager)
@@ -717,8 +754,7 @@ class SdcConsumer:
 
     def _mk_soap_client(self, use_ssl: bool, netloc: str) -> SoapClientProtocol:
         _ssl_context = self._ssl_context_container.client_context if use_ssl else None
-        cls = self._components.soap_client_class
-        return cls(
+        return self._components.soap_client_class(
             netloc,
             self._socket_timeout,
             loghelper.get_logger_adapter('sdc.client.soap', self.log_prefix),
@@ -806,14 +842,13 @@ class SdcConsumer:
         )
 
     @classmethod
-    def from_wsd_service(  # noqa: PLR0913
+    def from_wsd_service(
         cls,
         wsd_service: Service,
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
         validate: bool = True,
         log_prefix: str = '',
-        default_components: SdcConsumerComponents | None = None,
-        specific_components: SdcConsumerComponents | None = None,
+        components: SdcConsumerComponents = DEFAULT_SDC_CONSUMER_COMPONENTS,
     ) -> SdcConsumer:
         """Construct a SdcConsumer from a Service.
 
@@ -821,8 +856,7 @@ class SdcConsumer:
         :param ssl_context_container: a ssl context or None
         :param validate: bool
         :param log_prefix: a string
-        :param default_components: a SdcConsumerComponents instance or None
-        :param specific_components: a SdcConsumerComponents instance or None
+        :param components: a SdcConsumerComponents instance or None
         :return:
         """
         device_locations = wsd_service.x_addrs
@@ -838,7 +872,6 @@ class SdcConsumer:
                     ssl_context_container,
                     validate=validate,
                     log_prefix=log_prefix,
-                    default_components=default_components,
-                    specific_components=specific_components,
+                    components=components,
                 )
         raise RuntimeError('no matching protocol definition found for this service!')

@@ -1,24 +1,25 @@
-"""operation provider role."""
+"""operation role provider."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 from sdc11073 import xml_utils
-from sdc11073.provider.operations import ActivateOperation, ExecuteParameters, ExecuteResult, OperationDefinitionBase
-from sdc11073.roles import providerbase
+from sdc11073.provider.operations import ExecuteResult
+from tutorial.productandroles.providerbase import RoleProvider
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import (
         AbstractOperationDescriptorProtocol,
         ActivateOperationDescriptorContainer,
     )
-    from sdc11073.roles.providerbase import OperationClassGetter
+    from sdc11073.provider.operations import ActivateOperation, ExecuteParameters, OperationDefinitionBase
+    from sdc11073.provider.protocols.roleproviderprotocol import OperationClassGetter
     from sdc11073.xml_types import msg_types
     from sdc11073.xml_types.pm_types import ActivateOperationDescriptorArgument
 
 
-class OperationProvider(providerbase.ProviderRole):
+class OperationProvider(RoleProvider):
     """Handle operations that work on operation states.
 
     Provier handling the operation calls. Used for plug-a-thon tests.
@@ -30,7 +31,7 @@ class OperationProvider(providerbase.ProviderRole):
             msg = f'Expected {len(descriptor.Argument)} arguments, got {len(params.operation_request.argument)}'
             raise ValueError(msg)
 
-        for description, value in zip(descriptor.Argument, params.operation_request.argument):
+        for description, value in zip(descriptor.Argument, params.operation_request.argument, strict=True):
             description: ActivateOperationDescriptorArgument
             value: msg_types.Argument
             # these are types from the plug-a-thon. add more if needed

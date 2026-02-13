@@ -6,12 +6,12 @@
                 <ext:Extension>
                     <sdpi:CodedAttributes>
                         <sdpi:CodedStringAttribute>
-                            <sdpi:MdcAttribute Code="67886" CodingSystem="urn:oid:1.3.111.2.11073.10101.1"/>
+                            <sdpi:MdcAttribute Code="67886" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1"/>
                             <sdpi:Value>equipment-label</sdpi:Value>
                         </sdpi:CodedStringAttribute>
                     </sdpi:CodedAttributes>
                 </ext:Extension>
-                <pm:Type Code="67108865">
+                <pm:Type Code="67108865" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1">
                     <pm:ConceptDescription Lang="en-US">SDPi Test MDS</pm:ConceptDescription>
                 </pm:Type>
                 <pm:AlertSystem SelfCheckPeriod="PT5S" Handle="alert_system.mds_0">
@@ -230,7 +230,7 @@
                 </pm:Vmd>
             </pm:Mds>
             <pm:Mds Handle="mds_1">
-                <pm:Type Code="67108866">
+                <pm:Type Code="67108866" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1">
                     <pm:ConceptDescription Lang="en-US">SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.</pm:ConceptDescription>
                 </pm:Type>
                 <pm:Vmd Handle="vmd_0.mds_1">
