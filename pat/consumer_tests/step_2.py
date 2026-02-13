@@ -2,8 +2,12 @@
 
 import logging
 import time
+from typing import TYPE_CHECKING
 
-from sdc11073.consumer import ConsumerSubscription, SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
+
+if TYPE_CHECKING:
+    from sdc11073.consumer import ConsumerSubscription
 
 __STEP__ = '2'
 

@@ -333,7 +333,6 @@ if __name__ == '__main__':
         )
 
         dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
-        specific_components = None
         return SdcProvider(
             wsd,
             dpws_model,
@@ -341,7 +340,6 @@ if __name__ == '__main__':
             my_mdib,
             UUID(uuid_str),
             ssl_context_container=ssl_contexts,
-            specific_components=specific_components,
             max_subscription_duration=15,
         )
 

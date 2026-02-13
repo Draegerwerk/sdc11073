@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import datetime
 import pathlib
 import random
@@ -10,21 +11,31 @@ from decimal import Decimal
 from time import sleep
 from typing import TYPE_CHECKING
 
+from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS
+from tutorial.productandroles.waveformprovider.waveformgenerators import WaveformGeneratorBase
+
 from pat import common
 from sdc11073 import location
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
-from sdc11073.provider import SdcProvider, components
-from sdc11073.provider.servicesfactory import DPWSHostedService, HostedServices, mk_dpws_hosts
+from sdc11073.provider import (
+    ContainmentTreeService,
+    ContextService,
+    DescriptionEventService,
+    GetService,
+    SdcProvider,
+    SetService,
+    StateEventService,
+    WaveformService,
+)
+from sdc11073.provider.providerimpl import DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 
 if TYPE_CHECKING:
     import sdc11073.certloader
-    from sdc11073.provider.components import SdcProviderComponents
 
 numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
 string_metric_handle = 'string_metric_0.channel_0.vmd_0.mds_0'
@@ -94,28 +105,7 @@ enable_6e = True
 enable_6f = True
 
 
-def mk_all_services_except_localization(
-    sdc_provider: SdcProvider,
-    components: SdcProviderComponents,
-    subscription_managers: dict,
-) -> HostedServices:
-    """Create all services except localization service."""
-    # register all services with their endpoint references acc. to structure in components
-    dpws_services, services_by_name = mk_dpws_hosts(sdc_provider, components, DPWSHostedService, subscription_managers)
-    return HostedServices(
-        dpws_services,
-        services_by_name['GetService'],
-        set_service=services_by_name.get('SetService'),
-        context_service=services_by_name.get('ContextService'),
-        description_event_service=services_by_name.get('DescriptionEventService'),
-        state_event_service=services_by_name.get('StateEventService'),
-        waveform_service=services_by_name.get('WaveformService'),
-        containment_tree_service=services_by_name.get('ContainmentTreeService'),
-        # localization_service=services_by_name.get('LocalizationService')  # noqa: ERA001
-    )
-
-
-class RealtimeGenerator4f(waveforms.WaveformGeneratorBase):
+class RealtimeGenerator4f(WaveformGeneratorBase):
     """Generator for 4f test."""
 
     def __init__(self):
@@ -127,7 +117,7 @@ class RealtimeGenerator4f(waveforms.WaveformGeneratorBase):
         return [random.random() for _ in range(100)]
 
 
-class RealtimeGenerator4i(waveforms.WaveformGeneratorBase):
+class RealtimeGenerator4i(WaveformGeneratorBase):
     """Generator for 4i test."""
 
     def __init__(self):
@@ -192,37 +182,27 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
         )
 
         dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
+
+        provider_components = copy.deepcopy(DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC)
         if USE_REFERENCE_PARAMETERS:
-            tmp = {'StateEvent': SubscriptionsManagerReferenceParamAsync}
-            specific_components = components.SdcProviderComponents(
-                subscriptions_manager_class=tmp,
-                hosted_services={
-                    'Get': [components.GetService],
-                    'StateEvent': [
-                        components.StateEventService,
-                        components.ContextService,
-                        components.DescriptionEventService,
-                        components.WaveformService,
-                    ],
-                    'Set': [components.SetService],
-                    'ContainmentTree': [components.ContainmentTreeService],
-                },
-                soap_client_class=SoapClientAsync,
-            )
-        else:
-            specific_components = components.SdcProviderComponents(
-                hosted_services={
-                    'Get': [components.GetService],
-                    'StateEvent': [
-                        components.StateEventService,
-                        components.ContextService,
-                        components.DescriptionEventService,
-                        components.WaveformService,
-                    ],
-                    'Set': [components.SetService],
-                    'ContainmentTree': [components.ContainmentTreeService],
+            provider_components.subscriptions_manager_class.update(
+                {
+                    'StateEvent': SubscriptionsManagerReferenceParamAsync,
                 },
             )
+            provider_components.soap_client_class = SoapClientAsync
+
+        provider_components.hosted_services = {
+            'Get': [GetService],
+            'StateEvent': [
+                StateEventService,
+                ContextService,
+                DescriptionEventService,
+                WaveformService,
+            ],
+            'Set': [SetService],
+            'ContainmentTree': [ContainmentTreeService],
+        }
         sdc_provider = SdcProvider(
             wsd,
             dpws_model,
@@ -230,7 +210,8 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
             my_mdib,
             epr,
             ssl_context_container=ssl_context_container,
-            specific_components=specific_components,
+            components=provider_components,
+            role_provider_components=EXAMPLE_ROLE_PROVIDER_COMPONENTS,
             max_subscription_duration=15,
         )
         sdc_provider.start_all()
@@ -391,8 +372,10 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                         with sdc_provider.mdib.component_state_transaction() as mgr:
                             state = mgr.get_state(battery_descriptor.Handle)
                             if state.Voltage is None:
-                                state.Voltage = pm_types.Measurement(value=Decimal('14.4'),
-                                                                     unit=pm_types.CodedValue('xyz'))
+                                state.Voltage = pm_types.Measurement(
+                                    value=Decimal('14.4'),
+                                    unit=pm_types.CodedValue('xyz'),
+                                )
                             else:
                                 state.Voltage.MeasuredValue += Decimal('0.1')
                             print(f'battery voltage = {state.Voltage.MeasuredValue}')

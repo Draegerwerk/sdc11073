@@ -1,8 +1,9 @@
+"""Example waveform generator implementation."""
+
 import itertools
 import math
-from typing import Callable
 
-CurveGenerator = Callable[[float, float, int], list[float]]
+from sdc11073.provider.protocols.waveformprotocol import CurveGeneratorCallable, WaveformGeneratorProtocol
 
 
 def sinus(min_value: float, max_value: float, samples: int) -> list[float]:
@@ -27,18 +28,20 @@ def triangle(min_value: float, max_value: float, samples: int) -> list[float]:
     return [min_value + i * delta for i in range(samples_cnt)] + [max_value - i * delta for i in range(samples_cnt)]
 
 
-class WaveformGeneratorBase:
+class WaveformGeneratorBase(WaveformGeneratorProtocol):
     """Generator of infinite curve, data is provided by a curve generator."""
 
-    def __init__(self,
-                 values_generator: CurveGenerator,
-                 min_value: float,
-                 max_value: float,
-                 waveform_period: float,
-                 sample_period: float):
+    def __init__(
+        self,
+        values_generator: CurveGeneratorCallable,
+        min_value: float,
+        max_value: float,
+        waveform_period: float,
+        sample_period: float,
+    ):
         if sample_period >= waveform_period:
-            raise ValueError(
-                f'Choose a waveformperiod > sampleperiod. currently have wp={waveform_period}, sp={sample_period}')
+            msg = f'Choose a waveformperiod > sampleperiod. currently have wp={waveform_period}, sp={sample_period}'
+            raise ValueError(msg)
         if sample_period <= 0 or waveform_period <= 0:
             raise ValueError('no values <= 0 allowed for sample_period and waveform_period')
         self.sample_period = sample_period

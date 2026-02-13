@@ -2,7 +2,7 @@
 
 import urllib.parse
 
-from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
 # from IEEE Std 11073-20701-2018 chapter 9.3 SDC PARTICIPANT KEY PURPOSE based discovery
@@ -85,18 +85,26 @@ def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
 
     :return: a set of scope strings
     """
-    pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scopes = set()
     entities = mdib.entities.by_node_type(pm_names.MdsDescriptor)
     for entity in entities:
         if entity.descriptor.Type is not None:
-            coding_systems = (
-                ''
-                if entity.descriptor.Type.CodingSystem == pm_types.DEFAULT_CODING_SYSTEM
-                else entity.descriptor.Type.CodingSystem
-            )
+            if not entity.descriptor.Type.CodingSystem:
+                msg = (
+                    f'MdsDescriptor with the Handle "{entity.handle}" has no coding system set - '
+                    'GLUE IEEE 11073-20701-2018 requires that an empty CodingSystem expresses the use of the default '
+                    'CODING SYSTEM as defined in pm:CodedValue. BICEPS IEEE 11073-10207-2017 specifies the implied '
+                    'value to be "urn:oid:1.2.840.10004.1.1.1.0.0.1". BICEPS IEEE 11073-10207-2017/Cor 1-2025 '
+                    'specifies the implied value to be "urn:oid:1.3.111.2.11073.10101.3". '
+                    'GLUE IEEE Std 11073-20701-2018 explicitly references BICEPS IEEE 11073-10207-2017 as the '
+                    'normative BICEPS version. To avoid inconsistent interpretations, the explicit definition of '
+                    'the default coding system must be done.'
+                )
+
+                raise ValueError(msg)
+            cs = entity.descriptor.Type.CodingSystem
             csv = entity.descriptor.Type.CodingSystemVersion or ''
-            scope_string = f'sdc.cdc.type:/{coding_systems}/{csv}/{entity.descriptor.Type.Code}'
+            scope_string = f'sdc.cdc.type:/{cs}/{csv}/{entity.descriptor.Type.Code}'
             scopes.add(scope_string)
     return scopes

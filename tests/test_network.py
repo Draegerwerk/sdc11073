@@ -1,4 +1,5 @@
 """Test for the network module."""
+
 from __future__ import annotations
 
 import random
@@ -34,7 +35,7 @@ def test_correct_parsing_of_config():
     """Test whether the network adapter config is parsed correctly."""
 
     def random_ip() -> str:
-        return socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))  # noqa: S311
+        return socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xFFFFFFFF)))
 
     def get_ips(adapters_: list[ifaddr.Adapter]) -> list[str]:
         ips_ = []
@@ -43,7 +44,7 @@ def test_correct_parsing_of_config():
         return ips_
 
     expected_adapters = []
-    while (ip := random_ip()) in get_ips(expected_adapters) and len(expected_adapters) <= 32:  # noqa: PLR2004
+    while (ip := random_ip()) in get_ips(expected_adapters) and len(expected_adapters) <= 32:
         expected_adapters.append(_create_adapter(ip, mask=len(expected_adapters)))
 
     with mock.patch.object(ifaddr, 'get_adapters', return_value=expected_adapters):
@@ -57,7 +58,7 @@ def test_correct_parsing_of_config():
 
 
 @pytest.mark.parametrize(
-    'ips, expected',
+    ('ips', 'expected'),
     [
         (['10.1.1.1', '10.1.1.2', '10.1.1.3', '10.1.1.4', '10.1.1.5'], '10.1.1.3'),
         (['10.1.1.6', '10.1.1.7', '10.1.1.8', '10.1.1.9', '10.1.1.10'], '10.1.1.8'),
@@ -65,8 +66,11 @@ def test_correct_parsing_of_config():
 )
 def test_closest_when_multiple_ips_on_same_subnet(ips: list[str], expected: str):
     """Test whether an exception is thrown when multiple ip addresses from the same subnet are detected."""
-    with mock.patch.object(ifaddr, 'get_adapters', return_value=[_create_adapter(ip) for ip in ('10.1.1.3',
-                                                                                                '10.1.1.8')]):
+    with mock.patch.object(
+        ifaddr,
+        'get_adapters',
+        return_value=[_create_adapter(ip) for ip in ('10.1.1.3', '10.1.1.8')],
+    ):
         for ip in ips:
             assert str(network.get_adapter_containing_ip(ip).ip) == expected
 
