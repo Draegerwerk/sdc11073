@@ -6,18 +6,19 @@ import uuid
 from typing import TYPE_CHECKING
 
 from sdc11073.provider.operations import ExecuteResult
-
-from .nomenclature import NomenclatureCodes
-from .providerbase import OperationClassGetter, ProviderRole
+from tutorial.codedvaluecomparator import _coded_value_comparator
+from tutorial.productandroles.nomenclature import NomenclatureCodes
+from tutorial.productandroles.providerbase import RoleProvider
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
+    from sdc11073.provider.protocols.roleproviderprotocol import OperationClassGetter
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
 
-class GenericSDCClockProvider(ProviderRole):
+class GenericSDCClockProvider(RoleProvider):
     """Handles operations for setting ntp server and time zone.
 
     This provider handles SetString operations with codes
@@ -29,10 +30,6 @@ class GenericSDCClockProvider(ProviderRole):
         super().__init__(mdib, log_prefix)
         self._set_ntp_operations = []
         self._set_tz_operations = []
-        pm_types = self._mdib.data_model.pm_types
-
-        self.MDC_OP_SET_TIME_SYNC_REF_SRC = pm_types.CodedValue(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
-        self.MDC_ACT_SET_TIME_ZONE = pm_types.CodedValue(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
 
     def init_operations(self, sco: AbstractScoOperationsRegistry):
         """Create a ClockDescriptor and ClockState in mdib if they do not exist in mdib."""
@@ -69,30 +66,37 @@ class GenericSDCClockProvider(ProviderRole):
 
         Handle codes MDC_OP_SET_TIME_SYNC_REF_SRC, MDC_ACT_SET_TIME_ZONE.
         """
-        if operation_descriptor_container.coding == self.MDC_OP_SET_TIME_SYNC_REF_SRC.coding:
-            self._logger.debug(
-                'instantiating "set ntp server" operation from existing descriptor handle=%s',
-                operation_descriptor_container.Handle,
-            )
-            set_ntp_operation = self._mk_operation_from_operation_descriptor(
-                operation_descriptor_container,
-                operation_cls_getter,
-                operation_handler=self._set_ntp_string,
-            )
-            self._set_ntp_operations.append(set_ntp_operation)
-            return set_ntp_operation
-        if operation_descriptor_container.coding == self.MDC_ACT_SET_TIME_ZONE.coding:
-            self._logger.debug(
-                'instantiating "set time zone" operation from existing descriptor handle=%s',
-                operation_descriptor_container.Handle,
-            )
-            set_tz_operation = self._mk_operation_from_operation_descriptor(
-                operation_descriptor_container,
-                operation_cls_getter,
-                operation_handler=self._set_tz_string,
-            )
-            self._set_tz_operations.append(set_tz_operation)
-            return set_tz_operation
+        if operation_descriptor_container.Type is not None:
+            if _coded_value_comparator(
+                operation_descriptor_container.Type,
+                NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC,
+            ):
+                self._logger.debug(
+                    'instantiating "set ntp server" operation from existing descriptor handle=%s',
+                    operation_descriptor_container.Handle,
+                )
+                set_ntp_operation = self._mk_operation_from_operation_descriptor(
+                    operation_descriptor_container,
+                    operation_cls_getter,
+                    operation_handler=self._set_ntp_string,
+                )
+                self._set_ntp_operations.append(set_ntp_operation)
+                return set_ntp_operation
+            if _coded_value_comparator(
+                operation_descriptor_container.Type,
+                NomenclatureCodes.MDC_ACT_SET_TIME_ZONE,
+            ):
+                self._logger.debug(
+                    'instantiating "set time zone" operation from existing descriptor handle=%s',
+                    operation_descriptor_container.Handle,
+                )
+                set_tz_operation = self._mk_operation_from_operation_descriptor(
+                    operation_descriptor_container,
+                    operation_cls_getter,
+                    operation_handler=self._set_tz_string,
+                )
+                self._set_tz_operations.append(set_tz_operation)
+                return set_tz_operation
         return None
 
     def _set_ntp_string(self, params: ExecuteParameters) -> ExecuteResult:

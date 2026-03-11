@@ -114,7 +114,7 @@ class SoapClientProtocol(Protocol):
         """Return used socket."""
 
 
-class SoapClient:
+class SoapClient(SoapClientProtocol):
     """SOAP Client wraps an http connection. It can send / receive SoapEnvelopes."""
 
     _used_soap_clients = 0

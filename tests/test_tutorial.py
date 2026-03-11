@@ -8,16 +8,20 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from tutorial.codedvaluecomparator import _coded_value_comparator
+from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS, BaseProduct
+from tutorial.productandroles.providerbase import RoleProvider
+from tutorial.productandroles.waveformprovider.waveformproviderimpl import GenericWaveformProvider
+
 from sdc11073 import network
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib, ProviderMdib
+from sdc11073.mdib.mdibaccessor import get_descriptor_by_type, get_one_descriptor_by_type
 from sdc11073.provider import SdcProvider
-from sdc11073.provider.components import SdcProviderComponents
 from sdc11073.provider.operations import ExecuteResult
-from sdc11073.roles.product import BaseProduct
-from sdc11073.roles.providerbase import ProviderRole
+from sdc11073.provider.providerimpl import RoleProviderComponents
 from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
 from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
@@ -31,12 +35,13 @@ from tests import utils
 if TYPE_CHECKING:
     import os
 
+    from tutorial.productandroles.providerbase import OperationClassGetter
+
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.descriptorcontainers import AbstractOperationDescriptorProtocol
-    from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+    from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
     from sdc11073.provider.operations import ExecuteParameters, OperationDefinitionBase
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
-    from sdc11073.roles.providerbase import OperationClassGetter
 
 loopback_adapter = next(adapter for adapter in network.get_adapters() if adapter.is_loopback)
 
@@ -51,7 +56,7 @@ def create_generic_provider(
     wsdiscovery_instance: WSDiscovery,
     location: SdcLocation,
     mdib_path: str | os.PathLike[str],
-    specific_components: SdcProviderComponents | None = None,
+    role_provider_components: RoleProviderComponents | None = None,
 ) -> SdcProvider:
     my_mdib = ProviderMdib.from_mdib_file(str(mdib_path))
     my_epr = uuid.uuid4().hex
@@ -65,13 +70,14 @@ def create_generic_provider(
     )
 
     this_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
+
     sdc_provider = SdcProvider(
         wsdiscovery_instance,
         this_model,
         this_device,
         my_mdib,
         epr=my_epr,
-        specific_components=specific_components,
+        role_provider_components=role_provider_components or EXAMPLE_ROLE_PROVIDER_COMPONENTS,
     )
     with sdc_provider.mdib.descriptor_transaction() as tr:
         for _, ent in sdc_provider.mdib.entities.items():  # noqa: PERF102
@@ -89,7 +95,7 @@ MY_CODE_3 = CodedValue('196276')  # refers to a set value operations
 MY_CODE_3_TARGET = CodedValue('196274')  # this is the operation target for MY_CODE_3
 
 
-class MyProvider1(ProviderRole):
+class MyRoleProvider1(RoleProvider):
     """The provider handles operations with code == MY_CODE_1 and MY_CODE_2.
 
     Operations with these codes already exist in the mdib that is used for this test.
@@ -112,24 +118,26 @@ class MyProvider1(ProviderRole):
         If the role provider is responsible for handling of calls to this operation_descriptor_container,
         it creates an operation instance and returns it, otherwise it returns None.
         """
-        if operation_descriptor_container.coding == MY_CODE_1.coding:
-            # This is a very simple check that only checks the code of the operation.
-            # Depending on your use case, you could also check the operation target is the correct one,
-            # or if this is a child of a specific VMD, ...
-            #
-            # The following line shows how to provide your callback (in this case self._handle_operation_1).
-            # This callback is called when a consumer calls the operation.
-            return self._mk_operation_from_operation_descriptor(
-                operation_descriptor_container,
-                operation_cls_getter,
-                self._handle_operation_1,
-            )
-        if operation_descriptor_container.coding == MY_CODE_2.coding:
-            return self._mk_operation_from_operation_descriptor(
-                operation_descriptor_container,
-                operation_cls_getter,
-                self._handle_operation_2,
-            )
+        if operation_descriptor_container.Type is not None:
+            if _coded_value_comparator(operation_descriptor_container.Type, MY_CODE_1):
+                # This is a very simple check that only checks the code of the operation.
+                # Depending on your use case, you could also check the operation target is the correct one,
+                # or if this is a child of a specific VMD, ...
+                #
+                # The following line shows how to provide your callback (in this case self._handle_operation_1).
+                # This callback is called when a consumer calls the operation.
+                return self._mk_operation_from_operation_descriptor(
+                    operation_descriptor_container,
+                    operation_cls_getter,
+                    self._handle_operation_1,
+                )
+
+            if _coded_value_comparator(operation_descriptor_container.Type, MY_CODE_2):
+                return self._mk_operation_from_operation_descriptor(
+                    operation_descriptor_container,
+                    operation_cls_getter,
+                    self._handle_operation_2,
+                )
         return None
 
     def _handle_operation_1(self, params: ExecuteParameters) -> ExecuteResult:
@@ -155,7 +163,7 @@ class MyProvider1(ProviderRole):
         return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
 
 
-class MyProvider2(ProviderRole):
+class MyRoleProvider2(RoleProvider):
     """The provider handles operations with code == MY_CODE_3.
 
     Operations with these codes already exist in the mdib that is used for this test.
@@ -171,7 +179,10 @@ class MyProvider2(ProviderRole):
         operation_descriptor_container: AbstractOperationDescriptorProtocol,
         operation_cls_getter: OperationClassGetter,
     ) -> OperationDefinitionBase | None:
-        if operation_descriptor_container.coding == MY_CODE_3.coding:
+        if operation_descriptor_container.Type is not None and _coded_value_comparator(
+            operation_descriptor_container.Type,
+            MY_CODE_3,
+        ):
             self._logger.info(
                 'instantiating operation 3 from existing descriptor handle=%s',
                 operation_descriptor_container.Handle,
@@ -208,10 +219,10 @@ class MyProductImpl(BaseProduct):
 
     def __init__(self, mdib: ProviderMdibProtocol, sco: AbstractScoOperationsRegistry, log_prefix: str | None = None):
         super().__init__(mdib, sco, log_prefix)
-        self.my_provider_1 = MyProvider1(mdib, log_prefix=log_prefix)
-        self._ordered_providers.append(self.my_provider_1)
-        self.my_provider_2 = MyProvider2(mdib, log_prefix=log_prefix)
-        self._ordered_providers.append(self.my_provider_2)
+        self.my_role_provider_1 = MyRoleProvider1(mdib, log_prefix=log_prefix)
+        self._ordered_role_providers.append(self.my_role_provider_1)
+        self.my_role_provider_2 = MyRoleProvider2(mdib, log_prefix=log_prefix)
+        self._ordered_role_providers.append(self.my_role_provider_2)
 
 
 class TestTutorial(unittest.TestCase):
@@ -405,14 +416,18 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        specific_components = SdcProviderComponents(role_provider_class=MyProductImpl)
+        role_provider_components = RoleProviderComponents(
+            role_provider_class=MyProductImpl,
+            waveform_provider_class=GenericWaveformProvider,
+        )
+
         # use the minimalistic mdib from reference test:
         mdib_path = __HERE__.joinpath('reference_mdib.xml')
         my_generic_provider = create_generic_provider(
             my_ws_discovery,
             self.my_location,
             mdib_path,
-            specific_components=specific_components,
+            role_provider_components=role_provider_components,
         )
 
         self.my_providers.append(my_generic_provider)
@@ -438,51 +453,50 @@ class TestTutorial(unittest.TestCase):
         # call activate operation:
         # A client should NEVER! use the handle of the operation directly, always use the code(s) to identify things.
         # Handles are random values without any meaning, they are only unique id's in the mdib.
-        operation_entities = my_mdib.entities.by_coding(MY_CODE_1.coding)
+        self._logger.info('looking for operations with code %r', MY_CODE_1)
+        operation_descriptors = get_descriptor_by_type(my_mdib, MY_CODE_1, _coded_value_comparator)
         # the mdib contains 2 operations with the same code. To keep things simple, just use the first one here.
-        self._logger.info('looking for operations with code %r', MY_CODE_1.coding)
-        op_entity = operation_entities[0]
+        op_descr = operation_descriptors[0]
 
-        my_product_impl = my_generic_provider.product_lookup[op_entity.parent_handle]
+        my_product_impl = my_generic_provider.product_lookup[op_descr.parent_handle]
 
         argument = msg_types.Argument()
         argument.ArgValue = 'foo'
-        self._logger.info('calling operation %s, argument = %r', op_entity.handle, argument)
-        future = my_consumer.set_service_client.activate(op_entity.handle, arguments=[argument])
+        self._logger.info('calling operation %s, argument = %r', op_descr.Handle, argument)
+        future = my_consumer.set_service_client.activate(op_descr.Handle, arguments=[argument])
         result = future.result(5)
         self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
-        self.assertEqual(1, my_product_impl.my_provider_1.operation1_called)
-        args = my_product_impl.my_provider_1.operation1_args
+        self.assertEqual(1, my_product_impl.my_role_provider_1.operation1_called)
+        args = my_product_impl.my_role_provider_1.operation1_args
         self.assertEqual(1, len(args))
         self.assertEqual(args[0].ArgValue, 'foo')
 
         # call set_string operation
-        self._logger.info('looking for operations with code %r', MY_CODE_2.coding)
-        op_entities = my_mdib.entities.by_coding(MY_CODE_2.coding)
-        my_op = op_entities[0]
 
-        my_product_impl = my_generic_provider.product_lookup[my_op.parent_handle]
+        self._logger.info('looking for operations with code %r', MY_CODE_2)
+        op_descr = get_one_descriptor_by_type(my_mdib, MY_CODE_2, _coded_value_comparator)
+
+        my_product_impl = my_generic_provider.product_lookup[op_descr.parent_handle]
 
         for value in ('foo', 'bar'):
-            self._logger.info('calling operation %s, argument = %r', my_op.handle, value)
-            future = my_consumer.set_service_client.set_string(my_op.handle, value)
+            self._logger.info('calling operation %s, argument = %r', op_descr.Handle, value)
+            future = my_consumer.set_service_client.set_string(op_descr.Handle, value)
             result = future.result(5)
             self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
-            self.assertEqual(my_product_impl.my_provider_1.operation2_args, value)
-            op_target_entity = my_mdib.entities.by_handle(my_op.descriptor.OperationTarget)
+            self.assertEqual(my_product_impl.my_role_provider_1.operation2_args, value)
+            op_target_entity = my_mdib.entities.by_handle(op_descr.OperationTarget)
             self.assertEqual(op_target_entity.state.MetricValue.Value, value)
-        self.assertEqual(my_product_impl.my_provider_1.operation2_called, 2)
+        self.assertEqual(my_product_impl.my_role_provider_1.operation2_called, 2)
 
         # call setValue operation
-        op_target_entities = my_mdib.entities.by_coding(MY_CODE_3_TARGET.coding)
-        op_target_entity = op_target_entities[0]
+        op_target_descr = get_one_descriptor_by_type(my_mdib, MY_CODE_3_TARGET, _coded_value_comparator)
 
         all_operations = my_mdib.entities.by_node_type(pm.SetValueOperationDescriptor)
-        my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_entity.handle]
+        my_ops = [op for op in all_operations if op.descriptor.OperationTarget == op_target_descr.Handle]
 
         future = my_consumer.set_service_client.set_numeric_value(my_ops[0].handle, Decimal(42))
         result = future.result(5)
         self.assertEqual(result.InvocationInfo.InvocationState, InvocationState.FINISHED)
-        self.assertEqual(my_product_impl.my_provider_2.operation3_args, 42)
-        ent = my_mdib.entities.by_handle(op_target_entity.handle)
+        self.assertEqual(my_product_impl.my_role_provider_2.operation3_args, 42)
+        ent = my_mdib.entities.by_handle(op_target_descr.Handle)
         self.assertEqual(ent.state.MetricValue.Value, 42)

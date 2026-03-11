@@ -3,7 +3,7 @@
 import unittest
 from unittest import mock
 
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 

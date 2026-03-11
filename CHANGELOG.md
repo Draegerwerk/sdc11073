@@ -17,9 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - renamed parameter in ``SdcConsumer.do_subscribe`` from `expire_minutes` to `expire_seconds`. It was already handled as seconds but was named wrong [#436](https://github.com/Draegerwerk/sdc11073/pull/436)
 - increase the default timeout for starting the HTTP server and make this timeout configurable to mitigate startup delays, issue [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
+- descriptor and state containers can not be checked for equivalence (e.g., when processing description-modification reports and state-update reports) - as a result, no error is logged if a descriptor or state version is updated without any actual content change
+- no implied value for the pm:CodedValue/@CodingSystem is provided (the implied value is defined differently in BICEPS IEEE 11073-10207-2017 and BICEPS IEEE 11073-10207-2017/Cor 1-2025) 
+- comparison of pm:CodedValue and pm:Translation instances is not provided with the sdc11073 package and will raise an exception - for further details, refer to src/sdc11073/mdib/mdibaccessor.py and tutorial/codedvaluecomparator.py in the project’s source code
+- implementation of SDC Provider Roles is not part of the sdc11073 package - example implementations can be found in the tutorial folder of the project’s source code
+- several API changes were introduced, including the renaming and relocation of classes and methods (e.g., the SdcConsumer and SDCProvider interfaces, SdcProviderComponents and SdcConsumerComponents interfaces)
 
 ### Fixed
 
+- when generating dpws:Scope entries based on pm:AbstractComplexDeviceComponentDescriptor/pm:Type the implied value for a pm:Type/@CodingSystem is not set explicitly anymore, in addition the used values are now %-encoded before usage
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
 - `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
 - fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification 

@@ -1,14 +1,5 @@
-from __future__ import annotations
+"""In-memory table with indices for faster access to objects.
 
-from collections import defaultdict, namedtuple
-from threading import RLock
-from typing import TYPE_CHECKING, Any, Callable
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-"""
-This module implements an in-memory table with indices for faster access to objects.
 Example: You have a class
 class Person:
     def __init__(self, first_name, last_name, age):
@@ -22,7 +13,7 @@ class Person:
 you can setup an in-memory table like this:
 person_lookup = MultiKeyLookup()
 person_lookup.add_index('by_firstname', multikey.IndexDefinition(lambda obj: obj.first_name))
-person_lookup.add_index('by_firstname', multikey.IndexDefinition(lambda obj: obj.last_name))
+person_lookup.add_index('by_lastname', multikey.IndexDefinition(lambda obj: obj.last_name))
 person_lookup.add_index('by_age', multikey.IndexDefinition(lambda obj: obj.getAge()))
 
 person_lookup.add_object(Person('Peter', 'Miller', 42)
@@ -34,16 +25,25 @@ all_millers = person_lookup.by_lastname.get('Miller')
 all_42_agers = person_lookup.by_age.get(42)
 """
 
+from __future__ import annotations
+
+import dataclasses
+from collections import defaultdict
+from threading import RLock
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
 
 
 class IndexDefinition(dict):
     """An index allows to group objects by values.
 
-    This is a dictionary that has lists ob objects as value.
+    This is a dictionary that has lists of objects as value.
     Each list contains objects that have the same key member.
     """
 
-    def __init__(self, get_key_func:Callable[[Any], Any], index_none_values: bool=True):
+    def __init__(self, get_key_func: Callable[[Any], Any], index_none_values: bool = True):
         """Construct an index.
 
         :param get_key_func: a callable that returns a key value from a given object
@@ -55,7 +55,7 @@ class IndexDefinition(dict):
         self._index_none_values = index_none_values
         self._lock: RLock | None = None
 
-    def get_one(self, key: Any, allow_none: bool=False) -> Any | None:
+    def get_one(self, key: Any, allow_none: bool = False) -> Any | None:
         """Return exactly one object instead of a list (like get method does).
 
         It raises a ValueError if there are multiple values available for the key.
@@ -72,15 +72,16 @@ class IndexDefinition(dict):
             else:
                 result = self[key]
             if len(result) > 1:
-                raise ValueError(f'get_one: key "{key}" has {len(result)} objects')
+                msg = f'get_one: key "{key}" has {len(result)} objects'
+                raise ValueError(msg)
             return result[0]
 
-    def get(self, *args, **kwargs) -> list[Any] | None:
+    def get(self, *args: Any, **kwargs: Any) -> list[Any] | None:
         """Overwritten get method that uses lock."""
         with self._lock:
             return super().get(*args, **kwargs)
 
-    def __getitem__(self, key) -> list[Any] | None:
+    def __getitem__(self, key: Any) -> list[Any] | None:
         """Overwritten __getitem__ method that uses lock."""
         with self._lock:
             return super().__getitem__(key)
@@ -123,11 +124,13 @@ class UIndexDefinition(IndexDefinition):
         if not self._index_none_values and keys is None:
             return None
         if isinstance(keys, list):
-            raise ValueError(f'list of keys not allowed in UIndex: obj={obj}, keys={keys}')
+            msg = f'list of keys not allowed in UIndex: obj={obj}, keys={keys}'
+            raise ValueError(msg)  # noqa: TRY004
         keys = [keys]
         for k in keys:
             if k in self:
-                raise KeyError(f'key "{k}" in already in this UIndex')
+                msg = f'key "{k}" in already in this UIndex'
+                raise KeyError(msg)
             self[k] = [obj]
         return keys
 
@@ -143,7 +146,7 @@ class IndexDefinition1n(IndexDefinition):
         for k in keys:
             try:
                 self[k].append(obj)
-            except KeyError:
+            except KeyError:  # noqa: PERF203
                 self[k] = [obj]
         return keys
 
@@ -154,7 +157,7 @@ class ObjectSelector:
     def __init__(self, selected_objects: Iterable[Any]):
         self.objects = selected_objects
 
-    def find(self, **kwargs) -> ObjectSelector:
+    def find(self, **kwargs: Any) -> ObjectSelector:
         """Return an ObjectSelector with a subset of data.
 
         The filter in kwargs implements an OR combination of args.
@@ -164,6 +167,7 @@ class ObjectSelector:
         -------
         - table contains persons with first_name and family_name.
         - find(first_name='Mike') returns all persons with first_name == 'Mike'.
+
         """
         result = []
         for obj in self.objects:
@@ -172,7 +176,7 @@ class ObjectSelector:
                     val = getattr(obj, name)
                     if callable(val):
                         val = val()
-                except AttributeError:
+                except AttributeError:  # noqa: PERF203
                     pass
                 else:
                     if val == value:
@@ -181,10 +185,11 @@ class ObjectSelector:
         return ObjectSelector(result)
 
 
-_ObjRef = namedtuple('_ObjRef', 'index_dict key')  # used internally in MultiKeyLookup to keep track of all indexes.
+@dataclasses.dataclass
+class _ObjRef:  # used internally in MultiKeyLookup to keep track of all indexes.
+    index_dict: Any
+    key: Any
 
-
-# when we remove an object we need it to delete all indices referencing it
 
 class MultiKeyLookup:
     """A combination of a list of objects and dictionaries.
@@ -195,8 +200,8 @@ class MultiKeyLookup:
 
     def __init__(self):
         self._objects = set()  # contains the objects
-        self._object_ids = defaultdict(
-            list)  # key = id, value = list of ((_idx_defs, key) tuples that reference the object
+        # key = id, value = list of ((_idx_defs, key) tuples that reference the object
+        self._object_ids = defaultdict(list)
         self._idx_defs = {}  # holds UIndexDefinition Objects
         self._lock = RLock()
 
@@ -267,10 +272,9 @@ class MultiKeyLookup:
         all_keys = []  # for this object
         for index_definition in self._idx_defs.values():
             try:
-                keys = index_definition.mk_keys(obj)
-                for k in keys:
-                    all_keys.append(_ObjRef(index_definition, k))
-            except (TypeError, AttributeError):
+                tmp_keys = [_ObjRef(index_definition, k) for k in index_definition.mk_keys(obj)]
+                all_keys.extend(tmp_keys)
+            except (TypeError, AttributeError):  # noqa: PERF203
                 pass
         self._object_ids[id(obj)].extend(all_keys)
 
@@ -326,7 +330,8 @@ class MultiKeyLookup:
     def update_object(self, obj: Any):
         """Update indices according to current values in obj."""
         if obj not in self._objects:
-            raise ValueError(f'object {obj} not known')
+            msg = f'object {obj} not known'
+            raise ValueError(msg)
         with self._lock:
             self._rm_indices(obj)
             self._mk_indices(obj)
@@ -334,7 +339,8 @@ class MultiKeyLookup:
     def update_object_no_lock(self, obj: Any):
         """Update indices according to current values in obj without using lock."""
         if obj not in self._objects:
-            raise ValueError(f'object {obj} not known')
+            msg = f'object {obj} not known'
+            raise ValueError(msg)
         self._rm_indices(obj)
         self._mk_indices(obj)
 
@@ -347,7 +353,8 @@ class MultiKeyLookup:
         """Update indices according to current values in objs without using lock."""
         for obj in objs:
             if obj not in self._objects:
-                raise ValueError(f'object {obj} not known')
+                msg = f'object {obj} not known'
+                raise ValueError(msg)
             with self._lock:
                 self._rm_indices(obj)
                 self._mk_indices(obj)
@@ -360,13 +367,13 @@ class MultiKeyLookup:
             self._object_ids.clear()
             self._objects.clear()
 
-    def find(self, **kwargs) -> ObjectSelector:
+    def find(self, **kwargs: Any) -> ObjectSelector:
         """Return an ObjectSelector with a subset of all objects that match the filter criteria in kwargs."""
         sel = ObjectSelector(self._objects)
         with self._lock:
             return sel.find(**kwargs)
 
-    def find_no_lock(self, **kwargs) -> ObjectSelector:
+    def find_no_lock(self, **kwargs: Any) -> ObjectSelector:
         """Like find, but without using lock."""
         sel = ObjectSelector(self._objects)
         return sel.find(**kwargs)

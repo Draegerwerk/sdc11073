@@ -14,7 +14,7 @@ def test_schema_validator_does_not_raise_schema_validation_error_with_valid_inpu
                 <ext:Extension>
                     <sdpi:CodedAttributes>
                         <sdpi:CodedStringAttribute>
-                            <sdpi:MdcAttribute Code="67886" CodingSystem="urn:oid:1.3.111.2.11073.10101.1"/>
+                            <sdpi:MdcAttribute Code="67886" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1"/>
                             <sdpi:Value>equipment-label</sdpi:Value>
                         </sdpi:CodedStringAttribute>
                     </sdpi:CodedAttributes>

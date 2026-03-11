@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import SplitResult
 
 from lxml import etree
+from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS
 
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -30,8 +31,7 @@ if TYPE_CHECKING:
     import uuid
 
     import sdc11073.certloader
-    from sdc11073.provider.components import SdcProviderComponents
-    from sdc11073.provider.providerimpl import WsDiscoveryProtocol
+    from sdc11073.provider.providerimpl import RoleProviderComponents, SdcProviderComponents, WsDiscoveryProtocol
     from sdc11073.pysoap.msgfactory import MessageFactory
     from sdc11073.pysoap.soapclientpool import SoapClientPool
     from sdc11073.xml_utils import LxmlElement
@@ -143,8 +143,8 @@ class SomeDevice(SdcProvider):
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
         max_subscription_duration: int = 15,
         log_prefix: str = '',
-        default_components: SdcProviderComponents | None = None,
-        specific_components: SdcProviderComponents | None = None,
+        components: SdcProviderComponents | None = None,
+        role_provider_components: RoleProviderComponents | None = EXAMPLE_ROLE_PROVIDER_COMPONENTS,
         chunk_size: int = 0,
         alternative_hostname: str | None = None,
     ):
@@ -158,7 +158,10 @@ class SomeDevice(SdcProvider):
         )
         device = ThisDeviceType(friendly_name='Py SomeDevice', firmware_version='0.99', serial_number='12345')
 
-        device_mdib_container = ProviderMdib.from_string(mdib_xml_data, log_prefix=log_prefix)
+        device_mdib_container = ProviderMdib.from_string(
+            mdib_xml_data,
+            log_prefix=log_prefix,
+        )
         device_mdib_container.instance_id = 1  # set the optional value
         # set Metadata
         mds_descriptors = device_mdib_container.descriptions.NODETYPE.get(pm.MdsDescriptor)
@@ -178,8 +181,8 @@ class SomeDevice(SdcProvider):
             ssl_context_container=ssl_context_container,
             max_subscription_duration=max_subscription_duration,
             log_prefix=log_prefix,
-            default_components=default_components,
-            specific_components=specific_components,
+            components=components,
+            role_provider_components=role_provider_components,
             chunk_size=chunk_size,
             alternative_hostname=alternative_hostname,
         )
@@ -194,8 +197,8 @@ class SomeDevice(SdcProvider):
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
         max_subscription_duration: int = 15,
         log_prefix: str = '',
-        default_components: SdcProviderComponents | None = None,
-        specific_components: SdcProviderComponents | None = None,
+        components: SdcProviderComponents | None = None,
+        role_provider_components: RoleProviderComponents | None = EXAMPLE_ROLE_PROVIDER_COMPONENTS,
         chunk_size: int = 0,
         alternative_hostname: str | None = None,
     ) -> SomeDevice:
@@ -211,8 +214,8 @@ class SomeDevice(SdcProvider):
             ssl_context_container,
             max_subscription_duration=max_subscription_duration,
             log_prefix=log_prefix,
-            default_components=default_components,
-            specific_components=specific_components,
+            components=components,
+            role_provider_components=role_provider_components,
             chunk_size=chunk_size,
             alternative_hostname=alternative_hostname,
         )
