@@ -309,7 +309,7 @@ class SdcProvider:
         # these are initialized in _setup_components:
         self._subscriptions_managers = {}
         self._soap_client_pool = SoapClientPool(self._mk_soap_client, log_prefix)
-        self._sco_operations_registries = {}  # key is mds handle ?
+        self._sco_operations_registries = {}  # key is sco descriptor handle
         self._service_factory = None
         self.product_lookup: dict[str, ProductProtocol] = {}  # one product per sco,  key is a sco handle
         self.hosted_services = None
