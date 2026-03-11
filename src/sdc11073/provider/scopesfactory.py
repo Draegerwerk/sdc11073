@@ -90,21 +90,13 @@ def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
     entities = mdib.entities.by_node_type(pm_names.MdsDescriptor)
     for entity in entities:
         if entity.descriptor.Type is not None:
-            if not entity.descriptor.Type.CodingSystem:
-                msg = (
-                    f'MdsDescriptor with the Handle "{entity.handle}" has no coding system set - '
-                    'GLUE IEEE 11073-20701-2018 requires that an empty CodingSystem expresses the use of the default '
-                    'CODING SYSTEM as defined in pm:CodedValue. BICEPS IEEE 11073-10207-2017 specifies the implied '
-                    'value to be "urn:oid:1.2.840.10004.1.1.1.0.0.1". BICEPS IEEE 11073-10207-2017/Cor 1-2025 '
-                    'specifies the implied value to be "urn:oid:1.3.111.2.11073.10101.3". '
-                    'GLUE IEEE Std 11073-20701-2018 explicitly references BICEPS IEEE 11073-10207-2017 as the '
-                    'normative BICEPS version. To avoid inconsistent interpretations, the explicit definition of '
-                    'the default coding system must be done.'
-                )
-
+            if not entity.descriptor.Type.Code:
+                msg = (f'MdsDescriptor with the Handle "{entity.handle}" has a zero-length pm:Type/@Code specified - '
+                       f'see IEEE Std 11073-20701-2018 chapter 9.2.')
                 raise ValueError(msg)
-            cs = entity.descriptor.Type.CodingSystem
-            csv = entity.descriptor.Type.CodingSystemVersion or ''
-            scope_string = f'sdc.cdc.type:/{cs}/{csv}/{entity.descriptor.Type.Code}'
+            cs = urllib.parse.quote(entity.descriptor.Type.CodingSystem or '', safe='')
+            csv = urllib.parse.quote(entity.descriptor.Type.CodingSystemVersion or '', safe='')
+            co = urllib.parse.quote(entity.descriptor.Type.Code, safe='')
+            scope_string = f'sdc.cdc.type:/{cs}/{csv}/{co}'
             scopes.add(scope_string)
     return scopes

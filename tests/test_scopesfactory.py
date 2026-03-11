@@ -69,8 +69,8 @@ def test_fallback_instance_algorithm(mdib: mock.MagicMock, identifier: str | Non
     loc_state.LocationDetail = None
     loc_state.update_from_sdc_location(sdc_location)
     loc_state.Identification[0].Root = identifier  # overwrite root with the test value
-    mdib.entities.by_node_type.side_effect = (
-        lambda nodetype: [
+    mdib.entities.by_node_type.side_effect = lambda nodetype: (
+        [
             mock.MagicMock(states={uuid.uuid4().hex: loc_state}),
         ]
         if nodetype == 'LocationContextDescriptor'
@@ -116,14 +116,40 @@ def test_context_associations(mdib: mock.MagicMock):
     assert result.text[0] == f'sdc.ctxt.opr:/{root}/{extension}'
 
 
-def test_device_component_based_scopes(mdib: mock.MagicMock):
+@pytest.mark.parametrize(
+    ('code', 'coding_system', 'coding_system_version', 'expected'),
+    [
+        ('some_code', 'some_system', 'some_version', 'sdc.cdc.type:/some_system/some_version/some_code'),
+        ('some_code', '', '', 'sdc.cdc.type:///some_code'),
+        ('some_code', None, None, 'sdc.cdc.type:///some_code'),
+        (
+            'some/code§',
+            'some*system$',
+            '@some&version%',
+            'sdc.cdc.type:/some%2Asystem%24/%40some%26version%25/some%2Fcode%C2%A7',
+        ),
+        (
+            r'some//code\§',
+            r'\\~some system \\',
+            r'\\some!version?',
+            'sdc.cdc.type:/%5C%5C~some%20system%20%5C%5C/%5C%5Csome%21version%3F/some%2F%2Fcode%5C%C2%A7',
+        ),
+    ],
+)
+def test_device_component_based_scopes(
+    mdib: mock.MagicMock,
+    code: str,
+    coding_system: str,
+    coding_system_version: str,
+    expected: str,
+):
     """Test device component-based scopes."""
     mock_entity = mock.MagicMock()
-    mock_entity.descriptor.Type.CodingSystem = uuid.uuid4().hex
-    mock_entity.descriptor.Type.CodingSystemVersion = uuid.uuid4().hex
-    mock_entity.descriptor.Type.Code = uuid.uuid4().hex
-    mdib.entities.by_node_type.side_effect = (
-        lambda nodetype: [
+    mock_entity.descriptor.Type.CodingSystem = coding_system
+    mock_entity.descriptor.Type.CodingSystemVersion = coding_system_version
+    mock_entity.descriptor.Type.Code = code
+    mdib.entities.by_node_type.side_effect = lambda nodetype: (
+        [
             mock_entity,
         ]
         if nodetype == 'MdsDescriptor'
@@ -131,12 +157,30 @@ def test_device_component_based_scopes(mdib: mock.MagicMock):
     )
 
     result = mk_scopes(mdib)
-    assert (
-        result.text[0] == f'sdc.cdc.type:/'
-        f'{mock_entity.descriptor.Type.CodingSystem}/'
-        f'{mock_entity.descriptor.Type.CodingSystemVersion}/'
-        f'{mock_entity.descriptor.Type.Code}'
+    assert result.text[0] == expected
+
+
+@pytest.mark.parametrize('code', [None, ''])
+def test_device_component_based_scopes_failure(mdib: mock.MagicMock, code: str | None):
+    """Test device component-based scopes raises error then no @Code value is provided."""
+    mock_entity = mock.MagicMock()
+    mock_entity.descriptor.Type.CodingSystem = uuid.uuid4().hex
+    mock_entity.descriptor.Type.CodingSystemVersion = uuid.uuid4().hex
+    mock_entity.descriptor.Type.Code = code
+    mdib.entities.by_node_type.side_effect = lambda nodetype: (
+        [
+            mock_entity,
+        ]
+        if nodetype == 'MdsDescriptor'
+        else []
     )
+
+    with pytest.raises(
+        ValueError,
+        match=r'MdsDescriptor with the Handle ".*" has a zero-length pm:Type/@Code specified - '
+        r'see IEEE Std 11073-20701-2018 chapter 9.2.',
+    ):
+        mk_scopes(mdib)
 
 
 def test_raise_error_if_no_identification_element(mdib: mock.MagicMock):
