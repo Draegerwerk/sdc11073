@@ -7,16 +7,14 @@ from sdc11073.provider.porttypes.setserviceimpl import SetService
 from sdc11073.provider.porttypes.stateeventserviceimpl import StateEventService
 from sdc11073.provider.porttypes.waveformserviceimpl import WaveformService
 from sdc11073.provider.providerimpl import (
-    DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC,
-    DEFAULT_SDC_PROVIDER_COMPONENTS_SYNC,
     RoleProviderComponents,
     SdcProvider,
     SdcProviderComponents,
+    provider_components_async_factory,
+    provider_components_sync_factory,
 )
 
 __all__ = [
-    'DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC',
-    'DEFAULT_SDC_PROVIDER_COMPONENTS_SYNC',
     'ContainmentTreeService',
     'ContextService',
     'DescriptionEventService',
@@ -28,4 +26,6 @@ __all__ = [
     'SetService',
     'StateEventService',
     'WaveformService',
+    'provider_components_async_factory',
+    'provider_components_sync_factory',
 ]

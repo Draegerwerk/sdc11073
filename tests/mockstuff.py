@@ -19,7 +19,6 @@ from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPON
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider import SdcProvider
-from sdc11073.provider.providerimpl import DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC
 from sdc11073.provider.subscriptionmgr import BicepsSubscription
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types import pm_types
@@ -144,8 +143,8 @@ class SomeDevice(SdcProvider):
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
         max_subscription_duration: int = 15,
         log_prefix: str = '',
-        components: SdcProviderComponents = DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC,
-        role_provider_components: RoleProviderComponents = EXAMPLE_ROLE_PROVIDER_COMPONENTS,
+        components: SdcProviderComponents | None = None,
+        role_provider_components: RoleProviderComponents | None = EXAMPLE_ROLE_PROVIDER_COMPONENTS,
         chunk_size: int = 0,
         alternative_hostname: str | None = None,
     ):
@@ -198,8 +197,8 @@ class SomeDevice(SdcProvider):
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None,
         max_subscription_duration: int = 15,
         log_prefix: str = '',
-        components: SdcProviderComponents = DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC,
-        role_provider_components: RoleProviderComponents = EXAMPLE_ROLE_PROVIDER_COMPONENTS,
+        components: SdcProviderComponents | None = None,
+        role_provider_components: RoleProviderComponents | None = EXAMPLE_ROLE_PROVIDER_COMPONENTS,
         chunk_size: int = 0,
         alternative_hostname: str | None = None,
     ) -> SomeDevice:

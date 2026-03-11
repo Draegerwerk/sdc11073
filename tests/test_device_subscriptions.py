@@ -17,7 +17,7 @@ from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ProviderMdib
 from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.provider import DEFAULT_SDC_PROVIDER_COMPONENTS_SYNC, SdcProvider
+from sdc11073.provider import SdcProvider, provider_components_sync_factory
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
@@ -67,7 +67,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             this_model,
             this_device,
             self.mdib,
-            components=DEFAULT_SDC_PROVIDER_COMPONENTS_SYNC,
+            components=provider_components_sync_factory(),
             role_provider_components=EXAMPLE_ROLE_PROVIDER_COMPONENTS,
         )
         self.sdc_device.start_all(periodic_reports_interval=1.0)

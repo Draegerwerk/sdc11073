@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import functools
 import logging
 import ssl
 import traceback
 import uuid
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
@@ -64,7 +64,7 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.mex_types import HostedServiceType
 
 
-@dataclass
+@dataclasses.dataclass
 class SdcConsumerComponents:
     """Dependency injection: This class defines which component implementations the sdc consumer will use."""
 
@@ -74,11 +74,13 @@ class SdcConsumerComponents:
     action_dispatcher_class: type[RequestDispatcherProtocol]
     subscription_manager_class: type[ConsumerSubscriptionManagerProtocol]
     operations_manager_class: type[OperationsManagerProtocol]
-    service_handlers: set[type[HostedServiceClient]] = field(default_factory=set)
-    additional_schema_specs: set[PrefixNamespace] = field(default_factory=set)
+    service_handlers: set[type[HostedServiceClient]] = dataclasses.field(default_factory=set)
+    additional_schema_specs: set[PrefixNamespace] = dataclasses.field(default_factory=set)
 
 
-DEFAULT_SDC_CONSUMER_COMPONENTS = SdcConsumerComponents(
+def default_components_factory() -> SdcConsumerComponents:
+    """Return the default components for SdcConsumer."""
+    return SdcConsumerComponents(
     soap_client_class=SoapClient,
     msg_factory_class=MessageFactory,
     msg_reader_class=MessageReader,
@@ -166,7 +168,7 @@ class HostedServiceDescription:
         return f'{self.__class__.__name__} "{self.service_id}" endpoint = {self._endpoint_address}'
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class SubscriptionEndData:
     """When a subscription end message is received, sdc consumer writes a SubscriptionEndData instance to observable.
 
@@ -255,7 +257,7 @@ class SdcConsumer:
         epr: str | uuid.UUID | None = None,
         validate: bool = True,
         log_prefix: str = '',
-        components: SdcConsumerComponents = DEFAULT_SDC_CONSUMER_COMPONENTS,
+        components: SdcConsumerComponents | None = None,
         request_chunk_size: int = 0,
         socket_timeout: int = 5,
         force_ssl_connect: bool = False,
@@ -270,7 +272,7 @@ class SdcConsumer:
         :param ssl_context_container: used for ssl connection to device and for own HTTP Server (notifications receiver)
         :param validate: bool
         :param log_prefix: a string used as prefix for logging
-        :param components: a SdcConsumerComponents instance
+        :param components: a SdcConsumerComponents instance or None
         :param request_chunk_size: if value > 0, message is split into chunks of this size
         :param socket_timeout: timeout for connections to provider
         :param force_ssl_connect: True: only accept ssl connections (requires a ssl_context_container)
@@ -297,8 +299,7 @@ class SdcConsumer:
         self._device_location = device_location
         self.sdc_definitions = sdc_definitions
 
-        # entries of components will be modified, so copy it to avoid side effects
-        self._components = copy.deepcopy(components)
+        self._components = copy.deepcopy(components) if components else default_components_factory()
 
         self.subscription_status: dict[str, bool] = {}
 
@@ -848,7 +849,7 @@ class SdcConsumer:
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
         validate: bool = True,
         log_prefix: str = '',
-        components: SdcConsumerComponents = DEFAULT_SDC_CONSUMER_COMPONENTS,
+        components: SdcConsumerComponents | None = None,
     ) -> SdcConsumer:
         """Construct a SdcConsumer from a Service.
 

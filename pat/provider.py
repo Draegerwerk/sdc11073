@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import datetime
 import pathlib
 import random
@@ -17,17 +16,8 @@ from tutorial.productandroles.waveformprovider.waveformgenerators import Wavefor
 from pat import common
 from sdc11073 import location
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
-from sdc11073.provider import (
-    ContainmentTreeService,
-    ContextService,
-    DescriptionEventService,
-    GetService,
-    SdcProvider,
-    SetService,
-    StateEventService,
-    WaveformService,
-)
-from sdc11073.provider.providerimpl import DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC
+from sdc11073.provider import SdcProvider
+from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.wsdiscovery import WSDiscovery
@@ -183,26 +173,17 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
 
         dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
 
-        provider_components = copy.deepcopy(DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC)
+        provider_components = provider_components_async_factory()
         if USE_REFERENCE_PARAMETERS:
-            provider_components.subscriptions_manager_class.update(
+            subscriptions_manager_class_copy = dict(provider_components.subscriptions_manager_class)
+            subscriptions_manager_class_copy.update(
                 {
                     'StateEvent': SubscriptionsManagerReferenceParamAsync,
                 },
             )
+            provider_components.subscriptions_manager_class = subscriptions_manager_class_copy
             provider_components.soap_client_class = SoapClientAsync
 
-        provider_components.hosted_services = {
-            'Get': [GetService],
-            'StateEvent': [
-                StateEventService,
-                ContextService,
-                DescriptionEventService,
-                WaveformService,
-            ],
-            'Set': [SetService],
-            'ContainmentTree': [ContainmentTreeService],
-        }
         sdc_provider = SdcProvider(
             wsd,
             dpws_model,

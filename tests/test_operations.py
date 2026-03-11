@@ -1,6 +1,5 @@
 """The module tests operations with provider and consumer that use old mdibs."""
 
-import copy
 import datetime
 import logging
 import time
@@ -11,7 +10,7 @@ from tutorial.codedvaluecomparator import _coded_value_comparator
 from tutorial.productandroles.nomenclature import NomenclatureCodes
 
 from sdc11073 import loghelper, observableproperties
-from sdc11073.consumer.consumerimpl import DEFAULT_SDC_CONSUMER_COMPONENTS, SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
@@ -45,7 +44,7 @@ class TestBuiltinOperations(unittest.TestCase):
 
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
-        consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+        consumer_components = default_components_factory()
         consumer_components.action_dispatcher_class = RequestDispatcher
         self.sdc_client = SdcConsumer(
             x_addr[0],
@@ -380,7 +379,7 @@ class TestBuiltinOperations(unittest.TestCase):
         # connect a 2nd client
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
-        consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+        consumer_components = default_components_factory()
         consumer_components.action_dispatcher_class = RequestDispatcher
         sdc_client2 = SdcConsumer(
             x_addr[0],
@@ -718,6 +717,7 @@ class TestBuiltinOperations(unittest.TestCase):
             self.sdc_device.mdib,
             pm_types.CodedValue('0815-1'),
             _coded_value_comparator,
+            allow_none=False,
         )
         operation_handle = my_operation_descriptor.Handle
         for value in (Decimal(1), Decimal(42), 1.1, 10, '12'):

@@ -7,11 +7,11 @@ import uuid
 
 from lxml import etree
 
-from sdc11073.consumer.consumerimpl import DEFAULT_SDC_CONSUMER_COMPONENTS, SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.exceptions import ValidationError
 from sdc11073.namespaces import PrefixNamespace
-from sdc11073.provider.providerimpl import DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC
+from sdc11073.provider.providerimpl import provider_components_async_factory
 from tests.mockstuff import SomeDevice
 
 here = pathlib.Path(__file__).parent
@@ -73,10 +73,10 @@ MdibVersion="243" SequenceId="urn:uuid:0ae28b40-19d2-458c-80c1-bf4198694572">
 
 class TestAdditionalSchema(unittest.TestCase):
     def setUp(self):
-        consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+        consumer_components = default_components_factory()
         consumer_components.additional_schema_specs.add(prefix_namespace_foo)
 
-        provider_components = copy.deepcopy(DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC)
+        provider_components = provider_components_async_factory()
         provider_components.additional_schema_specs = {prefix_namespace_foo}
 
         # instantiate a provider and a consumer.

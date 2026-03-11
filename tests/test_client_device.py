@@ -34,7 +34,7 @@ from tutorial.productandroles.waveformprovider.waveformgenerators import (
 )
 
 from sdc11073 import certloader, loghelper, observableproperties
-from sdc11073.consumer.consumerimpl import DEFAULT_SDC_CONSUMER_COMPONENTS, SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
 from sdc11073.consumer.subscription import ClientSubscriptionManagerReferenceParams
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.httpserver import compression
@@ -43,7 +43,7 @@ from sdc11073.location import SdcLocation
 from sdc11073.mdib import ConsumerMdib, statecontainers
 from sdc11073.namespaces import default_ns_helper
 from sdc11073.observableproperties import observables
-from sdc11073.provider.providerimpl import DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC
+from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.pysoap.msgreader import MdibVersionGroupReader
@@ -436,7 +436,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
             provide_realtime_data(sdc_device)
 
             time.sleep(0.5)
-            consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+            consumer_components = default_components_factory()
             consumer_components.action_dispatcher_class = RequestDispatcher
 
             x_addr = sdc_device.get_xaddrs()
@@ -525,7 +525,7 @@ class TestClientSomeDevice(unittest.TestCase):
 
         time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
-        consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+        consumer_components = default_components_factory()
         consumer_components.action_dispatcher_class = RequestDispatcher
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(
@@ -787,7 +787,7 @@ class TestClientSomeDevice(unittest.TestCase):
         sdc_client = None
         try:
             # no deferred action handling for easier debugging
-            consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+            consumer_components = default_components_factory()
             consumer_components.action_dispatcher_class = RequestDispatcher
             sdc_client = SdcConsumer(
                 x_addr[0],
@@ -1693,8 +1693,10 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
 
-        provider_components = copy.deepcopy(DEFAULT_SDC_PROVIDER_COMPONENTS_ASYNC)
-        provider_components.subscriptions_manager_class.update({'StateEvent': SubscriptionsManagerReferenceParamAsync})
+        provider_components = provider_components_async_factory()
+        subscriptions_manager_class_copy = dict(provider_components.subscriptions_manager_class)
+        subscriptions_manager_class_copy.update({'StateEvent': SubscriptionsManagerReferenceParamAsync})
+        provider_components.subscriptions_manager_class = subscriptions_manager_class_copy
         provider_components.soap_client_class = SoapClientAsync
 
         self.sdc_device = SomeDevice.from_mdib_file(
@@ -1713,7 +1715,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        consumer_components = copy.deepcopy(DEFAULT_SDC_CONSUMER_COMPONENTS)
+        consumer_components = default_components_factory()
         consumer_components.subscription_manager_class = ClientSubscriptionManagerReferenceParams
         self.sdc_client = SdcConsumer(
             x_addr[0],
