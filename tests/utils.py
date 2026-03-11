@@ -14,6 +14,8 @@ from sdc11073 import location
 from sdc11073.xml_types import wsd_types
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sdc11073.mdib.containerbase import ContainerBase
 
 RFC3986 = string.ascii_letters + string.digits + '-_.~'
@@ -25,9 +27,9 @@ def get_random_rfc3986_string_of_length(
 ) -> str:
     """Create a random string containing characters of the "unreserved" RFC3986 set.
 
-    @param length_of_string: length of the generated string
-    @param characters_to_exclude: string of characters to be excluded from selection
-    @return: return a random string which has the given length
+    :param length_of_string: length of the generated string
+    :param characters_to_exclude: string of characters to be excluded from selection
+    :return: return a random string which has the given length
     """
     rfc3986_strings = set(RFC3986) - set(characters_to_exclude or [])
     return ''.join(random.choices(list(rfc3986_strings), k=length_of_string))
@@ -64,14 +66,14 @@ def container_diff(
     first: ContainerBase,
     second: ContainerBase,
     max_float_diff: float = 1e-15,
-) -> None | list[str]:
+) -> None | Sequence[str]:
     """Compare all properties (except to be ignored ones).
 
-    @param first: the first object to compare
-    @param second: the second object to compare
-    @param max_float_diff: parameter for math.isclose() if float values are incorporated.
+    :param first: the first object to compare
+    :param second: the second object to compare
+    :param max_float_diff: parameter for math.isclose() if float values are incorporated.
                             1e-15 corresponds to 15 digits max. accuracy (see sys.float_info.dig)
-    @return: textual representation of differences or None if equal
+    :return: textual representation of differences or None if equal
     """
     ret = []
     first_properties = first.sorted_container_properties()

@@ -14,6 +14,8 @@ from tutorial.productandroles.waveformprovider.realtimesamples import Annotator,
 from tutorial.productandroles.waveformprovider.waveformgenerators import TriangleGenerator
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.mdib.entityprotocol import EntityProtocol
     from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
@@ -129,7 +131,7 @@ class GenericWaveformProvider:
         self,
         coded_value: Any,
         trigger_handle: str,
-        annotated_handles: list[str],
+        annotated_handles: Iterable[str],
     ) -> AnnotatorProtocol:
         """Add annotator to list of annotators."""
         annotation = self._mdib.data_model.pm_types.AnnotationType(coded_value)
@@ -166,7 +168,7 @@ class GenericWaveformProvider:
             if not wf_generator.is_active:
                 state.MetricValue = None
 
-    def update_all_realtime_samples(self) -> list[EntityProtocol]:
+    def update_all_realtime_samples(self) -> Sequence[EntityProtocol]:
         """Update all realtime sample states that have a waveform generator registered.
 
         On transaction commit the mdib will call the appropriate send method of the sdc device.
@@ -184,14 +186,14 @@ class GenericWaveformProvider:
         self,
         generator_class: type[WaveformGeneratorProtocol] = TriangleGenerator,
         max_waveforms: int | None = None,
-    ) -> list[str]:
+    ) -> Sequence[str]:
         """Create waveform generators for waveforms in mdib.
 
         The values of descriptor.TechnicalRange and descriptor.SamplePeriod are used for the generator.
 
         :param generator_class: the generator to be instantiated.
         :param max_waveforms: limit number of waveforms.
-        :return: list of handles of created generators
+        :return: sequence of handles of created generators
         """
         pm_name = self._mdib.data_model.pm_names.RealTimeSampleArrayMetricDescriptor
         all_waveform_entities = self._mdib.entities.by_node_type(pm_name)

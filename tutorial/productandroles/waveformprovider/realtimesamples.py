@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from sdc11073.provider.protocols.waveformprotocol import AnnotatorProtocol, RtSampleArrayProtocol
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.xml_types.pm_types import Annotation, ComponentActivation
@@ -24,14 +24,14 @@ class RtSampleArray(RtSampleArrayProtocol):
         model: AbstractDataModel,
         determination_time: float | None,
         sample_period: float,
-        samples: list[float],
+        samples: Sequence[float],
         activation_state: ComponentActivation,
     ):
         """Construct a RtSampleArray.
 
         :param determination_time: the time stamp of the first value in samples, can be None if not active
         :param sample_period: the time difference between two samples
-        :param samples: a list of 2-tuples (value (float or int), flag annotation_trigger)
+        :param samples: a sequence of 2-tuples (value (float or int), flag annotation_trigger)
         :param activation_state: one of pmtypes.ComponentActivation values
         """
         self._model = model
@@ -78,7 +78,7 @@ class Annotator(AnnotatorProtocol):
     This annotator triggers an annotation when the value changes from <= 0 to > 0.
     """
 
-    def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: list[str]) -> None:
+    def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: Iterable[str]) -> None:
         """Construct an annotator.
 
         :param annotation: Annotation
@@ -90,7 +90,7 @@ class Annotator(AnnotatorProtocol):
         self.annotated_handles = annotated_handles
         self._last_value = 0.0
 
-    def get_annotation_timestamps(self, rt_sample_array: RtSampleArrayProtocol) -> list[float]:
+    def get_annotation_timestamps(self, rt_sample_array: RtSampleArrayProtocol) -> Sequence[float]:
         """Analyze the rt_sample_array and return timestamps for annotations."""
         ret = []
         for i, rt_sample in enumerate(rt_sample_array.samples):

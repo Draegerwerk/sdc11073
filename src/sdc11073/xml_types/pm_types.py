@@ -362,8 +362,9 @@ class Translation(PropertyBasedPMType):  # noqa: PLW1641
         if not isinstance(other, Translation):
             return NotImplemented
         runtime_error = (
-            'The comparison of Translation instances can not be performed! '
-            'Translation instances must be compared by a comparison function that considers the use case!'
+            'Comparison of Translation instances using the default equality operator is supported! '
+            'According to BICEPS IEEE 11073-10207-2017 and BICEPS IEEE 11073-10207-2017/Cor 1-2025, '
+            'a dedicated comparison function must be used to ensure standard compliance.'
         )
         raise RuntimeError(runtime_error)
 
@@ -450,8 +451,9 @@ class CodedValue(PropertyBasedPMType):  # noqa: PLW1641
         if not isinstance(other, CodedValue):
             return NotImplemented
         runtime_error = (
-            'The comparison of CodedValue instances can not be performed! '
-            'CodedValue instances must be compared by a comparison function that considers the use case!'
+            'Comparison of CodedValue instances using the default equality operator is supported! '
+            'According to BICEPS IEEE 11073-10207-2017 and BICEPS IEEE 11073-10207-2017/Cor 1-2025, '
+            'a dedicated comparison function must be used to ensure standard compliance.'
         )
         raise RuntimeError(runtime_error)
 

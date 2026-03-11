@@ -1,17 +1,19 @@
 """Protocols for waveform providers."""
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Protocol
 
 from sdc11073.definitions_base import AbstractDataModel
 from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.pm_types import Annotation, ComponentActivation
 
-CurveGeneratorCallable = Callable[[float, float, int], list[float]]
+CurveGeneratorCallable = Callable[[float, float, int], Sequence[float]]
 
 
 class WaveformGeneratorProtocol(Protocol):
     """Generator of infinite curve, data is provided by a curve generator."""
+
+    sample_period: float
 
     def __init__(
         self,
@@ -24,7 +26,7 @@ class WaveformGeneratorProtocol(Protocol):
         """Initialize waveform generator."""
         ...
 
-    def next_samples(self, count: int) -> list[float]:
+    def next_samples(self, count: int) -> Sequence[float]:
         """Get next values from generator."""
         ...
 
@@ -37,7 +39,7 @@ class RtSampleArrayProtocol(Protocol):
 
     determination_time: float | None
     sample_period: float
-    samples: list[float]
+    samples: Sequence[float]
     activation_state: ComponentActivation
 
     def __init__(
@@ -45,7 +47,7 @@ class RtSampleArrayProtocol(Protocol):
         model: AbstractDataModel,
         determination_time: float | None,
         sample_period: float,
-        samples: list[float],
+        samples: Sequence[float],
         activation_state: ComponentActivation,
     ) -> None:
         """Construct a RtSampleArray."""
@@ -61,13 +63,13 @@ class AnnotatorProtocol(Protocol):
 
     annotation: Annotation
     trigger_handle: str
-    annotated_handles: list[str]
+    annotated_handles: Iterable[str]
 
-    def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: list[str]) -> None:
+    def __init__(self, annotation: Annotation, trigger_handle: str, annotated_handles: Sequence[str]) -> None:
         """Construct an annotator."""
         ...
 
-    def get_annotation_timestamps(self, rt_sample_array: RtSampleArrayProtocol) -> list[float]:
+    def get_annotation_timestamps(self, rt_sample_array: RtSampleArrayProtocol) -> Sequence[float]:
         """Analyze the rt_sample_array and return timestamps for annotations.
 
         Return a list of timestamps, can be empty.
@@ -93,7 +95,7 @@ class WaveformProviderProtocol(Protocol):
         self,
         coded_value: Any,
         trigger_handle: str,
-        annotated_handles: list[str],
+        annotated_handles: Iterable[str],
     ) -> AnnotatorProtocol:
         """Add annotator to list of annotators."""
         ...

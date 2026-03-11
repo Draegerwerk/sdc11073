@@ -2,24 +2,25 @@
 
 import itertools
 import math
+from collections.abc import Sequence
 
 from sdc11073.provider.protocols.waveformprotocol import CurveGeneratorCallable, WaveformGeneratorProtocol
 
 
-def sinus(min_value: float, max_value: float, samples: int) -> list[float]:
+def sinus(min_value: float, max_value: float, samples: int) -> Sequence[float]:
     """Return a list of values for one sinus curve period."""
     delta = 2 * math.pi / samples
     _values = [math.sin(i * delta) for i in range(samples)]  # -1 ... +1
     return [(n + 1) / 2.0 * (max_value - min_value) + min_value for n in _values]  # min ... max
 
 
-def sawtooth(min_value: float, max_value: float, samples: int) -> list[float]:
+def sawtooth(min_value: float, max_value: float, samples: int) -> Sequence[float]:
     """Return a list of values for one sawtooth curve period."""
     delta = (max_value - min_value) / float(samples)
     return [min_value + i * delta for i in range(samples)]
 
 
-def triangle(min_value: float, max_value: float, samples: int) -> list[float]:
+def triangle(min_value: float, max_value: float, samples: int) -> Sequence[float]:
     """Return a list of values for one triangle curve period."""
     min_value = float(min_value)
     max_value = float(max_value)
@@ -49,7 +50,7 @@ class WaveformGeneratorBase(WaveformGeneratorProtocol):
         self._values = values_generator(min_value, max_value, samples)
         self._generator = itertools.cycle(self._values)
 
-    def next_samples(self, count: int) -> list[float]:
+    def next_samples(self, count: int) -> Sequence[float]:
         """Get next values from generator."""
         return [next(self._generator) for _ in range(count)]
 

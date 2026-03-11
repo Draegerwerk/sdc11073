@@ -1,6 +1,5 @@
 """Test that additional schema is correctly used in consumer and provider."""
 
-import copy
 import pathlib
 import unittest
 import uuid

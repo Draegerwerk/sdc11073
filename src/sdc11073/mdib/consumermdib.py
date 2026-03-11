@@ -367,7 +367,7 @@ class ConsumerMdib(mdibbase.MdibBase):
     def _update_from_states_report(
         self,
         report_type: str,
-        report: (EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport | EpisodicComponentReport),
+        report: EpisodicMetricReport | EpisodicAlertReport | OperationInvokedReport | EpisodicComponentReport,
     ) -> dict[str, AbstractStateContainer]:
         """Update mdib with incoming states."""
         states_by_handle = {}
