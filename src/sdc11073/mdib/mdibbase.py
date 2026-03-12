@@ -327,6 +327,9 @@ class EntityGetter(EntityGetterProtocol):
             states = self._mdib.context_states.descriptor_handle.get(descriptor.Handle, [])
             return MultiStateEntity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(states))
         state = self._mdib.states.descriptor_handle.get_one(descriptor.Handle)
+        if not self._mdib.mdib_lock.locked():
+            with self._mdib.mdib_lock:
+                return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
         return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
 
     def items(self) -> Iterable[tuple[str, Entity | MultiStateEntity]]:
