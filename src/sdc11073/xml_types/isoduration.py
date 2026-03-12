@@ -27,7 +27,10 @@ DurationType = decimal.Decimal | int | float
 ParsedDurationType = float
 
 
-__SDPI_REGEX_DURATION__ = re.compile(r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)(?:\.(?P<fraction>\d+))?S)?(?<!PT)$')
+__SDPI_REGEX_DURATION__ = re.compile(
+    r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?'
+    r'(?:(?P<seconds>\d+)(?:\.(?P<fraction>\d+))?S)?(?<!PT)$',
+)
 
 
 def parse_duration(date_string: str) -> ParsedDurationType:

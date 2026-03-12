@@ -20,7 +20,15 @@ def test_negative_durations_are_not_allowed(timedelta: datetime.timedelta) -> No
         isoduration.duration_string(timedelta.total_seconds())
 
 
-@given(second=st.floats(min_value=0, max_value=datetime.timedelta.max.total_seconds(), allow_nan=False, allow_infinity=False, exclude_max=True))
+@given(
+    second=st.floats(
+        min_value=0,
+        max_value=datetime.timedelta.max.total_seconds(),
+        allow_nan=False,
+        allow_infinity=False,
+        exclude_max=True,
+    ),
+)
 def test_duration_parsing(second: float) -> None:
     """Test that durations can be converted to string and back.
 
@@ -179,7 +187,12 @@ def test_xsddatetime_invalid_day_raises_value_error(year: int, month: int, day: 
     second=seconds(),
 )
 def test_xsddatetime_invalid_hour_raises_value_error(  # noqa: PLR0913
-    year: int, month: int, day: int, hour: int, minute: int, second: float
+    year: int,
+    month: int,
+    day: int,
+    hour: int,
+    minute: int,
+    second: float,
 ) -> None:
     """Test that invalid hour raises ValueError."""
     with pytest.raises(ValueError, match=f'{hour} is not a valid hour'):
