@@ -33,7 +33,6 @@ dependencies = [
     'lxml>=2.3',  # do not use lxml>=6, because it breaks the schema validator
     'ifaddr',
     'aiohttp',
-    "isodate>=0.7.2",
 ]
 
 [project.urls]

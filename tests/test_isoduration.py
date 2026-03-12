@@ -20,20 +20,22 @@ def test_negative_durations_are_not_allowed(timedelta: datetime.timedelta) -> No
         isoduration.duration_string(timedelta.total_seconds())
 
 
-@given(second=st.floats(min_value=0, allow_nan=False, allow_infinity=False))
+@given(second=st.floats(min_value=0, max_value=datetime.timedelta.max.total_seconds(), allow_nan=False, allow_infinity=False, exclude_max=True))
 def test_duration_parsing(second: float) -> None:
-    """Test that durations can be converted to string and back."""
+    """Test that durations can be converted to string and back.
+
+    timedelta has microsecond precision, so the round-trip is compared against
+    timedelta(seconds=second).total_seconds() rather than the raw input.
+    """
     duration_string = isoduration.duration_string(second)
     duration_seconds = isoduration.parse_duration(duration_string)
-    if duration_seconds != second:
-        print(duration_seconds)
-    assert duration_seconds == second
+    assert duration_seconds == datetime.timedelta(seconds=second).total_seconds()
 
 
 @pytest.mark.parametrize('duration', ['P1Y2M', '-P3Y', 'P0Y5M', 'P2Y0M', 'P1Y2M3DT4H5M6S'])
 def test_parse_duration_raises_value_error_for_years_months(duration: str) -> None:
     """Test that durations with years or months raise ValueError."""
-    with pytest.raises(ValueError, match=f'Duration {duration} with years or months is not supported'):
+    with pytest.raises(ValueError, match=f'Date string {re.escape(duration)} not matching SDPI regex for durations'):
         isoduration.parse_duration(duration)
 
 

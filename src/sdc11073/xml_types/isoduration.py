@@ -11,39 +11,39 @@ import sys
 import typing
 from typing import TYPE_CHECKING
 
-import isodate
-
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+
+def _parse_integer(value: str) -> int | None:
+    return int(value) if value is not None else None
+
+
+def _parse_float(value: str) -> int | None:
+    return float(value) if value is not None else None
 
 
 DurationType = decimal.Decimal | int | float
 ParsedDurationType = float
 
 
-__SDPI_REGEX_DURATION__ = re.compile(r'^PT(\d+H)?(\d+M)?(\d+(.\d+)?S)?(?<!PT)$')
+__SDPI_REGEX_DURATION__ = re.compile(r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)(?:\.(?P<fraction>\d+))?S)?(?<!PT)$')
 
-pattern = re.compile(
-    r'^PT'
-    r'(?:(?P<hours>\d+)H)?'
-    r'(?:(?P<minutes>\d+)M)?'
-    r'(?:(?P<seconds>\d+)(?:\.(?P<microseconds>\d+))?S)?'
-    r'(?<!PT)$'
-)
+
 def parse_duration(date_string: str) -> ParsedDurationType:
-    """Parse an ISO 8601 durations into a float value containing seconds.
-
-    The following duration formats are supported:
-      -PnnW                  duration in weeks
-      -PnnYnnMnnDTnnHnnMnnS  complete duration specification
-    Years and month are not supported, values must be zero!
-    """
-    # TODO: remove isodate package and parse duration manually
-    duration = isodate.parse_duration(date_string)
-    if isinstance(duration, isodate.Duration):
-        msg = f'Duration {date_string} with years or months is not supported'
-        raise ValueError(msg)  # noqa: TRY004
-    return duration.total_seconds()
+    """XML Schema duration, constrained to hours, minutes and seconds."""
+    match = __SDPI_REGEX_DURATION__.match(date_string)
+    if match is None:
+        msg = f'Date string {date_string} not matching SDPI regex for durations'
+        raise ValueError(msg)
+    groups = match.groupdict()
+    seconds = groups['seconds'] or '0'
+    fraction = groups['fraction'] or '0'
+    return datetime.timedelta(
+        hours=_parse_integer(groups['hours']) or 0,
+        minutes=_parse_integer(groups['minutes']) or 0,
+        seconds=float(f'{seconds}.{fraction}'),
+    ).total_seconds()
 
 
 def duration_string(seconds: DurationType) -> str:
@@ -61,8 +61,8 @@ def duration_string(seconds: DurationType) -> str:
     duration = io.StringIO()
     duration.write('PT')
     tdt = datetime.timedelta(seconds=float(seconds))
-    microseconds = (tdt.days * 24 * 60 * 60 + tdt.seconds) * 1e6 + tdt.microseconds
-    seconds, microseconds = divmod(microseconds, 1e6)
+    total_us = tdt.days * 86_400_000_000 + tdt.seconds * 1_000_000 + tdt.microseconds
+    seconds, microseconds = divmod(total_us, 1_000_000)
     minutes, seconds = divmod(seconds, 60)
     hours, minutes = divmod(minutes, 60)
     if hours > 0:
@@ -74,10 +74,11 @@ def duration_string(seconds: DurationType) -> str:
     if microseconds > 0:
         if seconds == 0:
             duration.write('0')
-        duration.write(f'.{str(int(microseconds)).rstrip("0")}S')
+        duration.write(f'.{str(int(microseconds)).zfill(6).rstrip("0")}S')
     elif seconds > 0:
         duration.write('S')
-    return duration.getvalue()
+    result = duration.getvalue()
+    return result if result != 'PT' else 'PT0S'
 
 
 ##### Date Time ######
@@ -218,14 +219,6 @@ class XsdDatetime:
 
         parsed.write(_tz_to_string(self.tz_info))
         return parsed.getvalue()
-
-
-def _parse_integer(value: str) -> int | None:
-    return int(value) if value is not None else None
-
-
-def _parse_float(value: str) -> int | None:
-    return float(value) if value is not None else None
 
 
 def _parse_tz(groups: Mapping[str, str]) -> datetime.timezone | None:
