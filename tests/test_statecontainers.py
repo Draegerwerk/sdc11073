@@ -1,6 +1,5 @@
 """Unit tests for state containers."""
 
-import datetime
 import unittest
 from decimal import Decimal
 from math import isclose
@@ -66,7 +65,6 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state1.StateVersion, state2.StateVersion)
 
     def test_AbstractOperationStateContainer(self):  # noqa: N802
-    def test_abstract_operation_state_container(self):
         state = sc.AbstractOperationStateContainer(descriptor_container=self.descr)
         self.assertIsNotNone(state.OperatingMode)  # this is a required attribute
 
