@@ -151,7 +151,7 @@ class TestClientWaveform(unittest.TestCase):
         # create dummy descriptors
         for handle in HANDLES:
             attributes = {
-                'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
+                'SamplePeriod': 'PT0H0M0.0157S',  # use a unique sample period
                 etree.QName(ns_hlp.ns_map['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                 'Handle': handle,
                 'DescriptorVersion': '2',

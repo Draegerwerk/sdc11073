@@ -49,6 +49,8 @@ test = [
     "pytest-cov",
     "pytest-xdist[psutil]",
     "sdc11073[lz4]",
+    "hypothesis[zoneinfo]>=6.148.2; platform_system == 'Windows'",
+    "hypothesis>=6.148.2; platform_system != 'Windows'",
 ]
 mypy = [
     "mypy",

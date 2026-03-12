@@ -1,6 +1,5 @@
 """The module tests operations with provider and consumer that use old mdibs."""
 
-import datetime
 import logging
 import time
 import unittest
@@ -15,7 +14,7 @@ from sdc11073.dispatch import RequestDispatcher
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import msg_types, pm_types
+from sdc11073.xml_types import isoduration, msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from tests import utils
 from tests.mockstuff import SomeDevice
@@ -238,7 +237,7 @@ class TestBuiltinOperations(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11)  # noqa: DTZ001
+            st.CoreData.DateOfBirth = isoduration.XsdDatetime(2012, 3, 15, 13, 12, 11)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_containers = consumer_mdib.context_states.NODETYPE.get(pm.PatientContextState)
         my_patients = [p for p in patient_context_state_containers if p.CoreData.Givenname == 'Max123']

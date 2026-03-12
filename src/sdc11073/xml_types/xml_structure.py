@@ -12,17 +12,15 @@ from __future__ import annotations
 import copy
 import time
 from abc import ABC, abstractmethod
-from datetime import date, datetime
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from lxml import etree
 
 from sdc11073 import xml_utils
 from sdc11073.exceptions import ApiUsageError
 from sdc11073.namespaces import QN_TYPE, docname_from_qname, text_to_qname
-
-from . import isoduration
-from .dataconverters import (
+from sdc11073.xml_types import isoduration
+from sdc11073.xml_types.dataconverters import (
     BooleanConverter,
     ClassCheckConverter,
     DecimalConverter,
@@ -36,7 +34,7 @@ from .dataconverters import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from decimal import Decimal
 
     from sdc11073.mdib.containerbase import ContainerBase
@@ -963,7 +961,7 @@ def _compare_extension(left: xml_utils.LxmlElement, right: xml_utils.LxmlElement
     return all(map(_compare_extension, left_children, right_children))  # compare children but keep order
 
 
-class ExtensionLocalValue(list[xml_utils.LxmlElement]):
+class ExtensionLocalValue(list[xml_utils.LxmlElement]):  # noqa: PLW1641
     """Value of an extension."""
 
     compare_method: Callable[[xml_utils.LxmlElement, xml_utils.LxmlElement], bool] = _compare_extension
@@ -975,7 +973,7 @@ class ExtensionLocalValue(list[xml_utils.LxmlElement]):
                 return False
         except TypeError:  # len of other cannot be determined
             return False
-        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other))
+        return all(self.__class__.compare_method(left, right) for left, right in zip(self, other, strict=True))
 
     def __ne__(self, other: ExtensionLocalValue):
         return not self == other
@@ -1559,7 +1557,7 @@ class DateOfBirthProperty(_ElementBase):
 
     Time zone info can be provided:
        UTC can be specified by appending a Z character, e.g. 2002-09-24Z
-       other timezones by adding a positive or negative time behind the date, e.g. 2002.09-24-06:00, 2002-09-24+06:00
+       other timezones by adding a positive or negative time behind the date, e.g. 2002-09-24-06:00, 2002-09-24+06:00
     xsd:time is hh:mm:ss format, e.g. 9:30:10, 9:30:10.5. All components are required.
     Time zone handling is identical to date type
 
@@ -1576,13 +1574,13 @@ class DateOfBirthProperty(_ElementBase):
     ):
         super().__init__(
             sub_element_name,
-            ClassCheckConverter(datetime, date),
+            ClassCheckConverter(isoduration.XsdDatetime),
             default_py_value,
             implied_py_value,
             is_optional,
         )
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> Any:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> isoduration.XsdDatetime | None:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -1609,11 +1607,11 @@ class DateOfBirthProperty(_ElementBase):
         sub_element.text = date_string
 
     @staticmethod
-    def mk_value_object(date_string: str) -> isoduration.DateTypeUnion | None:
+    def mk_value_object(date_string: str) -> isoduration.XsdDatetime | None:
         """Parse isoduration string."""
         return isoduration.parse_date_time(date_string)
 
     @staticmethod
-    def _mk_datestring(date_object: date | datetime | isoduration.GYear | isoduration.GYearMonth | None) -> str:
+    def _mk_datestring(date_object: isoduration.XsdDatetime | None) -> str:
         """Create isoduration string."""
-        return isoduration.date_time_string(date_object)
+        return str(date_object) if date_object is not None else ''
