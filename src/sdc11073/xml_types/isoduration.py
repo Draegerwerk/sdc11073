@@ -15,11 +15,11 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
 
-def _parse_integer(value: str) -> int | None:
+def _parse_integer(value: str | None) -> int | None:
     return int(value) if value is not None else None
 
 
-def _parse_float(value: str) -> int | None:
+def _parse_float(value: str | None) -> float | None:
     return float(value) if value is not None else None
 
 
@@ -196,8 +196,8 @@ class XsdDatetime:
 
     def __post_init__(self):
         self.__validate_date()
-        self.__validate_time()
         self.__validate_eod()
+        self.__validate_time()
         self.__validate_tz()
 
     def __str__(self) -> str:
