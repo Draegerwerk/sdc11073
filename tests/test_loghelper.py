@@ -1,12 +1,15 @@
+"""Tests for loghelper."""
+
 import logging
 import unittest
 import uuid
+from typing import Any
 from unittest import mock
 
 from sdc11073 import loghelper
 
 
-def _run_test_cm(logger, level):
+def _run_test_cm(logger, level):  # noqa: ANN001
     with loghelper.LogWatcher(logger, level):
         logger.debug('123')
         logger.info('234')
@@ -14,12 +17,11 @@ def _run_test_cm(logger, level):
 
 
 class TestLogWatcher(unittest.TestCase):
-
     def test_logwatcher_contextmanager(self):
         logger = logging.getLogger('TestLogWatcher_CM')
         logger.setLevel(logging.DEBUG)
         _run_test_cm(logger, logging.ERROR)  # no exception
-        self.assertRaises(loghelper.LogWatchError, _run_test_cm, logger, logging.WARN)
+        self.assertRaises(loghelper.LogWatchError, _run_test_cm, logger, logging.WARNING)
         try:
             _run_test_cm(logger, logging.INFO)
         except loghelper.LogWatchError as ex:
@@ -51,7 +53,7 @@ class TestLogWatcher(unittest.TestCase):
         self.assertRaises(loghelper.LogWatchError, lw2.check)
 
     def test_ident_parameter(self):
-        def _test_prefix(prefix):
+        def _test_prefix(prefix: Any):
             adapter = loghelper.LoggerAdapter(logger=mock.MagicMock(), prefix=prefix)
             msg = uuid.uuid4()
             processed_msg = adapter._process(msg, (), ())

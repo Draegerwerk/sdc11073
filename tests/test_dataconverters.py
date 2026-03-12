@@ -1,10 +1,12 @@
+"""Unit tests for dataconverters module."""
+
 import unittest
 from decimal import Decimal
+
 from sdc11073.xml_types import dataconverters
 
 
 class TestDataConverters(unittest.TestCase):
-
     def test_decimal_converter(self):
         before = dataconverters.DecimalConverter.USE_DECIMAL_TYPE
         try:
@@ -13,7 +15,7 @@ class TestDataConverters(unittest.TestCase):
             self.assertEqual(dataconverters.DecimalConverter.to_py('123.45'), 123.45)
 
             dataconverters.DecimalConverter.USE_DECIMAL_TYPE = True
-            self.assertEqual(dataconverters.DecimalConverter.to_py('123'), Decimal('123'))
+            self.assertEqual(dataconverters.DecimalConverter.to_py('123'), Decimal(123))
             self.assertEqual(dataconverters.DecimalConverter.to_py('123.450'), Decimal('123.45'))
 
             # to_xml method should handle floats, ints and Decimals always identically
@@ -27,7 +29,7 @@ class TestDataConverters(unittest.TestCase):
                 self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('0E-15')), '0')
                 self.assertEqual(dataconverters.DecimalConverter.to_xml(Decimal('1.23E-1')), '0.123')
         finally:
-            dataconverters.DecimalConverter.USE_DECIMAL_TYPE = before # reset flag
+            dataconverters.DecimalConverter.USE_DECIMAL_TYPE = before  # reset flag
 
     def test_timestamp_converter(self):
         self.assertEqual(dataconverters.TimestampConverter.to_py('10000'), 10)

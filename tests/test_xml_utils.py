@@ -256,7 +256,7 @@ class TestXmlParsing(unittest.TestCase):
         self.assertDictEqual(dict(expected.attrib), dict(actual.attrib))  # make order of attributes irrelevant
         self.assertDictEqual(expected.nsmap, actual.nsmap)
         self.assertEqual(len(expected), len(actual))
-        for c1, c2 in zip(expected, actual):
+        for c1, c2 in zip(expected, actual, strict=True):
             self._compare_nodes(c1, c2)
 
     def test_copy_full_node(self):

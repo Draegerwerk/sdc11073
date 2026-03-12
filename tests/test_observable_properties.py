@@ -1,3 +1,5 @@
+"""Unit tests for observable properties."""
+
 import unittest
 from unittest import mock
 

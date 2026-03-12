@@ -21,7 +21,8 @@ if typing.TYPE_CHECKING:
     from collections.abc import Sequence
     from concurrent.futures import Future
 
-    from sdc11073.consumer import SdcConsumer, operations
+    from sdc11073.consumer import operations
+    from sdc11073.consumer.consumerimpl import SdcConsumer
     from sdc11073.consumer.serviceclients import contextservice, setservice
 
 __STEP__ = '6'
@@ -443,7 +444,7 @@ def _propose_states(
             proposed_state.MetricValue.Value = ''.join(random.choice(string.ascii_letters) for _ in range(10))
         elif pm_qnames.NumericMetricState == proposed_state.NODETYPE:
             # only 5 decimal places because of float conversion error
-            proposed_state.MetricValue.Value = decimal.Decimal(f"{random.uniform(0, 100):.5f}")
+            proposed_state.MetricValue.Value = decimal.Decimal(f'{random.uniform(0, 100):.5f}')
         else:
             raise NotImplementedError(proposed_state.NODETYPE)
     return proposed_states
@@ -680,7 +681,7 @@ def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
         )
         test_results.append(True)
 
-    if operation_result.InvocationInfo.InvocationState in (msg_types.InvocationState.FINISHED,):
+    if operation_result.InvocationInfo.InvocationState == msg_types.InvocationState.FINISHED:
         logger.info(
             'The metric with the handle %s contains %s as @MetricValue/@Value.',
             activate_operation.OperationTarget,

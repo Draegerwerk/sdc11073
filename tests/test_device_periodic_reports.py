@@ -1,13 +1,15 @@
+"""Test that device sends periodic reports."""
+
 import logging
 import time
 import unittest
 from itertools import cycle
 
 from sdc11073 import wsdiscovery
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.loghelper import basic_logging_setup
 from sdc11073.observableproperties import ValuesCollector
-from sdc11073.xml_types.pm_types import RetrievabilityMethod, RetrievabilityInfo, Retrievability, InstanceIdentifier
+from sdc11073.xml_types.pm_types import InstanceIdentifier, Retrievability, RetrievabilityInfo, RetrievabilityMethod
 from tests import utils
 from tests.mockstuff import SomeDevice
 
@@ -16,12 +18,12 @@ CLIENT_VALIDATE = True
 
 # pylint: disable=protected-access
 
-class Test_Device_PeriodicReports(unittest.TestCase):
 
+class TestDevicePeriodicReports(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         logging.getLogger('sdc.device.pReports').setLevel(logging.DEBUG)
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
 
@@ -44,20 +46,21 @@ class Test_Device_PeriodicReports(unittest.TestCase):
 
         time.sleep(0.1)  # allow full init of device
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcConsumer(x_addr[0],
-                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context_container=None,
-                                      validate=CLIENT_VALIDATE)
+        self.sdc_client = SdcConsumer(
+            x_addr[0],
+            sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+            ssl_context_container=None,
+            validate=CLIENT_VALIDATE,
+        )
 
-        print('############### setUp done {} ##############'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
 
     def tearDown(self):
-        print('############### tearDown {}... ##############'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### tearDown {} ... ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### tearDown %s ##############', self._testMethodName)
         self.sdc_device.stop_all()
         self.sdc_client.stop_all()
         self.wsd.stop()
+        logging.getLogger('sdc').info('############### tearDown done %s ##############', self._testMethodName)
 
     def test_periodic_reports(self):
         """Test waits 10 seconds and counts reports that have been received in that time."""

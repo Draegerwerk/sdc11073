@@ -5,12 +5,14 @@ import time
 import unittest
 from decimal import Decimal
 
+from tutorial.codedvaluecomparator import _coded_value_comparator
+from tutorial.productandroles.nomenclature import NomenclatureCodes
+
 from sdc11073 import loghelper, observableproperties
-from sdc11073.consumer import SdcConsumer
-from sdc11073.consumer.components import SdcConsumerComponents
+from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.mdib import ConsumerMdib
-from sdc11073.roles.nomenclature import NomenclatureCodes
+from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import isoduration, msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
@@ -23,7 +25,7 @@ NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
 class TestBuiltinOperations(unittest.TestCase):
-    """Test role providers (located in sdc11073.roles)."""
+    """Test role providers (located in tutorial.roles)."""
 
     def setUp(self):
         loghelper.basic_logging_setup()
@@ -41,15 +43,14 @@ class TestBuiltinOperations(unittest.TestCase):
 
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
-        specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher,
-        )
+        consumer_components = default_components_factory()
+        consumer_components.action_dispatcher_class = RequestDispatcher
         self.sdc_client = SdcConsumer(
             x_addr[0],
             sdc_definitions=self.sdc_device.mdib.sdc_definitions,
             ssl_context_container=None,
             validate=CLIENT_VALIDATE,
-            specific_components=specific_components,
+            components=consumer_components,
         )
         self.sdc_client.start_all()
         time.sleep(1)
@@ -88,10 +89,10 @@ class TestBuiltinOperations(unittest.TestCase):
         )
         self.assertIsNone(patient_context_state_container)
 
-        my_operations = consumer_mdib.get_operation_descriptors_for_descriptor_handle(
-            patient_descriptor_container.Handle,
-            NODETYPE=pm.SetContextStateOperationDescriptor,
-        )
+        all_set_context_operations = consumer_mdib.descriptions.NODETYPE.get(pm.SetContextStateOperationDescriptor)
+        my_operations = [
+            op for op in all_set_context_operations if op.OperationTarget == patient_descriptor_container.Handle
+        ]
         self.assertEqual(len(my_operations), 1)
         operation_handle = my_operations[0].Handle
         self._logger.info('Handle for SetContextState Operation = %s', operation_handle)
@@ -110,7 +111,7 @@ class TestBuiltinOperations(unittest.TestCase):
         proposed_context.CoreData.PatientType = pm_types.PatientType.ADULT
         proposed_context.CoreData.set_birthdate('2000-12-12')
         proposed_context.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
-        proposed_context.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
+        proposed_context.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abcd'))
         proposed_context.CoreData.Race = pm_types.CodedValue('somerace')
         self.log_watcher.setPaused(True)
         future = context.set_context_state(operation_handle, [proposed_context])
@@ -153,8 +154,20 @@ class TestBuiltinOperations(unittest.TestCase):
         self.assertEqual(patient_context_state_container.CoreData.Sex, 'M')
         self.assertEqual(patient_context_state_container.CoreData.PatientType, pm_types.PatientType.ADULT)
         self.assertEqual(patient_context_state_container.CoreData.Height.MeasuredValue, Decimal('88.2'))
+        self.assertTrue(
+            _coded_value_comparator(
+                patient_context_state_container.CoreData.Height.MeasurementUnit, pm_types.CodedValue('abc', 'def'),
+            ),
+        )
         self.assertEqual(patient_context_state_container.CoreData.Weight.MeasuredValue, Decimal('68.2'))
-        self.assertEqual(patient_context_state_container.CoreData.Race, pm_types.CodedValue('somerace'))
+        self.assertTrue(
+            _coded_value_comparator(
+                patient_context_state_container.CoreData.Weight.MeasurementUnit, pm_types.CodedValue('abcd'),
+            ),
+        )
+        self.assertTrue(
+            _coded_value_comparator(patient_context_state_container.CoreData.Race, pm_types.CodedValue('somerace')),
+        )
         self.assertNotEqual(
             patient_context_state_container.Handle,
             patient_descriptor_container.Handle,
@@ -299,10 +312,16 @@ class TestBuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         consumer_mdib = ConsumerMdib(self.sdc_client)
         consumer_mdib.init_mdib()
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
-        operation_pause = self.sdc_device.mdib.descriptions.coding.get_one(coding)
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
-        operation_cancel = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+        operation_pause = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
+            _coded_value_comparator,
+        )
+        operation_cancel = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
+            _coded_value_comparator,
+        )
 
         future = set_service.activate(operation_handle=operation_pause.Handle, arguments=None)
         result = future.result(timeout=SET_TIMEOUT)
@@ -359,15 +378,14 @@ class TestBuiltinOperations(unittest.TestCase):
         # connect a 2nd client
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
-        specific_components = SdcConsumerComponents(
-            action_dispatcher_class=RequestDispatcher,
-        )
+        consumer_components = default_components_factory()
+        consumer_components.action_dispatcher_class = RequestDispatcher
         sdc_client2 = SdcConsumer(
             x_addr[0],
             sdc_definitions=self.sdc_device.mdib.sdc_definitions,
             ssl_context_container=None,
             validate=CLIENT_VALIDATE,
-            specific_components=specific_components,
+            components=consumer_components,
             log_prefix='client2',
         )
         sdc_client2.start_all()
@@ -375,8 +393,13 @@ class TestBuiltinOperations(unittest.TestCase):
             client_mdib2 = ConsumerMdib(sdc_client2)
             client_mdib2.init_mdib()
             clients = (self.sdc_client, sdc_client2)
-            coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE)
-            operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+
+            operation = get_one_descriptor_by_type(
+                self.sdc_device.mdib,
+                NomenclatureCodes.MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE,
+                _coded_value_comparator,
+            )
+
             future = set_service.activate(operation_handle=operation.Handle, arguments=None)
             result = future.result(timeout=SET_TIMEOUT)
             state = result.InvocationInfo.InvocationState
@@ -393,8 +416,11 @@ class TestBuiltinOperations(unittest.TestCase):
                     # which is audible and should be paused now
                     self.assertEqual(state.SystemSignalActivation[0].State, pm_types.AlertActivation.PAUSED)
 
-            coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE)
-            operation = self.sdc_device.mdib.descriptions.coding.get_one(coding)
+            operation = get_one_descriptor_by_type(
+                self.sdc_device.mdib,
+                NomenclatureCodes.MDC_OP_SET_CANCEL_ALARMS_AUDIO_PAUSE,
+                _coded_value_comparator,
+            )
             future = set_service.activate(operation_handle=operation.Handle, arguments=None)
             result = future.result(timeout=SET_TIMEOUT)
             state = result.InvocationInfo.InvocationState
@@ -415,9 +441,11 @@ class TestBuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         consumer_mdib = ConsumerMdib(self.sdc_client)
         consumer_mdib.init_mdib()
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
-        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-
+        my_operation_descriptor = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC,
+            _coded_value_comparator,
+        )
         operation_handle = my_operation_descriptor.Handle
         for value in ('169.254.0.199', '169.254.0.199:1234'):
             self._logger.info('ntp server = %s', value)
@@ -442,10 +470,11 @@ class TestBuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         consumer_mdib = ConsumerMdib(self.sdc_client)
         consumer_mdib.init_mdib()
-
-        coding = pm_types.Coding(NomenclatureCodes.MDC_ACT_SET_TIME_ZONE)
-        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-
+        my_operation_descriptor = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            NomenclatureCodes.MDC_ACT_SET_TIME_ZONE,
+            _coded_value_comparator,
+        )
         operation_handle = my_operation_descriptor.Handle
         for value in ('+03:00', '-03:00'):  # are these correct values?
             self._logger.info('time zone = %s', value)
@@ -591,9 +620,11 @@ class TestBuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         consumer_mdib = ConsumerMdib(self.sdc_client)
         consumer_mdib.init_mdib()
-        coding = pm_types.Coding(NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC)
-        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-
+        my_operation_descriptor = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            NomenclatureCodes.MDC_OP_SET_TIME_SYNC_REF_SRC,
+            _coded_value_comparator,
+        )
         operation_handle = my_operation_descriptor.Handle
         operation = self.sdc_device.get_operation_by_handle(operation_handle)
         for value in ('169.254.0.199', '169.254.0.199:1234'):
@@ -654,9 +685,11 @@ class TestBuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         consumer_mdib = ConsumerMdib(self.sdc_client)
         consumer_mdib.init_mdib()
-        coding = pm_types.Coding('0815')
-        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-
+        my_operation_descriptor = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            pm_types.CodedValue('0815'),
+            _coded_value_comparator,
+        )
         operation_handle = my_operation_descriptor.Handle
         for value in ('ADULT', 'PEDIATRIC'):
             self._logger.info('string value = %s', value)
@@ -679,9 +712,12 @@ class TestBuiltinOperations(unittest.TestCase):
         set_service = self.sdc_client.client('Set')
         consumer_mdib = ConsumerMdib(self.sdc_client)
         consumer_mdib.init_mdib()
-        coding = pm_types.Coding('0815-1')
-        my_operation_descriptor = self.sdc_device.mdib.descriptions.coding.get_one(coding, allow_none=True)
-
+        my_operation_descriptor = get_one_descriptor_by_type(
+            self.sdc_device.mdib,
+            pm_types.CodedValue('0815-1'),
+            _coded_value_comparator,
+            allow_none=False,
+        )
         operation_handle = my_operation_descriptor.Handle
         for value in (Decimal(1), Decimal(42), 1.1, 10, '12'):
             self._logger.info('metric value = %s', value)

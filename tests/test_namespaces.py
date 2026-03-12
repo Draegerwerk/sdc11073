@@ -1,10 +1,11 @@
+"""Unit tests for namespaces module."""
+
 import unittest
 
 from sdc11073 import namespaces
 
 
 class TestNamespaces(unittest.TestCase):
-
     def test_default(self):
         hlp = namespaces.NamespaceHelper(namespaces.PrefixesEnum)
         self.assertEqual(hlp.MSG.prefix, 'msg')

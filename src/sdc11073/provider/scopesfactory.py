@@ -2,7 +2,7 @@
 
 import urllib.parse
 
-from sdc11073.mdib.mdibprotocol import ProviderMdibProtocol
+from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
 from sdc11073.xml_types.wsd_types import ScopesType
 
 # from IEEE Std 11073-20701-2018 chapter 9.3 SDC PARTICIPANT KEY PURPOSE based discovery
@@ -85,18 +85,18 @@ def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
 
     :return: a set of scope strings
     """
-    pm_types = mdib.data_model.pm_types
     pm_names = mdib.data_model.pm_names
     scopes = set()
     entities = mdib.entities.by_node_type(pm_names.MdsDescriptor)
     for entity in entities:
         if entity.descriptor.Type is not None:
-            coding_systems = (
-                ''
-                if entity.descriptor.Type.CodingSystem == pm_types.DEFAULT_CODING_SYSTEM
-                else entity.descriptor.Type.CodingSystem
-            )
-            csv = entity.descriptor.Type.CodingSystemVersion or ''
-            scope_string = f'sdc.cdc.type:/{coding_systems}/{csv}/{entity.descriptor.Type.Code}'
+            if not entity.descriptor.Type.Code:
+                msg = (f'MdsDescriptor with the Handle "{entity.handle}" has a zero-length pm:Type/@Code specified - '
+                       f'see IEEE Std 11073-20701-2018 chapter 9.2.')
+                raise ValueError(msg)
+            cs = urllib.parse.quote(entity.descriptor.Type.CodingSystem or '', safe='')
+            csv = urllib.parse.quote(entity.descriptor.Type.CodingSystemVersion or '', safe='')
+            co = urllib.parse.quote(entity.descriptor.Type.Code, safe='')
+            scope_string = f'sdc.cdc.type:/{cs}/{csv}/{co}'
             scopes.add(scope_string)
     return scopes

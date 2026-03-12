@@ -9,9 +9,11 @@ import time
 from concurrent import futures
 from typing import TYPE_CHECKING
 
+from tutorial.codedvaluecomparator import _coded_value_comparator
+
 from pat import common
 from pat.consumer_tests import step_1, step_2, step_3, step_4, step_5, step_6
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.wsdiscovery import WSDiscovery
@@ -95,7 +97,7 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
                         elif descriptor_container.is_metric_descriptor:
                             # test 5a.3
                             old_descriptor = self._mdib.descriptions.handle.get_one(descriptor_container.Handle)
-                            if old_descriptor.Unit != descriptor_container.Unit:
+                            if not _coded_value_comparator(old_descriptor.Unit, descriptor_container.Unit):
                                 self.unit_of_measure_updates.append(now - self._last_unit_of_measure_updates)
                                 self._last_unit_of_measure_updates = now
 

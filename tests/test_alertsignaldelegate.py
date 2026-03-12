@@ -1,11 +1,12 @@
 """Test alert delegation and a role-provider that implements alert delegation acc. to BICEPS chapter 6.2."""
+
 import logging
 import sys
 import time
 import unittest
 
 from sdc11073 import loghelper
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
@@ -30,17 +31,20 @@ class TestClientSomeDeviceAlertDelegate(unittest.TestCase):
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.mdib.xtra.ensure_location_context_descriptor()
-        self.sdc_device.set_location(utils.random_location(), self._loc_validators,
-                                     location_context_descriptor_handle='LC.mds0')
+        self.sdc_device.set_location(
+            utils.random_location(), self._loc_validators, location_context_descriptor_handle='LC.mds0',
+        )
 
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcConsumer(x_addr[0],
-                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context_container=None,
-                                      validate=CLIENT_VALIDATE,
-                                      log_prefix='<client> ')
+        self.sdc_client = SdcConsumer(
+            x_addr[0],
+            sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+            ssl_context_container=None,
+            validate=CLIENT_VALIDATE,
+            log_prefix='<client> ',
+        )
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)

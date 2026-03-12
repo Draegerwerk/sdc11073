@@ -8,7 +8,8 @@ import typing
 from sdc11073.xml_types import actions, pm_qnames
 
 if typing.TYPE_CHECKING:
-    from sdc11073.consumer import ContextServiceClient, GetServiceClient, SdcConsumer
+    from sdc11073.consumer import ContextServiceClient, GetServiceClient
+    from sdc11073.consumer.consumerimpl import SdcConsumer
     from sdc11073.xml_types import msg_types
 
 __STEP__ = '3'

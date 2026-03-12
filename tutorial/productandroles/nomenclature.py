@@ -1,7 +1,10 @@
 """A minimal set of codes, used by role provider."""
+import enum
+
+from sdc11073.xml_types import pm_types
 
 
-class NomenclatureCodes:
+class NomenclatureCodes(pm_types.CodedValue, enum.Enum):
     """Codes that are used by included role providers."""
 
     MDC_OP_SET_ALL_ALARMS_AUDIO_PAUSE = '128284'

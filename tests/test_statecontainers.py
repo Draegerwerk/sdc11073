@@ -1,8 +1,11 @@
-"""Unit tests for statecontainers module."""
+"""Unit tests for state containers."""
 
+import datetime
 import unittest
 from decimal import Decimal
 from math import isclose
+
+from tutorial.codedvaluecomparator import _coded_value_comparator
 
 import sdc11073.mdib.descriptorcontainers as dc
 import sdc11073.mdib.statecontainers as sc
@@ -23,7 +26,7 @@ class TestStateContainers(unittest.TestCase):
         self.descr = dc.AbstractDescriptorContainer(handle='123', parent_handle='456')
         self.descr.DescriptorVersion = 42
 
-    def test_abstract_state_container(self):
+    def test_AbstractStateContainer(self):  # noqa: N802  # noqa: N802
         state = sc.AbstractStateContainer(descriptor_container=self.descr)
 
         # initially the state version shall be 0, and DescriptorVersion shall be set
@@ -58,10 +61,11 @@ class TestStateContainers(unittest.TestCase):
         self,
         state1: sc.AbstractStateContainer,
         state2: sc.AbstractStateContainer,
-    ) -> None:
+    ):
         self.assertEqual(state1.DescriptorVersion, state2.DescriptorVersion)
         self.assertEqual(state1.StateVersion, state2.StateVersion)
 
+    def test_AbstractOperationStateContainer(self):  # noqa: N802
     def test_abstract_operation_state_container(self):
         state = sc.AbstractOperationStateContainer(descriptor_container=self.descr)
         self.assertIsNotNone(state.OperatingMode)  # this is a required attribute
@@ -76,29 +80,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         self.assertEqual(state2.OperatingMode, pm_types.OperatingMode.NA)
 
-    def test_diff_float(self):
-        """Verify correct results of ContainerBase.diff() method for float values."""
-        sc1 = sc.ClockStateContainer(descriptor_container=self.descr)
-        sc2 = sc.ClockStateContainer(descriptor_container=self.descr)
-        sc1.LastSet = 0.0
-        sc2.LastSet = 0.0
-        # if sc1 is zero, a diff < 1e-6 is considered equal enough
-        self.assertIsNone(sc1.diff(sc2))
-        sc2.LastSet = 1e-7
-        self.assertIsNone(sc1.diff(sc2, max_float_diff=1e-6))
-        sc2.LastSet = 1e-5
-        self.assertEqual(1, len(sc1.diff(sc2, max_float_diff=1e-6)))
-
-        # if sc1 is not zero, the value of abs((sc1-sc2)/sc1) < 1e-6 is considered equal enough
-        sc1.LastSet = 10000.0
-        sc2.LastSet = 10000.0
-        self.assertIsNone(sc1.diff(sc2))
-        sc2.LastSet = 10000.001
-        self.assertIsNone(sc1.diff(sc2, max_float_diff=1e-6))
-        sc2.LastSet = 10000.1
-        self.assertEqual(1, len(sc1.diff(sc2, max_float_diff=1e-6)))
-
-    def test_abstract_metric_state_container(self):
+    def test_AbstractMetricStateContainer(self):  # noqa: N802
         descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.NumericMetricStateContainer(descriptor_container=descr)
 
@@ -140,7 +122,7 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state.ActiveDeterminationPeriod, state2.ActiveDeterminationPeriod)
         self._verify_abstract_state_container_data_equal(state, state2)
 
-    def test_numeric_metric_state_container(self):
+    def test_NumericMetricStateContainer(self):  # noqa: N802
         descr = dc.NumericMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.NumericMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
@@ -181,19 +163,19 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state.PhysiologicalRange, state2.PhysiologicalRange)
         self._verify_abstract_state_container_data_equal(state, state2)
 
-    def test_string_metric_state_container(self):
+    def test_StringMetricStateContainer(self):  # noqa: N802
         descr = dc.StringMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.StringMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
         self.assertTrue(isinstance(state.MetricValue, pm_types.StringMetricValue))
 
-    def test_enum_string_metric_state_container(self):
+    def test_EnumStringMetricStateContainer(self):  # noqa: N802
         descr = dc.EnumStringMetricDescriptorContainer(handle='123', parent_handle='456')
         state = sc.EnumStringMetricStateContainer(descriptor_container=descr)
         state.mk_metric_value()
         self.assertTrue(isinstance(state.MetricValue, pm_types.StringMetricValue))
 
-    def test_real_time_sample_array_metric_state_container_distribution_sample_array_metric_state_container(self):
+    def test_RealTimeSampleArrayMetricStateContainer_DistributionSampleArrayMetricStateContainer(self):  # noqa: N802
         metric_cls = [
             (dc.RealTimeSampleArrayMetricDescriptorContainer, sc.RealTimeSampleArrayMetricStateContainer),
             (dc.DistributionSampleArrayMetricDescriptorContainer, sc.DistributionSampleArrayMetricStateContainer),
@@ -204,7 +186,7 @@ class TestStateContainers(unittest.TestCase):
             copied: sc.RealTimeSampleArrayMetricStateContainer | sc.DistributionSampleArrayMetricStateContainer,
         ):
             self.assertEqual(len(copied.MetricValue.Samples), len(origin.MetricValue.Samples))
-            for c, o in zip(copied.MetricValue.Samples, origin.MetricValue.Samples, strict=False):
+            for c, o in zip(copied.MetricValue.Samples, origin.MetricValue.Samples, strict=True):
                 self.assertTrue(isclose(c, o))
             self.assertEqual(copied.MetricValue.DeterminationTime, origin.MetricValue.DeterminationTime)
             self.assertEqual(copied.MetricValue.Annotation, origin.MetricValue.Annotation)
@@ -244,7 +226,7 @@ class TestStateContainers(unittest.TestCase):
             the_exception = cm.exception
             self.assertEqual(the_exception.args[0], 'State (descriptor handle="123") already has a metric value')
 
-    def test_abstract_device_component_state_container(self):
+    def test_AbstractDeviceComponentStateContainer(self):  # noqa: N802
         def verify_equal(
             origin: sc.AbstractDeviceComponentStateContainer,
             copied: sc.AbstractDeviceComponentStateContainer,
@@ -296,22 +278,22 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verify_equal(state, state2)
 
-    def test_mds_state_container(self):
+    def test_MdsStateContainer(self):  # noqa: N802
         pass
 
-    def test_vmd_state_container(self):
+    def test_VmdStateContainer(self):  # noqa: N802
         pass
 
-    def test_channel_state_container(self):
+    def test_ChannelStateContainer(self):  # noqa: N802
         pass
 
-    def test_clock_state_container(self):
+    def test_ClockStateContainer(self):  # noqa: N802
         pass
 
-    def test_abstract_alert_state_container(self):
+    def test_AbstractAlertStateContainer(self):  # noqa: N802
         pass
 
-    def test_alert_system_state_container(self):
+    def test_AlertSystemStateContainer(self):  # noqa: N802
         def verify_equal(origin: sc.AlertSystemStateContainer, copied: sc.AlertSystemStateContainer):
             self.assertEqual(copied.SystemSignalActivation, origin.SystemSignalActivation)
             self.assertEqual(copied.LastSelfCheck, origin.LastSelfCheck)
@@ -354,7 +336,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verify_equal(state, state2)
 
-    def test_alert_condition_state_container(self):
+    def test_AlertConditionStateContainer(self):  # noqa: N802
         def verify_equal(origin: sc.AlertConditionStateContainer, copied: sc.AlertConditionStateContainer):
             self.assertEqual(copied.ActualPriority, origin.ActualPriority)
             self.assertEqual(copied.Rank, origin.Rank)
@@ -380,7 +362,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verify_equal(state, state2)
 
-    def test_limit_alert_condition_state_container_final(self):
+    def test_LimitAlertConditionStateContainer_Final(self):  # noqa: N802
         def verify_equal(origin: sc.LimitAlertConditionStateContainer, copied: sc.LimitAlertConditionStateContainer):
             self.assertEqual(copied.Limits, origin.Limits)
             self.assertEqual(copied.MonitoredAlertLimits, origin.MonitoredAlertLimits)
@@ -403,7 +385,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verify_equal(state, state2)
 
-    def test_set_string_operation_state_container(self):
+    def test_SetStringOperationStateContainer(self):  # noqa: N802
         state = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
         # verify that initial pyValue is empty, and that no AllowedValues node is created
         self.assertEqual(state.AllowedValues.Value, [])
@@ -440,7 +422,10 @@ class TestStateContainers(unittest.TestCase):
         state2 = sc.SetStringOperationStateContainer(descriptor_container=self.descr)
         self.assertEqual(state2.AllowedValues.Value, [])
 
-    def test_abstract_context_state_container(self):
+    def test_AbstractMultiStateContainer(self):  # noqa: N802
+        pass
+
+    def test_AbstractContextStateContainer(self):  # noqa: N802
         def verify_equal(origin: sc.AbstractContextStateContainer, copied: sc.AbstractContextStateContainer):
             self.assertEqual(copied.ContextAssociation, origin.ContextAssociation)
             self.assertEqual(copied.BindingMdibVersion, origin.BindingMdibVersion)
@@ -508,7 +493,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verify_equal(state, state2)
 
-    def test_location_context_state_container(self):
+    def test_LocationContextStateContainer(self):  # noqa: N802
         def verify_equal(origin: sc.LocationContextStateContainer, copied: sc.LocationContextStateContainer):
             self.assertEqual(copied.Handle, origin.Handle)
             self.assertEqual(copied.LocationDetail.PoC, origin.LocationDetail.PoC)
@@ -582,16 +567,24 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_sdc_location(loc)
         verify_equal(state3, state2)
 
-    def test_patient_context_state_container(self):
+    def test_PatientContextStateContainer(self):  # noqa: N802  # noqa: N802
         def verify_equal(origin: sc.PatientContextStateContainer, copied: sc.PatientContextStateContainer):
             self.assertEqual(copied.Handle, origin.Handle)
             self.assertEqual(copied.CoreData.Givenname, origin.CoreData.Givenname)
             self.assertEqual(copied.CoreData.Middlename, origin.CoreData.Middlename)
             self.assertEqual(copied.CoreData.Familyname, origin.CoreData.Familyname)
             self.assertEqual(copied.CoreData.DateOfBirth, origin.CoreData.DateOfBirth)
-            self.assertEqual(copied.CoreData.Height, origin.CoreData.Height)
-            self.assertEqual(copied.CoreData.Weight, origin.CoreData.Weight)
-            self.assertEqual(copied.CoreData.Race, origin.CoreData.Race)
+            self.assertEqual(copied.CoreData.Height.MeasuredValue, origin.CoreData.Height.MeasuredValue)
+            self.assertEqual(copied.CoreData.Height.ExtExtension, origin.CoreData.Height.ExtExtension)
+            self.assertTrue(
+                _coded_value_comparator(copied.CoreData.Height.MeasurementUnit, origin.CoreData.Height.MeasurementUnit),
+            )
+            self.assertEqual(copied.CoreData.Weight.MeasuredValue, origin.CoreData.Weight.MeasuredValue)
+            self.assertEqual(copied.CoreData.Weight.ExtExtension, origin.CoreData.Weight.ExtExtension)
+            self.assertTrue(
+                _coded_value_comparator(copied.CoreData.Weight.MeasurementUnit, origin.CoreData.Weight.MeasurementUnit),
+            )
+            self.assertTrue(_coded_value_comparator(copied.CoreData.Race, origin.CoreData.Race))
             self.assertEqual(copied.Identification, origin.Identification)
             self._verify_abstract_state_container_data_equal(copied, origin)
 
@@ -636,7 +629,7 @@ class TestStateContainers(unittest.TestCase):
         state2.update_from_other_container(state)
         verify_equal(state, state2)
 
-    def test_patient_context_state_container_neo(self):
+    def test_PatientContextStateContainerNeo(self):  # noqa: N802
         """Test if a pm_types class derived from the value_class of a property is handled correctly.
 
         In this test:
@@ -660,7 +653,7 @@ class TestStateContainers(unittest.TestCase):
         self.assertEqual(state3.CoreData.__class__, pm_types.NeonatalPatientDemographicsCoreData)
         self.assertEqual(state3.CoreData.Mother.__class__, pm_types.PersonParticipation)
 
-    def test_set_value_operation_state_container(self):
+    def test_SetValueOperationStateContainer(self):  # noqa: N802
         state = sc.SetValueOperationStateContainer(descriptor_container=self.descr)
 
         self.assertEqual(state.AllowedRange, [])

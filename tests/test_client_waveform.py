@@ -1,25 +1,30 @@
+"""Test handling of waveform reports in client mdib."""
+
 import logging
 import sys
 import unittest
 
 from lxml import etree
+from tutorial.codedvaluecomparator import _coded_value_comparator
 
 from sdc11073 import definitions_sdc, loghelper
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib, ConsumerMdibState
 from sdc11073.mdib.descriptorcontainers import RealTimeSampleArrayMetricDescriptorContainer
 from sdc11073.mdib.statecontainers import RealTimeSampleArrayMetricStateContainer
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.xml_types.pm_types import Coding
+from sdc11073.xml_types import pm_types
 
 DEV_ADDRESS = 'http://127.0.0.1:10000'
 CLIENT_VALIDATE = True
 
 # data that is used in report
-HANDLES = ("0x34F05506", "0x34F05501", "0x34F05500")
-SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
-           "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
-           "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
+HANDLES = ('0x34F05506', '0x34F05501', '0x34F05500')
+SAMPLES = {
+    '0x34F05506': (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
+    '0x34F05501': (0.1, -0.1, 1.0, 2.0, 3.0),
+    '0x34F05500': (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1),
+}
 
 wf_report_template = """<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
@@ -87,9 +92,9 @@ def _mk_wf_report(observation_time_ms: int, mdib_version: int, state_version: in
     # helper to create a waveform report
     return wf_report_template.format(
         obs_time=observation_time_ms,
-        array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
-        array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
-        array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
+        array1=' '.join([str(n) for n in SAMPLES['0x34F05506']]),
+        array2=' '.join([str(n) for n in SAMPLES['0x34F05501']]),
+        array3=' '.join([str(n) for n in SAMPLES['0x34F05500']]),
         msg='http://standards.ieee.org/downloads/11073/11073-10207-2017/message',
         ext='http://standards.ieee.org/downloads/11073/11073-10207-2017/extension',
         dom='http://standards.ieee.org/downloads/11073/11073-10207-2017/participant',
@@ -99,14 +104,15 @@ def _mk_wf_report(observation_time_ms: int, mdib_version: int, state_version: in
 
 
 class TestClientWaveform(unittest.TestCase):
-
     def setUp(self):
         loghelper.basic_logging_setup()
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-        self.sdc_client = SdcConsumer(DEV_ADDRESS,
-                                      sdc_definitions=definitions_sdc.SdcV1Definitions,
-                                      ssl_context_container=None,
-                                      validate=CLIENT_VALIDATE)
+        self.sdc_client = SdcConsumer(
+            DEV_ADDRESS,
+            sdc_definitions=definitions_sdc.SdcV1Definitions,
+            ssl_context_container=None,
+            validate=CLIENT_VALIDATE,
+        )
 
     def tearDown(self):
         sys.stderr.write(f'############### tearDown {self._testMethodName}... ##############\n')
@@ -120,7 +126,7 @@ class TestClientWaveform(unittest.TestCase):
         sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
     def test_basic_handling(self):
-        """Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element."""
+        """Call _on_waveform_report_profiled method directly. Verify that observable is a WaveformStream Element."""
         cl = self.sdc_client
         observation_time_ms = 1467596359152
 
@@ -129,7 +135,7 @@ class TestClientWaveform(unittest.TestCase):
         cl._on_notification(data)
 
     def test_stream_handling(self):
-        """Connect a mdib with client. Call _onWaveformReport method directly.
+        """Connect a mdib with client. Call _on_waveform_report_profiled method directly.
 
         Verify that observable is a WaveformStream Element.
         """
@@ -141,13 +147,15 @@ class TestClientWaveform(unittest.TestCase):
         client_mdib = ConsumerMdib(cl)
         client_mdib._xtra.bind_to_client_observables()
         client_mdib._state = ConsumerMdibState.initialized  # fake it, because we do not call init_mdib()
-        client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test, therefore disable check
+        client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test
         # create dummy descriptors
         for handle in HANDLES:
-            attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
-                          etree.QName(ns_hlp.ns_map['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
-                          'Handle': handle,
-                          'DescriptorVersion': '2'}
+            attributes = {
+                'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
+                etree.QName(ns_hlp.ns_map['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
+                'Handle': handle,
+                'DescriptorVersion': '2',
+            }
             element = etree.Element('Metric', attrib=attributes, nsmap=ns_hlp.ns_map)
             descr = RealTimeSampleArrayMetricDescriptorContainer.from_node(element, None)  # None = no parent handle
             client_mdib.descriptions.add_object(descr)
@@ -163,29 +171,35 @@ class TestClientWaveform(unittest.TestCase):
         for handle in HANDLES:
             current_samples = SAMPLES[handle]
             s_count = len(current_samples)
-            rtBuffer = client_mdib.rt_buffers[handle]
-            self.assertEqual(s_count, len(rtBuffer.rt_data))
-            self.assertAlmostEqual(rtBuffer.sample_period, 0.0157)
-            self.assertAlmostEqual(rtBuffer.rt_data[0].determination_time, observation_time)
-            self.assertAlmostEqual(rtBuffer.rt_data[-1].determination_time - observation_time,
-                                   rtBuffer.sample_period * (s_count - 1), places=4)
-            self.assertAlmostEqual(rtBuffer.rt_data[-2].determination_time - observation_time,
-                                   rtBuffer.sample_period * (s_count - 2), places=4)
+            rt_buffer = client_mdib.rt_buffers[handle]
+            self.assertEqual(s_count, len(rt_buffer.rt_data))
+            self.assertAlmostEqual(rt_buffer.sample_period, 0.0157)
+            self.assertAlmostEqual(rt_buffer.rt_data[0].determination_time, observation_time)
+            self.assertAlmostEqual(
+                rt_buffer.rt_data[-1].determination_time - observation_time,
+                rt_buffer.sample_period * (s_count - 1),
+                places=4,
+            )
+            self.assertAlmostEqual(
+                rt_buffer.rt_data[-2].determination_time - observation_time,
+                rt_buffer.sample_period * (s_count - 2),
+                places=4,
+            )
             for i in range(s_count):
-                self.assertAlmostEqual(float(rtBuffer.rt_data[i].value), current_samples[i])
+                self.assertAlmostEqual(float(rt_buffer.rt_data[i].value), current_samples[i])
 
         # verify that only handle 0x34F05501 has an annotation
         for handle in [HANDLES[0], HANDLES[2]]:
-            rtBuffer = client_mdib.rt_buffers[handle]
-            for sample in rtBuffer.rt_data:
+            rt_buffer = client_mdib.rt_buffers[handle]
+            for sample in rt_buffer.rt_data:
                 self.assertEqual(0, len(sample.annotations))
 
-        rtBuffer = client_mdib.rt_buffers[HANDLES[1]]
-        annotated = rtBuffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
+        rt_buffer = client_mdib.rt_buffers[HANDLES[1]]
+        annotated = rt_buffer.rt_data[2]  # this object should have the annotation (SampleIndex="2")
         self.assertEqual(1, len(annotated.annotations))
-        self.assertEqual(Coding('4711', 'bla'), annotated.annotations[0].Type.coding)
+        self.assertTrue(_coded_value_comparator(pm_types.CodedValue('4711', 'bla'), annotated.annotations[0].Type))
         for i in (0, 1, 3, 4):
-            self.assertEqual(0, len(rtBuffer.rt_data[i].annotations))
+            self.assertEqual(0, len(rt_buffer.rt_data[i].annotations))
 
         # add another Report (with identical data, but that is not relevant here)
         wf_report2 = _mk_wf_report(observation_time_ms + 100, 3, 43)
@@ -195,8 +209,8 @@ class TestClientWaveform(unittest.TestCase):
         for handle in HANDLES:
             current_samples = SAMPLES[handle]
             s_count = len(current_samples)
-            rtBuffer = client_mdib.rt_buffers[handle]
-            self.assertEqual(s_count * 2, len(rtBuffer.rt_data))
+            rt_buffer = client_mdib.rt_buffers[handle]
+            self.assertEqual(s_count * 2, len(rt_buffer.rt_data))
 
         # add a lot more data, verify that length limitation is working
         for i in range(100):
@@ -205,5 +219,5 @@ class TestClientWaveform(unittest.TestCase):
             cl._on_notification(received_message_data)
         # verify only that array length is limited
         for handle in HANDLES:
-            rtBuffer = client_mdib.rt_buffers[handle]
-            self.assertEqual(rtBuffer._max_samples, len(rtBuffer.rt_data))
+            rt_buffer = client_mdib.rt_buffers[handle]
+            self.assertEqual(rt_buffer._max_samples, len(rt_buffer.rt_data))
