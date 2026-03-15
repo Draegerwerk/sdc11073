@@ -172,7 +172,7 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
     return any(test_results) and all(test_results)
 
 
-def test_6c(consumer: SdcConsumer) -> bool:
+def test_6c(consumer: SdcConsumer) -> bool:  # noqa: PLR0912
     """The Reference Consumer invokes SetValue:
     - The Reference Provider immediately responds with Fin
     - The Reference Provider sends Fin as a report in addition to the response
@@ -191,14 +191,15 @@ def test_6c(consumer: SdcConsumer) -> bool:
         state: statecontainers.SetValueOperationStateContainer = consumer.mdib.states.descriptor_handle.get_one(
             operation.Handle,
         )
-        if len(state.AllowedRange) == 0:
-            value = random.randint(1, 10000)
-        else:
+        op_targer_descr = consumer.mdib.descriptions.handle.get_one(operation.OperationTarget, allow_none=False)
+
+        if len(state.AllowedRange):
             value = random.choice([state.AllowedRange[0].Lower, state.AllowedRange[0].Upper])
-        fut: Future[operations.OperationResult] = set_service.set_numeric_value(
-            operation.Handle,
-            value,
-        )
+        elif hasattr(op_targer_descr, 'TechnicalRange') and op_targer_descr.TechnicalRange:
+            value = random.choice([op_targer_descr.TechnicalRange[0].Lower, op_targer_descr.TechnicalRange[0].Upper])
+        else:
+            value = random.randint(1, 10000)
+
         if operation.MaxTimeToFinish is None:
             timeout = 10.0
             logger.warning(
@@ -209,6 +210,12 @@ def test_6c(consumer: SdcConsumer) -> bool:
             )
         else:
             timeout = operation.MaxTimeToFinish
+
+        fut: Future[operations.OperationResult] = set_service.set_numeric_value(
+            operation.Handle,
+            value,
+        )
+
         try:
             operation_result = fut.result(timeout)
         except TimeoutError:
