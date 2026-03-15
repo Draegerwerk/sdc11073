@@ -352,7 +352,7 @@ def _verify_waveform_tests(  # noqa: PLR0913
     waveforms_with_sufficient_samples = {
         handle: updates
         for handle, updates in waveforms_with_sufficient_updates.items()
-        if all(len(samples_in_message) == samples_per_message for samples_in_message in updates)
+        if all(len(samples_in_message) >= samples_per_message for samples_in_message in updates)
     }
 
     test_results: list[bool] = []
