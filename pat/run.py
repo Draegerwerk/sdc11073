@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--timeout_ref_provider',
         type=float,
-        help='Time to wait for reference provider to started in seconfs.',
+        help='Time in seconds to wait for reference provider to be started.',
         default=10.0,
     )
 
