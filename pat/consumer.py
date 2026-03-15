@@ -127,7 +127,7 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
 
     with WSDiscovery(adapter) as wsd:
-        res_1a = step_1.test_1a(wsd, epr) if execute_1a else None
+        res_1a = step_1.test_1a(wsd, epr, timeout=timeout_ref_provider) if execute_1a else None
         res_1b = step_1.test_1b(wsd, epr, timeout=timeout_ref_provider)
         if not res_1b:
             return False

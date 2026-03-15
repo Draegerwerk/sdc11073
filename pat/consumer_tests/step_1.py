@@ -19,10 +19,9 @@ def on_hello(step: str, event: threading.Event, expected_epr: str, addr_from: st
         event.set()
 
 
-def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
+def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str, timeout: float) -> bool:
     """The Reference Provider sends Hello messages in ad-hoc mode."""
     step = f'{__STEP__}a'
-    timeout = 10.0
     sent_hello_event = threading.Event()
     observer = functools.partial(on_hello, step, sent_hello_event, epr)
     try:
