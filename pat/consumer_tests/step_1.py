@@ -52,23 +52,22 @@ def on_resolve_match(step: str, event: threading.Event, expected_epr: str, servi
 def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str, timeout: float) -> bool:
     """The Reference Provider answers to Probe and Resolve messages in ad-hoc mode."""
     step = f'{__STEP__}b'
-    # wait at least 10s for probe matches to be received, but not more than total timeout
-    # it is also ensured that at most every 10s a probe is sent
+    # Wait at least 10s for probe matches to be received, but not more than specified timeout.
+    # It is also ensured that the interval between probe triggers does not exceed 10 seconds or the specified timeout.
     timeout_probe_matches = min(max(timeout / 5, 10), timeout)
     # if the epr is already known you can directly use resolve, but test specification requires probe to be tested
     probe_matches_event = threading.Event()
     observer = functools.partial(on_probe_matches, step, probe_matches_event, epr)
     try:
         discovery.set_on_probe_matches_callback(observer)
-        start = time.perf_counter()
         iteration = 0
-        while True:
+        result = False
+        start = time.perf_counter()
+        while not (result or (time.perf_counter() - start) > timeout):
             iteration += 1
             logger.info('Send probe messages - iteration: %s', iteration, extra={'step': step})
             discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
             result = probe_matches_event.wait(timeout_probe_matches)
-            if result or (time.perf_counter() - start) > timeout:
-                break
     finally:
         discovery.set_on_probe_matches_callback(None)
     if result:

@@ -191,12 +191,22 @@ def test_6c(consumer: SdcConsumer) -> bool:  # noqa: PLR0912
         state: statecontainers.SetValueOperationStateContainer = consumer.mdib.states.descriptor_handle.get_one(
             operation.Handle,
         )
-        op_targer_descr = consumer.mdib.descriptions.handle.get_one(operation.OperationTarget, allow_none=False)
+        op_target_descr = consumer.mdib.descriptions.handle.get_one(operation.OperationTarget, allow_none=False)
 
         if len(state.AllowedRange):
             value = random.choice([state.AllowedRange[0].Lower, state.AllowedRange[0].Upper])
-        elif hasattr(op_targer_descr, 'TechnicalRange') and op_targer_descr.TechnicalRange:
-            value = random.choice([op_targer_descr.TechnicalRange[0].Lower, op_targer_descr.TechnicalRange[0].Upper])
+        elif (
+            isinstance(
+                op_target_descr,
+                (
+                    descriptorcontainers.NumericMetricDescriptorContainer,
+                    descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer,
+                    descriptorcontainers.DistributionSampleArrayMetricDescriptorContainer,
+                ),
+            )
+            and op_target_descr.TechnicalRange
+        ):
+            value = random.choice([op_target_descr.TechnicalRange[0].Lower, op_target_descr.TechnicalRange[0].Upper])
         else:
             value = random.randint(1, 10000)
 

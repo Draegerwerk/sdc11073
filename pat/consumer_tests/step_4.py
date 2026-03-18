@@ -352,6 +352,8 @@ def _verify_waveform_tests(  # noqa: PLR0913
     waveforms_with_sufficient_samples = {
         handle: updates
         for handle, updates in waveforms_with_sufficient_updates.items()
+        # it is assumed that it is sufficient to have at least the required number of samples per message to fulfil
+        # the requirement
         if all(len(samples_in_message) >= samples_per_message for samples_in_message in updates)
     }
 

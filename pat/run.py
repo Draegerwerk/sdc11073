@@ -66,7 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.', default='dummypass')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
     parser.add_argument(
-        '--timeout_ref_provider',
+        '--timeout-ref-provider',
         type=float,
         help='Time in seconds to wait for reference provider to be started.',
         default=10.0,
