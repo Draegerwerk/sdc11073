@@ -117,6 +117,7 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     certificate_password: str | None,
     execute_1a: bool,
     network_delay: float,
+    timeout_ref_provider: float = 10.0,
 ) -> bool:
     """Run reference test."""
     _setup_logging()
@@ -126,8 +127,8 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
 
     with WSDiscovery(adapter) as wsd:
-        res_1a = step_1.test_1a(wsd, epr) if execute_1a else None
-        res_1b = step_1.test_1b(wsd, epr)
+        res_1a = step_1.test_1a(wsd, epr, timeout=timeout_ref_provider) if execute_1a else None
+        res_1b = step_1.test_1b(wsd, epr, timeout=timeout_ref_provider)
         if not res_1b:
             return False
         services = wsd.get_found_remote_services()  # services have already been found in 1b
@@ -244,6 +245,12 @@ if __name__ == '__main__':
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
+    parser.add_argument(
+        '--timeout-ref-provider',
+        type=float,
+        help='Time in seconds to wait for reference provider to be started.',
+        default=10.0,
+    )
     parser.add_argument('--no-1a', action='store_true', help='Do not execute test step 1a.')
 
     args = parser.parse_args()
@@ -253,6 +260,7 @@ if __name__ == '__main__':
         certificate_folder=args.certificate_folder,
         certificate_password=args.ssl_password,
         network_delay=args.network_delay,
+        timeout_ref_provider=args.timeout_ref_provider,
         execute_1a=not args.no_1a,
     )
     sys.exit(0 if passed else 1)
