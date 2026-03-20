@@ -27,6 +27,8 @@ DurationType = decimal.Decimal | int | float
 ParsedDurationType = float
 
 
+# By the time of implementation, the sdpi regex has a bug, see https://github.com/IHE/DEV.SDPi/issues/516
+# This bug has already been fixed here.
 __SDPI_REGEX_DURATION__ = re.compile(
     r'^PT(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?'
     r'(?:(?P<seconds>\d+)(?:\.(?P<fraction>\d+))?S)?(?<!PT)$',
@@ -34,7 +36,11 @@ __SDPI_REGEX_DURATION__ = re.compile(
 
 
 def parse_duration(date_string: str) -> ParsedDurationType:
-    """XML Schema duration, constrained to hours, minutes and seconds."""
+    """XML Schema duration, constrained to hours, minutes and seconds.
+
+    SDPi explicitly requires this constraint for the Expires attributes. However, we apply it to all
+    xsd:duration elements. See https://github.com/IHE/DEV.SDPi/issues/517 for more details
+    """
     match = __SDPI_REGEX_DURATION__.match(date_string)
     if match is None:
         msg = f'Date string {date_string} not matching SDPI regex for durations'
@@ -52,7 +58,8 @@ def parse_duration(date_string: str) -> ParsedDurationType:
 def duration_string(seconds: DurationType) -> str:
     r"""Create an ISO 8601 durations value containing seconds.
 
-    Note: Smaller fractions than microseconds are truncated. The referenced ISO8601 from 1988 in XML 1.1 does not
+    Note: Smaller fractions than microseconds are rounded based in the seventh digit.
+          The referenced ISO8601 from 1988 in XML 1.1 does not
     restrict the precision, but in part 2 5.4 the minimal supported fraction-second duration is set to milliseconds
     https://www.w3.org/TR/xmlschema11-2/#partial-implementation, so microseconds should be safe
     Days are not allowed by sdpi and has to follow the regex ^PT(\d+H)?(\d+M)?(\d+(.\d+)?S)?(?<!PT)$.
@@ -125,7 +132,7 @@ __TIMEZONE_FRAG__ = (
     rf'((?P<{_RegexKeys.TZ_HOUR}>[0]\d|1[0-4]):(?P<{_RegexKeys.TZ_MINUTE}>[0-5]\d)))'
 )
 
-DATETIME_PATTERN: typing.Final[re.Pattern[str]] = re.compile(
+__DATETIME_PATTERN__: typing.Final[re.Pattern[str]] = re.compile(
     rf'^{__YEAR_FRAG__}'
     rf'(?:-{__MONTH_FRAG__}'
     rf'(?:-{__DAY_FRAG__}'
@@ -144,7 +151,7 @@ MAX_TZ_OFFSET_SECONDS: typing.Final[int] = 14 * 3600  # 14 hours
 
 
 @dataclasses.dataclass(frozen=True)
-class XsdDatetime:
+class XsdDateInformation:
     """xsd:gYear, xsd:gYearMonth, xsd:date and xsd:dateTime."""
 
     year: int
@@ -158,35 +165,39 @@ class XsdDatetime:
 
     def __validate_date(self):
         if self.month is not None and not (1 <= self.month <= MAX_MONTH):
-            msg = f'{self.month} is not a valid month'
+            msg = f'{self!r} contains month not in range of [1, {MAX_MONTH}]'
             raise ValueError(msg)
         if self.day is not None:
             if not (1 <= self.day <= MAX_DAY):
-                msg = f'{self.day} is not a valid day'
+                msg = f'{self!r} contains day not in range of [1, {MAX_DAY}]'
                 raise ValueError(msg)
             if self.month is None:
-                raise ValueError('day cannot be present without month')
+                msg = f'{self!r} contains a day without a month'
+                raise ValueError(msg)
 
     def __validate_time(self):
         if any(v is not None for v in (self.hour, self.minute, self.second)):
             if self.day is None or self.hour is None or self.minute is None or self.second is None:
-                raise ValueError('hour, minute and second must all be set together with day')
+                msg = f'{self!r} does not have hour, minute and second all set together with day'
+                raise ValueError(msg)
             if not (0 <= self.hour <= MAX_HOUR):
-                msg = f'{self.hour} is not a valid hour'
+                msg = f'{self!r} contains hours not in range of [0, {MAX_HOUR}]'
                 raise ValueError(msg)
             if not (0 <= self.minute <= MAX_MINUTE):
-                msg = f'{self.minute} is not a valid minute'
+                msg = f'{self!r} contains minutes not in range of [0, {MAX_MINUTE}]'
                 raise ValueError(msg)
             if not (0.0 <= self.second < MAX_SECOND):
-                msg = f'{self.second} is not a valid second'
+                msg = f'{self!r} contains seconds not in range of [0.0, {MAX_SECOND})'
                 raise ValueError(msg)
 
     def __validate_eod(self):
         if self.end_of_day:
             if self.hour is not None or self.minute is not None or self.second is not None:
-                raise ValueError('end_of_day cannot be true if hour, minute or second is present')
+                msg = f'{self!r} has end_of_day=True but hour, minute or second is present'
+                raise ValueError(msg)
             if self.day is None:
-                raise ValueError('end_of_day cannot be true if day is not present')
+                msg = f'{self!r} has end_of_day=true but day is not present'
+                raise ValueError(msg)
 
     def __validate_tz(self):
         if self.tz_info is not None:
@@ -194,7 +205,7 @@ class XsdDatetime:
             if offset is None:
                 return
             if not (-MAX_TZ_OFFSET_SECONDS <= offset.total_seconds() <= MAX_TZ_OFFSET_SECONDS):
-                msg = 'Timezone offset is greater than 14:00h'
+                msg = f'{self!r} has timezone not within range of [-14:00, 14:00]'
                 raise ValueError(msg)
 
     def __post_init__(self):
@@ -244,12 +255,12 @@ def _parse_tz(groups: Mapping[str, str]) -> datetime.timezone | None:
     return datetime.timezone(datetime.timedelta(minutes=offset))
 
 
-def parse_date_time(date_time_str: str) -> XsdDatetime | None:
+def parse_date_time(date_time_str: str) -> XsdDateInformation | None:
     """Parse a date time string.
 
     String can be xsd:dateTime, xsd:date, xsd:gYearMonth or xsd:gYear.
     """
-    match = DATETIME_PATTERN.match(date_time_str)
+    match = __DATETIME_PATTERN__.match(date_time_str)
     if match is None:
         return None
     groups = match.groupdict()
@@ -260,7 +271,7 @@ def parse_date_time(date_time_str: str) -> XsdDatetime | None:
     hour = _parse_integer(groups.get(_RegexKeys.HOUR))
     minute = _parse_integer(groups.get(_RegexKeys.MINUTE))
     second = _parse_float(groups.get(_RegexKeys.SECOND))
-    return XsdDatetime(
+    return XsdDateInformation(
         year=year,
         month=month,
         day=day,

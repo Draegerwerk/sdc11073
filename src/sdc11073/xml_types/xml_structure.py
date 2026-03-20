@@ -1558,11 +1558,6 @@ class DateOfBirthProperty(_ElementBase):
     Time zone info can be provided:
        UTC can be specified by appending a Z character, e.g. 2002-09-24Z
        other timezones by adding a positive or negative time behind the date, e.g. 2002-09-24-06:00, 2002-09-24+06:00
-    xsd:time is hh:mm:ss format, e.g. 9:30:10, 9:30:10.5. All components are required.
-    Time zone handling is identical to date type
-
-    The corresponding Python types are datetime.Date (=> not time point available)
-    or datetime.Datetime (with time point attribute).
     """
 
     def __init__(
@@ -1574,13 +1569,13 @@ class DateOfBirthProperty(_ElementBase):
     ):
         super().__init__(
             sub_element_name,
-            ClassCheckConverter(isoduration.XsdDatetime),
+            ClassCheckConverter(isoduration.XsdDateInformation),
             default_py_value,
             implied_py_value,
             is_optional,
         )
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> isoduration.XsdDatetime | None:  # noqa: ARG002
+    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> isoduration.XsdDateInformation | None:  # noqa: ARG002
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
@@ -1607,11 +1602,11 @@ class DateOfBirthProperty(_ElementBase):
         sub_element.text = date_string
 
     @staticmethod
-    def mk_value_object(date_string: str) -> isoduration.XsdDatetime | None:
+    def mk_value_object(date_string: str) -> isoduration.XsdDateInformation | None:
         """Parse isoduration string."""
         return isoduration.parse_date_time(date_string)
 
     @staticmethod
-    def _mk_datestring(date_object: isoduration.XsdDatetime | None) -> str:
+    def _mk_datestring(date_object: isoduration.XsdDateInformation | None) -> str:
         """Create isoduration string."""
         return str(date_object) if date_object is not None else ''

@@ -595,7 +595,7 @@ class TestStateContainers(unittest.TestCase):
         state.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
         state.CoreData.Race = pm_types.CodedValue('123', 'def')
 
-        state.CoreData.DateOfBirth = isoduration.XsdDatetime(2001, 3, 12)
+        state.CoreData.DateOfBirth = isoduration.XsdDateInformation(2001, 3, 12)
 
         state.Identification.append(
             pm_types.InstanceIdentifier(
@@ -618,7 +618,7 @@ class TestStateContainers(unittest.TestCase):
         verify_equal(state, state2)
 
         state.CoreData.Middlename = ['K.']
-        state.CoreData.DateOfBirth = isoduration.XsdDatetime(2001, 3, 12, 14, 30, 1)
+        state.CoreData.DateOfBirth = isoduration.XsdDateInformation(2001, 3, 12, 14, 30, 1)
         state.increment_state_version()
 
         state.CoreData.Height = pm_types.Measurement(Decimal(42), unit=pm_types.CodedValue('44444'))

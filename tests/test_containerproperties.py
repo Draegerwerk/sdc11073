@@ -131,14 +131,14 @@ class TestContainerProperties(unittest.TestCase):
 
     def test_date_of_birth_regex(self):
         result = DoB.mk_value_object('2003-06-30')
-        self.assertEqual(result, isoduration.XsdDatetime(2003, 6, 30))
+        self.assertEqual(result, isoduration.XsdDateInformation(2003, 6, 30))
 
         for text in ('foo', '00010-06-30', '01-00-01', '01-01-00'):  # several invalid strings
             result = DoB.mk_value_object(text)
             self.assertTrue(result is None, msg=f'result of {text} should be None, but it is {result}')
 
         result = DoB.mk_value_object('2003-06-30T14:53:12.4')
-        self.assertEqual(result, isoduration.XsdDatetime(2003, 6, 30, 14, 53, 12.400000))
+        self.assertEqual(result, isoduration.XsdDateInformation(2003, 6, 30, 14, 53, 12.400000))
         self.assertEqual(result.tz_info, None)
 
         # add time zone UTC
@@ -166,25 +166,25 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
 
     def test_date_of_birth_to_string(self):
-        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6))
+        date_string = DoB._mk_datestring(isoduration.XsdDateInformation(2004, 3, 6))
         self.assertEqual(date_string, '2004-03-06')
 
-        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6, 14, 15, 16))
+        date_string = DoB._mk_datestring(isoduration.XsdDateInformation(2004, 3, 6, 14, 15, 16))
         self.assertEqual(date_string, '2004-03-06T14:15:16')
 
-        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6, 4, 5, 6))
+        date_string = DoB._mk_datestring(isoduration.XsdDateInformation(2004, 3, 6, 4, 5, 6))
         self.assertEqual(date_string, '2004-03-06T04:05:06')  # verify leading zeros in date and time
 
-        date_string = DoB._mk_datestring(isoduration.XsdDatetime(2004, 3, 6, 14, 15, 16.700000))
+        date_string = DoB._mk_datestring(isoduration.XsdDateInformation(2004, 3, 6, 14, 15, 16.700000))
         self.assertEqual(date_string, '2004-03-06T14:15:16.7')
 
         date_string = DoB._mk_datestring(
-            isoduration.XsdDatetime(2004, 3, 6, 14, 15, 16.700000, tz_info=datetime.timezone.utc),
+            isoduration.XsdDateInformation(2004, 3, 6, 14, 15, 16.700000, tz_info=datetime.timezone.utc),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7Z')
 
         date_string = DoB._mk_datestring(
-            isoduration.XsdDatetime(
+            isoduration.XsdDateInformation(
                 2004,
                 3,
                 6,
@@ -197,7 +197,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:00')
 
         date_string = DoB._mk_datestring(
-            isoduration.XsdDatetime(
+            isoduration.XsdDateInformation(
                 2004,
                 3,
                 6,
@@ -210,7 +210,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:00')
 
         date_string = DoB._mk_datestring(
-            isoduration.XsdDatetime(
+            isoduration.XsdDateInformation(
                 2004,
                 3,
                 6,
@@ -223,7 +223,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:01')
 
         date_string = DoB._mk_datestring(
-            isoduration.XsdDatetime(
+            isoduration.XsdDateInformation(
                 2004,
                 3,
                 6,
