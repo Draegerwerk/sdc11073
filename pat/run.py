@@ -15,12 +15,13 @@ from concurrent import futures
 from pat import consumer, provider
 
 
-def run(
+def run(  # noqa: PLR0913
     adapter: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
     certificate_password: str | None,
     network_delay: float,
+    timeout_ref_provider: float = 10.0,
 ) -> bool:
     """Run tests."""
     with pathlib.Path(__file__).parent.joinpath('logging_default.json').open() as f:
@@ -37,6 +38,7 @@ def run(
             certificate_password=certificate_password,
             execute_1a=True,
             network_delay=network_delay,
+            timeout_ref_provider=timeout_ref_provider,
         )
         threading.Thread(
             target=provider.run_provider,
@@ -63,6 +65,12 @@ if __name__ == '__main__':
     )
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.', default='dummypass')
     parser.add_argument('--network-delay', type=float, help='Network delay to use in seconds.', default=0.1)
+    parser.add_argument(
+        '--timeout-ref-provider',
+        type=float,
+        help='Time in seconds to wait for reference provider to be started.',
+        default=10.0,
+    )
 
     args = parser.parse_args()
 
@@ -72,5 +80,6 @@ if __name__ == '__main__':
         certificate_folder=args.certificate_folder if args.tls else None,
         certificate_password=args.ssl_password if args.tls else None,
         network_delay=args.network_delay,
+        timeout_ref_provider=args.timeout_ref_provider,
     )
     sys.exit(0 if passed else 1)

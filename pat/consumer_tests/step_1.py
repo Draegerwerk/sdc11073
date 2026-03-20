@@ -3,6 +3,7 @@
 import functools
 import logging
 import threading
+import time
 from collections.abc import Sequence
 
 from sdc11073 import definitions_sdc, wsdiscovery
@@ -18,10 +19,9 @@ def on_hello(step: str, event: threading.Event, expected_epr: str, addr_from: st
         event.set()
 
 
-def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
+def test_1a(discovery: wsdiscovery.WSDiscovery, epr: str, timeout: float) -> bool:
     """The Reference Provider sends Hello messages in ad-hoc mode."""
     step = f'{__STEP__}a'
-    timeout = 10.0
     sent_hello_event = threading.Event()
     observer = functools.partial(on_hello, step, sent_hello_event, epr)
     try:
@@ -49,18 +49,25 @@ def on_resolve_match(step: str, event: threading.Event, expected_epr: str, servi
         event.set()
 
 
-def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str) -> bool:
+def test_1b(discovery: wsdiscovery.WSDiscovery, epr: str, timeout: float) -> bool:
     """The Reference Provider answers to Probe and Resolve messages in ad-hoc mode."""
     step = f'{__STEP__}b'
-    timeout = 10.0
-
+    # Wait at least 10s for probe matches to be received, but not more than specified timeout.
+    # It is also ensured that the interval between probe triggers does not exceed 10 seconds or the specified timeout.
+    timeout_probe_matches = min(max(timeout / 5, 10), timeout)
     # if the epr is already known you can directly use resolve, but test specification requires probe to be tested
     probe_matches_event = threading.Event()
     observer = functools.partial(on_probe_matches, step, probe_matches_event, epr)
     try:
         discovery.set_on_probe_matches_callback(observer)
-        discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
-        result = probe_matches_event.wait(timeout)
+        iteration = 0
+        result = False
+        start = time.perf_counter()
+        while not (result or (time.perf_counter() - start) > timeout):
+            iteration += 1
+            logger.info('Send probe messages - iteration: %s', iteration, extra={'step': step})
+            discovery._send_probe(types=definitions_sdc.SdcV1Definitions.MedicalDeviceTypesFilter)  # noqa: SLF001
+            result = probe_matches_event.wait(timeout_probe_matches)
     finally:
         discovery.set_on_probe_matches_callback(None)
     if result:
