@@ -134,8 +134,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(result, isoduration.XsdDateInformation(2003, 6, 30))
 
         for text in ('foo', '00010-06-30', '01-00-01', '01-01-00'):  # several invalid strings
-            result = DoB.mk_value_object(text)
-            self.assertTrue(result is None, msg=f'result of {text} should be None, but it is {result}')
+            self.assertRaises(ValueError, DoB.mk_value_object, text)
 
         result = DoB.mk_value_object('2003-06-30T14:53:12.4')
         self.assertEqual(result, isoduration.XsdDateInformation(2003, 6, 30, 14, 53, 12.400000))

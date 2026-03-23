@@ -3,7 +3,6 @@
 import datetime
 import decimal
 import re
-import sys
 from typing import Literal
 
 import pytest
@@ -119,8 +118,12 @@ def xsd_datetimes(draw: st.DrawFn) -> isoduration.XsdDateInformation:
             hour = None
             minute = None
             second = None
-        else:
+        elif draw(st.booleans()):
             hour, minute, second = draw(times())
+        else:
+            hour = None
+            minute = None
+            second = None
     else:
         eod = False
         hour = None
@@ -145,21 +148,6 @@ def test_date_time(dt: isoduration.XsdDateInformation) -> None:
     assert dt == isoduration.parse_date_time(str(dt))
 
 
-def _make_datetime(**overrides: str | float | bool | datetime.tzinfo) -> isoduration.XsdDateInformation:
-    base = {
-        'year': None,
-        'month': None,
-        'day': None,
-        'hour': None,
-        'minute': None,
-        'second': None,
-        'end_of_day': False,
-        'tz_info': None,
-    }
-    base.update(overrides)
-    return isoduration.XsdDateInformation(**base)
-
-
 @given(year=years(), month=st.integers().filter(lambda x: x < 1 or x > isoduration.MAX_MONTH))
 def test_xsddatetime_invalid_month_raises_value_error(year: int, month: int) -> None:
     """Test that invalid month raises ValueError."""
@@ -170,7 +158,7 @@ def test_xsddatetime_invalid_month_raises_value_error(year: int, month: int) -> 
             f'end_of_day=False, tz_info=None) contains month not in range of [1, {isoduration.MAX_MONTH}]',
         ),
     ):
-        _make_datetime(year=year, month=month)
+        isoduration.XsdDateInformation(year=year, month=month)
 
 
 @given(year=years(), month=months(), day=st.integers().filter(lambda x: x < 1 or x > isoduration.MAX_DAY))
@@ -183,7 +171,7 @@ def test_xsddatetime_invalid_day_raises_value_error(year: int, month: int, day: 
             f'end_of_day=False, tz_info=None) contains day not in range of [1, {isoduration.MAX_DAY}]',
         ),
     ):
-        _make_datetime(year=year, month=month, day=day)
+        isoduration.XsdDateInformation(year=year, month=month, day=day)
 
 
 @given(
@@ -207,10 +195,10 @@ def test_xsddatetime_invalid_hour_raises_value_error(  # noqa: PLR0913
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month={month}, day={day}, hour={hour}, minute={minute}, second={second}, '
-            f'end_of_day=False, tz_info=None) contains hours not in range of [0, {isoduration.MAX_HOUR}]'
+            f'end_of_day=False, tz_info=None) contains hours not in range of [0, {isoduration.MAX_HOUR}]',
         ),
     ):
-        _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+        isoduration.XsdDateInformation(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 
 @given(
@@ -234,10 +222,10 @@ def test_xsddatetime_invalid_minute_raises_value_error(  # noqa: PLR0913
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month={month}, day={day}, hour={hour}, minute={minute}, second={second}, '
-            f'end_of_day=False, tz_info=None) contains minutes not in range of [0, {isoduration.MAX_MINUTE}]'
+            f'end_of_day=False, tz_info=None) contains minutes not in range of [0, {isoduration.MAX_MINUTE}]',
         ),
     ):
-        _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+        isoduration.XsdDateInformation(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 
 @given(
@@ -261,10 +249,10 @@ def test_xsddatetime_invalid_second_raises_value_error(  # noqa: PLR0913
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month={month}, day={day}, hour={hour}, minute={minute}, second={second}, '
-            f'end_of_day=False, tz_info=None) contains seconds not in range of [0.0, {isoduration.MAX_SECOND})'
+            f'end_of_day=False, tz_info=None) contains seconds not in range of [0.0, {isoduration.MAX_SECOND})',
         ),
     ):
-        _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+        isoduration.XsdDateInformation(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 
 @given(year=years(), day=days())
@@ -277,7 +265,7 @@ def test_xsddatetime_day_without_month_raises_value_error(year: int, day: int) -
             f'end_of_day=False, tz_info=None) contains a day without a month',
         ),
     ):
-        _make_datetime(year=year, day=day)
+        isoduration.XsdDateInformation(year=year, day=day)
 
 
 @given(
@@ -305,10 +293,10 @@ def test_xsddatetime_time_requires_hours_minutes_second(  # noqa: PLR0913
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month={month}, day={day}, hour={hour}, minute={minute}, second={second}, '
-            f'end_of_day=False, tz_info=None) does not have hour, minute and second all set together with day'
+            f'end_of_day=False, tz_info=None) does not have hour, minute and second all set together with day',
         ),
     ):
-        _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
+        isoduration.XsdDateInformation(year=year, month=month, day=day, hour=hour, minute=minute, second=second)
 
 
 @given(
@@ -332,10 +320,12 @@ def test_xsddatetime_end_of_day_excludes_time_components(  # noqa: PLR0913
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month={month}, day={day}, hour={hour}, minute={minute}, second={second}, '
-            f'end_of_day=True, tz_info=None) has end_of_day=True but hour, minute or second is present'
+            f'end_of_day=True, tz_info=None) has end_of_day=True but hour, minute or second is present',
         ),
     ):
-        _make_datetime(year=year, month=month, day=day, hour=hour, minute=minute, second=second, end_of_day=True)
+        isoduration.XsdDateInformation(
+            year=year, month=month, day=day, hour=hour, minute=minute, second=second, end_of_day=True,
+        )
 
 
 @given(year=years(), month=months())
@@ -345,10 +335,10 @@ def test_xsddatetime_end_of_day_requires_day(year: int, month: int) -> None:
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month={month}, day=None, hour=None, minute=None, second=None, '
-            f'end_of_day=True, tz_info=None) has end_of_day=true but day is not present'
+            f'end_of_day=True, tz_info=None) has end_of_day=true but day is not present',
         ),
     ):
-        _make_datetime(year=year, month=month, end_of_day=True)
+        isoduration.XsdDateInformation(year=year, month=month, end_of_day=True)
 
 
 @given(year=years(), tz_minute=minutes().filter(lambda x: x != 0), sign=st.sampled_from(['-', '+']))
@@ -360,7 +350,7 @@ def test_timezone_needs_to_be_14_00_at_max(year: int, tz_minute: int, sign: Lite
         ValueError,
         match=re.escape(
             f'XsdDateInformation(year={year}, month=None, day=None, hour=None, minute=None, second=None, '
-            f'end_of_day=False, tz_info={tz_info!r}) has timezone not within range of [-14:00, 14:00]'
+            f'end_of_day=False, tz_info={tz_info!r}) has timezone not within range of [-14:00, 14:00]',
         ),
     ):
         isoduration.XsdDateInformation(

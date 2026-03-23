@@ -262,7 +262,11 @@ def parse_date_time(date_time_str: str) -> XsdDateInformation | None:
     """
     match = __DATETIME_PATTERN__.match(date_time_str)
     if match is None:
-        return None
+        msg = (
+            f'Date time string {date_time_str} does not match the expected pattern for xsd:dateTime, '
+            f'xsd:date, xsd:gYearMonth or xsd:gYear'
+        )
+        raise ValueError(msg)
     groups = match.groupdict()
     year = int(groups['year'])
     tz = _parse_tz(groups)

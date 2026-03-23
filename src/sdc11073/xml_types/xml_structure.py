@@ -40,9 +40,8 @@ if TYPE_CHECKING:
     from sdc11073.mdib.containerbase import ContainerBase
     from sdc11073.namespaces import NamespaceHelper
     from sdc11073.xml_types.basetypes import XMLTypeBase
-
-    from .dataconverters import DataConverterProtocol
-    from .isoduration import DurationType
+    from sdc11073.xml_types.dataconverters import DataConverterProtocol
+    from sdc11073.xml_types.isoduration import DurationType
 
 STRICT_TYPES = True  # if True, only the expected types are excepted.
 MANDATORY_VALUE_CHECKING = True  # checks if mandatory values are present when xml is generated
@@ -1575,7 +1574,9 @@ class DateOfBirthProperty(_ElementBase):
             is_optional,
         )
 
-    def get_py_value_from_node(self, instance: Any, node: xml_utils.LxmlElement) -> isoduration.XsdDateInformation | None:  # noqa: ARG002
+    def get_py_value_from_node(
+        self, instance: Any, node: xml_utils.LxmlElement,  # noqa: ARG002
+    ) -> isoduration.XsdDateInformation | None:
         """Read value from node."""
         try:
             sub_node = self._get_element_by_child_name(node, self._sub_element_name, create_missing_nodes=False)
