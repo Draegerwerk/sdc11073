@@ -1,3 +1,5 @@
+"""Provide a middleware to convert between http server message and internal format."""
+
 from __future__ import annotations
 
 import logging
@@ -5,21 +7,21 @@ import traceback
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from .request import RequestData
 from sdc11073 import commlog
 from sdc11073.exceptions import HTTPRequestHandlingError
 from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+
+from .request import RequestData
 
 if TYPE_CHECKING:
     from .dispatchkey import RequestHandlerProtocol
 
 
 class MessageConverterMiddleware:
-    """ Converts between http server message format and internal format
-    http server is strings, internal is RequestData."""
+    """Convert between http server message and internal format. http server is strings, internal is RequestData."""
 
-    def __init__(self, msg_reader, msg_factory, logger, dispatcher: RequestHandlerProtocol):
+    def __init__(self, msg_reader, msg_factory, logger, dispatcher: RequestHandlerProtocol):  # noqa: ANN001
         self._logger = logger
         self._msg_reader = msg_reader
         self._msg_factory = msg_factory
@@ -27,7 +29,8 @@ class MessageConverterMiddleware:
         self._soap_request_in_logger = logging.getLogger(commlog.SOAP_REQUEST_IN)
         self._soap_response_out_logger = logging.getLogger(commlog.SOAP_RESPONSE_OUT)
 
-    def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> (int, str, str):
+    def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> tuple[int, str, str]:  # noqa: PLR0915
+        """Perform a post request."""
         http_status = 200
         http_reason = 'Ok'
         response_xml_string = 'not set yet'
@@ -39,11 +42,11 @@ class MessageConverterMiddleware:
         try:
             message_data = self._msg_reader.read_received_message(request_bytes)
         except HTTPRequestHandlingError as ex:
-            self._logger.warning('could not read message: {}', str(ex))
+            self._logger.warning('could not read message: {}', str(ex))  # noqa: PLE1205
             fault = ex.soap_fault
             http_status = ex.status
             http_reason = ex.reason
-        except Exception as ex:
+        except Exception as ex:  # noqa: BLE001
             http_status = 500
             http_reason = 'exception'
             self._logger.warning(traceback.format_exc())
@@ -73,7 +76,7 @@ class MessageConverterMiddleware:
             http_reason = ex.reason
         except Exception as ex:
             # make an error 500 response with the soap fault as content
-            self._logger.error(traceback.format_exc())
+            self._logger.exception('Exception while handling POST request')
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
             request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
             fault = Fault()
@@ -85,9 +88,10 @@ class MessageConverterMiddleware:
             http_reason = 'exception'
         finally:
             self._soap_response_out_logger.debug(response_xml_string, extra={'http_method': 'POST'})
-            return http_status, http_reason, response_xml_string  # noqa: B012
+        return http_status, http_reason, response_xml_string
 
-    def do_get(self, headers: dict, path: str, peer_name: str) -> (int, str, str, str):
+    def do_get(self, headers: dict, path: str, peer_name: str) -> tuple[int, str, str | bytes, str]:
+        """Perform a get request."""
         parsed_path = urlparse(path)
         try:
             # GET has no content, log it to document duration of processing
@@ -97,12 +101,13 @@ class MessageConverterMiddleware:
             response_string = self._dispatcher.on_get(request_data)
             self._soap_response_out_logger.debug(response_string, extra={'http_method': 'GET'})
             if parsed_path.query == 'wsdl':
-                content_type = "text/xml; charset=utf-8"
+                content_type = 'text/xml; charset=utf-8'
             else:
-                content_type = "application/soap+xml; charset=utf-8"
-            return 200, 'Ok', response_string, content_type
+                content_type = 'application/soap+xml; charset=utf-8'
         except Exception as ex:
-            self._logger.error(traceback.format_exc())
+            self._logger.exception('Exception while handling GET request')
             response_string = str(ex).encode('utf-8')
-            content_type = "text"
+            content_type = 'text'
             return 500, 'Exception', response_string, content_type
+        else:
+            return 200, 'Ok', response_string, content_type

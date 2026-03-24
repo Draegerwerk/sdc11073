@@ -94,6 +94,7 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "ANN401", # https://docs.astral.sh/ruff/rules/any-type/
     "C408", # https://docs.astral.sh/ruff/rules/unnecessary-collection-call/
     "C409", # https://docs.astral.sh/ruff/rules/unnecessary-literal-within-tuple-call/
+    "COM812", # https://docs.astral.sh/ruff/rules/missing-trailing-comma/
     "D105", # undocumented-magic-method
     "D107", # undocumented-public-init
     "D203", # one-blank-line-before-class
