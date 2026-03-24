@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11.0,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "sdc11073"
-dynamic = ["version"]
+version = "0.0.0"
 authors = [
     { name = "Bernd Deichmann", email = "bernd.deichmann@draeger.com" },
     { name = "Leon Budnick", email = "leon.budnick@draeger.com" },
@@ -30,7 +30,7 @@ keywords = [
     "IEEE11073",
 ]
 dependencies = [
-    'lxml>=2.3',  # do not use lxml>=6, because it breaks the schema validator
+    'lxml>=2.3',
     'ifaddr',
     'aiohttp',
 ]
@@ -43,41 +43,21 @@ dependencies = [
 lz4 = [
     'lz4',
 ]
+
+[dependency-groups]
 test = [
-    "pytest",
-    "pytest-html",
-    "pytest-cov",
-    "pytest-xdist[psutil]",
+    "pytest>=8.3.5",
+    "pytest-html>=4.1.1",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist[psutil]>=3.6.1",
     "sdc11073[lz4]",
     "hypothesis[zoneinfo]>=6.148.2; platform_system == 'Windows'",
     "hypothesis>=6.148.2; platform_system != 'Windows'",
 ]
-mypy = [
-    "mypy",
-    "types-lxml",
-]
 dev = [
-    "ruff>=0.12.9",
-    "sdc11073[mypy]",
-    "sdc11073[test]",
+    { include-group = "test" },
+    "ruff>=0.15.1",
 ]
-
-[tool.hatch.build.targets.sdist]
-include = [
-    "src/sdc11073/**/*",
-    "docs/*", # include picture for readme
-    "LICENSE",
-    "README.rst",
-    "pyproject.toml",
-    "CHANGELOG.md"
-]
-support-legacy = false
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/sdc11073"]
-
-[tool.hatch.version]
-path = "src/sdc11073/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = "tests/"

@@ -1,0 +1,31 @@
+name: Lint with ruff
+
+on:
+  workflow_call:
+  pull_request:
+    types: [ opened, synchronize, reopened, ready_for_review ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get changed files
+        id: changed-files
+        uses: step-security/changed-files@v46
+        with:
+          files: '**.py'
+
+      - name: ruff check
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: astral-sh/ruff-action@v3
+        with:
+          version-file: pyproject.toml
+          src: ${{ steps.changed-files.outputs.all_changed_files }}
+
+      - name: ruff format check
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: astral-sh/ruff-action@v3
+        with:
+          version-file: pyproject.toml
+          args: "format --check --diff ${{ steps.changed-files.outputs.all_changed_files }}"
