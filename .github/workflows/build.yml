@@ -63,6 +63,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
+          cache-suffix: ${{ matrix.distribution }}
 
       - name: Download Artifact
         uses: actions/download-artifact@v8
