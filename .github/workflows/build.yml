@@ -77,7 +77,7 @@ jobs:
         run: uv pip install ${{ matrix.distribution }}
 
       - name: Detect suffix on ubuntu
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+        if: ${{ matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest' }}
         run: |
           echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
 
@@ -89,7 +89,7 @@ jobs:
 
       - name: Run pytest
         run: >-
-          pytest
+          uv run --no-sync pytest
           -n logical
           --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           --self-contained-html
