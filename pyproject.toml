@@ -60,7 +60,9 @@ dev = [
 ]
 
 [tool.pytest]
-testpaths = "tests/"
+testpaths = [
+    "tests",
+]
 filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
     "error",
     "ignore::UserWarning",
