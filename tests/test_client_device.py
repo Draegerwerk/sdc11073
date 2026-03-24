@@ -51,8 +51,8 @@ from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
 from sdc11073.wsdiscovery import WSDiscovery
+from sdc11073.xml_types import isoduration, msg_types, pm_types
 from sdc11073.xml_types import msg_qnames as msg
-from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.actions import periodic_actions
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
@@ -918,7 +918,15 @@ class TestClientSomeDevice(unittest.TestCase):
             st.CoreData.Height = pm_types.Measurement(Decimal('88.2'), pm_types.CodedValue('abc', 'def'))
             st.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
             st.CoreData.Race = pm_types.CodedValue('123', 'def')
-            st.CoreData.DateOfBirth = datetime.datetime(2012, 3, 15, 13, 12, 11, tzinfo=datetime.timezone.utc)
+            st.CoreData.DateOfBirth = isoduration.XsdDateInformation(
+                2012,
+                3,
+                15,
+                13,
+                12,
+                11,
+                tz_info=datetime.timezone.utc,
+            )
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(
             pm.PatientContextState,

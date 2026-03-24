@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecation info to the `commlog` module.
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
 - context manager support to `WSDiscovery`.
+- `isoduration.XsdDatetime` [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 
 ### Changed
 
@@ -22,13 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - comparison of pm:CodedValue and pm:Translation instances is not provided with the sdc11073 package and will raise an exception - for further details, refer to src/sdc11073/mdib/mdibaccessor.py and tutorial/codedvaluecomparator.py in the project’s source code
 - implementation of SDC Provider Roles is not part of the sdc11073 package - example implementations can be found in the tutorial folder of the project’s source code
 - several API changes were introduced, including the renaming and relocation of classes and methods (e.g., the SdcConsumer and SDCProvider interfaces, SdcProviderComponents and SdcConsumerComponents interfaces)
+- `PatientDemographicsCoreData.DateOfBirth` now requires `isoduration.XsdDatetime` as type [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 
 ### Fixed
 
 - when generating dpws:Scope entries based on pm:AbstractComplexDeviceComponentDescriptor/pm:Type the implied value for a pm:Type/@CodingSystem is not set explicitly anymore, in addition the used values are now %-encoded before usage
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
 - `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
-- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification 
+- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
+- parsing of duration and datetimes [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 - deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
 
 ### Removed

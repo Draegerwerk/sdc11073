@@ -1,6 +1,5 @@
 """Unit tests for state containers."""
 
-import datetime
 import unittest
 from decimal import Decimal
 from math import isclose
@@ -12,8 +11,8 @@ import sdc11073.mdib.statecontainers as sc
 import sdc11073.xml_types.xml_structure as cp
 from sdc11073.location import SdcLocation
 from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.xml_types import isoduration, pm_types
 from sdc11073.xml_types import pm_qnames as pm
-from sdc11073.xml_types import pm_types
 from tests.mockstuff import dec_list
 
 # pylint: disable=protected-access
@@ -596,7 +595,7 @@ class TestStateContainers(unittest.TestCase):
         state.CoreData.Weight = pm_types.Measurement(Decimal('68.2'), pm_types.CodedValue('abc'))
         state.CoreData.Race = pm_types.CodedValue('123', 'def')
 
-        state.CoreData.DateOfBirth = datetime.date(2001, 3, 12)
+        state.CoreData.DateOfBirth = isoduration.XsdDateInformation(2001, 3, 12)
 
         state.Identification.append(
             pm_types.InstanceIdentifier(
@@ -619,7 +618,7 @@ class TestStateContainers(unittest.TestCase):
         verify_equal(state, state2)
 
         state.CoreData.Middlename = ['K.']
-        state.CoreData.DateOfBirth = datetime.datetime(2001, 3, 12, 14, 30, 1, tzinfo=datetime.timezone.utc)
+        state.CoreData.DateOfBirth = isoduration.XsdDateInformation(2001, 3, 12, 14, 30, 1)
         state.increment_state_version()
 
         state.CoreData.Height = pm_types.Measurement(Decimal(42), unit=pm_types.CodedValue('44444'))
