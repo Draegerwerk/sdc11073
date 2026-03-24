@@ -1,4 +1,4 @@
-name: Lint with ruff
+name: Lint
 
 on:
   workflow_call:
@@ -16,14 +16,6 @@ jobs:
         with:
           files: '**.py'
 
-      - name: List all changed files
-        env:
-          ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
-        run: |
-          for file in ${ALL_CHANGED_FILES}; do
-            echo "$file was changed"
-          done
-
       - name: ruff check
         if: steps.changed-files.outputs.any_changed == 'true'
         uses: astral-sh/ruff-action@v3
@@ -36,4 +28,5 @@ jobs:
         uses: astral-sh/ruff-action@v3
         with:
           version-file: pyproject.toml
-          args: "format --check --diff ${{ steps.changed-files.outputs.all_changed_files }}"
+          args: "format --check --diff"
+          src: ${{ steps.changed-files.outputs.all_changed_files }}
