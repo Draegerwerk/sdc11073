@@ -10,7 +10,33 @@ on:
       - v*
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get changed files
+        id: changed-files
+        uses: step-security/changed-files@v47
+        with:
+          files: '**.py'
+
+      - name: ruff check
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: astral-sh/ruff-action@v3
+        with:
+          version-file: pyproject.toml
+          src: ${{ steps.changed-files.outputs.all_changed_files }}
+
+      - name: ruff format check
+        if: steps.changed-files.outputs.any_changed == 'true'
+        uses: astral-sh/ruff-action@v3
+        with:
+          version-file: pyproject.toml
+          args: "format --check --diff"
+          src: ${{ steps.changed-files.outputs.all_changed_files }}
+
   build:
+    needs: lint
     runs-on: ubuntu-latest
     outputs:
       WHL: ${{ steps.filenames.outputs.WHL }}
