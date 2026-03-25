@@ -12,7 +12,7 @@ from sdc11073.exceptions import HTTPRequestHandlingError
 from sdc11073.pysoap.soapenvelope import Fault, faultcodeEnum
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
-from .request import RequestData
+from sdc11073.dispatch.request import RequestData
 
 if TYPE_CHECKING:
     from .dispatchkey import RequestHandlerProtocol
