@@ -103,9 +103,6 @@ jobs:
       - name: Install package
         run: uv pip install ${{ matrix.distribution }}
 
-      - name: Save venv setup
-        run: uv export > pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}_requirements.txt
-
       - name: Detect suffix on ubuntu
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
@@ -141,6 +138,17 @@ jobs:
         with:
           name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}
           path: pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
+          retention-days: 5
+
+      - name: Save venv setup
+        run: uv export > pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}_requirements.txt
+
+      - name: Archive venv setup
+        uses: actions/upload-artifact@v7
+        if: success() || failure()  # upload artifacts also if test stage failed
+        with:
+          name: unittest_reports-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}-requirements.txt
+          path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}_requirements.txt
           retention-days: 5
 
       - name: Upload coverage reports to Codecov
