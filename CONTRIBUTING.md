@@ -18,7 +18,7 @@ and to license your work accordingly.
 - As we restricted pushing directly to one of sdc11073's branches, you have
   to [create a fork](https://github.com/Draegerwerk/sdc11073/fork) where you can push your changes before creating a
   pull request.
-- Install the package as an editable installation with `pip install -e ".[dev]"`.
+- Install the package as an editable installation with `uv sync --dev`.
 - Before making any commits, ensure
   you [sign your commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
 
@@ -143,7 +143,6 @@ Creating a pull request is a critical step in contributing to our project. Here'
 2. **Check Your Changes**:
     - Run tests with `pytest` to ensure all tests pass.
     - Use `ruff check /path/to/your/changes1 /path/to/your/changes2 ...` for static code analysis.
-    - Apply `mypy /path/to/your/changes1 /path/to/your/changes2 ...` for type checking.
 
 3. **Commit Your Changes**: Commit your changes with clear, descriptive commit messages.
 

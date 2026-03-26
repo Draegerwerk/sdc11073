@@ -1,12 +1,14 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.11.0,<0.12"]
+build-backend = "uv_build"
 
 [project]
 name = "sdc11073"
-dynamic = ["version"]
+version = "0.0.0"
 authors = [
-    { name = "Bernd Deichmann", email = "bernd.deichmann@draeger.com" },
+    { name = "Bernd Deichmann" },
+]
+maintainers = [
     { name = "Leon Budnick", email = "leon.budnick@draeger.com" },
 ]
 description = "Pure python implementation of IEEE11073 SDC protocol"
@@ -16,7 +18,6 @@ classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Developers',
     'Topic :: Software Development',
-    'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -29,10 +30,12 @@ keywords = [
     "SDC",
     "IEEE11073",
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
-    'lxml>=2.3',  # do not use lxml>=6, because it breaks the schema validator
-    'ifaddr',
-    'aiohttp',
+    'lxml>=6.0.2',
+    'ifaddr>=0.2.0',
+    'aiohttp>=3.13.3',
 ]
 
 [project.urls]
@@ -41,46 +44,28 @@ dependencies = [
 
 [project.optional-dependencies]
 lz4 = [
-    'lz4',
+    'lz4>=4.4.5',
 ]
+
+[dependency-groups]
 test = [
-    "pytest",
-    "pytest-html",
-    "pytest-cov",
-    "pytest-xdist[psutil]",
+    "pytest>=9.0.2",
+    "pytest-html>=4.2.0",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist[psutil]>=3.8.0",
     "sdc11073[lz4]",
     "hypothesis[zoneinfo]>=6.148.2; platform_system == 'Windows'",
     "hypothesis>=6.148.2; platform_system != 'Windows'",
 ]
-mypy = [
-    "mypy",
-    "types-lxml",
-]
 dev = [
-    "ruff>=0.12.9",
-    "sdc11073[mypy]",
-    "sdc11073[test]",
+    { include-group = "test" },
+    "ruff>=0.15.7",
 ]
 
-[tool.hatch.build.targets.sdist]
-include = [
-    "src/sdc11073/**/*",
-    "docs/*", # include picture for readme
-    "LICENSE",
-    "README.rst",
-    "pyproject.toml",
-    "CHANGELOG.md"
+[tool.pytest]
+testpaths = [
+    "tests",
 ]
-support-legacy = false
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/sdc11073"]
-
-[tool.hatch.version]
-path = "src/sdc11073/__init__.py"
-
-[tool.pytest.ini_options]
-testpaths = "tests/"
 filterwarnings = [# https://docs.python.org/3/library/warnings.html#warning-filter
     "error",
     "ignore::UserWarning",
@@ -114,6 +99,7 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "ANN401", # https://docs.astral.sh/ruff/rules/any-type/
     "C408", # https://docs.astral.sh/ruff/rules/unnecessary-collection-call/
     "C409", # https://docs.astral.sh/ruff/rules/unnecessary-literal-within-tuple-call/
+    "COM812", # https://docs.astral.sh/ruff/rules/missing-trailing-comma/
     "D105", # undocumented-magic-method
     "D107", # undocumented-public-init
     "D203", # one-blank-line-before-class
