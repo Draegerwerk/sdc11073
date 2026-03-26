@@ -6,7 +6,9 @@ build-backend = "uv_build"
 name = "sdc11073"
 version = "0.0.0"
 authors = [
-    { name = "Bernd Deichmann", email = "bernd.deichmann@draeger.com" },
+    { name = "Bernd Deichmann" },
+]
+maintainers = [
     { name = "Leon Budnick", email = "leon.budnick@draeger.com" },
 ]
 description = "Pure python implementation of IEEE11073 SDC protocol"
