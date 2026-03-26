@@ -16,7 +16,6 @@ classifiers = [
     'Development Status :: 5 - Production/Stable',
     'Intended Audience :: Developers',
     'Topic :: Software Development',
-    'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -29,10 +28,12 @@ keywords = [
     "SDC",
     "IEEE11073",
 ]
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
-    'lxml>=2.3',
-    'ifaddr',
-    'aiohttp',
+    'lxml>=6.0.2',
+    'ifaddr>=0.2.0',
+    'aiohttp>=3.13.3',
 ]
 
 [project.urls]
@@ -41,7 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 lz4 = [
-    'lz4',
+    'lz4>=4.4.5',
 ]
 
 [dependency-groups]
@@ -56,7 +57,7 @@ test = [
 ]
 dev = [
     { include-group = "test" },
-    "ruff>=0.15.1",
+    "ruff>=0.15.7",
 ]
 
 [tool.pytest]

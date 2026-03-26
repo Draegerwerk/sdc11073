@@ -103,6 +103,9 @@ jobs:
       - name: Install package
         run: uv pip install ${{ matrix.distribution }}
 
+      - name: Save venv setup
+        run: uv export > pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}_requirements.txt
+
       - name: Detect suffix on ubuntu
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
