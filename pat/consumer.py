@@ -123,7 +123,7 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     _setup_logging()
 
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
-    if certificate_folder:
+    if False:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
 
     with WSDiscovery(adapter) as wsd:

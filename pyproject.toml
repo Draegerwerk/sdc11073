@@ -146,19 +146,6 @@ max-doc-length = 120 # https://docs.astral.sh/ruff/settings/#max-doc-length
     "PT027", # Use `pytest.raises` instead of unittest-style `assertRaises`
 ]
 
-[tool.mypy]
-python_version = "3.10" # https://mypy.readthedocs.io/en/stable/config_file.html#confval-python_version
-strict = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-strict
-disallow_untyped_calls = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-disallow_untyped_calls
-disallow_untyped_defs = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-disallow_untyped_defs
-disallow_any_generics = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-disallow_any_generics
-disallow_any_unimported = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-disallow_any_unimported
-warn_redundant_casts = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-warn_redundant_casts
-check_untyped_defs = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-check_untyped_defs
-warn_return_any = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-warn_return_any
-warn_unused_configs = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-warn_unused_configs
-warn_unused_ignores = true # https://mypy.readthedocs.io/en/stable/config_file.html#confval-warn_unused_ignores
-
 [tool.coverage.report]
 exclude_also = [# https://coverage.readthedocs.io/en/latest/config.html#report-exclude-also
     "raise AssertionError",

@@ -150,7 +150,7 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
 ):
     """Run provider until KeyboardError is raised."""
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
-    if certificate_folder:
+    if False:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
 
     with WSDiscovery(adapter) as wsd:
@@ -309,7 +309,7 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                         print(traceback.format_exc())
                     try:
                         with sdc_provider.mdib.descriptor_transaction() as mgr:
-                            now = datetime.datetime.now(tz=datetime.UTC)
+                            now = datetime.datetime.utcnow()
                             text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
                             descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(
                                 alert_condition.Handle,

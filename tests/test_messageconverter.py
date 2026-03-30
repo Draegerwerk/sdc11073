@@ -53,12 +53,13 @@ class TestDoPost:
         assert body == mock_response.serialize.return_value
         mock_msg_reader.read_received_message.assert_called_once_with(b'<request/>')
         mock_dispatcher.on_post.assert_called_once()
+        request_data = mock_dispatcher.on_post.call_args[0][0]
+        assert request_data.peer_name == '127.0.0.1'
 
     def test_read_raises_http_request_handling_error(
-        self, mock_msg_reader: MagicMock, mock_msg_factory: MagicMock, mock_dispatcher: MagicMock
+        self, middleware: MessageConverterMiddleware, mock_msg_reader: MagicMock, mock_msg_factory: MagicMock
     ):
         """Test fault response when msg_reader raises HTTPRequestHandlingError."""
-        mw = MessageConverterMiddleware(mock_msg_reader, mock_msg_factory, MagicMock(), mock_dispatcher)
         # Create a real Fault to avoid mock issues with Code.Value assignment
         soap_fault = Fault()
         soap_fault.Code.Value = faultcodeEnum.SENDER
@@ -68,7 +69,7 @@ class TestDoPost:
         mock_response.serialize.return_value = uuid.uuid4()
         mock_msg_factory.mk_soap_message.return_value = mock_response
 
-        status, reason, body = mw.do_post({}, '/uuid/path', '127.0.0.1', b'<bad/>')
+        status, reason, body = middleware.do_post({}, '/uuid/path', '127.0.0.1', b'<bad/>')
 
         assert status == 400
         assert reason == 'Bad Request'
@@ -90,6 +91,9 @@ class TestDoPost:
         assert reason == 'exception'
         assert body == mock_response.serialize.return_value
         mock_msg_factory.mk_soap_message.assert_called_once()
+        call_payload = mock_msg_factory.mk_soap_message.call_args.kwargs['payload']
+        assert isinstance(call_payload, Fault)
+        assert call_payload.Reason.Text[0].text == 'parse error'
 
     def test_dispatch_raises_http_request_handling_error(
         self,

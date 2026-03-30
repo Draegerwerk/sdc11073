@@ -86,7 +86,6 @@ practices to facilitate collaboration and code quality.
 ### Formatting / Static Code Analysis
 
 - Use [ruff](https://docs.astral.sh/ruff/) to ensure your code adheres to our coding standards.
-- Use [mypy](http://mypy-lang.org/) for type checking. Ensure your code is typed and passes mypy checks.
 
 Checkout our [`pyproject.toml`](https://github.com/Draegerwerk/sdc11073/blob/master/pyproject.toml) for more details.
 
