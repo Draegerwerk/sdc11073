@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
 - parsing of duration and datetimes [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 - deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
+- remove dns resolution to prevent http server start issues [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
 
 ### Removed
 

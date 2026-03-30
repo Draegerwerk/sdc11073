@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import socket
+import socketserver
 import threading
 from dataclasses import dataclass
-from http.server import HTTPServer
 from typing import TYPE_CHECKING
 
 from sdc11073.dispatch import PathElementRegistry
@@ -27,7 +27,7 @@ class _ThreadInfo:
     client_address: tuple
 
 
-class _ThreadingHTTPServer(HTTPServer):
+class _ThreadingHTTPServer(socketserver.TCPServer):
     """Each request is handled in a thread."""
 
     def __init__(
@@ -43,7 +43,13 @@ class _ThreadingHTTPServer(HTTPServer):
         self.dispatcher = PathElementRegistry()
         self.chunk_size = chunk_size
         self.supported_encodings = supported_encodings
+        self.server_port: int | None = None
         super().__init__(server_address, DispatchingRequestHandler)
+
+    def server_bind(self):
+        """Override server_bind to store the server name."""
+        super().serverbind()
+        self.server_port = self.server_address[1]
 
     def process_request_thread(self, request, client_address):  # noqa: ANN001
         """Same as in BaseServer but as a thread."""  # noqa: D401
@@ -63,7 +69,9 @@ class _ThreadingHTTPServer(HTTPServer):
     def process_request(self, request, client_address):  # noqa: ANN001
         """Start a new thread to process the request."""
         thread = threading.Thread(
-            target=self.process_request_thread, args=(request, client_address), name=f'SubscrRecv{client_address}',
+            target=self.process_request_thread,
+            args=(request, client_address),
+            name=f'SubscrRecv{client_address}',
         )
         thread.daemon = True
         self.threads.append(_ThreadInfo(thread, request, client_address))
@@ -85,7 +93,9 @@ class _ThreadingHTTPServer(HTTPServer):
                     continue
                 except Exception as ex:  # noqa: BLE001
                     self.logger.warning(
-                        'error closing socket for notifications from %s: %s', thread_info.client_address, ex,
+                        'error closing socket for notifications from %s: %s',
+                        thread_info.client_address,
+                        ex,
                     )
 
 
@@ -135,7 +145,10 @@ class HttpServerThreadBase(threading.Thread):
         try:
             myport = 0  # zero means that OS selects a free port
             self.httpd = _ThreadingHTTPServer(
-                self.logger, (self._my_ipaddress, myport), self.chunk_size, self.supported_encodings,
+                self.logger,
+                (self._my_ipaddress, myport),
+                self.chunk_size,
+                self.supported_encodings,
             )
             self.my_port = self.httpd.server_port
             self.logger.info('starting http server on %s:%s', self._my_ipaddress, self.my_port)
