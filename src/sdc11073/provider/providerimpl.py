@@ -558,7 +558,7 @@ class SdcProvider:
 
     def _start_services(self, shared_http_server=None, http_server_start_timeout: float = 60.0):  # noqa: ANN001
         """Start the services."""
-        self._logger.info('starting services, addr = %r', self._wsdiscovery.get_active_addresses())
+        self._logger.info('starting services, addr = %s', self._wsdiscovery.active_address)
         for sco in self._sco_operations_registries.values():
             sco.start_worker()
 
@@ -569,7 +569,7 @@ class SdcProvider:
             logger = loghelper.get_logger_adapter('sdc.device.httpsrv', self._log_prefix)
 
             self._http_server = HttpServerThreadBase(
-                my_ipaddress='0.0.0.0',  # noqa: S104,
+                my_ipaddress=self._wsdiscovery.active_address,
                 ssl_context=self._ssl_context_container.server_context if self._ssl_context_container else None,
                 supported_encodings=self._compression_methods,
                 logger=logger,
@@ -582,9 +582,9 @@ class SdcProvider:
                 msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
                 raise RuntimeError(msg)
 
-        host_ips = self._wsdiscovery.get_active_addresses()
         self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
-        if len(host_ips) == 0:
+        host_ip = self._wsdiscovery.active_address
+        if host_ip is None:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')
             raise RuntimeError('Cannot start device, there is no IP address to bind it to.')
 
@@ -593,14 +593,11 @@ class SdcProvider:
             self._logger.error('Cannot start device, could not bind HTTP server to a port.')
             raise RuntimeError('Cannot start device, could not bind HTTP server to a port.')
 
-        self.base_urls = []
-        for addr in host_ips:
-            self.base_urls.append(
-                SplitResult(self._urlschema, f'{addr}:{port}', self.path_prefix, query=None, fragment=None),
-            )
+        self.base_urls = [
+            SplitResult(self._urlschema, f'{host_ip}:{port}', self.path_prefix, query=None, fragment=None)
+        ]
 
-        for host_ip in host_ips:
-            self._logger.info('serving Services on %s:%d', host_ip, port)
+        self._logger.info('serving Services on %s:%d', host_ip, port)
         for subscriptions_manager in self._subscriptions_managers.values():
             subscriptions_manager.set_base_urls(self.base_urls)
 
@@ -638,17 +635,8 @@ class SdcProvider:
 
     def get_xaddrs(self) -> list[str]:
         """Return the addresses of the provider."""
-        if self._alternative_hostname:
-            addresses = [self._alternative_hostname]
-        else:
-            # these own IP addresses are currently used by discovery
-            addresses = self._wsdiscovery.get_active_addresses()
-
-        port = self._http_server.my_port
-        xaddrs = []
-        for addr in addresses:
-            xaddrs.append(f'{self._urlschema}://{addr}:{port}/{self.path_prefix}')  # noqa: PERF401
-        return xaddrs
+        addr = self._alternative_hostname or self._wsdiscovery.active_address
+        return [f'{self._urlschema}://{addr}:{self._http_server.my_port}/{self.path_prefix}']
 
     def _send_episodic_reports(self, transaction_result: TransactionResultProtocol):
         mdib_version_group = self._mdib.mdib_version_group

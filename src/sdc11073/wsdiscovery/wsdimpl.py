@@ -6,7 +6,7 @@ import logging
 import random
 import time
 from enum import Enum
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlsplit
 
 from sdc11073 import network
@@ -22,7 +22,7 @@ from .service import Service
 
 if TYPE_CHECKING:
     import ipaddress
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
     from logging import Logger
 
     from lxml import etree
@@ -231,7 +231,9 @@ class WSDiscovery:
         return filter_services(list(self._remote_services.values()), types, scopes)
 
     def get_found_remote_services(
-        self, types: Iterable[etree.QName] | None = None, scopes: wsd_types.ScopesType | None = None,
+        self,
+        types: Iterable[etree.QName] | None = None,
+        scopes: wsd_types.ScopesType | None = None,
     ) -> Sequence[Service]:
         """Get currently known remote services that match given types and scopes."""
         return filter_services(list(self._remote_services.values()), types, scopes)
@@ -325,9 +327,10 @@ class WSDiscovery:
         self._send_bye(service)
         del self._local_services[epr]
 
-    def get_active_addresses(self) -> list[str]:
+    @property
+    def active_address(self) -> str:
         """Get active addresses."""
-        return [str(self._adapter.ip)]
+        return str(self._adapter.ip)
 
     def set_remote_service_hello_callback(
         self,

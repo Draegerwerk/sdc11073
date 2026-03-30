@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - implementation of SDC Provider Roles is not part of the sdc11073 package - example implementations can be found in the tutorial folder of the project’s source code
 - several API changes were introduced, including the renaming and relocation of classes and methods (e.g., the SdcConsumer and SDCProvider interfaces, SdcProviderComponents and SdcConsumerComponents interfaces)
 - `PatientDemographicsCoreData.DateOfBirth` now requires `isoduration.XsdDatetime` as type [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
+- wsdiscovery method `get_active_addresses` to property `active_address`
 
 ### Fixed
 

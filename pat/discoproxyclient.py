@@ -117,10 +117,10 @@ class DiscoProxyClient:
             self.send_unsubscribe()
         self._http_server.stop()
 
-    def get_active_addresses(self) -> list[str]:
+    @property
+    def active_address(self) -> str:
         """Get active addresses."""
-        # TODO: do not return list  # noqa: FIX002, TD002, TD003
-        return [self._my_address]
+        return self._my_address
 
     def search_services(
         self,
