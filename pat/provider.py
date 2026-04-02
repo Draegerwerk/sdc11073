@@ -143,7 +143,7 @@ def provide_realtime_data(sdc_provider: SdcProvider):
 
 
 def run_provider(  # noqa: C901, PLR0912, PLR0915
-    adapter: str,
+    ip: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
     certificate_password: str | None,
@@ -153,7 +153,7 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
     if certificate_folder:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
 
-    with WSDiscovery(adapter) as wsd:
+    with WSDiscovery(ip) as wsd:
         my_mdib = ProviderMdib.from_mdib_file(str(pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')))
         print(f'UUID for this device is {epr}')
         loc = location.SdcLocation(
@@ -438,14 +438,14 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='run plug-a-thon test provider')
-    parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
+    parser.add_argument('--ip', required=True, help='Network adapter IP address to use.')
     parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
 
     args = parser.parse_args()
     run_provider(
-        adapter=args.adapter,
+        ip=args.ip,
         epr=args.epr,
         certificate_folder=args.certificate_folder,
         certificate_password=args.ssl_password,

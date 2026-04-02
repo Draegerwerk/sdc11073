@@ -12,7 +12,7 @@ import uuid
 from unittest import mock
 from urllib.parse import urlparse, urlsplit
 
-from sdc11073 import loghelper, network, wsdiscovery
+from sdc11073 import loghelper, wsdiscovery
 from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
 from tests import utils
@@ -99,9 +99,6 @@ class TestDiscovery(unittest.TestCase):
             raise
 
         test_log.debug(f'tearDown done {self._testMethodName}')
-
-    def test_invalid_address(self):
-        self.assertRaises(network.NetworkAdapterNotFoundError, wsdiscovery.WSDiscovery, '128.0.0.1')
 
     def test_discover(self):
         test_log.info('starting client...')
@@ -506,12 +503,11 @@ class TestDiscovery(unittest.TestCase):
     def test_ws_discovery_set_multicast_ttl(self):
         ttl = random.randint(0, 255)
         with wsdiscovery.WSDiscovery(
-                '127.0.0.1',
-                logger=loghelper.get_logger_adapter('wsd_client'),
-                multicast_port=self.MY_MULTICAST_PORT,
-                multicast_ttl=ttl,
+            '127.0.0.1',
+            logger=loghelper.get_logger_adapter('wsd_client'),
+            multicast_port=self.MY_MULTICAST_PORT,
+            multicast_ttl=ttl,
         ) as wsd_client:
-
             self.assertEqual(
                 ttl,
                 wsd_client._networking_thread.multi_out_uni_in_out.getsockopt(
@@ -538,6 +534,7 @@ class TestNetworkingThread(unittest.TestCase):
     def test_exception_during_receiving(self):
         first_event = threading.Event()
         seconds_event = threading.Event()
+
         def _new_callable():
             if not first_event.is_set():
                 first_event.set()

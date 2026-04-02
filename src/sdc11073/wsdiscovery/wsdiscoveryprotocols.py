@@ -11,7 +11,8 @@ class WsDiscoveryProtocol(Protocol):
     def publish_service(self, epr: str, types: list, scopes: ScopesType, x_addrs: list):  # noqa: D102
         ...
 
-    def get_active_addresses(self) -> list:  # noqa: D102
+    @property
+    def active_address(self) -> str:  # noqa: D102
         ...
 
     def clear_service(self, epr: str):  # noqa: D102

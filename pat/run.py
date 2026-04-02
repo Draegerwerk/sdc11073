@@ -16,7 +16,7 @@ from pat import consumer, provider
 
 
 def run(  # noqa: PLR0913
-    adapter: str,
+    ip: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
     certificate_password: str | None,
@@ -32,7 +32,7 @@ def run(  # noqa: PLR0913
     with futures.ProcessPoolExecutor(max_workers=1) as pool:
         consumer_future = pool.submit(
             consumer.run_ref_test,
-            adapter=adapter,
+            ip=ip,
             epr=epr,
             certificate_folder=certificate_folder,
             certificate_password=certificate_password,
@@ -42,7 +42,7 @@ def run(  # noqa: PLR0913
         )
         threading.Thread(
             target=provider.run_provider,
-            args=(adapter, epr, certificate_folder, certificate_password),
+            args=(ip, epr, certificate_folder, certificate_password),
             daemon=True,
         ).start()
         return bool(consumer_future.result(timeout=60 * 3))
@@ -51,7 +51,7 @@ def run(  # noqa: PLR0913
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run plug-a-thon tests')
     parser.add_argument('--tls', action='store_true', help='Indicates whether tls encryption should be enabled.')
-    parser.add_argument('--adapter', help='Network adapter IP address to use.', default='127.0.0.1')
+    parser.add_argument('--ip', help='Network adapter IP address to use.', default='127.0.0.1')
     parser.add_argument(
         '--epr',
         help='Explicit endpoint reference to search for.',
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     passed = run(
-        adapter=args.adapter,
+        ip=args.ip,
         epr=args.epr,
         certificate_folder=args.certificate_folder if args.tls else None,
         certificate_password=args.ssl_password if args.tls else None,
