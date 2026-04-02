@@ -52,6 +52,7 @@ test = [
     "pytest>=9.0.2",
     "pytest-html>=4.2.0",
     "pytest-cov>=7.1.0",
+    "pytest-xdist[psutil]>=3.8.0",
     "sdc11073[lz4]",
     "hypothesis[zoneinfo]>=6.148.2; platform_system == 'Windows'",
     "hypothesis>=6.148.2; platform_system != 'Windows'",

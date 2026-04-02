@@ -117,6 +117,8 @@ jobs:
       - name: Run pytest
         run: >-
           uv run --no-sync pytest
+          -n auto
+          --maxprocesses=2
           -x
           --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
           --self-contained-html
