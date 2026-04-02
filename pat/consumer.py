@@ -111,7 +111,7 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
 
 
 def run_ref_test(  # noqa: PLR0913, PLR0915
-    adapter: str,
+    ip: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
     certificate_password: str | None,
@@ -126,7 +126,7 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     if certificate_folder:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
 
-    with WSDiscovery(adapter) as wsd:
+    with WSDiscovery(ip) as wsd:
         res_1a = step_1.test_1a(wsd, epr, timeout=timeout_ref_provider) if execute_1a else None
         res_1b = step_1.test_1b(wsd, epr, timeout=timeout_ref_provider)
         if not res_1b:
@@ -240,7 +240,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='run plug-a-thon test consumer')
-    parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
+    parser.add_argument('--ip', required=True, help='Network adapter IP address to use.')
     parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
@@ -255,7 +255,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     passed = run_ref_test(
-        adapter=args.adapter,
+        ip=args.ip,
         epr=args.epr,
         certificate_folder=args.certificate_folder,
         certificate_password=args.ssl_password,

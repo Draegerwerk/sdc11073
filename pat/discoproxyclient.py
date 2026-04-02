@@ -65,11 +65,11 @@ class DiscoProxyClient:
     def __init__(
         self,
         disco_proxy_address: str,
-        my_address: str,
+        disco_client_ipaddress: str,
         ssl_context_container: SSLContextContainer | None = None,
     ):
         self._proxy_address = disco_proxy_address
-        self._my_address = my_address
+        self._disco_client_ipaddress = disco_client_ipaddress
         self._ssl_context_container = ssl_context_container
         self._logger = get_logger_adapter('sdc.disco')
         self._local_services: dict[str, Service] = {}
@@ -84,7 +84,7 @@ class DiscoProxyClient:
             msg_reader=message_reader,
         )
         self._http_server = HttpServerThreadBase(
-            my_address,
+            disco_client_ipaddress,
             ssl_context_container.server_context if ssl_context_container else None,
             logger=get_logger_adapter('sdc.disco.httpsrv'),
             supported_encodings=['gzip'],
@@ -117,10 +117,10 @@ class DiscoProxyClient:
             self.send_unsubscribe()
         self._http_server.stop()
 
-    def get_active_addresses(self) -> list[str]:
+    @property
+    def active_address(self) -> str:
         """Get active addresses."""
-        # TODO: do not return list  # noqa: FIX002, TD002, TD003
-        return [self._my_address]
+        return self._disco_client_ipaddress
 
     def search_services(
         self,
@@ -198,7 +198,7 @@ class DiscoProxyClient:
     def send_subscribe(self) -> ReceivedMessage:
         """Send subscribe message."""
         subscribe_request = eventing_types.Subscribe()
-        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._my_address}:{self._my_server_port}'
+        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._disco_client_ipaddress}:{self._my_server_port}'
         subscribe_request.Expires = 3600
         subscribe_request.set_filter('', dialect='http://discoproxy')
         inf = HeaderInformationBlock(action=subscribe_request.action, addr_to=ADDRESS_ALL)
