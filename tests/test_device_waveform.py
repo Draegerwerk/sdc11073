@@ -117,7 +117,7 @@ class TestDeviceWaveform(unittest.TestCase):
         )
 
         wsd_mock = unittest.mock.MagicMock()
-        wsd_mock.active_address = "127.0.0.1"
+        wsd_mock.active_address = '127.0.0.1'
         self.sdc_device = SdcProvider(
             wsd_mock,
             this_model,

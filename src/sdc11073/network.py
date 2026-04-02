@@ -1,12 +1,16 @@
 """Get the hosts network adapters and ip addresses."""
+
 from __future__ import annotations
 
 import ipaddress
 
 import ifaddr
 
-IP_BLACKLIST = ('0.0.0.0',  # noqa: S104
-                None)  # None can happen if an adapter does not have any IP address associated
+IP_BLACKLIST = (
+    '0.0.0.0',  # noqa: S104
+    None,
+)  # None can happen if an adapter does not have any IP address associated
+
 
 class NetworkAdapter(ipaddress.IPv4Interface):
     """Represents a network adapter."""
@@ -37,9 +41,13 @@ def get_adapters() -> list[NetworkAdapter]:
     """
     adapters: list[NetworkAdapter] = []
     for adapter in ifaddr.get_adapters():
-        adapters.extend([NetworkAdapter(name=ip.nice_name,
-                              description=adapter.nice_name,
-                              address=ip.ip,
-                              network_prefix=ip.network_prefix)
-               for ip in adapter.ips if ip.is_IPv4 and ip.ip not in IP_BLACKLIST])
+        adapters.extend(
+            [
+                NetworkAdapter(
+                    name=ip.nice_name, description=adapter.nice_name, address=ip.ip, network_prefix=ip.network_prefix
+                )
+                for ip in adapter.ips
+                if ip.is_IPv4 and ip.ip not in IP_BLACKLIST
+            ]
+        )
     return adapters

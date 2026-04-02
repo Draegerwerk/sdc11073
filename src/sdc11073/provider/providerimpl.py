@@ -572,8 +572,10 @@ class SdcProvider:
             if self._alternative_hostname is not None:
                 host_ip = socket.gethostbyname(self._alternative_hostname)
                 if self._wsdiscovery.active_address != host_ip:
-                    msg = (f'Alternative hostname {self._alternative_hostname} with resolved address {host_ip} '
-                           f'does not match WSDiscovery IP address {self._wsdiscovery.active_address} .')
+                    msg = (
+                        f'Alternative hostname {self._alternative_hostname} with resolved address {host_ip} '
+                        f'does not match WSDiscovery IP address {self._wsdiscovery.active_address} .'
+                    )
                     raise ValueError(msg)
 
             self._http_server = HttpServerThreadBase(
