@@ -12,7 +12,7 @@ import uuid
 from unittest import mock
 from urllib.parse import urlparse, urlsplit
 
-from sdc11073 import loghelper, network, wsdiscovery
+from sdc11073 import loghelper, wsdiscovery
 from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
 from tests import utils
@@ -99,9 +99,6 @@ class TestDiscovery(unittest.TestCase):
             raise
 
         test_log.debug(f'tearDown done {self._testMethodName}')
-
-    def test_invalid_address(self):
-        self.assertRaises(network.NetworkAdapterNotFoundError, wsdiscovery.WSDiscovery, '128.0.0.1')
 
     def test_discover(self):
         test_log.info('starting client...')

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
+import socket
 import threading
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -567,6 +568,13 @@ class SdcProvider:
         else:
             self._is_internal_http_server = True
             logger = loghelper.get_logger_adapter('sdc.device.httpsrv', self._log_prefix)
+
+            if self._alternative_hostname is not None:
+                host_ip = socket.gethostbyname(self._alternative_hostname)
+                if self._wsdiscovery.active_address != host_ip:
+                    msg = (f'Alternative hostname {self._alternative_hostname} with resolved address {host_ip} '
+                           f'does not match WSDiscovery IP address {self._wsdiscovery.active_address} .')
+                    raise ValueError(msg)
 
             self._http_server = HttpServerThreadBase(
                 my_ipaddress=self._wsdiscovery.active_address,

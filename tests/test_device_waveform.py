@@ -2,6 +2,7 @@
 
 import time
 import unittest
+import unittest.mock
 from decimal import Decimal
 
 from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS
@@ -115,9 +116,10 @@ class TestDeviceWaveform(unittest.TestCase):
             serial_number='123serial',
         )
 
-        wsd = mockstuff.MockWsDiscovery('5.6.7.8')
+        wsd_mock = unittest.mock.MagicMock()
+        wsd_mock.active_address = "127.0.0.1"
         self.sdc_device = SdcProvider(
-            wsd,
+            wsd_mock,
             this_model,
             this_device,
             self.mdib,

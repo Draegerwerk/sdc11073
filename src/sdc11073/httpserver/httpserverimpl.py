@@ -48,7 +48,7 @@ class _ThreadingHTTPServer(socketserver.TCPServer):
 
     def server_bind(self):
         """Override server_bind to store the server name."""
-        super().serverbind()
+        socketserver.TCPServer.server_bind(self)
         self.server_port = self.server_address[1]
 
     def process_request_thread(self, request, client_address):  # noqa: ANN001

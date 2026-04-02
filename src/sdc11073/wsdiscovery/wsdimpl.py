@@ -159,7 +159,7 @@ class WSDiscovery:
                that use the correct port (which is the default MULTICAST_PORT)!
         :param multicast_ttl: set the socket option IP_MULTICAST_TTL to this value
         """
-        self._adapter = network.get_adapter_containing_ip(ip_address)
+        self._adapter_ip = str(ip_address)
         self._networking_thread = None
         self._addrs_monitor_thread = None
         self._server_started = False
@@ -175,7 +175,7 @@ class WSDiscovery:
 
         self._logger = logger or logging.getLogger('sdc.discover')
         self.multicast_port = multicast_port
-        self.mutlticast_ttl = multicast_ttl
+        self.multicast_ttl = multicast_ttl
 
     def start(self):
         """Start the discovery server - should be called before using other functions."""
@@ -330,7 +330,7 @@ class WSDiscovery:
     @property
     def active_address(self) -> str:
         """Get active addresses."""
-        return str(self._adapter.ip)
+        return self._adapter_ip
 
     def set_remote_service_hello_callback(
         self,
@@ -693,11 +693,11 @@ class WSDiscovery:
         if self._networking_thread is not None:
             return
         self._networking_thread = networkingthread.NetworkingThread(
-            str(self._adapter.ip),
+            self._adapter_ip,
             self,
             self._logger,
             self.multicast_port,
-            self.mutlticast_ttl,
+            self.multicast_ttl,
         )
         self._networking_thread.start()
 
