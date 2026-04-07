@@ -2070,7 +2070,7 @@ class TestQualifiedName(unittest.TestCase):
         finally:
             consumer.stop_all(unsubscribe=False)
 
-    def test_consumer_exception_wrong_provider_xaddr(self):
+    def test_consumer_exception_wrong_provider_address(self):
         """Exception when consumer tries to connect to SDC Providers address with wrong qualified name."""
         x_addr = self.sdc_device.get_xaddrs()[0]
         self.assertTrue(FULLY_QUALIFIED_HOST_NAME)

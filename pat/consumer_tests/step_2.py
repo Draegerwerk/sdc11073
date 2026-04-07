@@ -22,13 +22,13 @@ def test_2a(consumer: SdcConsumer) -> bool:
 
     # because consumer is not subscribed, the soap client needs to be manually started and stopped
     try:
-        consumer.get_soap_client(consumer._provider_xaddr).connect()  # noqa: SLF001
+        consumer.get_soap_client(consumer._provider_address).connect()  # noqa: SLF001
         received_transfer_get = consumer.transfer_get()
     except Exception:
         logger.exception('Error during TransferGet', extra={'step': step})
         return False
     finally:
-        consumer.get_soap_client(consumer._provider_xaddr).close()  # noqa: SLF001
+        consumer.get_soap_client(consumer._provider_address).close()  # noqa: SLF001
 
     if (
         received_transfer_get is not None

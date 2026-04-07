@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
 - context manager support to `WSDiscovery`.
 - `isoduration.XsdDatetime` [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
-- check that the parameter value, to set the fully qualified hostname for the SDC Provider, to resolve to correct IP
+- sanity check that fully qualified hostname for the SDC Provider resolves to wsdiscovery active address
 
 ### Changed
 
