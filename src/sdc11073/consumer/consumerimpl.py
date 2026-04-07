@@ -251,7 +251,7 @@ class SdcConsumer:
 
     def __init__(  # noqa: PLR0913, PLR0915
         self,
-        provider_xaddr: str,
+        provider_address: str,
         sdc_definitions: type[BaseDefinitions],
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
         epr: str | uuid.UUID | None = None,
@@ -265,8 +265,8 @@ class SdcConsumer:
     ):
         """Construct a SdcConsumer.
 
-        :param provider_xaddr: the XAddr location for meta data,
-                                e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+        :param provider_address: network-resolvable transport address of the SDC Provider
+                                 e.g. https://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
         :param epr: the path of this client in http server
         :param ssl_context_container: used for ssl connection to device and for own HTTP Server (notifications receiver)
@@ -282,8 +282,9 @@ class SdcConsumer:
         :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical
                                      ipv4 address (can be used to use full qualified hostname)
         """
-        if not provider_xaddr.startswith('http'):
-            raise ValueError('Invalid device xaddr, it must be match http(s)://<netloc> syntax')
+        if not provider_address.startswith('http'):
+            msg = f'Invalid provider address, it must be match http(s)://<netloc> syntax - got {provider_address}'
+            raise ValueError(msg)
         self.is_ssl_connection: bool | None
         if force_ssl_connect:
             if ssl_context_container is None:
@@ -296,7 +297,7 @@ class SdcConsumer:
         else:
             self.is_ssl_connection = None  # options allow both, needs to be decided when connecting
 
-        self._provider_xaddr = provider_xaddr
+        self._provider_address = provider_address
         self.sdc_definitions = sdc_definitions
 
         self._components = copy.deepcopy(components) if components else default_components_factory()
@@ -325,7 +326,7 @@ class SdcConsumer:
         self._http_server = None
         self._is_internal_http_server = False
 
-        self._logger.info('created {} for {}', self.__class__.__name__, self._provider_xaddr)  # noqa: PLE1205
+        self._logger.info('created {} for {}', self.__class__.__name__, self._provider_address)  # noqa: PLE1205
 
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._subscription_mgr = None
@@ -558,20 +559,20 @@ class SdcConsumer:
         self._fixed_renew_interval_param = fixed_renew_interval
         self._shared_http_server_param = shared_http_server
         self._check_get_service_param = check_get_service
-        self._logger.debug('connecting to %s', self._provider_xaddr)
+        self._logger.debug('connecting to %s', self._provider_address)
         self._connect()
-        self._logger.debug('reading meta data from %s', self._provider_xaddr)
+        self._logger.debug('reading meta data from %s', self._provider_address)
         self.host_description = self._get_metadata()
 
         # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
         self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
 
-        self.consumer_ip_address = self.get_soap_client(self._provider_xaddr).sock_name[0]
+        self.consumer_ip_address = self.get_soap_client(self._provider_address).sock_name[0]
         self._logger.info(  # noqa: PLE1205
             'SdcConsumer (IP: {}) for SdcProvider xAddr: {}',
             self.consumer_ip_address,
-            self._provider_xaddr,
+            self._provider_address,
         )
 
         # only GetService is mandatory!!!
@@ -682,7 +683,7 @@ class SdcConsumer:
         self._compression_methods.extend(compression_methods)
 
     def _connect(self):
-        soap_client = self.get_soap_client(self._provider_xaddr)
+        soap_client = self.get_soap_client(self._provider_address)
         if self.is_ssl_connection is not None:
             # decision was already made in constructor
             soap_client.connect()
@@ -695,7 +696,7 @@ class SdcConsumer:
                 soap_client.close()
                 self._forget_soap_client(soap_client)
                 self.is_ssl_connection = False
-                soap_client = self.get_soap_client(self._provider_xaddr)
+                soap_client = self.get_soap_client(self._provider_address)
                 # if this also fails, something else is wrong and error needs handling on application level.
                 soap_client.connect()
         if self.is_ssl_connection:
@@ -706,10 +707,10 @@ class SdcConsumer:
 
     def transfer_get(self) -> msgreader.ReceivedMessage | None:
         """Send transfer get request to provider and return received message."""
-        _url = urlparse(self._provider_xaddr)
-        soap_client = self.get_soap_client(self._provider_xaddr)
+        _url = urlparse(self._provider_address)
+        soap_client = self.get_soap_client(self._provider_address)
         nsh = self.sdc_definitions.data_model.ns_helper
-        inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get', addr_to=self._provider_xaddr)
+        inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get', addr_to=self._provider_address)
         message = self.msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
 
         return soap_client.post_message_to(_url.path, message, msg='getMetadata')
@@ -719,10 +720,10 @@ class SdcConsumer:
 
     def send_probe(self) -> ProbeMatchesType:
         """Send Probe directly to provider."""
-        _url = urlparse(self._provider_xaddr)
-        wsc = self.get_soap_client(self._provider_xaddr)
+        _url = urlparse(self._provider_address)
+        wsc = self.get_soap_client(self._provider_address)
         probe = ProbeType()
-        inf = HeaderInformationBlock(action=probe.action, addr_to=self._provider_xaddr)
+        inf = HeaderInformationBlock(action=probe.action, addr_to=self._provider_address)
 
         message = self.msg_factory.mk_soap_message(inf, payload=probe)
         received_message_data = wsc.post_message_to(_url.path, message, msg='Probe')
@@ -834,7 +835,7 @@ class SdcConsumer:
     def __str__(self) -> str:
         return (
             f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} '
-            f'on {self._provider_xaddr}'
+            f'on {self._provider_address}'
         )
 
     @classmethod
@@ -855,15 +856,15 @@ class SdcConsumer:
         :param components: a SdcConsumerComponents instance or None
         :return:
         """
-        provider_xaddrs = wsd_service.x_addrs
-        if not provider_xaddrs:  # pragma: no cover
+        provider_addrs = wsd_service.x_addrs
+        if not provider_addrs:  # pragma: no cover
             msg = f'discovered Service has no address!{wsd_service}'
             raise RuntimeError(msg)
-        provider_xaddr = provider_xaddrs[0]
+        provider_addr = provider_addrs[0]
         for sdc_definition in ProtocolsRegistry.protocols:
             if sdc_definition.types_match(wsd_service.types):
                 return cls(
-                    provider_xaddr=provider_xaddr,
+                    provider_address=provider_addr,
                     sdc_definitions=sdc_definition,
                     ssl_context_container=ssl_context_container,
                     validate=validate,

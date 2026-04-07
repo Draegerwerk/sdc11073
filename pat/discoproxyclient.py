@@ -97,7 +97,6 @@ class DiscoProxyClient:
         )
 
         self._msg_converter = MessageConverterMiddleware(message_reader, message_factory, self._logger, self)
-        self._my_server_port = None
         self.subscribe_response = None
 
     def start(self, subscribe: bool = True, http_server_start_timeout: float = 60.0):
@@ -110,7 +109,6 @@ class DiscoProxyClient:
             msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
             raise RuntimeError(msg)
         self._logger.info('Http server started. Serving EventSink on %s', self._http_server.base_url)
-        self._my_server_port = self._http_server.my_port
         self._http_server.dispatcher.register_instance('', self._msg_converter)
 
         if subscribe:
@@ -204,7 +202,8 @@ class DiscoProxyClient:
     def send_subscribe(self) -> ReceivedMessage:
         """Send subscribe message."""
         subscribe_request = eventing_types.Subscribe()
-        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._host_address}:{self._my_server_port}'
+        assert self._http_server.server_port is not None, 'http server port is not set'
+        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._host_address}:{self._http_server.server_port}'
         subscribe_request.Expires = 3600
         subscribe_request.set_filter('', dialect='http://discoproxy')
         inf = HeaderInformationBlock(action=subscribe_request.action, addr_to=ADDRESS_ALL)

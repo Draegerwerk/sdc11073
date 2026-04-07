@@ -1559,7 +1559,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         if not self.httpserver.started_evt.wait(timeout=60):
             exception_msg = 'Http server could not be started within 60 seconds.'
             raise RuntimeError(exception_msg)
-        self.logger.info('Http server started on port %d', self.httpserver.my_port)
+        self.logger.info('Http server started on port %d', self.httpserver.server_port)
 
         self.sdc_device_1 = SomeDevice.from_mdib_file(
             self.wsd,

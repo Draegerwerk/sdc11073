@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import ipaddress
+import typing
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
 
 import ifaddr
 
@@ -34,10 +38,10 @@ class NetworkAdapter(ipaddress.IPv4Interface):
         return f'{self.name}: {super().__str__()} ({self.description})'
 
 
-def get_adapters() -> list[NetworkAdapter]:
+def get_adapters() -> Sequence[NetworkAdapter]:
     """Get all active and connected host network adapters.
 
-    :return: list of enabled and connected network adapters on the host
+    :return: sequence of enabled and connected network adapters on the host
     """
     adapters: list[NetworkAdapter] = []
     for adapter in ifaddr.get_adapters():

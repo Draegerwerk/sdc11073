@@ -598,7 +598,7 @@ class SdcProvider:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')
             raise RuntimeError('Cannot start device, there is no IP address to bind it to.')
 
-        port = self._http_server.my_port
+        port = self._http_server.server_port
         if port is None:
             self._logger.error('Cannot start device, could not bind HTTP server to a port.')
             raise RuntimeError('Cannot start device, could not bind HTTP server to a port.')
@@ -646,7 +646,7 @@ class SdcProvider:
     def get_xaddrs(self) -> list[str]:
         """Return the addresses of the provider."""
         addr = self._alternative_hostname or self._wsdiscovery.active_address
-        return [f'{self._urlschema}://{addr}:{self._http_server.my_port}/{self.path_prefix}']
+        return [f'{self._urlschema}://{addr}:{self._http_server.server_port}/{self.path_prefix}']
 
     def _send_episodic_reports(self, transaction_result: TransactionResultProtocol):
         mdib_version_group = self._mdib.mdib_version_group

@@ -27,8 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PatientDemographicsCoreData.DateOfBirth` now requires `isoduration.XsdDatetime` as type [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 - wsdiscovery method `get_active_addresses` to property `active_address`
 - command line parameter changed from --adapter to --ip for both provider and consumer
-- SDC Consumer parameter renamed from `device_location` to `provider_xaddr` to better reflect the expected value
-- DiscoProxyClient parameter renamed from `my_address` to `disco_client_ipaddress` to better reflect the expected value
+- SDC Consumer parameter renamed from `device_location` to `provider_address` to better reflect the expected value
+- DiscoProxyClient parameter renamed from `my_address` to `host_address` to better reflect the expected value
 
 ### Fixed
 
