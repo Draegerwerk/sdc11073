@@ -65,11 +65,17 @@ class DiscoProxyClient:
     def __init__(
         self,
         disco_proxy_address: str,
-        disco_client_ipaddress: str,
+        host_address: str,
         ssl_context_container: SSLContextContainer | None = None,
     ):
+        """Disco proxy client constructor.
+
+        :param disco_proxy_address: Address of the disco proxy, e.g. 127.0.0.1:9999
+        :param host_address: The address of this host. Used as wse:NotifyTo/@Address to subscribe to the disco proxy.
+        :param ssl_context_container: ssl configuration container. If None, no encryption is used.
+        """
         self._proxy_address = disco_proxy_address
-        self._disco_client_ipaddress = disco_client_ipaddress
+        self._host_address = host_address
         self._ssl_context_container = ssl_context_container
         self._logger = get_logger_adapter('sdc.disco')
         self._local_services: dict[str, Service] = {}
@@ -84,7 +90,7 @@ class DiscoProxyClient:
             msg_reader=message_reader,
         )
         self._http_server = HttpServerThreadBase(
-            disco_client_ipaddress,
+            host_address,
             ssl_context_container.server_context if ssl_context_container else None,
             logger=get_logger_adapter('sdc.disco.httpsrv'),
             supported_encodings=['gzip'],
@@ -120,7 +126,7 @@ class DiscoProxyClient:
     @property
     def active_address(self) -> str:
         """Get active addresses."""
-        return self._disco_client_ipaddress
+        return self._host_address
 
     def search_services(
         self,
@@ -198,7 +204,7 @@ class DiscoProxyClient:
     def send_subscribe(self) -> ReceivedMessage:
         """Send subscribe message."""
         subscribe_request = eventing_types.Subscribe()
-        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._disco_client_ipaddress}:{self._my_server_port}'
+        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._host_address}:{self._my_server_port}'
         subscribe_request.Expires = 3600
         subscribe_request.set_filter('', dialect='http://discoproxy')
         inf = HeaderInformationBlock(action=subscribe_request.action, addr_to=ADDRESS_ALL)
