@@ -60,6 +60,8 @@ from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
 from tests.utils import container_diff
 
+FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
+
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
@@ -1547,7 +1549,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
 
         # common http server for all devices and clients
         self.httpserver = HttpServerThreadBase(
-            my_ipaddress='0.0.0.0',  # noqa: S104
+            my_ipaddress='127.0.0.1',
             ssl_context=None,
             supported_encodings=compression.CompressionHandler.available_encodings[:],
             logger=logging.getLogger('sdc.common_http_srv_a'),
@@ -1557,7 +1559,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         if not self.httpserver.started_evt.wait(timeout=60):
             exception_msg = 'Http server could not be started within 60 seconds.'
             raise RuntimeError(exception_msg)
-        self.logger.info('Http server started on port %d', self.httpserver.my_port)
+        self.logger.info('Http server started on port %d', self.httpserver.server_port)
 
         self.sdc_device_1 = SomeDevice.from_mdib_file(
             self.wsd,
@@ -2012,14 +2014,16 @@ class TestQualifiedName(unittest.TestCase):
         self.logger = loghelper.get_logger_adapter('sdc.test')
         self.logger.info('############### setUp %s ... ##############', self._testMethodName)
 
-        self.wsd = WSDiscovery('127.0.0.1')
+        ip = socket.gethostbyname(FULLY_QUALIFIED_HOST_NAME)
+
+        self.wsd = WSDiscovery(ip)
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
             mdib_70041,
             max_subscription_duration=10,  # shorter duration for faster tests
-            alternative_hostname=socket.getfqdn(),
+            alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
             log_prefix=f'{self._testMethodName}: ',
         )
         self.sdc_device.start_all()
@@ -2046,12 +2050,12 @@ class TestQualifiedName(unittest.TestCase):
     def test_basic_connect(self):
         """Verify correct behavior with qualified full_qualified_name."""
         x_addr = self.sdc_device.get_xaddrs()[0]
-        self.assertIn(socket.getfqdn(), x_addr)
+        self.assertIn(FULLY_QUALIFIED_HOST_NAME, x_addr)
         consumer = SdcConsumer(
             x_addr,
             self.sdc_device.mdib.sdc_definitions,
             ssl_context_container=None,
-            alternative_hostname=socket.getfqdn(),
+            alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
         )
         try:
             consumer.start_all()
@@ -2060,56 +2064,56 @@ class TestQualifiedName(unittest.TestCase):
                 'StateEvent'
             ].subscriptions_manager._subscriptions._objects:
                 # now make sure that the subscription also uses no IP
-                self.assertIn(socket.getfqdn(), subscription.notify_to_address)
+                self.assertIn(FULLY_QUALIFIED_HOST_NAME, subscription.notify_to_address)
                 if subscription.end_to_address:
-                    self.assertIn(socket.getfqdn(), subscription.notify_to_address)
+                    self.assertIn(FULLY_QUALIFIED_HOST_NAME, subscription.notify_to_address)
         finally:
             consumer.stop_all(unsubscribe=False)
 
+    def test_consumer_exception_wrong_provider_address(self):
+        """Exception when consumer tries to connect to SDC Providers address with wrong qualified name."""
+        x_addr = self.sdc_device.get_xaddrs()[0]
+        self.assertTrue(FULLY_QUALIFIED_HOST_NAME)
+        self.assertIn(FULLY_QUALIFIED_HOST_NAME, x_addr)
+        x_addr = x_addr.replace(FULLY_QUALIFIED_HOST_NAME, 'some_random_invalid_hostname')
+        consumer = SdcConsumer(x_addr, self.sdc_device.mdib.sdc_definitions, ssl_context_container=None)
+        # exception should be raised when connecting to not existing address / hostname of SDCProvider,
+        # could be timeout or other exception depending on local network configuration
+        self.assertRaises(Exception, consumer.start_all)  # noqa: B017
+
 
 class TestWrongQualifiedName(unittest.TestCase):
-    """Check that wrong hostnames lead to no-connection."""
+    """Check that wrong qualified names result on errors."""
 
-    def setUp(self):
-        loghelper.basic_logging_setup()
-        self.logger = loghelper.get_logger_adapter('sdc.test')
-        self.logger.info('############### setUp %s ... ##############', self._testMethodName)
-
-        self.wsd = WSDiscovery('127.0.0.1')
-        self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(
-            self.wsd,
-            None,
-            mdib_70041,
-            max_subscription_duration=10,  # shorter duration for faster tests
+    def test_dns_resolve_error(self):
+        """Verify that an exception is raised when alternative hostname cannot be resolved to an IP address."""
+        wsd_mock = unittest.mock.MagicMock()
+        wsd_mock.active_address = '127.0.0.1'
+        sdc_device = SomeDevice.from_mdib_file(
+            wsdiscovery=wsd_mock,
+            epr=None,
+            mdib_xml_path=mdib_70041,
             alternative_hostname='some_random_invalid_hostname',
             log_prefix=f'{self._testMethodName}: ',
         )
-        self.sdc_device.start_all()
-        self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-        self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-
-        time.sleep(0.5)  # allow init of devices to complete
-        self.logger.info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
-        self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-
-    def tearDown(self):
-        self.logger.info('############### tearDown %s ... ##############', self._testMethodName)
-        self.log_watcher.setPaused(True)
-        self.sdc_device.stop_all()
-        self.wsd.stop()
-        try:
-            self.log_watcher.check()
-        except loghelper.LogWatchError as ex:
-            sys.stderr.write(repr(ex))
-            raise
-        self.logger.info('############### tearDown %s done ##############', self._testMethodName)
-
-    def test_no_connect(self):
-        x_addr = self.sdc_device.get_xaddrs()[0]
-        """Verify correct behavior with invalid hostname."""
-        consumer = SdcConsumer(x_addr, self.sdc_device.mdib.sdc_definitions, ssl_context_container=None)
-        # exception should be raised during try to connect,
+        # exception should be raised when resolving alternative hostname
         # could be timeout or other exception depending on local network configuration
-        self.assertRaises(Exception, consumer.start_all)  # noqa: B017
+        self.assertRaises(Exception, sdc_device.start_all)  # noqa: B017
+
+    def test_dns_resolve_ip_not_matching_wsd_ip(self):
+        """Exception raised when resolved alternative hostname does not match WSDiscovery IP address."""
+        wsd_mock = unittest.mock.MagicMock()
+        wsd_mock.active_address = '444.333.234.1'
+        sdc_device = SomeDevice.from_mdib_file(
+            wsdiscovery=wsd_mock,
+            epr=None,
+            mdib_xml_path=mdib_70041,
+            alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
+            log_prefix=f'{self._testMethodName}: ',
+        )
+        exp_msg = (
+            rf'Alternative hostname {FULLY_QUALIFIED_HOST_NAME} with resolved address .* does not match '
+            'WSDiscovery IP address 444.333.234.1 .'
+        )
+        with self.assertRaisesRegex(ValueError, expected_regex=exp_msg):
+            sdc_device.start_all()

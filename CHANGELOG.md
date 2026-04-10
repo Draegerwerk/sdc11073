@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
 - context manager support to `WSDiscovery`.
 - `isoduration.XsdDatetime` [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
+- sanity check that fully qualified hostname for the SDC Provider resolves to wsdiscovery active address
 
 ### Changed
 
@@ -24,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - implementation of SDC Provider Roles is not part of the sdc11073 package - example implementations can be found in the tutorial folder of the project’s source code
 - several API changes were introduced, including the renaming and relocation of classes and methods (e.g., the SdcConsumer and SDCProvider interfaces, SdcProviderComponents and SdcConsumerComponents interfaces)
 - `PatientDemographicsCoreData.DateOfBirth` now requires `isoduration.XsdDatetime` as type [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
+- wsdiscovery method `get_active_addresses` to property `active_address`
+- command line parameter changed from --adapter to --ip for both provider and consumer
+- SDC Consumer parameter renamed from `device_location` to `provider_address` to better reflect the expected value
+- DiscoProxyClient parameter renamed from `my_address` to `host_address` to better reflect the expected value
 
 ### Fixed
 
@@ -33,12 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
 - parsing of duration and datetimes [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 - deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
+- remove dns resolution to prevent http server start issues [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
 
 ### Removed
 
 - `isoduration.UTC` class. Use `datetime.timezone.utc` instead. [#435](https://github.com/Draegerwerk/sdc11073/pull/445)
 - support for python 3.9
 - MDIBs with entity handling [#462](https://github.com/Draegerwerk/sdc11073/pull/462)
+- methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
 
 ## [v2.3.0] - 2025-07-08
 

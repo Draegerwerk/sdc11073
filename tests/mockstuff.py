@@ -57,9 +57,10 @@ class MockWsDiscovery:
     def __init__(self, ipaddress: str | ipaddress.IPv4Address):
         self._ipaddress = ipaddress
 
-    def get_active_addresses(self) -> str:
+    @property
+    def active_address(self) -> str:
         """Return the ip address."""
-        return [self._ipaddress]
+        return self._ipaddress
 
     def clear_service(self, epr: str):
         """Clear services."""

@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 from lxml import etree
 
 import sdc11073.certloader
-from sdc11073 import commlog, loghelper, network, xml_utils
+from sdc11073 import commlog, loghelper, xml_utils
 from sdc11073 import observableproperties as properties
 from sdc11073.consumer import (
     ContextServiceClient,
@@ -81,23 +81,23 @@ class SdcConsumerComponents:
 def default_components_factory() -> SdcConsumerComponents:
     """Return the default components for SdcConsumer."""
     return SdcConsumerComponents(
-    soap_client_class=SoapClient,
-    msg_factory_class=MessageFactory,
-    msg_reader_class=MessageReader,
-    action_dispatcher_class=DispatchKeyRegistryDeferred,  # defaults to deferred handling
-    subscription_manager_class=ConsumerSubscriptionManager,
-    operations_manager_class=OperationsManager,
-    service_handlers={
-        CTreeServiceClient,
-        GetServiceClient,
-        StateEventClient,
-        ContextServiceClient,
-        WaveformClient,
-        SetServiceClient,
-        DescriptionEventClient,
-        LocalizationServiceClient,
-    },
-)
+        soap_client_class=SoapClient,
+        msg_factory_class=MessageFactory,
+        msg_reader_class=MessageReader,
+        action_dispatcher_class=DispatchKeyRegistryDeferred,  # defaults to deferred handling
+        subscription_manager_class=ConsumerSubscriptionManager,
+        operations_manager_class=OperationsManager,
+        service_handlers={
+            CTreeServiceClient,
+            GetServiceClient,
+            StateEventClient,
+            ContextServiceClient,
+            WaveformClient,
+            SetServiceClient,
+            DescriptionEventClient,
+            LocalizationServiceClient,
+        },
+    )
 
 
 class HostedServiceDescription:
@@ -251,7 +251,7 @@ class SdcConsumer:
 
     def __init__(  # noqa: PLR0913, PLR0915
         self,
-        device_location: str,
+        provider_address: str,
         sdc_definitions: type[BaseDefinitions],
         ssl_context_container: sdc11073.certloader.SSLContextContainer | None,
         epr: str | uuid.UUID | None = None,
@@ -265,8 +265,8 @@ class SdcConsumer:
     ):
         """Construct a SdcConsumer.
 
-        :param device_location: the XAddr location for meta data,
-                                e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
+        :param provider_address: network-resolvable transport address of the SDC Provider
+                                 e.g. https://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param sdc_definitions: a class derived from BaseDefinitions
         :param epr: the path of this client in http server
         :param ssl_context_container: used for ssl connection to device and for own HTTP Server (notifications receiver)
@@ -282,8 +282,9 @@ class SdcConsumer:
         :param alternative_hostname: if supplied this hostname is used in xaddr, default is to use numerical
                                      ipv4 address (can be used to use full qualified hostname)
         """
-        if not device_location.startswith('http'):
-            raise ValueError('Invalid device_location, it must be match http(s)://<netloc> syntax')
+        if not provider_address.startswith('http'):
+            msg = f'Invalid provider address, it must be match http(s)://<netloc> syntax - got {provider_address}'
+            raise ValueError(msg)
         self.is_ssl_connection: bool | None
         if force_ssl_connect:
             if ssl_context_container is None:
@@ -296,7 +297,7 @@ class SdcConsumer:
         else:
             self.is_ssl_connection = None  # options allow both, needs to be decided when connecting
 
-        self._device_location = device_location
+        self._provider_address = provider_address
         self.sdc_definitions = sdc_definitions
 
         self._components = copy.deepcopy(components) if components else default_components_factory()
@@ -304,7 +305,7 @@ class SdcConsumer:
         self.subscription_status: dict[str, bool] = {}
 
         # available after start_all
-        self._network_adapter: network.NetworkAdapter | None = None
+        self.consumer_ip_address: str | None = None
 
         self.log_prefix = log_prefix
         self.request_chunk_size = request_chunk_size
@@ -325,7 +326,7 @@ class SdcConsumer:
         self._http_server = None
         self._is_internal_http_server = False
 
-        self._logger.info('created {} for {}', self.__class__.__name__, self._device_location)  # noqa: PLE1205
+        self._logger.info('created {} for {}', self.__class__.__name__, self._provider_address)  # noqa: PLE1205
 
         self._compression_methods = compression.CompressionHandler.available_encodings[:]
         self._subscription_mgr = None
@@ -385,11 +386,6 @@ class SdcConsumer:
         return self._mdib
 
     @property
-    def network_adapter(self) -> network.NetworkAdapter | None:
-        """The network adapter used by this consumer."""
-        return self._network_adapter
-
-    @property
     def _epr_urn(self) -> str:
         """Return end point reference, e.g 'urn:uuid:8c26f673-fdbf-4380-b5ad-9e2454a65b6b'."""
         try:
@@ -413,8 +409,9 @@ class SdcConsumer:
         """
         if self._http_server is None:
             return ''
+        assert self.consumer_ip_address is not None, 'consumer_ip_address is None'
         p = urlparse(self._http_server.base_url)
-        tmp = f'{p.scheme}://{self._alternative_hostname or self._network_adapter.ip}:{p.port}{p.path}'
+        tmp = f'{p.scheme}://{self._alternative_hostname or self.consumer_ip_address}:{p.port}{p.path}'
         sep = '' if tmp.endswith('/') else '/'
         return f'{tmp}{sep}{self.path_prefix}/'
 
@@ -562,21 +559,20 @@ class SdcConsumer:
         self._fixed_renew_interval_param = fixed_renew_interval
         self._shared_http_server_param = shared_http_server
         self._check_get_service_param = check_get_service
-        self._logger.debug('connecting to %s', self._device_location)
+        self._logger.debug('connecting to %s', self._provider_address)
         self._connect()
-        self._logger.debug('reading meta data from %s', self._device_location)
+        self._logger.debug('reading meta data from %s', self._provider_address)
         self.host_description = self._get_metadata()
 
         # now query also metadata of hosted services
         self._mk_hosted_services(self.host_description)
         self._logger.debug('Services: {}', self._service_clients.keys())  # noqa: PLE1205
 
-        used_ip = self.get_soap_client(self._device_location).sock_name[0]
-        self._network_adapter = network.get_adapter_containing_ip(used_ip)
+        self.consumer_ip_address = self.get_soap_client(self._provider_address).sock_name[0]
         self._logger.info(  # noqa: PLE1205
-            'SdcConsumer for {} uses network adapter {}',
-            self._device_location,
-            self._network_adapter,
+            'SdcConsumer (IP: {}) for SdcProvider xAddr: {}',
+            self.consumer_ip_address,
+            self._provider_address,
         )
 
         # only GetService is mandatory!!!
@@ -687,7 +683,7 @@ class SdcConsumer:
         self._compression_methods.extend(compression_methods)
 
     def _connect(self):
-        soap_client = self.get_soap_client(self._device_location)
+        soap_client = self.get_soap_client(self._provider_address)
         if self.is_ssl_connection is not None:
             # decision was already made in constructor
             soap_client.connect()
@@ -700,7 +696,7 @@ class SdcConsumer:
                 soap_client.close()
                 self._forget_soap_client(soap_client)
                 self.is_ssl_connection = False
-                soap_client = self.get_soap_client(self._device_location)
+                soap_client = self.get_soap_client(self._provider_address)
                 # if this also fails, something else is wrong and error needs handling on application level.
                 soap_client.connect()
         if self.is_ssl_connection:
@@ -711,10 +707,10 @@ class SdcConsumer:
 
     def transfer_get(self) -> msgreader.ReceivedMessage | None:
         """Send transfer get request to provider and return received message."""
-        _url = urlparse(self._device_location)
-        soap_client = self.get_soap_client(self._device_location)
+        _url = urlparse(self._provider_address)
+        soap_client = self.get_soap_client(self._provider_address)
         nsh = self.sdc_definitions.data_model.ns_helper
-        inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get', addr_to=self._device_location)
+        inf = HeaderInformationBlock(action=f'{nsh.WXF.namespace}/Get', addr_to=self._provider_address)
         message = self.msg_factory.mk_soap_message_etree_payload(inf, payload_element=None)
 
         return soap_client.post_message_to(_url.path, message, msg='getMetadata')
@@ -724,10 +720,10 @@ class SdcConsumer:
 
     def send_probe(self) -> ProbeMatchesType:
         """Send Probe directly to provider."""
-        _url = urlparse(self._device_location)
-        wsc = self.get_soap_client(self._device_location)
+        _url = urlparse(self._provider_address)
+        wsc = self.get_soap_client(self._provider_address)
         probe = ProbeType()
-        inf = HeaderInformationBlock(action=probe.action, addr_to=self._device_location)
+        inf = HeaderInformationBlock(action=probe.action, addr_to=self._provider_address)
 
         message = self.msg_factory.mk_soap_message(inf, payload=probe)
         received_message_data = wsc.post_message_to(_url.path, message, msg='Probe')
@@ -805,7 +801,7 @@ class SdcConsumer:
             ssl_context_container = self._ssl_context_container if self.is_ssl_connection else None
             logger = loghelper.get_logger_adapter('sdc.client.notif_dispatch', self.log_prefix)
             self._http_server = HttpServerThreadBase(
-                str(self._network_adapter.ip),
+                self.consumer_ip_address,
                 ssl_context_container.server_context if ssl_context_container else None,
                 logger=logger,
                 supported_encodings=self._compression_methods,
@@ -839,7 +835,7 @@ class SdcConsumer:
     def __str__(self) -> str:
         return (
             f'SdcConsumer to {self.host_description.this_device} {self.host_description.this_model} '
-            f'on {self._device_location}'
+            f'on {self._provider_address}'
         )
 
     @classmethod
@@ -860,17 +856,17 @@ class SdcConsumer:
         :param components: a SdcConsumerComponents instance or None
         :return:
         """
-        device_locations = wsd_service.x_addrs
-        if not device_locations:  # pragma: no cover
+        provider_addrs = wsd_service.x_addrs
+        if not provider_addrs:  # pragma: no cover
             msg = f'discovered Service has no address!{wsd_service}'
             raise RuntimeError(msg)
-        device_location = device_locations[0]
+        provider_addr = provider_addrs[0]
         for sdc_definition in ProtocolsRegistry.protocols:
             if sdc_definition.types_match(wsd_service.types):
                 return cls(
-                    device_location,
-                    sdc_definition,
-                    ssl_context_container,
+                    provider_address=provider_addr,
+                    sdc_definitions=sdc_definition,
+                    ssl_context_container=ssl_context_container,
                     validate=validate,
                     log_prefix=log_prefix,
                     components=components,

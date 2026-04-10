@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 import socket
+import socketserver
 import threading
 from dataclasses import dataclass
-from http.server import HTTPServer
 from typing import TYPE_CHECKING
 
 from sdc11073.dispatch import PathElementRegistry
@@ -27,7 +27,7 @@ class _ThreadInfo:
     client_address: tuple
 
 
-class _ThreadingHTTPServer(HTTPServer):
+class _ThreadingHTTPServer(socketserver.TCPServer):
     """Each request is handled in a thread."""
 
     def __init__(
@@ -44,6 +44,10 @@ class _ThreadingHTTPServer(HTTPServer):
         self.chunk_size = chunk_size
         self.supported_encodings = supported_encodings
         super().__init__(server_address, DispatchingRequestHandler)
+
+    @property
+    def server_port(self) -> int:
+        return self.server_address[1]
 
     def process_request_thread(self, request, client_address):  # noqa: ANN001
         """Same as in BaseServer but as a thread."""  # noqa: D401
@@ -63,7 +67,9 @@ class _ThreadingHTTPServer(HTTPServer):
     def process_request(self, request, client_address):  # noqa: ANN001
         """Start a new thread to process the request."""
         thread = threading.Thread(
-            target=self.process_request_thread, args=(request, client_address), name=f'SubscrRecv{client_address}',
+            target=self.process_request_thread,
+            args=(request, client_address),
+            name=f'SubscrRecv{client_address}',
         )
         thread.daemon = True
         self.threads.append(_ThreadInfo(thread, request, client_address))
@@ -85,7 +91,9 @@ class _ThreadingHTTPServer(HTTPServer):
                     continue
                 except Exception as ex:  # noqa: BLE001
                     self.logger.warning(
-                        'error closing socket for notifications from %s: %s', thread_info.client_address, ex,
+                        'error closing socket for notifications from %s: %s',
+                        thread_info.client_address,
+                        ex,
                     )
 
 
@@ -113,10 +121,8 @@ class HttpServerThreadBase(threading.Thread):
         """
         super().__init__(name='Dev_SdcHttpServerThread')
         self.daemon = True
-
         self._my_ipaddress = my_ipaddress
         self._ssl_context = ssl_context
-        self.my_port = None
         self.httpd = None
         self.supported_encodings = supported_encodings
         if isinstance(logger, logging.Logger):
@@ -129,21 +135,27 @@ class HttpServerThreadBase(threading.Thread):
         self._stop_requested = False
         self.base_url = None
 
+    @property
+    def server_port(self) -> int | None:
+        """Return the port that the http server was bind to."""
+        return self.httpd.server_port if self.httpd is not None else None
+
     def run(self):
         """Run the http server."""
         self._stop_requested = False
         try:
-            myport = 0  # zero means that OS selects a free port
             self.httpd = _ThreadingHTTPServer(
-                self.logger, (self._my_ipaddress, myport), self.chunk_size, self.supported_encodings,
+                self.logger,
+                (self._my_ipaddress, 0),  # port will be selected by the OS
+                self.chunk_size,
+                self.supported_encodings,
             )
-            self.my_port = self.httpd.server_port
-            self.logger.info('starting http server on %s:%s', self._my_ipaddress, self.my_port)
+            self.logger.info('starting http server on %s:%s', self._my_ipaddress, self.server_port)
             if self._ssl_context:
                 self.httpd.socket = self._ssl_context.wrap_socket(self.httpd.socket, server_side=True)
-                self.base_url = f'https://{self._my_ipaddress}:{self.my_port}/'
+                self.base_url = f'https://{self._my_ipaddress}:{self.server_port}/'
             else:
-                self.base_url = f'http://{self._my_ipaddress}:{self.my_port}/'
+                self.base_url = f'http://{self._my_ipaddress}:{self.server_port}/'
 
             self.started_evt.set()
             self.httpd.serve_forever()
