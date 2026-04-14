@@ -116,6 +116,8 @@ class SubscriptionBase:
                 self._end_to_url = urlparse(self.end_to_address)
             else:
                 self._end_to_url = None
+        else:
+            self._end_to_url = None
 
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameters = []  # default: no reference parameters
