@@ -272,7 +272,7 @@ class SdcProvider:
         logger = loghelper.get_logger_adapter('sdc.device.msgfactory', log_prefix)
         self.msg_factory = self._components.msg_factory_class(
             self._mdib.sdc_definitions,
-            list(self._components.additional_schema_specs),
+            list(schema_specs),
             logger=logger,
             validate=validate,
         )

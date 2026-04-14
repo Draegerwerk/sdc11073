@@ -1,8 +1,8 @@
 """Async implementation of subscriptions manager."""
+
 from __future__ import annotations
 
 import asyncio
-import socket
 import time
 import traceback
 from collections import defaultdict
@@ -51,10 +51,9 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
         """Send notification to subscriber."""
         if not self.is_valid or self.unsubscribed_at is not None:
             return
-        addr = HeaderInformationBlock(addr_to=self.notify_to_address,
-                                      action=action,
-                                      addr_from=None,
-                                      reference_parameters=self.notify_ref_params)
+        addr = HeaderInformationBlock(
+            addr_to=self.notify_to_address, action=action, addr_from=None, reference_parameters=self.notify_ref_params
+        )
         message = self._mk_notification_message(addr, body_node)
         try:
             soap_client = self._get_soap_client()
@@ -82,9 +81,8 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             raise
 
     async def async_send_notification_end_message(
-            self,
-            code: str = 'SourceShuttingDown',
-            reason: str = 'Event source going off line.') -> ReceivedMessage | None:
+        self, code: str = 'SourceShuttingDown', reason: str = 'Event source going off line.'
+    ) -> ReceivedMessage | None:
         """Send notification end message to subscriber."""
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
@@ -97,9 +95,11 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
         subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
         subscription_end.Status = code
         subscription_end.add_reason(reason, 'en-US')
-        inf = HeaderInformationBlock(action=subscription_end.action,
-                                     addr_to=self.end_to_address or self.notify_to_address,
-                                     reference_parameters=self.end_to_ref_params or self.notify_ref_params)
+        inf = HeaderInformationBlock(
+            action=subscription_end.action,
+            addr_to=self.end_to_address or self.notify_to_address,
+            reference_parameters=self.end_to_ref_params or self.notify_ref_params,
+        )
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
         try:
             url = self._end_to_url or self.notify_to_url
@@ -107,10 +107,13 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             return await soap_client.async_post_message_to(url.path, message)
         except aiohttp.client_exceptions.ClientConnectorError:
             # it does not matter that we could not send the message - end is end ;)
-            self._logger.info('exception async send subscription end to {}, subscription = {}',  # noqa: PLE1205
-                              url, self)
+            self._logger.info(  # noqa: PLE1205
+                'exception async send subscription end to {}, subscription = {}',
+                url,
+                self,
+            )
         except Exception:  # noqa: BLE001
-            self._logger.error(traceback.format_exc()) # noqa: TRY400
+            self._logger.error(traceback.format_exc())  # noqa: TRY400
         finally:
             self._is_closed = True
 
@@ -118,7 +121,7 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
 class AsyncioEventLoopThread(Thread):
     """Central event loop for provider."""
 
-    def __init__(self, name: str, logger: LoggerAdapter ):
+    def __init__(self, name: str, logger: LoggerAdapter):
         super().__init__(name=name)
         self._logger = logger
         self.daemon = True
@@ -162,19 +165,20 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     waits for the response, then sends the notification to the second subscriber, and so on.
     """
 
-    def __init__(self,
-                 sdc_definitions: BaseDefinitions,
-                 msg_factory: MessageFactory,
-                 soap_client_pool: SoapClientPool,
-                 max_subscription_duration: float | None = None,
-                 log_prefix: str | None = None,
-                 ):
+    def __init__(
+        self,
+        sdc_definitions: BaseDefinitions,
+        msg_factory: MessageFactory,
+        soap_client_pool: SoapClientPool,
+        max_subscription_duration: float | None = None,
+        log_prefix: str | None = None,
+    ):
         super().__init__(sdc_definitions, msg_factory, soap_client_pool, max_subscription_duration, log_prefix)
         if soap_client_pool.async_loop_subscr_mgr is None:
             thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr', logger=self._logger)
             soap_client_pool.async_loop_subscr_mgr = thr
             thr.start()
-            for _i in range(10):
+            for _i in range(100):
                 if not thr.running:
                     time.sleep(0.1)
                 else:
@@ -186,11 +190,16 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
     def _mk_subscription_instance(self, request_data: RequestData) -> BicepsSubscriptionAsync:
         subscribe_request = evt_types.Subscribe.from_node(request_data.message_data.p_msg.msg_node)
         accepted_encodings = request_data.http_header['Accept-Encoding']
-        return BicepsSubscriptionAsync(self, subscribe_request, accepted_encodings, self.base_urls,
-                                       self._max_subscription_duration,
-                                       self._soap_client_pool,
-                                       msg_factory=self._msg_factory,
-                                       log_prefix=self._logger.log_prefix)
+        return BicepsSubscriptionAsync(
+            self,
+            subscribe_request,
+            accepted_encodings,
+            self.base_urls,
+            self._max_subscription_duration,
+            self._soap_client_pool,
+            msg_factory=self._msg_factory,
+            log_prefix=self._logger.log_prefix,
+        )
 
     async def _coro_send_to_subscribers(self, tasks: Iterable[Awaitable]) -> tuple[BaseException | Any, ...]:
         return await asyncio.gather(*tasks, return_exceptions=True)
@@ -210,14 +219,15 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
                 for counter, element in enumerate(result):
                     if isinstance(element, Exception):
                         self._logger.warning(  # noqa: PLE1205
-                            'end_all_subscriptions {} returned {}', all_subscriptions[counter], element)
+                            'end_all_subscriptions {} returned {}', all_subscriptions[counter], element
+                        )
 
         apply_map(lambda subscription: subscription.close_by_subscription_manager(), self._subscriptions.objects)
         self._subscriptions.clear()
 
-    def send_to_subscribers(self, payload: MessageType | xml_utils.LxmlElement,
-                            action: str,
-                            mdib_version_group: MdibVersionGroup):
+    def send_to_subscribers(
+        self, payload: MessageType | xml_utils.LxmlElement, action: str, mdib_version_group: MdibVersionGroup
+    ):
         """Send payload to all subscribers."""
         with self._subscriptions.lock:
             if not self._async_send_thread.running:
@@ -237,10 +247,9 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             self.sent_to_subscribers = (action, mdib_version_group, body_node)  # update observable
             tasks = []
             for subscriber in subscribers:
-                tasks.append(self._async_send_notification_report(subscriber, body_node, action)) # noqa: PERF401
+                tasks.append(self._async_send_notification_report(subscriber, body_node, action))  # noqa: PERF401
 
-            self._logger.debug('sending report %s to %r',
-                               action, [s.notify_to_address for s in subscribers])
+            self._logger.debug('sending report %s to %r', action, [s.notify_to_address for s in subscribers])
             result = self._async_send_thread.run_coro(self._coro_send_to_subscribers(tasks))
             if result is None:
                 self._logger.info('could not send notifications, async send loop is not running.')
@@ -248,11 +257,12 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             for counter, element in enumerate(result):
                 if isinstance(element, Exception):
                     self._logger.warning(  # noqa: PLE1205
-                        '{}: _send_to_subscribers {} returned {}', action, subscribers[counter], element)
+                        '{}: _send_to_subscribers {} returned {}', action, subscribers[counter], element
+                    )
 
-    async def _async_send_notification_report(self, subscription: BicepsSubscriptionAsync,
-                                              body_node: xml_utils.LxmlElement,
-                                              action: str):
+    async def _async_send_notification_report(
+        self, subscription: BicepsSubscriptionAsync, body_node: xml_utils.LxmlElement, action: str
+    ):
         try:
             self._logger.debug('send notification report {} to {}', action, subscription)  # noqa: PLE1205
             await subscription.async_send_notification_report(body_node, action)
@@ -261,24 +271,42 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             # this is an error related to the connection => log warning and continue
             self._logger.warning(  # noqa: PLE1205
                 'could not send notification report {}: HTTP status= {}, reason={}, {}',
-                action, ex.status, ex.reason, subscription)
-        except (aiohttp.client_exceptions.ClientConnectionError,
-                aiohttp.client_exceptions.ClientConnectorError,
-                aiohttp.client_exceptions.ServerConnectionError,
-                asyncio.exceptions.TimeoutError,
-                socket.timeout) as ex:
+                action,
+                ex.status,
+                ex.reason,
+                subscription,
+            )
+        except (
+            TimeoutError,
+            aiohttp.client_exceptions.ClientConnectionError,
+            aiohttp.client_exceptions.ClientConnectorError,
+            aiohttp.client_exceptions.ServerConnectionError,
+            asyncio.exceptions.TimeoutError,
+        ) as ex:
             # this is an error related to the connection => log warning and continue
-            self._logger.warning('could not send notification report {} warning= {!r}: {}',  # noqa: PLE1205
-                                 action, ex, subscription)
+            self._logger.warning(  # noqa: PLE1205
+                'could not send notification report {} warning= {!r}: {}',
+                action,
+                ex,
+                subscription,
+            )
         except etree.DocumentInvalid as ex:
             # this is an error related to the document, it cannot be sent to any subscriber => re-raise
-            self._logger.warning('Invalid Document for action {}: {!r}\n{}',  # noqa: PLE1205
-                                 action, ex, etree.tostring(body_node))
+            self._logger.warning(  # noqa: PLE1205
+                'Invalid Document for action {}: {!r}\n{}',
+                action,
+                ex,
+                etree.tostring(body_node),
+            )
             raise
         except Exception:
             # this should never happen! => re-raise
-            self._logger.error('could not send notification report {}, error {}: {}',  # noqa: PLE1205 TRY400
-                               action, traceback.format_exc(), subscription)
+            self._logger.error(  # noqa: TRY400, PLE1205
+                'could not send notification report {}, error {}: {}',
+                action,
+                traceback.format_exc(),
+                subscription,
+            )
             raise
 
     def get_subscription_round_trip_times(self) -> dict[tuple[str, tuple[str]], RoundTripData]:
@@ -291,8 +319,9 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
         with self._subscriptions.lock:
             for subscription in self._subscriptions.objects:
                 if subscription.max_roundtrip_time > 0:
-                    ret[(subscription.notify_to_address,
-                         subscription.short_filter_names())] = subscription.get_roundtrip_stats()
+                    ret[(subscription.notify_to_address, subscription.short_filter_names())] = (
+                        subscription.get_roundtrip_stats()
+                    )
         return ret
 
     def get_client_round_trip_times(self) -> dict[str, RoundTripData]:

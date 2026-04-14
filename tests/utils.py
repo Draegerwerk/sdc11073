@@ -92,8 +92,14 @@ def container_diff(
         if first_value != second_value:
             if isinstance(first_value, float) or isinstance(second_value, float):
                 if not math.isclose(first_value, second_value, rel_tol=max_float_diff, abs_tol=max_float_diff):
-                    ret.append(f'{name}={first_value}, second={second_value}')
+                    ret.append(
+                        f'Comparison with tolerance failed! '
+                        f'{name}={first_value}, '
+                        f'second={second_value}, '
+                        f'rel_tol={max_float_diff}, '
+                        f'abs_tol={max_float_diff}'
+                    )
             else:
-                ret.append(f'{name}={first_value}, second={second_value}')
+                ret.append(f'Direct comparison failed! {name}={first_value}, second={second_value}')
 
     return None if len(ret) == 0 else ret
