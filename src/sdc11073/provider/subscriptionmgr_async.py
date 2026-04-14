@@ -174,7 +174,7 @@ class BICEPSSubscriptionsManagerBaseAsync(SubscriptionsManagerBase):
             thr = AsyncioEventLoopThread(name='async_loop_subscr_mgr', logger=self._logger)
             soap_client_pool.async_loop_subscr_mgr = thr
             thr.start()
-            for _i in range(10):
+            for _i in range(100):
                 if not thr.running:
                     time.sleep(0.1)
                 else:
