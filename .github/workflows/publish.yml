@@ -18,7 +18,11 @@ jobs:
     needs: build
     outputs:
       DO_GITHUB_RELEASE: ${{ steps.detect-release.outputs.DO_GITHUB_RELEASE }}
-
+    environment:
+      name: pypi
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Download Artifact
         uses: actions/download-artifact@v8
