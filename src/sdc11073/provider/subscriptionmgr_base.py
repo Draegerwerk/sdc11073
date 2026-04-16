@@ -158,8 +158,12 @@ class SubscriptionBase:
         """
         return False
 
-    def _get_soap_client(self) -> SoapClientProtocol:
-        return self._soap_client_pool.get_soap_client(self.notify_to_url.netloc, self._accepted_encodings, self)
+    def _get_soap_client(self, netloc: str | None = None) -> SoapClientProtocol:
+        return self._soap_client_pool.get_soap_client(
+            netloc or self.notify_to_url.netloc,
+            self._accepted_encodings,
+            self,
+        )
 
     @property
     def remaining_seconds(self) -> float:
@@ -212,17 +216,17 @@ class SubscriptionBase:
             reference_parameters=self.end_to_ref_params or self.notify_ref_params,
         )
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-
+        url = self._end_to_url or self.notify_to_url
+        soap_client = self._get_soap_client(url.netloc)
         try:
-            url = self._end_to_url or self.notify_to_url
-            soap_client = self._get_soap_client()
             soap_client.post_message_to(url.path, message, msg='send_notification_end_message')
-            self.notify_errors = 0
-            self._is_connection_error = False
-            self._is_closed = True
         except Exception as ex:  # noqa: BLE001
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('could not send subscription end message, error = {}', ex)  # noqa: PLE1205
+        else:
+            self.notify_errors = 0
+            self._is_connection_error = False
+            self._is_closed = True
 
     def close_by_subscription_manager(self) -> None:
         """Close subscription."""

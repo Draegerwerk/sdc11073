@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
 - remove dns resolution to prevent http server start issues [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
 - when a consumer subscribed without an `EndTo` and the provider tries to send an unsubscribe this would result in an `AttributeError` [#475](https://github.com/Draegerwerk/sdc11073/issues/475)
+- when a consumer subscribed with an `EndTo` the provider now sends the `SubscriptionEnd` actually to the end to url instead of notify to url [#475](https://github.com/Draegerwerk/sdc11073/issues/475)
 
 ### Removed
 
