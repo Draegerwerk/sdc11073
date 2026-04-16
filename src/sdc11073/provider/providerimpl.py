@@ -55,7 +55,7 @@ from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisM
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, MutableMapping
+    from collections.abc import Callable, Mapping, MutableMapping, Sequence
     from enum import Enum
 
     from lxml import etree
@@ -98,7 +98,7 @@ class SdcProviderComponents:
     sco_operations_registry_class: type[AbstractScoOperationsRegistry]
     subscriptions_manager_class: MutableMapping[str, type[SubscriptionManagerProtocol]]
     scopes_factory: Callable[[ProviderMdibProtocol], ScopesType]
-    hosted_services: MutableMapping[str, list[type[DPWSPortTypeBase]]]
+    hosted_services: MutableMapping[str, Sequence[type[DPWSPortTypeBase]]]
     additional_schema_specs: set[PrefixNamespace] = dataclasses.field(default_factory=set)
 
 
