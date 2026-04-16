@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import http.client
-import socket
 import time
 import uuid
 from collections import deque
@@ -109,15 +108,12 @@ class SubscriptionBase:
         self.notify_ref_params = subscribe_request.Delivery.NotifyTo.ReferenceParameters
         self.end_to_address = None
         self.end_to_ref_params = []
+        self._end_to_url = None
         if subscribe_request.EndTo is not None:
             self.end_to_address = subscribe_request.EndTo.Address
             self.end_to_ref_params = subscribe_request.EndTo.ReferenceParameters
             if self.end_to_address is not None:
                 self._end_to_url = urlparse(self.end_to_address)
-            else:
-                self._end_to_url = None
-        else:
-            self._end_to_url = None
 
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameters = []  # default: no reference parameters
@@ -529,7 +525,7 @@ class SubscriptionsManagerBase:
         except http.client.NotConnected as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)  # noqa: PLE1205, TRY400
-        except socket.timeout as ex:
+        except TimeoutError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)  # noqa: PLE1205, TRY400
         except etree.DocumentInvalid as ex:

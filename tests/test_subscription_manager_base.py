@@ -191,3 +191,79 @@ def test_send_notification_report_error_handling():
     # DocumentInvalid -> re-raised
     with pytest.raises(etree.DocumentInvalid):
         mgr._send_notification_report(DummySub(etree.DocumentInvalid('bad')), etree.Element('n'), 'act')
+
+
+def test_end_to_url_is_none_when_end_to_not_provided():
+    """Test that _end_to_url is None when EndTo is not in the subscribe request.
+
+    Before the fix, SubscriptionBase.__init__ did not set _end_to_url when
+    subscribe_request.EndTo was None, causing an AttributeError when
+    send_notification_end_message later accessed self._end_to_url.
+    """
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    # EndTo is NOT set (the default is None)
+    assert subscribe.EndTo is None
+
+    sub = ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=DummySoapClientPool(),
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
+    assert sub._end_to_url is None
+    assert sub.end_to_address is None
+
+    # send_notification_end_message must not raise AttributeError
+    sub.send_notification_end_message()
+
+
+def test_end_to_url_is_set_when_end_to_provided():
+    """Test that _end_to_url is correctly parsed when EndTo is provided."""
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    subscribe.init_end_to()
+    subscribe.EndTo.Address = 'http://localhost:9000/end'
+
+    sub = ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=DummySoapClientPool(),
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
+    assert sub._end_to_url is not None
+    assert sub._end_to_url.netloc == 'localhost:9000'
+    assert sub.end_to_address == 'http://localhost:9000/end'
+
+
+def test_end_to_url_is_none_when_end_to_address_is_none():
+    """Test that _end_to_url is None when EndTo exists but Address is None."""
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    subscribe.init_end_to()
+    # EndTo is set but Address remains None
+    assert subscribe.EndTo is not None
+    subscribe.EndTo.Address = None
+
+    sub = ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=DummySoapClientPool(),
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
+    assert sub._end_to_url is None
