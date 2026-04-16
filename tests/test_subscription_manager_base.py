@@ -6,6 +6,7 @@ import http.client
 import socket
 from types import SimpleNamespace
 from unittest import mock
+
 import pytest
 from lxml import etree
 
