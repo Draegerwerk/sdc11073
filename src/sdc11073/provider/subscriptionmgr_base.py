@@ -109,13 +109,16 @@ class SubscriptionBase:
         self.notify_ref_params = subscribe_request.Delivery.NotifyTo.ReferenceParameters
         self.end_to_address = None
         self.end_to_ref_params = []
+        # Always initialise _end_to_url. A SubscribeRequest without an EndTo
+        # block is valid per the spec; the async send-end path reads
+        # self._end_to_url unconditionally and would otherwise raise
+        # AttributeError on unsubscribe. See #475.
+        self._end_to_url = None
         if subscribe_request.EndTo is not None:
             self.end_to_address = subscribe_request.EndTo.Address
             self.end_to_ref_params = subscribe_request.EndTo.ReferenceParameters
             if self.end_to_address is not None:
                 self._end_to_url = urlparse(self.end_to_address)
-            else:
-                self._end_to_url = None
 
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameters = []  # default: no reference parameters
