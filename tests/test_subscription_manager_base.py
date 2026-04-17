@@ -232,6 +232,9 @@ def test_end_to_url_is_none_when_end_to_not_provided(soap_client_pool: mock.Magi
     # send_notification_end_message must not raise AttributeError
     sub.send_notification_end_message()
     soap_client_pool.get_soap_client.assert_called_once_with('localhost:8000', [], sub)
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
+        '/notify', mock.ANY, msg='send_notification_end_message'
+    )
 
 
 def test_end_to_url_is_set_when_end_to_provided(soap_client_pool: mock.MagicMock):
@@ -257,6 +260,9 @@ def test_end_to_url_is_set_when_end_to_provided(soap_client_pool: mock.MagicMock
     assert sub.end_to_address == 'http://localhost:9000/end'
     sub.send_notification_end_message()
     soap_client_pool.get_soap_client.assert_called_once_with('localhost:9000', [], sub)
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
+        '/notify', mock.ANY, msg='send_notification_end_message'
+    )
 
 
 def test_end_to_url_is_none_when_end_to_address_is_none(soap_client_pool: mock.MagicMock):
@@ -282,3 +288,6 @@ def test_end_to_url_is_none_when_end_to_address_is_none(soap_client_pool: mock.M
     assert sub._end_to_url is None
     sub.send_notification_end_message()
     soap_client_pool.get_soap_client.assert_called_once_with('localhost:8000', [], sub)
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
+        '/end', mock.ANY, msg='send_notification_end_message'
+    )
