@@ -89,7 +89,6 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
 
         if not self.is_valid:
             return None
-        soap_client = self._get_soap_client()
         subscription_end = evt_types.SubscriptionEnd()
         subscription_end.SubscriptionManager.Address = my_addr
         subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
@@ -101,9 +100,10 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             reference_parameters=self.end_to_ref_params or self.notify_ref_params,
         )
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
+        url = self._end_to_url or self.notify_to_url
+        soap_client = self._get_soap_client(url.netloc)
+        self._logger.info('async send subscription end to {}, subscription = {}', url, self)  # noqa: PLE1205
         try:
-            url = self._end_to_url or self.notify_to_url
-            self._logger.info('async send subscription end to {}, subscription = {}', url, self)  # noqa: PLE1205
             return await soap_client.async_post_message_to(url.path, message)
         except aiohttp.client_exceptions.ClientConnectorError:
             # it does not matter that we could not send the message - end is end ;)
