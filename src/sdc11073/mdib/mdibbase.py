@@ -6,7 +6,7 @@ import copy
 import traceback
 import uuid
 from dataclasses import dataclass
-from threading import Lock
+from threading import RLock
 from typing import TYPE_CHECKING, Any
 
 from lxml import etree
@@ -307,35 +307,36 @@ class EntityGetter(EntityGetterProtocol):
 
     def by_handle(self, handle: str) -> Entity | MultiStateEntity | None:
         """Return entity with given handle."""
-        descriptor = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
-        if descriptor is None:
-            return None
-        return self._mk_entity(descriptor)
+        with self._mdib.mdib_lock:
+            descriptor = self._mdib.descriptions.handle.get_one(handle, allow_none=True)
+            if descriptor is None:
+                return None
+            return self._mk_entity(descriptor)
 
     def by_node_type(self, node_type: QName) -> Sequence[Entity | MultiStateEntity]:
         """Return all entities with given node type."""
-        descriptors = self._mdib.descriptions.NODETYPE.get(node_type, [])
-        return [self._mk_entity(d) for d in descriptors]
+        with self._mdib.mdib_lock:
+            descriptors = self._mdib.descriptions.NODETYPE.get(node_type, [])
+            return [self._mk_entity(d) for d in descriptors]
 
     def by_parent_handle(self, parent_handle: str | None) -> Sequence[Entity | MultiStateEntity]:
         """Return all entities with descriptors parent_handle == provided parent_handle."""
-        descriptors = self._mdib.descriptions.parent_handle.get(parent_handle, [])
-        return [self._mk_entity(d) for d in descriptors]
+        with self._mdib.mdib_lock:
+            descriptors = self._mdib.descriptions.parent_handle.get(parent_handle, [])
+            return [self._mk_entity(d) for d in descriptors]
 
     def _mk_entity(self, descriptor: AbstractDescriptorContainer) -> Entity | MultiStateEntity:
         if descriptor.is_context_descriptor:
             states = self._mdib.context_states.descriptor_handle.get(descriptor.Handle, [])
             return MultiStateEntity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(states))
         state = self._mdib.states.descriptor_handle.get_one(descriptor.Handle)
-        if not self._mdib.mdib_lock.locked():
-            with self._mdib.mdib_lock:
-                return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
         return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
 
     def items(self) -> Iterable[tuple[str, Entity | MultiStateEntity]]:
         """Return the items of a dictionary."""
-        for descriptor in self._mdib.descriptions.objects:
-            yield descriptor.Handle, self._mk_entity(descriptor)
+        with self._mdib.mdib_lock:
+            for descriptor in self._mdib.descriptions.objects:
+                yield descriptor.Handle, self._mk_entity(descriptor)
 
     def __len__(self) -> int:
         """Return number of entities."""
@@ -384,7 +385,7 @@ class MdibBase:
         self.descriptions = DescriptorsLookup()
         self.states = StatesLookup()
         self.context_states = MultiStatesLookup()
-        self.mdib_lock = Lock()
+        self.mdib_lock = RLock()
         self.mdstate_version = 0
         self.mddescription_version = 0
 
