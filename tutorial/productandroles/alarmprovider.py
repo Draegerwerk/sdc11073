@@ -240,8 +240,14 @@ class AlertSystemStateMaintainer(RoleProvider):
             entities_needing_update = self._get_alert_system_entities_needing_update()
             if len(entities_needing_update) > 0:
                 with self._mdib.alert_state_transaction() as mgr:
-                    self._update_alert_system_states(entities_needing_update)
-                    mgr.write_entities(entities_needing_update)
+                    # remove entities that might have been removed from mdib before transaction lock was acquired
+                    still_existing = [
+                        entity
+                        for entity in entities_needing_update
+                        if self._mdib.descriptions.handle.get_one(entity.handle, allow_none=True)
+                    ]
+                    self._update_alert_system_states(still_existing)
+                    mgr.write_entities(still_existing)
         except Exception:  # noqa: BLE001
             self._logger.error('_update_alert_system_state_current_alerts: %s', traceback.format_exc())  # noqa: TRY400
 
