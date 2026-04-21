@@ -17,7 +17,7 @@ from sdc11073.etc import apply_map
 from sdc11073.mdib.entityprotocol import EntityGetterProtocol, EntityProtocol
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from lxml.etree import QName
 
@@ -332,11 +332,10 @@ class EntityGetter(EntityGetterProtocol):
         state = self._mdib.states.descriptor_handle.get_one(descriptor.Handle)
         return Entity(self._mdib, copy.deepcopy(descriptor), copy.deepcopy(state))
 
-    def items(self) -> Iterable[tuple[str, Entity | MultiStateEntity]]:
+    def items(self) -> Sequence[tuple[str, Entity | MultiStateEntity]]:
         """Return the items of a dictionary."""
         with self._mdib.mdib_lock:
-            for descriptor in self._mdib.descriptions.objects:
-                yield descriptor.Handle, self._mk_entity(descriptor)
+            return [(descriptor.Handle, self._mk_entity(descriptor)) for descriptor in self._mdib.descriptions.objects]
 
     def __len__(self) -> int:
         """Return number of entities."""
