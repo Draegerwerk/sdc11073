@@ -55,7 +55,7 @@ from sdc11073.xml_types.dpws_types import HostServiceType, ThisDeviceType, ThisM
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeMatchType
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping
+    from collections.abc import Callable, Mapping, MutableMapping, Sequence
     from enum import Enum
 
     from lxml import etree
@@ -66,6 +66,7 @@ if TYPE_CHECKING:
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.namespaces import PrefixNamespace
     from sdc11073.provider.operations import OperationDefinitionBase
+    from sdc11073.provider.porttypes.porttypebase import DPWSPortTypeBase
     from sdc11073.provider.protocols.productprotocol import ProductProtocol
     from sdc11073.provider.protocols.waveformprotocol import WaveformProviderProtocol
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
@@ -95,9 +96,9 @@ class SdcProviderComponents:
     services_factory: Callable[[SdcProvider, SdcProviderComponents, Mapping], HostedServices]
     operation_cls_getter: Callable[[etree.QName], type]
     sco_operations_registry_class: type[AbstractScoOperationsRegistry]
-    subscriptions_manager_class: Mapping[str, type[SubscriptionManagerProtocol]]
+    subscriptions_manager_class: MutableMapping[str, type[SubscriptionManagerProtocol]]
     scopes_factory: Callable[[ProviderMdibProtocol], ScopesType]
-    hosted_services: Mapping
+    hosted_services: MutableMapping[str, Sequence[type[DPWSPortTypeBase]]]
     additional_schema_specs: set[PrefixNamespace] = dataclasses.field(default_factory=set)
 
 
