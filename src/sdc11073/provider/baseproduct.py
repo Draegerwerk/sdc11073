@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from sdc11073.provider.protocols.roleproviderprotocol import OperationClassGetter, RoleProviderProtocol
     from sdc11073.provider.sco import AbstractScoOperationsRegistry
 
+
 class BaseProduct(ProductProtocol):
     """Implementation of a base product.
 
