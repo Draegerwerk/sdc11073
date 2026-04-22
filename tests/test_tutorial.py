@@ -8,8 +8,9 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from sdc11073.provider.baseproduct import BaseProduct
 from tutorial.codedvaluecomparator import _coded_value_comparator
-from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS, BaseProduct
+from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS
 from tutorial.productandroles.providerbase import RoleProvider
 from tutorial.productandroles.waveformprovider.waveformproviderimpl import GenericWaveformProvider
 
