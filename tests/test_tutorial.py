@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from tutorial.codedvaluecomparator import _coded_value_comparator
-from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS, BaseProduct
+from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS
 from tutorial.productandroles.providerbase import RoleProvider
 from tutorial.productandroles.waveformprovider.waveformproviderimpl import GenericWaveformProvider
 
@@ -20,6 +20,7 @@ from sdc11073.loghelper import basic_logging_setup, get_logger_adapter
 from sdc11073.mdib import ConsumerMdib, ProviderMdib
 from sdc11073.mdib.mdibaccessor import get_descriptor_by_type, get_one_descriptor_by_type
 from sdc11073.provider import SdcProvider
+from sdc11073.provider.baseproduct import BaseProduct
 from sdc11073.provider.operations import ExecuteResult
 from sdc11073.provider.providerimpl import RoleProviderComponents
 from sdc11073.wsdiscovery import WSDiscovery, WSDiscoverySingleAdapter
