@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from tutorial.codedvaluecomparator import _coded_value_comparator
 
 from pat import common
-from pat.consumer_tests import step_1, step_2, step_3, step_4, step_5, step_6
+from pat.consumer_tests import step_1, step_2, step_3, step_4, step_5, step_6, step_7
 from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
@@ -164,6 +164,7 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
             thread_test_6d = pool.submit(step_6.test_6d, consumer)
             thread_test_6e = pool.submit(step_6.test_6e, consumer)
             thread_test_6f = pool.submit(step_6.test_6f, consumer)
+            thread_test_7a = pool.submit(step_7.test_7a, consumer.localization_service_client)
 
             test_4a = thread_test_4a.result()
             test_4b = thread_test_4b.result()
@@ -181,6 +182,14 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
             test_6d = thread_test_6d.result()
             test_6e = thread_test_6e.result()
             test_6f = thread_test_6f.result()
+            test_7a = thread_test_7a.result()
+
+        if test_7a:
+            test_7b = step_7.test_7b(consumer.localization_service_client)
+            test_7c = step_7.test_7c(consumer.localization_service_client)
+        else:
+            test_7b = False
+            test_7c = False
     finally:
         consumer.stop_all()
 
@@ -207,6 +216,9 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     print('6d:', test_6d)
     print('6e:', test_6e)
     print('6f:', test_6f)
+    print('7a:', test_7a)
+    print('7b:', test_7b)
+    print('7c:', test_7c)
 
     results = [
         res_1b,
@@ -230,6 +242,9 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
         test_6d,
         test_6e,
         test_6f,
+        test_7a,
+        test_7b,
+        test_7c,
     ]
     if execute_1a:
         results.append(res_1a)
