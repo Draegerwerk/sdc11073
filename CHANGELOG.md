@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - context manager support to `WSDiscovery`.
 - `isoduration.XsdDatetime` [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
 - sanity check that fully qualified hostname for the SDC Provider resolves to wsdiscovery active address
+- add a flag to indicate that a state is an AlertSystemState
 
 ### Changed
 

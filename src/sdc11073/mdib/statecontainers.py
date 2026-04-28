@@ -40,6 +40,7 @@ class AbstractStateProtocol(Protocol):
     is_operational_state: bool
     is_component_state: bool
     is_alert_state: bool
+    is_alert_system: bool
     is_alert_signal: bool
     is_alert_condition: bool
     is_multi_state: bool
@@ -68,6 +69,7 @@ class AbstractStateContainer(ContainerBase):
     is_operational_state = False
     is_component_state = False
     is_alert_state = False
+    is_alert_system = False
     is_alert_signal = False
     is_alert_condition = False
     is_multi_state = False
@@ -551,6 +553,7 @@ class AbstractAlertStateContainer(AbstractStateContainer):
 class AlertSystemStateContainer(AbstractAlertStateContainer):
     """Represents AlertSystemState in BICEPS."""
 
+    is_alert_system = True
     NODETYPE = pm.AlertSystemState
     SystemSignalActivation: list[pm_types.SystemSignalActivation] = x_struct.SubElementListProperty(
         pm.SystemSignalActivation,

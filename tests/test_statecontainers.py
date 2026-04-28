@@ -293,6 +293,8 @@ class TestStateContainers(unittest.TestCase):
 
     def test_AlertSystemStateContainer(self):  # noqa: N802
         def verify_equal(origin: sc.AlertSystemStateContainer, copied: sc.AlertSystemStateContainer):
+            self.assertTrue(origin.is_alert_system)
+            self.assertTrue(copied.is_alert_system)
             self.assertEqual(copied.SystemSignalActivation, origin.SystemSignalActivation)
             self.assertEqual(copied.LastSelfCheck, origin.LastSelfCheck)
             self.assertEqual(copied.SelfCheckCount, origin.SelfCheckCount)
