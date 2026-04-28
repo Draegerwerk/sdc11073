@@ -242,9 +242,7 @@ class AlertSystemStateMaintainer(RoleProvider):
                 with self._mdib.alert_state_transaction() as mgr:
                     # remove entities that might have been removed from mdib before transaction lock was acquired
                     still_existing = [
-                        entity
-                        for entity in entities_needing_update
-                        if self._mdib.descriptions.handle.get_one(entity.handle, allow_none=True)
+                        entity for entity in entities_needing_update if self._mdib.entities.by_handle(entity.handle)
                     ]
                     self._update_alert_system_states(still_existing)
                     mgr.write_entities(still_existing)
