@@ -37,7 +37,7 @@ def test_3a(consumer: SdcConsumer) -> bool:
     if result.msg_qname != msg_qnames.GetMdibResponse:
         logger.error(
             'The reference provider answered to GetMdib with an unexpected message type: %s.',
-            result.msg_name,
+            result.msg_qname,
             extra={'step': step},
         )
         return False
