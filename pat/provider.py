@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import pathlib
 import random
+import sys
 import traceback
 from decimal import Decimal
 from time import sleep
@@ -23,6 +24,7 @@ from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_qnames
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.pm_types import LocalizedText
 
 if TYPE_CHECKING:
     import sdc11073.certloader
@@ -119,6 +121,30 @@ class RealtimeGenerator4i(WaveformGeneratorBase):
         return [random.random() for _ in range(50)]
 
 
+# Localized texts required by PAT test 7 — at minimum 'en-US', 'de', 'el-GR', 'zh-CN' must be supported,
+# and each language must provide at least one text at Version=1.
+_LOCALIZED_TEXTS: tuple[tuple[str, str, str], ...] = (
+    ('welcome', 'en-US', 'Welcome'),
+    ('welcome', 'de', 'Willkommen'),
+    ('welcome', 'el-GR', 'Καλώς ορίσατε'),
+    ('welcome', 'zh-CN', '欢迎'),
+    ('alarm', 'en-US', 'Alarm'),
+    ('alarm', 'de', 'Alarm'),
+    ('alarm', 'el-GR', 'Συναγερμός'),
+    ('alarm', 'zh-CN', '警报'),
+)
+
+
+def provide_localized_texts(sdc_provider: SdcProvider):
+    """Populate the provider's LocalizationStorage with texts required by PAT test 7."""
+    storage = sdc_provider.localization_storage
+    if storage is None:
+        return
+    for ref, lang, text in _LOCALIZED_TEXTS:
+        storage.add(LocalizedText(text, lang=lang, ref=ref, version=1))
+        storage.add(LocalizedText(f'{text}!V2', lang=lang, ref=ref, version=2))
+
+
 def provide_realtime_data(sdc_provider: SdcProvider):
     """Provide realtime data."""
     required_waveforms_4f = 3
@@ -195,6 +221,7 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
             role_provider_components=EXAMPLE_ROLE_PROVIDER_COMPONENTS,
             max_subscription_duration=15,
         )
+        provide_localized_texts(sdc_provider)
         sdc_provider.start_all()
 
         # disable delayed processing for 2 operations
@@ -309,7 +336,9 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                         print(traceback.format_exc())
                     try:
                         with sdc_provider.mdib.descriptor_transaction() as mgr:
-                            now = datetime.datetime.now(tz=datetime.UTC)
+                            now = datetime.datetime.now(
+                                datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc
+                            )  # support 3.10
                             text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
                             descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(
                                 alert_condition.Handle,

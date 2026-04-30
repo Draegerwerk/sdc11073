@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import typing
 
-from sdc11073.xml_types import actions, pm_qnames
+from sdc11073.xml_types import actions, msg_qnames, pm_qnames
 
 if typing.TYPE_CHECKING:
     from sdc11073.consumer import ContextServiceClient, GetServiceClient
@@ -26,15 +26,23 @@ def test_3a(consumer: SdcConsumer) -> bool:
     except Exception:
         logger.exception('Error during %s reference provider answers to a GetMdib', step, extra={'step': step})
         return False
-    if result.action == actions.Actions.GetMdibResponse:
-        logger.info('The reference provider answered to GetMdib with a GetMdibResponse.', extra={'step': step})
-        return True
-    logger.error(
-        'The reference provider answered to GetMdib with an unexpected action: %s.',
-        result.action,
-        extra={'step': step},
-    )
-    return False
+    if result.action != actions.Actions.GetMdibResponse:
+        logger.error(
+            'The reference provider answered to GetMdib with an unexpected action: %s.',
+            result.action,
+            extra={'step': step},
+        )
+        return False
+
+    if result.msg_qname != msg_qnames.GetMdibResponse:
+        logger.error(
+            'The reference provider answered to GetMdib with an unexpected message type: %s.',
+            result.msg_qname,
+            extra={'step': step},
+        )
+        return False
+    logger.info('The reference provider answered to GetMdib with a GetMdibResponse.', extra={'step': step})
+    return True
 
 
 def test_3b(consumer: SdcConsumer) -> bool:
