@@ -42,7 +42,15 @@ def get_supported_languages(step: str, localization_service: LocalizationService
         )
         return None
 
-    return typing.cast('msg_types.GetSupportedLanguagesResponse', result.result).Lang
+    languages = typing.cast('msg_types.GetSupportedLanguagesResponse', result.result).Lang
+    if not languages:
+        logger.error(
+            'The reference provider answered to GetSupportedLanguages with no %s elements.',
+            msg_qnames.Lang,
+            extra={'step': step},
+        )
+        return None
+    return languages
 
 
 def get_localized_texts(
@@ -76,7 +84,15 @@ def get_localized_texts(
         )
         return None
 
-    return typing.cast('msg_types.GetLocalizedTextResponse', result.result).Text
+    texts = typing.cast('msg_types.GetLocalizedTextResponse', result.result).Text
+    if not texts:
+        logger.error(
+            'The reference provider answered to GetLocalizedTexts with no %s elements.',
+            msg_qnames.Text,
+            extra={'step': step},
+        )
+        return None
+    return texts
 
 
 def test_7a(localization_service: LocalizationServiceClient) -> bool:
