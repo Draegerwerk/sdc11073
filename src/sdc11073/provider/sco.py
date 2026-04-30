@@ -20,10 +20,9 @@ from typing import TYPE_CHECKING
 
 from sdc11073 import loghelper
 from sdc11073.exceptions import ApiUsageError
+from sdc11073.xml_types.msg_types import InvocationError, InvocationState
 
 if TYPE_CHECKING:
-    from enum import Enum
-
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.provider.protocols.roleproviderprotocol import OperationClassGetter
@@ -66,9 +65,6 @@ class _OperationsWorker(threading.Thread):
         self._operations_queue.put((transaction_id, operation, request, operation_request), timeout=1)
 
     def run(self):
-        data_model = self._mdib.data_model
-        InvocationState = data_model.msg_types.InvocationState  # noqa: N806
-        InvocationError = data_model.msg_types.InvocationError  # noqa: N806
         while True:
             try:
                 try:
@@ -171,7 +167,7 @@ class AbstractScoOperationsRegistry(ABC):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
-    ) -> Enum:
+    ) -> InvocationState:
         """Handle operation "operation"."""
 
     @abstractmethod
@@ -216,10 +212,8 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
-    ) -> Enum:
+    ) -> InvocationState:
         """Handle operation immediately or delayed in worker thread, depending on operation.delayed_processing."""
-        InvocationState = self._mdib.data_model.msg_types.InvocationState  # noqa: N806
-
         if operation.delayed_processing:
             self._worker.enqueue_operation(operation, request, operation_request, transaction_id)
             return InvocationState.WAIT
