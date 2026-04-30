@@ -1,3 +1,5 @@
+"""Base class and utilities for service clients."""
+
 from __future__ import annotations
 
 import weakref
@@ -55,9 +57,14 @@ class GetRequestResult:
         return self._received_message.action
 
     @property
-    def msg_name(self) -> etree.QName:
+    def msg_qname(self) -> etree.QName:
         """Return the QName of message body."""
-        return self._received_message.q_name.localname
+        return self._received_message.q_name
+
+    @property
+    def msg_name(self) -> str:
+        """Return the localname of message body."""
+        return self.msg_qname.localname
 
     @property
     def result(self) -> MessageType:
@@ -73,10 +80,13 @@ class HostedServiceClient:
     # Derived classes will set this class variable accordingly:
     notifications: tuple[DispatchKey] = tuple()
 
-    def __init__(self, sdc_consumer: SdcConsumer,
-                 soap_client: SoapClientProtocol,
-                 dpws_hosted: HostedServiceType,
-                 port_type: etree.QName):
+    def __init__(
+        self,
+        sdc_consumer: SdcConsumer,
+        soap_client: SoapClientProtocol,
+        dpws_hosted: HostedServiceType,
+        port_type: etree.QName,
+    ):
         """Construct a HostedServiceClient.
 
         :param sdc_consumer:
@@ -102,15 +112,17 @@ class HostedServiceClient:
     def register_mdib(self, mdib: ConsumerMdib | None):
         """Client sometimes must know the mdib data (e.g. Set service, activate method)."""
         if mdib is not None and self._mdib_wref is not None:
-            raise ApiUsageError(f'Client "{self._porttype}" has already an registered mdib')
+            msg = f'Client "{self._porttype}" has already an registered mdib'
+            raise ApiUsageError(msg)
         self._mdib_wref = None if mdib is None else weakref.ref(mdib)
 
     def set_operations_manager(self, operations_manager: OperationsManagerProtocol):
         """Set the operations manager."""
         self._operations_manager = operations_manager
 
-    def _call_operation(self, message: ReceivedMessage,
-                        request_manipulator: RequestManipulatorProtocol | None = None) -> Future:
+    def _call_operation(
+        self, message: ReceivedMessage, request_manipulator: RequestManipulatorProtocol | None = None
+    ) -> Future:
         return self._operations_manager.call_operation(self, message, request_manipulator)
 
     def get_available_subscriptions(self) -> tuple[DispatchKey]:
@@ -123,16 +135,19 @@ class HostedServiceClient:
     def __repr__(self) -> str:
         return f'{self.__class__.__name__} "{self._porttype}" endpoint = {self.endpoint_reference}'
 
-    def post_message(self, created_message: CreatedMessage,
-                     msg: str | None = None,
-                     request_manipulator: RequestManipulatorProtocol | None = None,
-                     validate: bool = True) -> ReceivedMessage:
+    def post_message(
+        self,
+        created_message: CreatedMessage,
+        msg: str | None = None,
+        request_manipulator: RequestManipulatorProtocol | None = None,
+        validate: bool = True,
+    ) -> ReceivedMessage:
         """Post the created message to provider."""
         msg = msg or created_message.p_msg.payload_element.tag.split('}')[-1]
 
-        response = self.soap_client.post_message_to(self._url.path, created_message, msg=msg,
-                                                    request_manipulator=request_manipulator,
-                                                    validate=validate)
+        response = self.soap_client.post_message_to(
+            self._url.path, created_message, msg=msg, request_manipulator=request_manipulator, validate=validate
+        )
         if response is None:
             raise ValueError('expect a response, got None')
         return response

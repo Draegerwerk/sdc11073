@@ -184,12 +184,8 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
             test_6f = thread_test_6f.result()
             test_7a = thread_test_7a.result()
 
-        if test_7a:
-            test_7b = step_7.test_7b(consumer.localization_service_client)
-            test_7c = step_7.test_7c(consumer.localization_service_client)
-        else:
-            test_7b = False
-            test_7c = False
+            test_7b = step_7.test_7b(consumer.localization_service_client) if test_7a else False
+            test_7c = step_7.test_7c(consumer.localization_service_client) if test_7a else False
     finally:
         consumer.stop_all()
 

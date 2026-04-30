@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import pathlib
 import random
+import sys
 import traceback
 from decimal import Decimal
 from time import sleep
@@ -141,6 +142,7 @@ def provide_localized_texts(sdc_provider: SdcProvider):
         return
     for ref, lang, text in _LOCALIZED_TEXTS:
         storage.add(LocalizedText(text, lang=lang, ref=ref, version=1))
+        storage.add(LocalizedText(f'{text}!V2', lang=lang, ref=ref, version=2))
 
 
 def provide_realtime_data(sdc_provider: SdcProvider):
@@ -219,9 +221,8 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
             role_provider_components=EXAMPLE_ROLE_PROVIDER_COMPONENTS,
             max_subscription_duration=15,
         )
-        sdc_provider.start_all()
-
         provide_localized_texts(sdc_provider)
+        sdc_provider.start_all()
 
         # disable delayed processing for 2 operations
         if enable_6c:
@@ -335,7 +336,9 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                         print(traceback.format_exc())
                     try:
                         with sdc_provider.mdib.descriptor_transaction() as mgr:
-                            now = datetime.datetime.now(tz=datetime.UTC)
+                            now = datetime.datetime.now(
+                                datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc
+                            )  # support 3.10
                             text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
                             descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(
                                 alert_condition.Handle,
