@@ -95,13 +95,17 @@ def get_localized_texts(
     return texts
 
 
-def test_7a(localization_service: LocalizationServiceClient) -> bool:
+def test_7a(localization_service: LocalizationServiceClient | None) -> bool:
     """The Reference Consumer requests GetSupportedLanguages.
 
     The Reference Provider answers with GetSupportedLanguagesResponse containing all languages currently
     provided by the Localized Text Database (V2: en-US, de, el-GR, zh-CN).
     """
     step = f'{__STEP__}a'
+
+    if localization_service is None:
+        logger.error('LocalizationService is not available.', extra={'step': step})
+        return False
 
     if (supported_languages := get_supported_languages(step, localization_service)) is None:
         return False

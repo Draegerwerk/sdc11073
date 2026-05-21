@@ -5,23 +5,16 @@ from __future__ import annotations
 import logging
 import pathlib
 import sys
-import time
 from concurrent import futures
 from typing import TYPE_CHECKING
-
-from tutorial.codedvaluecomparator import _coded_value_comparator
 
 from pat import common
 from pat.consumer_tests import step_1, step_2, step_3, step_4, step_5, step_6, step_7
 from sdc11073.consumer.consumerimpl import SdcConsumer
-from sdc11073.mdib.consumermdib import ConsumerMdib
-from sdc11073.mdib.consumermdibxtra import ConsumerMdibMethods
 from sdc11073.wsdiscovery import WSDiscovery
 
 if TYPE_CHECKING:
     import sdc11073.certloader
-    from sdc11073.loghelper import LoggerAdapter
-    from sdc11073.pysoap.msgreader import ReceivedMessage
 
 
 def _setup_logging():
@@ -30,84 +23,11 @@ def _setup_logging():
     logger = logging.getLogger('pat.consumer')
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
-
-
-class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
-    """Consumer mdib reference test."""
-
-    def __init__(self, consumer_mdib: ConsumerMdib, logger: LoggerAdapter):
-        super().__init__(consumer_mdib, logger)
-        self.alert_condition_type_concept_updates: list[float] = []  # for test 5a.1
-        self._last_alert_condition_type_concept_updates = time.monotonic()  # timestamp
-        self.DETERMINATIONTIME_WARN_LIMIT = 2.0
-
-        self.alert_condition_cause_remedy_updates: list[float] = []  # for test 5a.2
-        self._last_alert_condition_cause_remedy_updates = time.monotonic()  # timestamp
-
-        self.unit_of_measure_updates: list[float] = []  # for test 5a.3
-        self._last_unit_of_measure_updates = time.monotonic()  # timestamp
-
-    def _on_description_modification_report(self, received_message_data: ReceivedMessage):  # noqa: C901, PLR0912
-        """For Test 5a.1 check if the concept description of updated alert condition Type changed.
-
-        For Test 5a.2 check if alert condition cause-remedy information changed.
-        """
-        # only do this when mdib is completely initialized, otherwise access to old descriptors fails
-        if self._mdib.is_initialized:
-            cls = self._mdib.data_model.msg_types.DescriptionModificationReport
-            report = cls.from_node(received_message_data.p_msg.msg_node)
-            now = time.monotonic()
-            dmt = self._mdib.sdc_definitions.data_model.msg_types.DescriptionModificationType
-            for report_part in report.ReportPart:
-                modification_type = report_part.ModificationType
-                if modification_type == dmt.UPDATE:
-                    for descriptor_container in report_part.Descriptor:
-                        if descriptor_container.is_alert_condition_descriptor:
-                            old_descriptor = self._mdib.descriptions.handle.get_one(descriptor_container.Handle)
-                            # test 5a.1
-                            if descriptor_container.Type.ConceptDescription != old_descriptor.Type.ConceptDescription:
-                                print(
-                                    f'concept description {descriptor_container.Type.ConceptDescription} <=> '
-                                    f'{old_descriptor.Type.ConceptDescription}',
-                                )
-                                self.alert_condition_type_concept_updates.append(
-                                    now - self._last_alert_condition_type_concept_updates,
-                                )
-                                self._last_alert_condition_type_concept_updates = now
-                            # test 5a.2
-                            # (CauseInfo is a list)
-                            detected_5a2 = False
-                            if len(descriptor_container.CauseInfo) != len(old_descriptor.CauseInfo):
-                                print(
-                                    f'RemedyInfo no. of CauseInfo {len(descriptor_container.CauseInfo)} <=> '
-                                    f'{len(old_descriptor.CauseInfo)}',
-                                )
-                                detected_5a2 = True
-                            else:
-                                for i, cause_info in enumerate(descriptor_container.CauseInfo):
-                                    old_cause_info = old_descriptor.CauseInfo[i]
-                                    if cause_info.RemedyInfo != old_cause_info.RemedyInfo:
-                                        print(f'RemedyInfo {cause_info.RemedyInfo} <=> {old_cause_info.RemedyInfo}')
-                                        detected_5a2 = True
-                            if detected_5a2:
-                                self.alert_condition_cause_remedy_updates.append(
-                                    now - self._last_alert_condition_cause_remedy_updates,
-                                )
-                                self._last_alert_condition_cause_remedy_updates = now
-                        elif descriptor_container.is_metric_descriptor:
-                            # test 5a.3
-                            old_descriptor = self._mdib.descriptions.handle.get_one(descriptor_container.Handle)
-                            if not _coded_value_comparator(old_descriptor.Unit, descriptor_container.Unit):
-                                self.unit_of_measure_updates.append(now - self._last_unit_of_measure_updates)
-                                self._last_unit_of_measure_updates = now
-
-        else:
-            # reset timestamps to avoid large delta times on first update after initialization
-            self._last_alert_condition_type_concept_updates = time.monotonic()
-            self._last_alert_condition_cause_remedy_updates = time.monotonic()
-            self._last_unit_of_measure_updates = time.monotonic()
-        # call base class implementation to update mdib / buffer reports
-        super()._on_description_modification_report(received_message_data)
+    sdc_handler = logging.StreamHandler(sys.stdout)
+    sdc_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    sdc_logger = logging.getLogger('sdc.client.mdib')
+    sdc_logger.addHandler(sdc_handler)
+    sdc_logger.setLevel(logging.DEBUG)
 
 
 def run_ref_test(  # noqa: PLR0913, PLR0915
@@ -137,15 +57,12 @@ def run_ref_test(  # noqa: PLR0913, PLR0915
     consumer = SdcConsumer.from_wsd_service(service, ssl_context_container=ssl_context_container, validate=True)
     res_2a = step_2.test_2a(consumer)
     try:
-        res_2b = step_2.test_2b(consumer)
+        res_2b, mdib = step_2.test_2b(consumer)
         if not res_2b:
             return False
 
         res_3a = step_3.test_3a(consumer)
         res_3b = step_3.test_3b(consumer)
-
-        mdib = ConsumerMdib(consumer, extras_cls=ConsumerMdibMethodsReferenceTest)
-        mdib.init_mdib()
 
         with futures.ThreadPoolExecutor() as pool:
             thread_test_4a = pool.submit(step_4.test_4a, mdib)

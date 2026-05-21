@@ -1,0 +1,1794 @@
+[
+    {
+        "language": "en-US",
+        "value": "SDPi Test MDS",
+        "ref": "text_ref_0",
+        "width": "l",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_0",
+        "width": "m",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_0",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_0",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Adds a exactly one Patient Context to the operation target by using the attributes and elements from the SCO Operation's payload",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut dicam",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα αθδιαμ",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Sets the value of the targeted Numeric Metric",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Sets the value of the targeted Enum String Metric",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei.",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα,",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Performs nothing. The operational state will be toggled periodically at least every 5 seconds in order to produce Operational State Reports.",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut dicam",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα αθδιαμ",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Accepts three arguments which are concatenated and written to the metric value of the operation target.",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test VMD that contains settings and measurements including waveforms",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains settings",
+        "ref": "text_ref_7",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_7",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_7",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_7",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Numeric setting, externally controllable",
+        "ref": "text_ref_8",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_8",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_8",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_8",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Enum setting, externally controllable",
+        "ref": "text_ref_9",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_9",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_9",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_9",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "String setting",
+        "ref": "text_ref_10",
+        "width": "l",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit",
+        "ref": "text_ref_10",
+        "width": "s",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ",
+        "ref": "text_ref_10",
+        "width": "m",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕",
+        "ref": "text_ref_10",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Operation target of the activate operation",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains measurements",
+        "ref": "text_ref_12",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_12",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_12",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_12",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Periodically determined intermittent numeric measurement metric",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 1",
+        "ref": "text_ref_14",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_14",
+        "width": "m",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_14",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_14",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 2",
+        "ref": "text_ref_15",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_15",
+        "width": "m",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_15",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_15",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 3",
+        "ref": "text_ref_16",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_16",
+        "width": "m",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_16",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_16",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 4",
+        "ref": "text_ref_17",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_17",
+        "width": "m",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_17",
+        "width": "xl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_17",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test VMD that contains settings to be externally controlled by bulk operations",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Sets the @Value of 2 metric states at once",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei.",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα,",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains settings to be externally controlled by bulk operations",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Numeric setting, externally controllable by bulk update",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Numeric setting, externally controllable by bulk update",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test VMD that contains a metric and an alarm for which units and cause-remedy information is periodically updated (description updates)",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut dicam",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα αθδιαμ",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "An alert condition that periodically changes its cause-remedy information at least every 5 seconds",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his,",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ,",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains a metric which is periodically changing its unit of measure",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "Flow Rate: Numeric measurement that periodically changes the unit of measure at least every 5 seconds",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 0
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test MDS",
+        "ref": "text_ref_0",
+        "width": "l",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_0",
+        "width": "m",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_0",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_0",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Adds a exactly one Patient Context to the operation target by using the attributes and elements from the SCO Operation's payload",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut dicam",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα αθδιαμ",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_1",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Sets the value of the targeted Numeric Metric",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙",
+        "ref": "text_ref_2",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Sets the value of the targeted Enum String Metric",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei.",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα,",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍",
+        "ref": "text_ref_3",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Performs nothing. The operational state will be toggled periodically at least every 5 seconds in order to produce Operational State Reports.",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut dicam",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα αθδιαμ",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_4",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Accepts three arguments which are concatenated and written to the metric value of the operation target.",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕",
+        "ref": "text_ref_5",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test VMD that contains settings and measurements including waveforms",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_6",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains settings",
+        "ref": "text_ref_7",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_7",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_7",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_7",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Numeric setting, externally controllable",
+        "ref": "text_ref_8",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_8",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_8",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_8",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Enum setting, externally controllable",
+        "ref": "text_ref_9",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_9",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_9",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_9",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "String setting",
+        "ref": "text_ref_10",
+        "width": "l",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit",
+        "ref": "text_ref_10",
+        "width": "s",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ",
+        "ref": "text_ref_10",
+        "width": "m",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕",
+        "ref": "text_ref_10",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Operation target of the activate operation",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意",
+        "ref": "text_ref_11",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains measurements",
+        "ref": "text_ref_12",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre",
+        "ref": "text_ref_12",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ",
+        "ref": "text_ref_12",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼",
+        "ref": "text_ref_12",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Periodically determined intermittent numeric measurement metric",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意",
+        "ref": "text_ref_13",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 1",
+        "ref": "text_ref_14",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_14",
+        "width": "m",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_14",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_14",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 2",
+        "ref": "text_ref_15",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_15",
+        "width": "m",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_15",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_15",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 3",
+        "ref": "text_ref_16",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_16",
+        "width": "m",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_16",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_16",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Waveform metric 4",
+        "ref": "text_ref_17",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico",
+        "ref": "text_ref_17",
+        "width": "m",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ",
+        "ref": "text_ref_17",
+        "width": "xl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_17",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test VMD that contains settings to be externally controlled by bulk operations",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕",
+        "ref": "text_ref_18",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Sets the @Value of 2 metric states at once",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei.",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα,",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍",
+        "ref": "text_ref_19",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains settings to be externally controlled by bulk operations",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。",
+        "ref": "text_ref_20",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Numeric setting, externally controllable by bulk update",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経",
+        "ref": "text_ref_21",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Numeric setting, externally controllable by bulk update",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経",
+        "ref": "text_ref_22",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍",
+        "ref": "text_ref_23",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "SDPi Test VMD that contains a metric and an alarm for which units and cause-remedy information is periodically updated (description updates)",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus imperdiet ne duo. Ut dicam",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ αccθσαμ qθο αδ. Μεα αθδιαμ",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話",
+        "ref": "text_ref_24",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "An alert condition that periodically changes its cause-remedy information at least every 5 seconds",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his,",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ,",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回",
+        "ref": "text_ref_25",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Channel that contains a metric which is periodically changing its unit of measure",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕",
+        "ref": "text_ref_26",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "en-US",
+        "value": "Flow Rate: Numeric measurement that periodically changes the unit of measure at least every 5 seconds",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "de",
+        "value": "Ut sit dico integre legendos, autem mentitum est ei. Quod tantas equidem te his, oratio vocibus",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "el-GR",
+        "value": "Λορεμ ιπσθμ δολορ σιτ αμετ, δετραcτο ινιμιcθσ δθο εα, μεισ νοvθμ cονγθε ιν cθμ, σολθμ μαλορθμ",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    },
+    {
+        "language": "zh-CN",
+        "value": "地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕。石枚平代海名田売関既園古体下意。混本天大治掲芝議保難県新聞経。化小年第住価光事目効関県紹話弁月日紙。断社恵入転暮涯帯薄負端拍。覧難用入発社茶参新長綴勝話。。地品詳目将扱要段歯潤打意踊強去汐身全真。日注横伴鉱福健鳥力十無覧載夕。不無件年属応訃座保試記賞具写館回。世写五政概勝改極長奈率企礼。例関半要内筆掲櫛取戒商勢治訃適仕",
+        "ref": "text_ref_27",
+        "width": "xxl",
+        "lines": 1,
+        "version": 1
+    }
+]

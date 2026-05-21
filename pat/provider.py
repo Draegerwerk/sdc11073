@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import pathlib
 import random
 import sys
@@ -22,7 +23,7 @@ from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import pm_qnames
+from sdc11073.xml_types import pm_qnames, pm_types
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from sdc11073.xml_types.pm_types import LocalizedText
 
@@ -121,28 +122,23 @@ class RealtimeGenerator4i(WaveformGeneratorBase):
         return [random.random() for _ in range(50)]
 
 
-# Localized texts required by PAT test 7 — at minimum 'en-US', 'de', 'el-GR', 'zh-CN' must be supported,
-# and each language must provide at least one text at Version=1.
-_LOCALIZED_TEXTS: tuple[tuple[str, str, str], ...] = (
-    ('welcome', 'en-US', 'Welcome'),
-    ('welcome', 'de', 'Willkommen'),
-    ('welcome', 'el-GR', 'Καλώς ορίσατε'),
-    ('welcome', 'zh-CN', '欢迎'),
-    ('alarm', 'en-US', 'Alarm'),
-    ('alarm', 'de', 'Alarm'),
-    ('alarm', 'el-GR', 'Συναγερμός'),
-    ('alarm', 'zh-CN', '警报'),
-)
-
-
 def provide_localized_texts(sdc_provider: SdcProvider):
     """Populate the provider's LocalizationStorage with texts required by PAT test 7."""
     storage = sdc_provider.localization_storage
     if storage is None:
         return
-    for ref, lang, text in _LOCALIZED_TEXTS:
-        storage.add(LocalizedText(text, lang=lang, ref=ref, version=1))
-        storage.add(LocalizedText(f'{text}!V2', lang=lang, ref=ref, version=2))
+    file = pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2LocalizedTextsV2.json').absolute()
+    localized_texts = json.loads(file.read_text())
+    for text in localized_texts:
+        storage.add(
+            LocalizedText(
+                text['value'],
+                lang=text['language'],
+                ref=text['ref'],
+                version=text['version'],
+                text_width=pm_types.LocalizedTextWidth(text['width']),
+            )
+        )
 
 
 def provide_realtime_data(sdc_provider: SdcProvider):
