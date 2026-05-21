@@ -5,9 +5,10 @@ from io import BytesIO
 
 from lxml import etree
 
-from sdc11073.dispatch import DispatchKey, RequestDispatcher
+from sdc11073.dispatch import DispatchKey, RequestDispatcher, RequestData
 from sdc11073.namespaces import EventingActions
 from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.pysoap.msgfactory import CreatedMessage
 from sdc11073.xml_types import mex_types
 from sdc11073.xml_types.addressing_types import EndpointReferenceType
 from sdc11073.xml_types.dpws_types import HostedServiceType
@@ -15,6 +16,9 @@ from sdc11073.xml_types.dpws_types import HostedServiceType
 if typing.TYPE_CHECKING:
     import pathlib
     from sdc11073 import xml_utils
+    from sdc11073.xml_types import actions
+    from sdc11073.provider import SdcProvider, subscriptionmgr_base
+    from collections.abc import Sequence
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
@@ -36,39 +40,36 @@ def etree_from_file(path: str | pathlib.Path) -> xml_utils.LxmlElement:
 class _EventService(RequestDispatcher):
     """A service that offers subscriptions."""
 
-    def __init__(self, sdc_device, subscriptions_manager, offered_subscriptions):
+    def __init__(self, sdc_device: SdcProvider, subscriptions_manager: subscriptionmgr_base.SubscriptionsManagerBase | None, offered_subscriptions: Sequence[actions.Actions]):
         super().__init__()
         self._msg_reader = sdc_device.msg_reader
         self._subscriptions_manager = subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.WSE.tag('Subscribe')),
-                                   self._on_subscribe)
-        self.register_post_handler(DispatchKey(EventingActions.Unsubscribe, ns_hlp.WSE.tag('Unsubscribe')),
-                                   self._on_unsubscribe)
-        self.register_post_handler(DispatchKey(EventingActions.GetStatus, ns_hlp.WSE.tag('GetStatus')),
-                                   self._on_get_status)
-        self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.WSE.tag('Renew')),
-                                   self._on_renew_status)
+        if subscriptions_manager is not None:
+            self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.WSE.tag('Subscribe')),
+                                       self._on_subscribe)
+            self.register_post_handler(DispatchKey(EventingActions.Unsubscribe, ns_hlp.WSE.tag('Unsubscribe')),
+                                       self._on_unsubscribe)
+            self.register_post_handler(DispatchKey(EventingActions.GetStatus, ns_hlp.WSE.tag('GetStatus')),
+                                       self._on_get_status)
+            self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.WSE.tag('Renew')),
+                                       self._on_renew_status)
 
     @property
-    def subscriptions_manager(self):
+    def subscriptions_manager(self) -> subscriptionmgr_base.SubscriptionsManagerBase | None:
         return self._subscriptions_manager
 
-    def _on_subscribe(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data)
-        return returned_envelope
+    def _on_subscribe(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_subscribe_request(request_data)
 
-    def _on_unsubscribe(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_unsubscribe_request(request_data)
-        return returned_envelope
+    def _on_unsubscribe(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_unsubscribe_request(request_data)
 
-    def _on_get_status(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_get_status_request(request_data)
-        return returned_envelope
+    def _on_get_status(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_get_status_request(request_data)
 
-    def _on_renew_status(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_renew_request(request_data)
-        return returned_envelope
+    def _on_renew_status(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_renew_request(request_data)
 
 
 class DPWSHostedService(_EventService):
