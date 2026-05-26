@@ -1,7 +1,5 @@
 """Metadata exchange classes."""
 
-import typing
-
 from sdc11073.namespaces import default_ns_helper
 
 from . import xml_structure as cp
