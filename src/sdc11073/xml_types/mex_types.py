@@ -114,7 +114,7 @@ class Metadata(MessageType):
         self.relationship = None
 
     @classmethod
-    def from_node(cls, node) -> typing.Self:  # noqa: ANN001
+    def from_node(cls, node):  # noqa: ANN001, ANN206
         """Default from_node Constructor that provides no arguments for class __init__."""
         meta_data = cls()
         for section_node in node[0]:

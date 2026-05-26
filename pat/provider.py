@@ -128,7 +128,8 @@ def provide_localized_texts(sdc_provider: SdcProvider):
     if storage is None:
         return
     file = pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2LocalizedTextsV2.json').absolute()
-    localized_texts = json.loads(file.read_text())
+    # on Windows, default encoding is cp1252 which cannot decode byte 0x81. Therefore, set utf-8 explicitly
+    localized_texts = json.loads(file.read_text(encoding='utf-8'))
     for text in localized_texts:
         storage.add(
             LocalizedText(
