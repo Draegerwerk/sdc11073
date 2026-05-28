@@ -94,8 +94,8 @@ class ConsumerMdibMethodsReferenceTest(ConsumerMdibMethods):
         super()._on_description_modification_report(received_message_data)
 
 
-def get_mdib(consumer: SdcConsumer) -> ConsumerMdib:
-    """Get the consumer mdib with the extra consumer mdib methods relevant for pat tests."""
+def init_mdib(consumer: SdcConsumer) -> ConsumerMdib:
+    """Initialize the consumer mdib with the extra consumer mdib methods relevant for pat tests."""
     mdib = ConsumerMdib(consumer, extras_cls=ConsumerMdibMethodsReferenceTest)
     mdib.init_mdib()
     return mdib

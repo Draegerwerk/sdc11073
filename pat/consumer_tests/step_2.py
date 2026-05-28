@@ -48,7 +48,7 @@ def test_2b(consumer: SdcConsumer) -> tuple[bool, ConsumerMdib]:
     max_subscription_duration = 15
     consumer.start_all()  # makes a subscription and requests 60 seconds per default in do_subscribe
     # initializing the mdib immediately after subscribing avoids processing many reports with outdated mdib versions
-    mdib = consumer_mdib.get_mdib(consumer)
+    mdib = consumer_mdib.init_mdib(consumer)
     for filter_text, subscription in consumer.subscription_mgr.subscriptions.items():
         filter_text: str
         subscription: ConsumerSubscription
