@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
 
+### Removed
+
+- `SafetyInformation.xsd` as it is not used in the code 
+
 ## [v2.3.0] - 2025-07-08
 
 ### Added:
