@@ -65,11 +65,17 @@ class DiscoProxyClient:
     def __init__(
         self,
         disco_proxy_address: str,
-        my_address: str,
+        host_address: str,
         ssl_context_container: SSLContextContainer | None = None,
     ):
+        """Disco proxy client constructor.
+
+        :param disco_proxy_address: Address of the disco proxy, e.g. 127.0.0.1:9999
+        :param host_address: The address of this host. Used as wse:NotifyTo/@Address to subscribe to the disco proxy.
+        :param ssl_context_container: ssl configuration container. If None, no encryption is used.
+        """
         self._proxy_address = disco_proxy_address
-        self._my_address = my_address
+        self._host_address = host_address
         self._ssl_context_container = ssl_context_container
         self._logger = get_logger_adapter('sdc.disco')
         self._local_services: dict[str, Service] = {}
@@ -84,26 +90,25 @@ class DiscoProxyClient:
             msg_reader=message_reader,
         )
         self._http_server = HttpServerThreadBase(
-            my_address,
+            host_address,
             ssl_context_container.server_context if ssl_context_container else None,
             logger=get_logger_adapter('sdc.disco.httpsrv'),
             supported_encodings=['gzip'],
         )
 
         self._msg_converter = MessageConverterMiddleware(message_reader, message_factory, self._logger, self)
-        self._my_server_port = None
         self.subscribe_response = None
 
-    def start(self, subscribe: bool = True):
+    def start(self, subscribe: bool = True, http_server_start_timeout: float = 60.0):
         """Subscribe."""
         # first start http server, the services need to know the ip port number
+        self._logger.info('Starting http server ...')
         self._http_server.start()
 
-        event_is_set = self._http_server.started_evt.wait(timeout=15.0)
-        if not event_is_set:
-            self._logger.error('Cannot start device, start event of http server not set.')
-            raise RuntimeError('Cannot start device, start event of http server not set.')
-        self._my_server_port = self._http_server.my_port
+        if not self._http_server.started_evt.wait(timeout=http_server_start_timeout):
+            msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
+            raise RuntimeError(msg)
+        self._logger.info('Http server started. Serving EventSink on %s', self._http_server.base_url)
         self._http_server.dispatcher.register_instance('', self._msg_converter)
 
         if subscribe:
@@ -116,10 +121,10 @@ class DiscoProxyClient:
             self.send_unsubscribe()
         self._http_server.stop()
 
-    def get_active_addresses(self) -> list[str]:
+    @property
+    def active_address(self) -> str:
         """Get active addresses."""
-        # TODO: do not return list  # noqa: FIX002, TD002, TD003
-        return [self._my_address]
+        return self._host_address
 
     def search_services(
         self,
@@ -197,7 +202,8 @@ class DiscoProxyClient:
     def send_subscribe(self) -> ReceivedMessage:
         """Send subscribe message."""
         subscribe_request = eventing_types.Subscribe()
-        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._my_address}:{self._my_server_port}'
+        assert self._http_server.server_port is not None, 'http server port is not set'
+        subscribe_request.Delivery.NotifyTo.Address = f'https://{self._host_address}:{self._http_server.server_port}'
         subscribe_request.Expires = 3600
         subscribe_request.set_filter('', dialect='http://discoproxy')
         inf = HeaderInformationBlock(action=subscribe_request.action, addr_to=ADDRESS_ALL)
@@ -332,7 +338,6 @@ if __name__ == '__main__':
         )
 
         dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
-        specific_components = None
         return SdcProvider(
             wsd,
             dpws_model,
@@ -340,7 +345,6 @@ if __name__ == '__main__':
             my_mdib,
             UUID(uuid_str),
             ssl_context_container=ssl_contexts,
-            specific_components=specific_components,
             max_subscription_duration=15,
         )
 
@@ -350,8 +354,11 @@ if __name__ == '__main__':
         for the_service in the_services:
             log.info('found service: %r', the_service)
 
-    def main():
-        """Execute disco proxy."""
+    def main(http_server_start_timeout: float = 60.0):
+        """Execute disco proxy.
+
+        param http_server_start_timeout: timeout to start the internal http server
+        """
         # example code how to use the DiscoProxyClient.
         # It assumes a discovery proxy is reachable on disco_ip address.
         basic_logging_setup()
@@ -379,7 +386,7 @@ if __name__ == '__main__':
         )
 
         proxy = DiscoProxyClient(disco_ip, my_ip, ssl_contexts)
-        proxy.start()
+        proxy.start(http_server_start_timeout=http_server_start_timeout)
         try:
             services = proxy.search_services()
             log_services(logger, services)

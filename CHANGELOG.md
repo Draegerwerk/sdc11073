@@ -11,14 +11,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Deprecation info to the `commlog` module.
 - support for python 3.14 [#438](https://github.com/Draegerwerk/sdc11073/issues/438)
+- context manager support to `WSDiscovery`.
+- `isoduration.XsdDatetime` [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
+- sanity check that fully qualified hostname for the SDC Provider resolves to wsdiscovery active address
+- add a flag to indicate that a state is an AlertSystemState
 
 ### Changed
 
+- MDIB lock is now an RLock - this enables locking of the mdib and prevents failures when accessing MDIB entities [#481](https://github.com/Draegerwerk/sdc11073/pull/481)
 - renamed parameter in ``SdcConsumer.do_subscribe`` from `expire_minutes` to `expire_seconds`. It was already handled as seconds but was named wrong [#436](https://github.com/Draegerwerk/sdc11073/pull/436)
+- increase the default timeout for starting the HTTP server and make this timeout configurable to mitigate startup delays, issue [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
+- descriptor and state containers can not be checked for equivalence (e.g., when processing description-modification reports and state-update reports) - as a result, no error is logged if a descriptor or state version is updated without any actual content change
+- no implied value for the pm:CodedValue/@CodingSystem is provided (the implied value is defined differently in BICEPS IEEE 11073-10207-2017 and BICEPS IEEE 11073-10207-2017/Cor 1-2025) 
+- comparison of pm:CodedValue and pm:Translation instances is not provided with the sdc11073 package and will raise an exception - for further details, refer to src/sdc11073/mdib/mdibaccessor.py and tutorial/codedvaluecomparator.py in the project’s source code
+- implementation of SDC Provider Roles is not part of the sdc11073 package - example implementations can be found in the tutorial folder of the project’s source code
+- several API changes were introduced, including the renaming and relocation of classes and methods (e.g., the SdcConsumer and SDCProvider interfaces, SdcProviderComponents and SdcConsumerComponents interfaces)
+- `PatientDemographicsCoreData.DateOfBirth` now requires `isoduration.XsdDatetime` as type [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
+- wsdiscovery method `get_active_addresses` to property `active_address`
+- command line parameter changed from --adapter to --ip for both provider and consumer
+- SDC Consumer parameter renamed from `device_location` to `provider_address` to better reflect the expected value
+- DiscoProxyClient parameter renamed from `my_address` to `host_address` to better reflect the expected value
 
 ### Fixed
 
+- when generating dpws:Scope entries based on pm:AbstractComplexDeviceComponentDescriptor/pm:Type the implied value for a pm:Type/@CodingSystem is not set explicitly anymore, in addition the used values are now %-encoded before usage
 - fixed schema validation error when using lxml>=6.0.0 [#432](https://github.com/Draegerwerk/sdc11073/issues/432)
+- `source` index [#444](https://github.com/Draegerwerk/sdc11073/issues/444)
+- fix type annotation of EnumStringMetricDescriptor/AllowedValue/Identification
+- parsing of duration and datetimes [#446](https://github.com/Draegerwerk/sdc11073/issues/446)
+- deadlock during initialization of mdib due to a wrong registered method [#452](https://github.com/Draegerwerk/sdc11073/issues/452)
+- remove dns resolution to prevent http server start issues [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
+- when a consumer subscribed without an `EndTo` and the provider tries to send an unsubscribe this would result in an `AttributeError` [#475](https://github.com/Draegerwerk/sdc11073/issues/475)
+- when a consumer subscribed with an `EndTo` the provider now sends the `SubscriptionEnd` actually to the end to url instead of notify to url [#475](https://github.com/Draegerwerk/sdc11073/issues/475)
+
+### Removed
+
+- `isoduration.UTC` class. Use `datetime.timezone.utc` instead. [#435](https://github.com/Draegerwerk/sdc11073/pull/445)
+- support for python 3.9
+- MDIBs with entity handling [#462](https://github.com/Draegerwerk/sdc11073/pull/462)
+- methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
 
 ### Removed
 

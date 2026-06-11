@@ -21,7 +21,8 @@ if typing.TYPE_CHECKING:
     from collections.abc import Sequence
     from concurrent.futures import Future
 
-    from sdc11073.consumer import SdcConsumer, operations
+    from sdc11073.consumer import operations
+    from sdc11073.consumer.consumerimpl import SdcConsumer
     from sdc11073.consumer.serviceclients import contextservice, setservice
 
 __STEP__ = '6'
@@ -171,7 +172,7 @@ def test_6b(consumer: SdcConsumer) -> bool:  # noqa: C901
     return any(test_results) and all(test_results)
 
 
-def test_6c(consumer: SdcConsumer) -> bool:
+def test_6c(consumer: SdcConsumer) -> bool:  # noqa: PLR0912
     """The Reference Consumer invokes SetValue:
     - The Reference Provider immediately responds with Fin
     - The Reference Provider sends Fin as a report in addition to the response
@@ -190,14 +191,25 @@ def test_6c(consumer: SdcConsumer) -> bool:
         state: statecontainers.SetValueOperationStateContainer = consumer.mdib.states.descriptor_handle.get_one(
             operation.Handle,
         )
-        if len(state.AllowedRange) == 0:
-            value = random.randint(1, 10000)
-        else:
+        op_target_descr = consumer.mdib.descriptions.handle.get_one(operation.OperationTarget, allow_none=False)
+
+        if len(state.AllowedRange):
             value = random.choice([state.AllowedRange[0].Lower, state.AllowedRange[0].Upper])
-        fut: Future[operations.OperationResult] = set_service.set_numeric_value(
-            operation.Handle,
-            value,
-        )
+        elif (
+            isinstance(
+                op_target_descr,
+                (
+                    descriptorcontainers.NumericMetricDescriptorContainer,
+                    descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer,
+                    descriptorcontainers.DistributionSampleArrayMetricDescriptorContainer,
+                ),
+            )
+            and op_target_descr.TechnicalRange
+        ):
+            value = random.choice([op_target_descr.TechnicalRange[0].Lower, op_target_descr.TechnicalRange[0].Upper])
+        else:
+            value = random.randint(1, 10000)
+
         if operation.MaxTimeToFinish is None:
             timeout = 10.0
             logger.warning(
@@ -208,6 +220,12 @@ def test_6c(consumer: SdcConsumer) -> bool:
             )
         else:
             timeout = operation.MaxTimeToFinish
+
+        fut: Future[operations.OperationResult] = set_service.set_numeric_value(
+            operation.Handle,
+            value,
+        )
+
         try:
             operation_result = fut.result(timeout)
         except TimeoutError:
@@ -442,7 +460,8 @@ def _propose_states(
         elif pm_qnames.StringMetricState == proposed_state.NODETYPE:
             proposed_state.MetricValue.Value = ''.join(random.choice(string.ascii_letters) for _ in range(10))
         elif pm_qnames.NumericMetricState == proposed_state.NODETYPE:
-            proposed_state.MetricValue.Value = decimal.Decimal(str(random.random()))
+            # only 5 decimal places because of float conversion error
+            proposed_state.MetricValue.Value = decimal.Decimal(f'{random.uniform(0, 100):.5f}')
         else:
             raise NotImplementedError(proposed_state.NODETYPE)
     return proposed_states
@@ -679,7 +698,7 @@ def test_6f(consumer: SdcConsumer) -> bool:  # noqa: PLR0915
         )
         test_results.append(True)
 
-    if operation_result.InvocationInfo.InvocationState in (msg_types.InvocationState.FINISHED,):
+    if operation_result.InvocationInfo.InvocationState == msg_types.InvocationState.FINISHED:
         logger.info(
             'The metric with the handle %s contains %s as @MetricValue/@Value.',
             activate_operation.OperationTarget,

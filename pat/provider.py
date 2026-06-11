@@ -3,28 +3,32 @@
 from __future__ import annotations
 
 import datetime
+import json
 import pathlib
 import random
+import sys
 import traceback
 from decimal import Decimal
 from time import sleep
 from typing import TYPE_CHECKING
 
+from tutorial.productandroles.exampleproduct import EXAMPLE_ROLE_PROVIDER_COMPONENTS
+from tutorial.productandroles.waveformprovider.waveformgenerators import WaveformGeneratorBase
+
 from pat import common
 from sdc11073 import location
 from sdc11073.mdib import ProviderMdib, descriptorcontainers
-from sdc11073.provider import SdcProvider, components
-from sdc11073.provider.servicesfactory import DPWSHostedService, HostedServices, mk_dpws_hosts
+from sdc11073.provider import SdcProvider
+from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
-from sdc11073.roles.waveformprovider import waveforms
 from sdc11073.wsdiscovery import WSDiscovery
-from sdc11073.xml_types import pm_qnames
+from sdc11073.xml_types import pm_qnames, pm_types
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
+from sdc11073.xml_types.pm_types import LocalizedText
 
 if TYPE_CHECKING:
     import sdc11073.certloader
-    from sdc11073.provider.components import SdcProviderComponents
 
 numeric_metric_handle = 'numeric_metric_0.channel_0.vmd_0.mds_0'
 string_metric_handle = 'string_metric_0.channel_0.vmd_0.mds_0'
@@ -94,28 +98,7 @@ enable_6e = True
 enable_6f = True
 
 
-def mk_all_services_except_localization(
-    sdc_provider: SdcProvider,
-    components: SdcProviderComponents,
-    subscription_managers: dict,
-) -> HostedServices:
-    """Create all services except localization service."""
-    # register all services with their endpoint references acc. to structure in components
-    dpws_services, services_by_name = mk_dpws_hosts(sdc_provider, components, DPWSHostedService, subscription_managers)
-    return HostedServices(
-        dpws_services,
-        services_by_name['GetService'],
-        set_service=services_by_name.get('SetService'),
-        context_service=services_by_name.get('ContextService'),
-        description_event_service=services_by_name.get('DescriptionEventService'),
-        state_event_service=services_by_name.get('StateEventService'),
-        waveform_service=services_by_name.get('WaveformService'),
-        containment_tree_service=services_by_name.get('ContainmentTreeService'),
-        # localization_service=services_by_name.get('LocalizationService')  # noqa: ERA001
-    )
-
-
-class RealtimeGenerator4f(waveforms.WaveformGeneratorBase):
+class RealtimeGenerator4f(WaveformGeneratorBase):
     """Generator for 4f test."""
 
     def __init__(self):
@@ -127,7 +110,7 @@ class RealtimeGenerator4f(waveforms.WaveformGeneratorBase):
         return [random.random() for _ in range(100)]
 
 
-class RealtimeGenerator4i(waveforms.WaveformGeneratorBase):
+class RealtimeGenerator4i(WaveformGeneratorBase):
     """Generator for 4i test."""
 
     def __init__(self):
@@ -137,6 +120,26 @@ class RealtimeGenerator4i(waveforms.WaveformGeneratorBase):
     def next_samples(self, _: int) -> list[float]:
         """4f requires 100 samples per message."""
         return [random.random() for _ in range(50)]
+
+
+def provide_localized_texts(sdc_provider: SdcProvider):
+    """Populate the provider's LocalizationStorage with texts required by PAT test 7."""
+    storage = sdc_provider.localization_storage
+    if storage is None:
+        return
+    file = pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2LocalizedTextsV2.json').absolute()
+    # on Windows, default encoding is cp1252 which cannot decode byte 0x81. Therefore, set utf-8 explicitly
+    localized_texts = json.loads(file.read_text(encoding='utf-8'))
+    for text in localized_texts:
+        storage.add(
+            LocalizedText(
+                text['value'],
+                lang=text['language'],
+                ref=text['ref'],
+                version=text['version'],
+                text_width=pm_types.LocalizedTextWidth(text['width']),
+            )
+        )
 
 
 def provide_realtime_data(sdc_provider: SdcProvider):
@@ -163,7 +166,7 @@ def provide_realtime_data(sdc_provider: SdcProvider):
 
 
 def run_provider(  # noqa: C901, PLR0912, PLR0915
-    adapter: str,
+    ip: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
     certificate_password: str | None,
@@ -172,314 +175,303 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
     ssl_context_container: sdc11073.certloader.SSLContextContainer | None = None
     if certificate_folder:
         ssl_context_container = common.get_ssl_context(certificate_folder, certificate_password)
-    wsd = WSDiscovery(adapter)
-    wsd.start()
-    my_mdib = ProviderMdib.from_mdib_file(str(pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')))
-    print(f'UUID for this device is {epr}')
-    loc = location.SdcLocation(
-        fac='fac1',
-        poc='poc1',
-        bed='bed1',
-    )
-    print(f'location for this device is {loc}')
-    dpws_model = ThisModelType(
-        manufacturer='sdc11073',
-        manufacturer_url='www.sdc11073.com',
-        model_name='TestDevice',
-        model_number='1.0',
-        model_url='www.sdc11073.com/model',
-        presentation_url='www.sdc11073.com/model/presentation',
-    )
 
-    dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
-    if USE_REFERENCE_PARAMETERS:
-        tmp = {'StateEvent': SubscriptionsManagerReferenceParamAsync}
-        specific_components = components.SdcProviderComponents(
-            subscriptions_manager_class=tmp,
-            hosted_services={
-                'Get': [components.GetService],
-                'StateEvent': [
-                    components.StateEventService,
-                    components.ContextService,
-                    components.DescriptionEventService,
-                    components.WaveformService,
-                ],
-                'Set': [components.SetService],
-                'ContainmentTree': [components.ContainmentTreeService],
-            },
-            soap_client_class=SoapClientAsync,
+    with WSDiscovery(ip) as wsd:
+        my_mdib = ProviderMdib.from_mdib_file(str(pathlib.Path(__file__).parent.joinpath('PlugathonMdibV2.xml')))
+        print(f'UUID for this device is {epr}')
+        loc = location.SdcLocation(
+            fac='fac1',
+            poc='poc1',
+            bed='bed1',
         )
-    else:
-        specific_components = components.SdcProviderComponents(
-            hosted_services={
-                'Get': [components.GetService],
-                'StateEvent': [
-                    components.StateEventService,
-                    components.ContextService,
-                    components.DescriptionEventService,
-                    components.WaveformService,
-                ],
-                'Set': [components.SetService],
-                'ContainmentTree': [components.ContainmentTreeService],
-            },
+        print(f'location for this device is {loc}')
+        dpws_model = ThisModelType(
+            manufacturer='sdc11073',
+            manufacturer_url='www.sdc11073.com',
+            model_name='TestDevice',
+            model_number='1.0',
+            model_url='www.sdc11073.com/model',
+            presentation_url='www.sdc11073.com/model/presentation',
         )
-    sdc_provider = SdcProvider(
-        wsd,
-        dpws_model,
-        dpws_device,
-        my_mdib,
-        epr,
-        ssl_context_container=ssl_context_container,
-        specific_components=specific_components,
-        max_subscription_duration=15,
-    )
-    sdc_provider.start_all()
 
-    # disable delayed processing for 2 operations
-    if enable_6c:
-        sdc_provider.get_operation_by_handle('set_value_0.sco.mds_0').delayed_processing = False
-    if not enable_6d:
-        sdc_provider.get_operation_by_handle('set_string_0.sco.mds_0').delayed_processing = False
-    if enable_6e:
-        sdc_provider.get_operation_by_handle('set_metric_0.sco.vmd_1.mds_0').delayed_processing = False
-    if enable_6f:
-        sdc_provider.get_operation_by_handle('activate_1.sco.mds_0').delayed_processing = False
+        dpws_device = ThisDeviceType(friendly_name='TestDevice', firmware_version='Version1', serial_number='12345')
 
-    pm = my_mdib.data_model.pm_names
-    pm_types = my_mdib.data_model.pm_types
-    validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
-    sdc_provider.set_location(loc, validators)
-    if enable_4f:
-        provide_realtime_data(sdc_provider)
-    patient_descriptor_handle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
-    with my_mdib.context_state_transaction() as mgr:
-        patient_container = mgr.mk_context_state(patient_descriptor_handle)
-        patient_container.CoreData.Givenname = 'Given'
-        patient_container.CoreData.Middlename = ['Middle']
-        patient_container.CoreData.Familyname = 'Familiy'
-        patient_container.CoreData.Birthname = 'Birthname'
-        patient_container.CoreData.Title = 'Title'
-        patient_container.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
-        patient_container.Validator.extend(validators)
-        identifiers = []
-        patient_container.Identification = identifiers
+        provider_components = provider_components_async_factory()
+        if USE_REFERENCE_PARAMETERS:
+            subscriptions_manager_class_copy = dict(provider_components.subscriptions_manager_class)
+            subscriptions_manager_class_copy.update(
+                {
+                    'StateEvent': SubscriptionsManagerReferenceParamAsync,
+                },
+            )
+            provider_components.subscriptions_manager_class = subscriptions_manager_class_copy
+            provider_components.soap_client_class = SoapClientAsync
 
-    all_descriptors = list(sdc_provider.mdib.descriptions.objects)
-    all_descriptors.sort(key=lambda x: x.Handle)
-    numeric_metric = None
-    string_metric = None
-    alert_condition = None
-    alert_signal = None
-    battery_descriptor = None
-    string_operation = None
-    value_operation = None
+        sdc_provider = SdcProvider(
+            wsd,
+            dpws_model,
+            dpws_device,
+            my_mdib,
+            epr,
+            ssl_context_container=ssl_context_container,
+            components=provider_components,
+            role_provider_components=EXAMPLE_ROLE_PROVIDER_COMPONENTS,
+            max_subscription_duration=15,
+        )
+        provide_localized_texts(sdc_provider)
+        sdc_provider.start_all()
 
-    # search for descriptors of specific types
-    for one_descriptor in all_descriptors:
-        if one_descriptor.Handle == numeric_metric_handle:
-            numeric_metric = one_descriptor
-        if one_descriptor.Handle == string_metric_handle:
-            string_metric = one_descriptor
-        if one_descriptor.Handle == alert_condition_handle:
-            alert_condition = one_descriptor
-        if one_descriptor.Handle == alert_signal_handle:
-            alert_signal = one_descriptor
-        if one_descriptor.Handle == battery_handle:
-            battery_descriptor = one_descriptor
-        if one_descriptor.Handle == set_value_handle:
-            value_operation = one_descriptor
-        if one_descriptor.Handle == set_string_handle:
-            string_operation = one_descriptor
+        # disable delayed processing for 2 operations
+        if enable_6c:
+            sdc_provider.get_operation_by_handle('set_value_0.sco.mds_0').delayed_processing = False
+        if not enable_6d:
+            sdc_provider.get_operation_by_handle('set_string_0.sco.mds_0').delayed_processing = False
+        if enable_6e:
+            sdc_provider.get_operation_by_handle('set_metric_0.sco.vmd_1.mds_0').delayed_processing = False
+        if enable_6f:
+            sdc_provider.get_operation_by_handle('activate_1.sco.mds_0').delayed_processing = False
 
-    with sdc_provider.mdib.metric_state_transaction() as mgr:
-        state = mgr.get_state(value_operation.OperationTarget)
-        if not state.MetricValue:
-            state.mk_metric_value()
-        state = mgr.get_state(string_operation.OperationTarget)
-        if not state.MetricValue:
-            state.mk_metric_value()
-    print('Running forever, CTRL-C to  exit')
-    try:
-        str_current_value = 0
-        while True:
-            if numeric_metric:
-                try:
-                    if enable_4a:
-                        with sdc_provider.mdib.metric_state_transaction() as mgr:
-                            state = mgr.get_state(numeric_metric.Handle)
-                            if not state.MetricValue:
-                                state.mk_metric_value()
-                            if state.MetricValue.Value is None:
-                                state.MetricValue.Value = Decimal(0)
-                            else:
-                                state.MetricValue.Value += Decimal(1)
-                    if enable_5a3:
+        pm = my_mdib.data_model.pm_names
+        pm_types = my_mdib.data_model.pm_types
+        validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
+        sdc_provider.set_location(loc, validators)
+        if enable_4f:
+            provide_realtime_data(sdc_provider)
+        patient_descriptor_handle = my_mdib.descriptions.NODETYPE.get(pm.PatientContextDescriptor)[0].Handle
+        with my_mdib.context_state_transaction() as mgr:
+            patient_container = mgr.mk_context_state(patient_descriptor_handle)
+            patient_container.CoreData.Givenname = 'Given'
+            patient_container.CoreData.Middlename = ['Middle']
+            patient_container.CoreData.Familyname = 'Familiy'
+            patient_container.CoreData.Birthname = 'Birthname'
+            patient_container.CoreData.Title = 'Title'
+            patient_container.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+            patient_container.Validator.extend(validators)
+            identifiers = []
+            patient_container.Identification = identifiers
+
+        all_descriptors = list(sdc_provider.mdib.descriptions.objects)
+        all_descriptors.sort(key=lambda x: x.Handle)
+        numeric_metric = None
+        string_metric = None
+        alert_condition = None
+        alert_signal = None
+        battery_descriptor = None
+        string_operation = None
+        value_operation = None
+
+        # search for descriptors of specific types
+        for one_descriptor in all_descriptors:
+            if one_descriptor.Handle == numeric_metric_handle:
+                numeric_metric = one_descriptor
+            if one_descriptor.Handle == string_metric_handle:
+                string_metric = one_descriptor
+            if one_descriptor.Handle == alert_condition_handle:
+                alert_condition = one_descriptor
+            if one_descriptor.Handle == alert_signal_handle:
+                alert_signal = one_descriptor
+            if one_descriptor.Handle == battery_handle:
+                battery_descriptor = one_descriptor
+            if one_descriptor.Handle == set_value_handle:
+                value_operation = one_descriptor
+            if one_descriptor.Handle == set_string_handle:
+                string_operation = one_descriptor
+
+        with sdc_provider.mdib.metric_state_transaction() as mgr:
+            state = mgr.get_state(value_operation.OperationTarget)
+            if not state.MetricValue:
+                state.mk_metric_value()
+            state = mgr.get_state(string_operation.OperationTarget)
+            if not state.MetricValue:
+                state.mk_metric_value()
+        print('Running forever, CTRL-C to  exit')
+        try:
+            str_current_value = 0
+            while True:
+                if numeric_metric:
+                    try:
+                        if enable_4a:
+                            with sdc_provider.mdib.metric_state_transaction() as mgr:
+                                state = mgr.get_state(numeric_metric.Handle)
+                                if not state.MetricValue:
+                                    state.mk_metric_value()
+                                if state.MetricValue.Value is None:
+                                    state.MetricValue.Value = Decimal(0)
+                                else:
+                                    state.MetricValue.Value += Decimal(1)
+                        if enable_5a3:
+                            with sdc_provider.mdib.descriptor_transaction() as mgr:
+                                descriptor: descriptorcontainers.AbstractMetricDescriptorContainer = mgr.get_descriptor(
+                                    numeric_metric.Handle,
+                                )
+                                descriptor.Unit.Code = 'code1' if descriptor.Unit.Code == 'code2' else 'code2'
+                    except Exception:  # noqa: BLE001
+                        print(traceback.format_exc())
+                else:
+                    print('Numeric Metric not found in MDIB!')
+                if string_metric:
+                    try:
+                        if enable_4b:
+                            with sdc_provider.mdib.metric_state_transaction() as mgr:
+                                state = mgr.get_state(string_metric.Handle)
+                                if not state.MetricValue:
+                                    state.mk_metric_value()
+                                state.MetricValue.Value = f'my string {str_current_value}'
+                                str_current_value += 1
+                    except Exception:  # noqa: BLE001
+                        print(traceback.format_exc())
+                else:
+                    print('Numeric Metric not found in MDIB!')
+
+                if alert_condition:
+                    try:
+                        if enable_4c:
+                            with sdc_provider.mdib.alert_state_transaction() as mgr:
+                                state = mgr.get_state(alert_condition.Handle)
+                                state.Presence = not state.Presence
+                    except Exception:  # noqa: BLE001
+                        print(traceback.format_exc())
+                    try:
                         with sdc_provider.mdib.descriptor_transaction() as mgr:
-                            descriptor: descriptorcontainers.AbstractMetricDescriptorContainer = mgr.get_descriptor(
-                                numeric_metric.Handle,
+                            now = datetime.datetime.now(
+                                datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc
+                            )  # support 3.10
+                            text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
+                            descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(
+                                alert_condition.Handle,
                             )
-                            descriptor.Unit.Code = 'code1' if descriptor.Unit.Code == 'code2' else 'code2'
-                except Exception:  # noqa: BLE001
-                    print(traceback.format_exc())
-            else:
-                print('Numeric Metric not found in MDIB!')
-            if string_metric:
-                try:
-                    if enable_4b:
-                        with sdc_provider.mdib.metric_state_transaction() as mgr:
-                            state = mgr.get_state(string_metric.Handle)
-                            if not state.MetricValue:
-                                state.mk_metric_value()
-                            state.MetricValue.Value = f'my string {str_current_value}'
-                            str_current_value += 1
-                except Exception:  # noqa: BLE001
-                    print(traceback.format_exc())
-            else:
-                print('Numeric Metric not found in MDIB!')
+                            if enable_5a1:
+                                if len(descriptor.Type.ConceptDescription) == 0:
+                                    descriptor.Type.ConceptDescription.append(pm_types.LocalizedText(text))
+                                else:
+                                    descriptor.Type.ConceptDescription[0].text = text
+                            if enable_5a2:
+                                if len(descriptor.CauseInfo) == 0:
+                                    cause_info = pm_types.CauseInfo()
+                                    cause_info.RemedyInfo = pm_types.RemedyInfo()
+                                    descriptor.CauseInfo.append(cause_info)
+                                if len(descriptor.CauseInfo[0].RemedyInfo.Description) == 0:
+                                    descriptor.CauseInfo[0].RemedyInfo.Description.append(pm_types.LocalizedText(text))
+                                else:
+                                    descriptor.CauseInfo[0].RemedyInfo.Description[0].text = text
+                    except Exception:  # noqa: BLE001
+                        print(traceback.format_exc())
 
-            if alert_condition:
-                try:
-                    if enable_4c:
-                        with sdc_provider.mdib.alert_state_transaction() as mgr:
-                            state = mgr.get_state(alert_condition.Handle)
-                            state.Presence = not state.Presence
-                except Exception:  # noqa: BLE001
-                    print(traceback.format_exc())
-                try:
-                    with sdc_provider.mdib.descriptor_transaction() as mgr:
-                        now = datetime.datetime.now(tz=datetime.UTC)
-                        text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
-                        descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(
-                            alert_condition.Handle,
-                        )
-                        if enable_5a1:
-                            if len(descriptor.Type.ConceptDescription) == 0:
-                                descriptor.Type.ConceptDescription.append(pm_types.LocalizedText(text))
+                else:
+                    print('Alert condition not found in MDIB')
+
+                if alert_signal:
+                    try:
+                        if enable_4d:
+                            with sdc_provider.mdib.alert_state_transaction() as mgr:
+                                state = mgr.get_state(alert_signal.Handle)
+                                if state.Slot is None:
+                                    state.Slot = 1
+                                else:
+                                    state.Slot += 1
+                    except Exception:  # noqa:BLE001
+                        print(traceback.format_exc())
+                else:
+                    print('Alert signal not found in MDIB')
+
+                if battery_descriptor:
+                    try:
+                        with sdc_provider.mdib.component_state_transaction() as mgr:
+                            state = mgr.get_state(battery_descriptor.Handle)
+                            if state.Voltage is None:
+                                state.Voltage = pm_types.Measurement(
+                                    value=Decimal('14.4'),
+                                    unit=pm_types.CodedValue('xyz'),
+                                )
                             else:
-                                descriptor.Type.ConceptDescription[0].text = text
-                        if enable_5a2:
-                            if len(descriptor.CauseInfo) == 0:
-                                cause_info = pm_types.CauseInfo()
-                                cause_info.RemedyInfo = pm_types.RemedyInfo()
-                                descriptor.CauseInfo.append(cause_info)
-                            if len(descriptor.CauseInfo[0].RemedyInfo.Description) == 0:
-                                descriptor.CauseInfo[0].RemedyInfo.Description.append(pm_types.LocalizedText(text))
-                            else:
-                                descriptor.CauseInfo[0].RemedyInfo.Description[0].text = text
-                except Exception:  # noqa: BLE001
-                    print(traceback.format_exc())
+                                state.Voltage.MeasuredValue += Decimal('0.1')
+                            print(f'battery voltage = {state.Voltage.MeasuredValue}')
+                    except Exception:  # noqa:BLE001
+                        print(traceback.format_exc())
+                else:
+                    print('battery state not found in MDIB')
 
-            else:
-                print('Alert condition not found in MDIB')
-
-            if alert_signal:
-                try:
-                    if enable_4d:
-                        with sdc_provider.mdib.alert_state_transaction() as mgr:
-                            state = mgr.get_state(alert_signal.Handle)
-                            if state.Slot is None:
-                                state.Slot = 1
-                            else:
-                                state.Slot += 1
-                except Exception:  # noqa:BLE001
-                    print(traceback.format_exc())
-            else:
-                print('Alert signal not found in MDIB')
-
-            if battery_descriptor:
                 try:
                     with sdc_provider.mdib.component_state_transaction() as mgr:
-                        state = mgr.get_state(battery_descriptor.Handle)
-                        if state.Voltage is None:
-                            state.Voltage = pm_types.Measurement(value=Decimal('14.4'), unit=pm_types.CodedValue('xyz'))
-                        else:
-                            state.Voltage.MeasuredValue += Decimal('0.1')
-                        print(f'battery voltage = {state.Voltage.MeasuredValue}')
+                        state = mgr.get_state(vmd_handle)
+                        state.OperatingHours = 2 if state.OperatingHours != 2 else 1  # noqa:PLR2004
+                        print(f'operating hours = {state.OperatingHours}')
                 except Exception:  # noqa:BLE001
                     print(traceback.format_exc())
-            else:
-                print('battery state not found in MDIB')
 
-            try:
-                with sdc_provider.mdib.component_state_transaction() as mgr:
-                    state = mgr.get_state(vmd_handle)
-                    state.OperatingHours = 2 if state.OperatingHours != 2 else 1  # noqa:PLR2004
-                    print(f'operating hours = {state.OperatingHours}')
-            except Exception:  # noqa:BLE001
-                print(traceback.format_exc())
+                try:
+                    with sdc_provider.mdib.component_state_transaction() as mgr:
+                        state = mgr.get_state(mds_handle)
+                        state.Lang = 'de' if state.Lang != 'de' else 'en'
+                        print(f'mds lang = {state.Lang}')
+                except Exception:  # noqa:BLE001
+                    print(traceback.format_exc())
 
-            try:
-                with sdc_provider.mdib.component_state_transaction() as mgr:
-                    state = mgr.get_state(mds_handle)
-                    state.Lang = 'de' if state.Lang != 'de' else 'en'
-                    print(f'mds lang = {state.Lang}')
-            except Exception:  # noqa:BLE001
-                print(traceback.format_exc())
+                # add or rm vmd
+                # Generate unique handles on each insertion to avoid recycling containment tree entries
+                # (PAT 5b requirement)
+                add_rm_mds_handle = 'mds_0'
+                # Find any existing VMDs that match the pattern 'add_rm_vmd_*'
+                existing_vmds = [
+                    desc
+                    for desc in sdc_provider.mdib.descriptions.objects
+                    if desc.Handle.startswith('add_rm_vmd_') and desc.parent_handle == add_rm_mds_handle
+                ]
 
-            # add or rm vmd
-            # Generate unique handles on each insertion to avoid recycling containment tree entries (PAT 5b requirement)
-            add_rm_mds_handle = 'mds_0'
-            # Find any existing VMDs that match the pattern 'add_rm_vmd_*'
-            existing_vmds = [
-                desc
-                for desc in sdc_provider.mdib.descriptions.objects
-                if desc.Handle.startswith('add_rm_vmd_') and desc.parent_handle == add_rm_mds_handle
-            ]
+                if not existing_vmds:
+                    # Create new VMD with unique timestamp-based handle
+                    timestamp = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000)
+                    add_rm_vmd_handle = f'add_rm_vmd_{timestamp}'
+                    add_rm_channel_handle = f'add_rm_channel_{timestamp}'
+                    add_rm_metric_handle = f'add_rm_metric_{timestamp}'
 
-            if not existing_vmds:
-                # Create new VMD with unique timestamp-based handle
-                timestamp = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000)
-                add_rm_vmd_handle = f'add_rm_vmd_{timestamp}'
-                add_rm_channel_handle = f'add_rm_channel_{timestamp}'
-                add_rm_metric_handle = f'add_rm_metric_{timestamp}'
+                    vmd = descriptorcontainers.VmdDescriptorContainer(add_rm_vmd_handle, add_rm_mds_handle)
+                    channel = descriptorcontainers.ChannelDescriptorContainer(add_rm_channel_handle, add_rm_vmd_handle)
+                    metric = descriptorcontainers.StringMetricDescriptorContainer(
+                        add_rm_metric_handle,
+                        add_rm_channel_handle,
+                    )
+                    metric.Unit = pm_types.CodedValue('123')
+                    with sdc_provider.mdib.descriptor_transaction() as mgr:
+                        mgr.add_descriptor(vmd)
+                        mgr.add_descriptor(channel)
+                        mgr.add_descriptor(metric)
+                        mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(vmd))
+                        mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(channel))
+                        mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(metric))
+                else:
+                    # Remove the oldest VMD found
+                    vmd_to_remove = existing_vmds[0]
+                    with sdc_provider.mdib.descriptor_transaction() as mgr:
+                        mgr.remove_descriptor(vmd_to_remove.Handle)
 
-                vmd = descriptorcontainers.VmdDescriptorContainer(add_rm_vmd_handle, add_rm_mds_handle)
-                channel = descriptorcontainers.ChannelDescriptorContainer(add_rm_channel_handle, add_rm_vmd_handle)
-                metric = descriptorcontainers.StringMetricDescriptorContainer(
-                    add_rm_metric_handle,
-                    add_rm_channel_handle,
-                )
-                metric.Unit = pm_types.CodedValue('123')
-                with sdc_provider.mdib.descriptor_transaction() as mgr:
-                    mgr.add_descriptor(vmd)
-                    mgr.add_descriptor(channel)
-                    mgr.add_descriptor(metric)
-                    mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(vmd))
-                    mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(channel))
-                    mgr.add_state(sdc_provider.mdib.data_model.mk_state_container(metric))
-            else:
-                # Remove the oldest VMD found
-                vmd_to_remove = existing_vmds[0]
-                with sdc_provider.mdib.descriptor_transaction() as mgr:
-                    mgr.remove_descriptor(vmd_to_remove.Handle)
+                # enable disable operation
+                with sdc_provider.mdib.operational_state_transaction() as mgr:
+                    op_state = mgr.get_state('activate_0.sco.mds_0')
+                    op_state.OperatingMode = (
+                        pm_types.OperatingMode.ENABLED
+                        if op_state.OperatingMode == pm_types.OperatingMode.ENABLED
+                        else pm_types.OperatingMode.DISABLED
+                    )
+                    print(f'operation activate_0.sco.mds_0 {op_state.OperatingMode}')
 
-            # enable disable operation
-            with sdc_provider.mdib.operational_state_transaction() as mgr:
-                op_state = mgr.get_state('activate_0.sco.mds_0')
-                op_state.OperatingMode = (
-                    pm_types.OperatingMode.ENABLED
-                    if op_state.OperatingMode == pm_types.OperatingMode.ENABLED
-                    else pm_types.OperatingMode.DISABLED
-                )
-                print(f'operation activate_0.sco.mds_0 {op_state.OperatingMode}')
-
-            sleep(5)
-    except KeyboardInterrupt:
-        print('Exiting...')
+                sleep(5)
+        except KeyboardInterrupt:
+            print('Exiting...')
 
 
 if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description='run plug-a-thon test provider')
-    parser.add_argument('--adapter', required=True, help='Network adapter IP address to use.')
+    parser.add_argument('--ip', required=True, help='Network adapter IP address to use.')
     parser.add_argument('--epr', required=True, help='Explicit endpoint reference to search for.')
     parser.add_argument('--certificate-folder', type=pathlib.Path, help='Folder containing TLS artifacts.')
     parser.add_argument('--ssl-password', help='Password for encrypted TLS private key.')
 
     args = parser.parse_args()
     run_provider(
-        adapter=args.adapter,
+        ip=args.ip,
         epr=args.epr,
         certificate_folder=args.certificate_folder,
         certificate_password=args.ssl_password,

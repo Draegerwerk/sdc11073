@@ -16,7 +16,7 @@
 	<msg:Mdib SequenceId="urn:oid:1">
 		<pm:MdDescription>
 			<pm:Mds Handle="mds0" SafetyClassification="MedA">
-				<pm:Type Code="130535"> <!-- 1:64.999 -->
+				<pm:Type Code="130535" CodingSystem="urn:oid:1.2.840.10004.1.1.1.0.0.1"> <!-- 1:64.999 -->
 						<pm:ConceptDescription Lang="en-US">not settable metrics</pm:ConceptDescription>
 				</pm:Type>
 				<pm:AlertSystem SafetyClassification="MedA" Handle="asy.mds0" SelfCheckPeriod="PT5S">

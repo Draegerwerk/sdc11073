@@ -5,6 +5,7 @@ from __future__ import annotations
 import http.client
 import socket
 from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 from lxml import etree
@@ -34,6 +35,15 @@ class DummySoapClientPool:
         return None
 
 
+@pytest.fixture
+def soap_client_pool() -> mock.MagicMock:
+    mocked_soap_client = mock.MagicMock()
+    mocked_soap_client.post_message_to = mock.MagicMock()
+    mocked_soap_client_pool = mock.MagicMock()
+    mocked_soap_client_pool.get_soap_client.return_value = mocked_soap_client
+    return mocked_soap_client_pool
+
+
 class TestSubscriptionsManager(SubscriptionsManagerBase):
     def __init__(self, sdc_definitions, msg_factory, soap_client_pool):  # noqa: ANN001
         super().__init__(sdc_definitions, msg_factory, soap_client_pool, max_subscription_duration=30, log_prefix='t')
@@ -57,7 +67,11 @@ class TestSubscriptionsManager(SubscriptionsManagerBase):
 
 def _mk_received(subscribe_msg: bytes, msg_reader: MessageReader) -> RequestData:
     rd = RequestData(
-        {}, '/uuid', 'peer', subscribe_msg, msg_reader.read_received_message(subscribe_msg, validate=False),
+        {},
+        '/uuid',
+        'peer',
+        subscribe_msg,
+        msg_reader.read_received_message(subscribe_msg, validate=False),
     )
     # simulate provider dispatcher consuming the first path segment (uuid)
     rd.consume_current_path_element()
@@ -180,10 +194,100 @@ def test_send_notification_report_error_handling():
         ConnectionRefusedError('x'),
         HTTPReturnCodeError(500, 'err', None),
         http.client.NotConnected(),
-        socket.timeout(),
+        socket.timeout(),  # noqa: UP041
     ):
         mgr._send_notification_report(DummySub(exc), etree.Element('n'), 'act')
 
     # DocumentInvalid -> re-raised
     with pytest.raises(etree.DocumentInvalid):
         mgr._send_notification_report(DummySub(etree.DocumentInvalid('bad')), etree.Element('n'), 'act')
+
+
+def test_end_to_url_is_none_when_end_to_not_provided(soap_client_pool: mock.MagicMock):
+    """Test that _end_to_url is None when EndTo is not in the subscribe request.
+
+    Before the fix, SubscriptionBase.__init__ did not set _end_to_url when
+    subscribe_request.EndTo was None, causing an AttributeError when
+    send_notification_end_message later accessed self._end_to_url.
+    """
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    # EndTo is NOT set (the default is None)
+    assert subscribe.EndTo is None
+
+    sub = ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=soap_client_pool,
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
+    assert sub._end_to_url is None
+    assert sub.end_to_address is None
+
+    # send_notification_end_message must not raise AttributeError
+    sub.send_notification_end_message()
+    soap_client_pool.get_soap_client.assert_called_once_with('localhost:8000', [], sub)
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
+        '/notify', mock.ANY, msg='send_notification_end_message'
+    )
+
+
+def test_end_to_url_is_set_when_end_to_provided(soap_client_pool: mock.MagicMock):
+    """Test that _end_to_url is correctly parsed when EndTo is provided."""
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    subscribe.init_end_to()
+    subscribe.EndTo.Address = 'http://localhost:9000/end'
+
+    sub = ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=soap_client_pool,
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
+    assert sub._end_to_url is not None
+    assert sub._end_to_url.netloc == 'localhost:9000'
+    assert sub.end_to_address == 'http://localhost:9000/end'
+    sub.send_notification_end_message()
+    soap_client_pool.get_soap_client.assert_called_once_with('localhost:9000', [], sub)
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
+        '/end', mock.ANY, msg='send_notification_end_message'
+    )
+
+
+def test_end_to_url_is_none_when_end_to_address_is_none(soap_client_pool: mock.MagicMock):
+    """Test that _end_to_url is None when EndTo exists but Address is None."""
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    subscribe.init_end_to()
+    # EndTo is set but Address remains None
+    assert subscribe.EndTo is not None
+    subscribe.EndTo.Address = None
+
+    sub = ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=soap_client_pool,
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
+    assert sub._end_to_url is None
+    sub.send_notification_end_message()
+    soap_client_pool.get_soap_client.assert_called_once_with('localhost:8000', [], sub)
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
+        '/notify', mock.ANY, msg='send_notification_end_message'
+    )

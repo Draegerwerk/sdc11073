@@ -1,9 +1,11 @@
-import unittest
+"""Test compression of http requests and responses."""
+
 import time
+import unittest
 
 from lxml import etree
 
-from sdc11073.consumer import SdcConsumer
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.httpserver import compression
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types.actions import periodic_actions
@@ -11,24 +13,25 @@ from sdc11073.xml_types.pm_types import InstanceIdentifier
 from tests import utils
 from tests.mockstuff import SomeDevice
 
-XML_REQ = '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
-<s12:Envelope xmlns:dom="__BICEPS_ParticipantModel__" xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"' \
-          ' xmlns:ext="__ExtensionPoint__" xmlns:msg="__BICEPS_MessageModel__" xmlns:s12="http://www.w3.org/2003/05/soap-envelope"' \
-          ' xmlns:si="http://standards.ieee.org/downloads/11073/11073-20702-2016/" xmlns:wsa="http://www.w3.org/2005/08/addressing"' \
-          ' xmlns:wsd="http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01" xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"' \
-          ' xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex" xmlns:xsd="http://www.w3.org/2001/XMLSchema"' \
-          ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><s12:Header>' \
-          '<wsa:To s12:mustUnderstand="true">https://127.0.0.1:60373/53b05eb06edf11e8bc9a00059a3c7a00/Set</wsa:To>' \
-          '<wsa:Action s12:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request</wsa:Action>' \
-          '<wsa:MessageID>urn:uuid:5837db9c-63a0-4f5c-99a3-9fc40ae61ba6</wsa:MessageID></s12:Header><s12:Body><wsx:GetMetadata/>' \
-          '</s12:Body></s12:Envelope>'
+XML_REQ = (
+    '<?xml version=\'1.0\' encoding=\'UTF-8\'?> \
+<s12:Envelope xmlns:dom="__BICEPS_ParticipantModel__" xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"'
+    ' xmlns:ext="__ExtensionPoint__" xmlns:msg="__BICEPS_MessageModel__" xmlns:s12="http://www.w3.org/2003/05/soap-envelope"'
+    ' xmlns:si="http://standards.ieee.org/downloads/11073/11073-20702-2016/" xmlns:wsa="http://www.w3.org/2005/08/addressing"'
+    ' xmlns:wsd="http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01" xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"'
+    ' xmlns:wsx="http://schemas.xmlsoap.org/ws/2004/09/mex" xmlns:xsd="http://www.w3.org/2001/XMLSchema"'
+    ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><s12:Header>'
+    '<wsa:To s12:mustUnderstand="true">https://127.0.0.1:60373/53b05eb06edf11e8bc9a00059a3c7a00/Set</wsa:To>'
+    '<wsa:Action s12:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/09/mex/GetMetadata/Request</wsa:Action>'
+    '<wsa:MessageID>urn:uuid:5837db9c-63a0-4f5c-99a3-9fc40ae61ba6</wsa:MessageID></s12:Header><s12:Body><wsx:GetMetadata/>'
+    '</s12:Body></s12:Envelope>'
+)
 
 GZIP = compression.GzipCompressionHandler.algorithms[0]
 LZ4 = compression.Lz4CompressionHandler.algorithms[0]
 
 
-class Test_Compression(unittest.TestCase):
-
+class TestCompression(unittest.TestCase):
     def setUp(self):
         # Start discovery
         self.wsd = WSDiscovery('127.0.0.1')
@@ -45,7 +48,7 @@ class Test_Compression(unittest.TestCase):
         time.sleep(1)
         self.wsd.stop()
 
-    def _start_with_compression(self, compression_flag):
+    def _start_with_compression(self, compression_flag: str | None):
         """Start Device and Client with compression settings."""
         if compression_flag is None:
             self.sdc_device.set_used_compression()
@@ -59,10 +62,11 @@ class Test_Compression(unittest.TestCase):
 
         # Connect a new client to the device
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcConsumer(x_addr[0],
-                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context_container=None,
-                                      )
+        self.sdc_client = SdcConsumer(
+            x_addr[0],
+            sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+            ssl_context_container=None,
+        )
         if compression_flag is None:
             self.sdc_client.set_used_compression()
         else:
@@ -84,10 +88,10 @@ class Test_Compression(unittest.TestCase):
             'Content-type': 'application/soap+xml',
             'user_agent': 'pysoap',
             'Connection': 'keep-alive',
-            'Content-Length': str(len(self.xml))
+            'Content-Length': str(len(self.xml)),
         }
 
-        headers = dict((str(k), str(v)) for k, v in headers.items())
+        headers = {str(k): str(v) for k, v in headers.items()}
 
         self.client_http_con.request('POST', self.get_service._url.path, body=self.xml, headers=headers)
 
@@ -99,7 +103,7 @@ class Test_Compression(unittest.TestCase):
         try:
             etree.fromstring(content)
         except:
-            self.fail("Wrong xml syntax. Msg {}".format(content))
+            self.fail(f'Wrong xml syntax. Msg {content}')
 
     def test_gzip_compression(self):
         # Create a compressed getMetadata request
@@ -112,9 +116,9 @@ class Test_Compression(unittest.TestCase):
             'Connection': 'keep-alive',
             'Content-Encoding': GZIP,
             'Accept-Encoding': 'gzip, x-lz4',
-            'Content-Length': str(len(compressed_xml))
+            'Content-Length': str(len(compressed_xml)),
         }
-        headers = dict((str(k), str(v)) for k, v in headers.items())
+        headers = {str(k): str(v) for k, v in headers.items()}
         self.client_http_con.request('POST', self.get_service._url.path, body=compressed_xml, headers=headers)
         # Verify response is compressed
         response = self.client_http_con.getresponse()
@@ -126,7 +130,7 @@ class Test_Compression(unittest.TestCase):
         try:
             etree.fromstring(content)
         except:
-            self.fail("Wrong xml syntax. Msg {}".format(content))
+            self.fail(f'Wrong xml syntax. Msg {content}')
 
     @unittest.skipIf(LZ4 not in compression.CompressionHandler.available_encodings, 'no lz4 module available')
     def test_lz4_compression(self):
@@ -140,9 +144,9 @@ class Test_Compression(unittest.TestCase):
             'Connection': 'keep-alive',
             'Content-Encoding': LZ4,
             'Accept-Encoding': 'gzip, x-lz4',
-            'Content-Length': str(len(compressed_xml))
+            'Content-Length': str(len(compressed_xml)),
         }
-        headers = dict((str(k), str(v)) for k, v in headers.items())
+        headers = {str(k): str(v) for k, v in headers.items()}
         self.client_http_con.request('POST', self.get_service._url.path, body=compressed_xml, headers=headers)
         # Verify response is compressed
         response = self.client_http_con.getresponse()
@@ -154,12 +158,11 @@ class Test_Compression(unittest.TestCase):
         try:
             etree.fromstring(content)
         except:
-            self.fail("Wrong xml syntax. Msg {}".format(content))
+            self.fail(f'Wrong xml syntax. Msg {content}')
 
 
-class Test_Compression_ParseHeader(unittest.TestCase):
-
-    def test_parseHeader(self):
+class TestCompressionParseHeader(unittest.TestCase):
+    def test_parse_header(self):
         result = compression.CompressionHandler.parse_header('gzip,lz4')
         self.assertEqual(result, ['gzip', 'lz4'])
         result = compression.CompressionHandler.parse_header('lz4, gzip')

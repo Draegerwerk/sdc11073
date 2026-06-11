@@ -1,4 +1,7 @@
+"""Tests for the SchemaResolver class."""
+
 from unittest import TestCase
+
 from sdc11073.namespaces import PrefixesEnum
 from sdc11073.schema_resolver import SchemaResolver
 
@@ -16,6 +19,5 @@ class TestSchemaResolver(TestCase):
         self.assertIsNone(result)
 
         # verify that resolve raises an Exception if something unexpected happens
-        resolver = SchemaResolver([ 1, 2, 3])
+        resolver = SchemaResolver([1, 2, 3])
         self.assertRaises(AttributeError, resolver.resolve, 'foobar', None, None)
-

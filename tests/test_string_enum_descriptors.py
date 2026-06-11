@@ -1,11 +1,12 @@
+"""Test string enumeration descriptors."""
+
 import logging
 import sys
 import time
 import unittest
 
-from sdc11073 import commlog
-from sdc11073 import loghelper
-from sdc11073.consumer import SdcConsumer
+from sdc11073 import commlog, loghelper
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_types
@@ -15,29 +16,28 @@ from tests.mockstuff import SomeDevice
 
 ENABLE_COMMLOG = False
 
-comm_logger = commlog.DirectoryLogger(log_folder=r'c:\temp\sdc_commlog',
-                                      log_out=True,
-                                      log_in=True,
-                                      broadcast_ip_filter=None)
+comm_logger = commlog.DirectoryLogger(
+    log_folder=r'c:\temp\sdc_commlog',
+    log_out=True,
+    log_in=True,
+    broadcast_ip_filter=None,
+)
 
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
 NOTIFICATION_TIMEOUT = 5  # also jenkins related value
 
 
-class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
-    """This is a test that checks empty value for AllowedValue in state"""
+class TestClientSomeDeviceStringEnumDescriptors(unittest.TestCase):
+    """Test empty value for AllowedValue in state."""
 
     def setUp(self):
-        sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
-
-        logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         if ENABLE_COMMLOG:
             comm_logger.start()
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         my_uuid = None  # let device create one
-        # self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_tns.xml')
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml')
 
         self.sdc_device.start_all()
@@ -47,21 +47,22 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
         time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
-        self.sdc_client = SdcConsumer(x_addr[0],
-                                      sdc_definitions=self.sdc_device.mdib.sdc_definitions,
-                                      ssl_context_container=None,
-                                      validate=CLIENT_VALIDATE)
+        self.sdc_client = SdcConsumer(
+            x_addr[0],
+            sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+            ssl_context_container=None,
+            validate=CLIENT_VALIDATE,
+        )
 
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
 
         time.sleep(1)
-        sys.stderr.write('\n############### setUp done {} ##############\n'.format(self._testMethodName))
-        logging.getLogger('sdc').info('############### setUp done {} ##############'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
-        sys.stderr.write('############### tearDown {}... ##############\n'.format(self._testMethodName))
+        logging.getLogger('sdc').info('############### tearDown %s ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         self.sdc_client.stop_all()
         self.sdc_device.stop_all()
@@ -72,9 +73,9 @@ class Test_Client_SomeDevice_StringEnumDescriptors(unittest.TestCase):
             sys.stderr.write(repr(ex))
             raise
         comm_logger.stop()
-        sys.stderr.write('############### tearDown {} done ##############\n'.format(self._testMethodName))
+        sys.stderr.write(f'############### tearDown {self._testMethodName} done ##############\n')
 
-    def test_BasicConnect(self):
+    def test_basic_connect(self):
         # simply check that all descriptors are available in client after init_mdib
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()

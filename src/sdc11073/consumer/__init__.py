@@ -1,4 +1,3 @@
-from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.consumer.serviceclients.containmenttreeservice import CTreeServiceClient
 from sdc11073.consumer.serviceclients.contextservice import ContextServiceClient
 from sdc11073.consumer.serviceclients.descriptioneventservice import DescriptionEventClient
@@ -16,7 +15,6 @@ __all__ = [
     'DescriptionEventClient',
     'GetServiceClient',
     'LocalizationServiceClient',
-    'SdcConsumer',
     'SetServiceClient',
     'StateEventClient',
     'WaveformClient',

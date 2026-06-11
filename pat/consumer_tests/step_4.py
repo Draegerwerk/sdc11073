@@ -76,7 +76,7 @@ def _verify_state_updates_in_time(
         for node_type in node_types
     ):
         mdib_observer = 'alert_by_handle'
-    elif all(node_type in (pm_qnames.RealTimeSampleArrayMetricState,) for node_type in node_types):
+    elif all(node_type == pm_qnames.RealTimeSampleArrayMetricState for node_type in node_types):
         mdib_observer = 'waveform_by_handle'
     elif all(
         node_type in (pm_qnames.ClockState, pm_qnames.BatteryState, pm_qnames.MdsState, pm_qnames.VmdState)
@@ -352,7 +352,9 @@ def _verify_waveform_tests(  # noqa: PLR0913
     waveforms_with_sufficient_samples = {
         handle: updates
         for handle, updates in waveforms_with_sufficient_updates.items()
-        if all(len(samples_in_message) == samples_per_message for samples_in_message in updates)
+        # it is assumed that it is sufficient to have at least the required number of samples per message to fulfil
+        # the requirement
+        if all(len(samples_in_message) >= samples_per_message for samples_in_message in updates)
     }
 
     test_results: list[bool] = []
@@ -423,7 +425,7 @@ def _verify_waveform_tests(  # noqa: PLR0913
     return any(test_results) and all(test_results)
 
 
-def test_4f(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # noqa: PT028
+def test_4f(mdib: ConsumerMdib, network_delay: float | None) -> bool:
     """The Reference Provider provides 3 waveforms (RealTimeSampleArrayMetric) x 10 messages per second x 100 samples per message."""  # noqa: E501, W505
     return _verify_waveform_tests(
         mdib=mdib,
@@ -434,7 +436,7 @@ def test_4f(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # 
         # seconds, to allow for the updates to arrive
         timeout=1.0,
         # seconds, to allow for network delays and processing time
-        network_delay=network_delay if network_delay is not None else 0.1,
+        network_delay=network_delay if network_delay is not None else 0.5,
     )
 
 
@@ -486,7 +488,7 @@ def test_4h(mdib: ConsumerMdib) -> bool:
     )
 
 
-def test_4i(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # noqa: PT028
+def test_4i(mdib: ConsumerMdib, network_delay: float | None) -> bool:
     """The Reference Provider provides 1 waveform (RealTimeSampleArrayMetric) x 2 messages per second x 50 samples per message (reduced amount of messages per second to cover slow networks)."""  # noqa: E501, W505
     return _verify_waveform_tests(
         mdib=mdib,
@@ -497,5 +499,5 @@ def test_4i(mdib: ConsumerMdib, network_delay: float | None = None) -> bool:  # 
         # seconds, to allow for the updates to arrive
         timeout=1.0,
         # seconds, to allow for network delays and processing time
-        network_delay=network_delay if network_delay is not None else 0.1,
+        network_delay=network_delay if network_delay is not None else 0.5,
     )

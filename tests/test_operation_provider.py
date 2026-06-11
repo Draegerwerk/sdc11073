@@ -1,14 +1,14 @@
-"""Tests for operation provider role implementation."""
+"""Tests for operation role provider implementation."""
 
 from collections.abc import Iterable
 from types import SimpleNamespace
 
 import pytest
+from tutorial.productandroles.operationprovider import OperationProvider
 
 from sdc11073 import xml_utils
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider.operations import ActivateOperation
-from sdc11073.roles.operationprovider import OperationProvider
 from sdc11073.xml_types import msg_types, pm_types
 
 

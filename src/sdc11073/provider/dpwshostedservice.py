@@ -1,3 +1,5 @@
+"""DPWS hosted service implementation for SDC provider endpoints."""
+
 from __future__ import annotations
 
 import typing
@@ -5,7 +7,7 @@ from io import BytesIO
 
 from lxml import etree
 
-from sdc11073.dispatch import DispatchKey, RequestDispatcher
+from sdc11073.dispatch import DispatchKey, RequestData, RequestDispatcher
 from sdc11073.namespaces import EventingActions
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.xml_types import mex_types
@@ -14,7 +16,13 @@ from sdc11073.xml_types.dpws_types import HostedServiceType
 
 if typing.TYPE_CHECKING:
     import pathlib
+    from collections.abc import Sequence
+
     from sdc11073 import xml_utils
+    from sdc11073.provider import SdcProvider, subscriptionmgr_base
+    from sdc11073.provider.porttypes.porttypebase import DPWSPortTypeBase
+    from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.xml_types import actions
 
 _wsdl_ns = ns_hlp.WSDL.namespace
 
@@ -22,12 +30,13 @@ WSP_NS = ns_hlp.WSP.namespace
 _WSP_PREFIX = ns_hlp.WSP.prefix
 
 # DiscoveryType, only used in SDC
-_DISCOVERY_TYPE_NS = "http://standards.ieee.org/downloads/11073/11073-10207-2017"
+_DISCOVERY_TYPE_NS = 'http://standards.ieee.org/downloads/11073/11073-10207-2017'
 
 WSDL_S12 = ns_hlp.WSDL12.namespace  # old soap 12 namespace, used in wsdl 1.1. used only for wsdl
 
 
 def etree_from_file(path: str | pathlib.Path) -> xml_utils.LxmlElement:
+    """Parse a lxml element from a path."""
     parser = etree.ETCompatXMLParser(resolve_entities=False)
     doc = etree.parse(str(path), parser=parser)
     return doc.getroot()
@@ -36,49 +45,57 @@ def etree_from_file(path: str | pathlib.Path) -> xml_utils.LxmlElement:
 class _EventService(RequestDispatcher):
     """A service that offers subscriptions."""
 
-    def __init__(self, sdc_device, subscriptions_manager, offered_subscriptions):
+    def __init__(
+        self,
+        sdc_device: SdcProvider,
+        subscriptions_manager: subscriptionmgr_base.SubscriptionsManagerBase | None,
+        offered_subscriptions: Sequence[actions.Actions],
+    ):
         super().__init__()
         self._msg_reader = sdc_device.msg_reader
         self._subscriptions_manager = subscriptions_manager
         self._offered_subscriptions = offered_subscriptions
-        self.register_post_handler(DispatchKey(EventingActions.Subscribe, ns_hlp.WSE.tag('Subscribe')),
-                                   self._on_subscribe)
-        self.register_post_handler(DispatchKey(EventingActions.Unsubscribe, ns_hlp.WSE.tag('Unsubscribe')),
-                                   self._on_unsubscribe)
-        self.register_post_handler(DispatchKey(EventingActions.GetStatus, ns_hlp.WSE.tag('GetStatus')),
-                                   self._on_get_status)
-        self.register_post_handler(DispatchKey(EventingActions.Renew, ns_hlp.WSE.tag('Renew')),
-                                   self._on_renew_status)
+        if subscriptions_manager is not None:
+            self.register_post_handler(
+                DispatchKey(EventingActions.Subscribe, ns_hlp.WSE.tag('Subscribe')), self._on_subscribe
+            )
+            self.register_post_handler(
+                DispatchKey(EventingActions.Unsubscribe, ns_hlp.WSE.tag('Unsubscribe')), self._on_unsubscribe
+            )
+            self.register_post_handler(
+                DispatchKey(EventingActions.GetStatus, ns_hlp.WSE.tag('GetStatus')), self._on_get_status
+            )
+            self.register_post_handler(
+                DispatchKey(EventingActions.Renew, ns_hlp.WSE.tag('Renew')), self._on_renew_status
+            )
 
     @property
-    def subscriptions_manager(self):
+    def subscriptions_manager(self) -> subscriptionmgr_base.SubscriptionsManagerBase | None:
         return self._subscriptions_manager
 
-    def _on_subscribe(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_subscribe_request(request_data)
-        return returned_envelope
+    def _on_subscribe(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_subscribe_request(request_data)
 
-    def _on_unsubscribe(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_unsubscribe_request(request_data)
-        return returned_envelope
+    def _on_unsubscribe(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_unsubscribe_request(request_data)
 
-    def _on_get_status(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_get_status_request(request_data)
-        return returned_envelope
+    def _on_get_status(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_get_status_request(request_data)
 
-    def _on_renew_status(self, request_data):
-        returned_envelope = self._subscriptions_manager.on_renew_request(request_data)
-        return returned_envelope
+    def _on_renew_status(self, request_data: RequestData) -> CreatedMessage:
+        return self._subscriptions_manager.on_renew_request(request_data)
 
 
 class DPWSHostedService(_EventService):
     """Container for DPWSPortTypeBase instances."""
 
-    def __init__(self, sdc_device, subscriptions_manager, path_element, port_type_impls):
-        """:param sdc_device:
-        :param path_element:
-        :param port_type_impls: list of DPWSPortTypeBase
-        """
+    def __init__(
+        self,
+        sdc_device: SdcProvider,
+        subscriptions_manager: subscriptionmgr_base.SubscriptionsManagerBase | None,
+        path_element: str,
+        port_type_impls: Sequence[DPWSPortTypeBase],
+    ):
         offered_subscriptions = []
         for p in port_type_impls:
             offered_subscriptions.extend(p.offered_subscriptions)
@@ -89,14 +106,16 @@ class DPWSHostedService(_EventService):
         self._mdib = sdc_device.mdib
         self.port_type_impls = port_type_impls
         self._wsdl_string = self._mk_wsdl_string()
-        self.register_post_handler(DispatchKey(f'{ns_hlp.WSX.namespace}/GetMetadata/Request',
-                                               ns_hlp.WSX.tag('GetMetadata')),
-                                   self._on_get_metadata)
+        self.register_post_handler(
+            DispatchKey(f'{ns_hlp.WSX.namespace}/GetMetadata/Request', ns_hlp.WSX.tag('GetMetadata')),
+            self._on_get_metadata,
+        )
         self.register_get_handler('?wsdl', self._on_get_wsdl)
         for port_type_impl in port_type_impls:
             port_type_impl.register_hosting_service(self)
 
     def mk_dpws_hosted_instance(self) -> HostedServiceType:
+        """Create a dpws hosted instance."""
         endpoint_references_list = []
         for addr in self._sdc_device.base_urls:
             epr_type = EndpointReferenceType()
@@ -110,13 +129,12 @@ class DPWSHostedService(_EventService):
 
     def _on_get_wsdl(self) -> bytes:
         """Return wsdl."""
-        self._logger.debug('_onGetWsdl returns {}', self._wsdl_string)
+        self._logger.debug('_onGetWsdl returns {}', self._wsdl_string)  # noqa: PLE1205
         return self._wsdl_string
 
     def _mk_wsdl_string(self) -> bytes:
         sdc_definitions = self._sdc_device.mdib.sdc_definitions
-        my_nsmap = ns_hlp.partial_map(
-            ns_hlp.MSG, ns_hlp.PM, ns_hlp.WSA, ns_hlp.WSE, ns_hlp.DPWS, ns_hlp.MDPWS)
+        my_nsmap = ns_hlp.partial_map(ns_hlp.MSG, ns_hlp.PM, ns_hlp.WSA, ns_hlp.WSE, ns_hlp.DPWS, ns_hlp.MDPWS)
         my_nsmap['tns'] = ns_hlp.SDC.namespace
         my_nsmap['dt'] = _DISCOVERY_TYPE_NS
         porttype_prefix = 'tns'
@@ -126,9 +144,11 @@ class DPWSHostedService(_EventService):
         for port_type_impl in self.port_type_impls:
             for entry in port_type_impl.additional_namespaces:
                 my_nsmap[entry.prefix] = entry.namespace
-        wsdl_definitions = etree.Element(etree.QName(_wsdl_ns, 'definitions'),
-                                         nsmap=my_nsmap,
-                                         attrib={'targetNamespace': sdc_definitions.PortTypeNamespace})
+        wsdl_definitions = etree.Element(
+            etree.QName(_wsdl_ns, 'definitions'),
+            nsmap=my_nsmap,
+            attrib={'targetNamespace': sdc_definitions.PortTypeNamespace},
+        )
 
         types = etree.SubElement(wsdl_definitions, etree.QName(_wsdl_ns, 'types'))
         # remove annotations from schemas, this reduces wsdl size from 280kb to 100kb!
@@ -151,7 +171,7 @@ class DPWSHostedService(_EventService):
         return etree.tostring(wsdl_definitions, encoding='UTF-8', xml_declaration=True)
 
     @staticmethod
-    def _remove_annotations(root_node):
+    def _remove_annotations(root_node: xml_utils.LxmlElement) -> xml_utils.LxmlElement:
         remove_annotations_string = b"""<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                                       xmlns:xs="http://www.w3.org/2001/XMLSchema">
           <xsl:output method="xml" indent="yes"/>
@@ -168,7 +188,7 @@ class DPWSHostedService(_EventService):
         remove_annotations_xslt = etree.XSLT(remove_annotations_doc)
         return remove_annotations_xslt(root_node).getroot()
 
-    def _on_get_metadata(self, request_data):
+    def _on_get_metadata(self, request_data: RequestData) -> CreatedMessage:
         msg_factory = self._sdc_device.msg_factory
         consumed_path_elements = request_data.consumed_path_elements
         http_header = request_data.http_header
@@ -201,9 +221,10 @@ class DPWSHostedService(_EventService):
             for e in _nsm.prefix_enum:
                 if e.namespace == q_name.namespace and e not in needed_namespaces:
                     needed_namespaces.append(e)
-        response = msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
-        return response
+        return msg_factory.mk_reply_soap_message(request_data, metadata, needed_namespaces)
 
     def __repr__(self):
-        return f'{self.__class__.__name__} path={self.path_element} ' \
-               f'port types={[dp.port_type_string for dp in self.port_type_impls]}'
+        return (
+            f'{self.__class__.__name__} path={self.path_element} '
+            f'port types={[dp.port_type_string for dp in self.port_type_impls]}'
+        )

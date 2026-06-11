@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import http.client
-import socket
 import time
 import uuid
 from collections import deque
@@ -109,13 +108,12 @@ class SubscriptionBase:
         self.notify_ref_params = subscribe_request.Delivery.NotifyTo.ReferenceParameters
         self.end_to_address = None
         self.end_to_ref_params = []
+        self._end_to_url = None
         if subscribe_request.EndTo is not None:
             self.end_to_address = subscribe_request.EndTo.Address
             self.end_to_ref_params = subscribe_request.EndTo.ReferenceParameters
             if self.end_to_address is not None:
                 self._end_to_url = urlparse(self.end_to_address)
-            else:
-                self._end_to_url = None
 
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameters = []  # default: no reference parameters
@@ -160,8 +158,12 @@ class SubscriptionBase:
         """
         return False
 
-    def _get_soap_client(self) -> SoapClientProtocol:
-        return self._soap_client_pool.get_soap_client(self.notify_to_url.netloc, self._accepted_encodings, self)
+    def _get_soap_client(self, netloc: str | None = None) -> SoapClientProtocol:
+        return self._soap_client_pool.get_soap_client(
+            netloc or self.notify_to_url.netloc,
+            self._accepted_encodings,
+            self,
+        )
 
     @property
     def remaining_seconds(self) -> float:
@@ -214,17 +216,17 @@ class SubscriptionBase:
             reference_parameters=self.end_to_ref_params or self.notify_ref_params,
         )
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-
+        url = self._end_to_url or self.notify_to_url
+        soap_client = self._get_soap_client(url.netloc)
         try:
-            url = self._end_to_url or self.notify_to_url
-            soap_client = self._get_soap_client()
             soap_client.post_message_to(url.path, message, msg='send_notification_end_message')
-            self.notify_errors = 0
-            self._is_connection_error = False
-            self._is_closed = True
         except Exception as ex:  # noqa: BLE001
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('could not send subscription end message, error = {}', ex)  # noqa: PLE1205
+        else:
+            self.notify_errors = 0
+            self._is_connection_error = False
+            self._is_closed = True
 
     def close_by_subscription_manager(self) -> None:
         """Close subscription."""
@@ -527,7 +529,7 @@ class SubscriptionsManagerBase:
         except http.client.NotConnected as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report: {!r}:  subscr = {}', ex, subscription)  # noqa: PLE1205, TRY400
-        except socket.timeout as ex:
+        except TimeoutError as ex:
             # this is an error related to the connection => log error and continue
             self._logger.error('could not send notification report error= {!r}: {}', ex, subscription)  # noqa: PLE1205, TRY400
         except etree.DocumentInvalid as ex:

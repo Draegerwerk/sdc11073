@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<msg:GetMdibResponse xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant" xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message" xmlns:sdpi="urn:oid:1.3.6.1.4.1.19376.1.6.2.10.1.1.1" xmlns:mpkp="urn:oid:1.3.111.2.11073.10701.3.1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SequenceId="urn:uuid:90521c43-4822-4f01-b2e2-7fd0d5f4a31e">
-    <msg:Mdib SequenceId="urn:uuid:90521c43-4822-4f01-b2e2-7fd0d5f4a31e">
+<msg:GetMdibResponse xmlns:ext="http://standards.ieee.org/downloads/11073/11073-10207-2017/extension" xmlns:pm="http://standards.ieee.org/downloads/11073/11073-10207-2017/participant" xmlns:msg="http://standards.ieee.org/downloads/11073/11073-10207-2017/message" xmlns:sdpi="urn:oid:1.3.6.1.4.1.19376.1.6.2.10.1.1.1" xmlns:mpkp="urn:oid:1.3.111.2.11073.10701.3.1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SequenceId="urn:uuid:97350174-3c28-4f6b-a8d3-36b620239305">
+    <msg:Mdib SequenceId="urn:uuid:97350174-3c28-4f6b-a8d3-36b620239305">
         <pm:MdDescription>
             <pm:Mds Handle="mds_0">
                 <ext:Extension>
@@ -12,7 +12,8 @@
                     </sdpi:CodedAttributes>
                 </ext:Extension>
                 <pm:Type Code="67108865">
-                    <pm:ConceptDescription Lang="en-US">SDPi Test MDS</pm:ConceptDescription>
+                    <pm:ConceptDescription Lang="en-US" TextWidth="l">SDPi Test MDS</pm:ConceptDescription>
+                    <pm:ConceptDescription Ref="text_ref_0" Version="1"></pm:ConceptDescription>
                 </pm:Type>
                 <pm:AlertSystem SelfCheckPeriod="PT5S" Handle="alert_system.mds_0">
                     <pm:AlertCondition xsi:type="pm:LimitAlertConditionDescriptor" AutoLimitSupported="false" Kind="Phy" Priority="Me" Handle="alert_condition_0.mds_0">
@@ -20,32 +21,37 @@
                         <pm:Source>numeric_metric_1.channel_1.vmd_0.mds_0</pm:Source>
                         <pm:MaxLimits Lower="10" Upper="90"/>
                     </pm:AlertCondition>
-                    <pm:AlertSignal ConditionSignaled="alert_condition_0.mds_0" Manifestation="Vis" Latching="false" AcknowledgementSupported="false" Handle="alert_signal_0.mds_0"/>
+                    <pm:AlertSignal ConditionSignaled="alert_condition_0.mds_0" Manifestation="Vis" Latching="true" AcknowledgementSupported="false" Handle="alert_signal_0.mds_0"/>
                 </pm:AlertSystem>
                 <pm:Sco Handle="sco.mds_0">
                     <pm:Operation xsi:type="pm:SetContextStateOperationDescriptor" OperationTarget="patient_context.mds_0" MaxTimeToFinish="PT1S" Retriggerable="false" Handle="set_context_0.sco.mds_0" SafetyClassification="MedA">
                         <pm:Type Code="67108887">
-                            <pm:ConceptDescription Lang="en-US">Adds a exactly one Patient Context to the operation target by using the attributes and elements from the SCO Operation's payload</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Adds a exactly one Patient Context to the operation target by using the attributes and elements from the SCO Operation's payload</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_1" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                     </pm:Operation>
                     <pm:Operation xsi:type="pm:SetValueOperationDescriptor" OperationTarget="numeric_metric_0.channel_0.vmd_0.mds_0" Retriggerable="false" Handle="set_value_0.sco.mds_0" SafetyClassification="MedA">
                         <pm:Type Code="67108888">
-                            <pm:ConceptDescription Lang="en-US">Sets the value of the targeted Numeric Metric</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Sets the value of the targeted Numeric Metric</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_2" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                     </pm:Operation>
                     <pm:Operation xsi:type="pm:SetStringOperationDescriptor" OperationTarget="enum_string_metric_0.channel_0.vmd_0.mds_0" Retriggerable="false" Handle="set_string_0.sco.mds_0" SafetyClassification="MedA">
                         <pm:Type Code="67108889">
-                            <pm:ConceptDescription Lang="en-US">Sets the value of the targeted Enum String Metric</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Sets the value of the targeted Enum String Metric</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_3" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                     </pm:Operation>
                     <pm:Operation xsi:type="pm:ActivateOperationDescriptor" OperationTarget="mds_0" Retriggerable="false" Handle="activate_0.sco.mds_0">
                         <pm:Type Code="67108893">
-                            <pm:ConceptDescription Lang="en-US">Performs nothing. The operational state will be toggled periodically at least every 5 seconds in order to produce Operational State Reports.</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Performs nothing. The operational state will be toggled periodically at least every 5 seconds in order to produce Operational State Reports.</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_4" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                     </pm:Operation>
                     <pm:Operation xsi:type="pm:ActivateOperationDescriptor" OperationTarget="string_metric_1.channel_0.vmd_0.mds_0" Retriggerable="false" Handle="activate_1.sco.mds_0" SafetyClassification="MedA">
                         <pm:Type Code="67108893">
-                            <pm:ConceptDescription Lang="en-US">Accepts three arguments which are concatenated and written to the metric value of the operation target.</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Accepts three arguments which are concatenated and written to the metric value of the operation target.</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_5" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                         <pm:Argument>
                             <pm:ArgName Code="67108895"/>
@@ -90,15 +96,18 @@
                 </pm:Battery>
                 <pm:Vmd Handle="vmd_0.mds_0">
                     <pm:Type Code="67108868">
-                        <pm:ConceptDescription Lang="en-US">SDPi Test VMD that contains settings and measurements including waveforms</pm:ConceptDescription>
+                        <pm:ConceptDescription Lang="en-US" TextWidth="xxl">SDPi Test VMD that contains settings and measurements including waveforms</pm:ConceptDescription>
+                        <pm:ConceptDescription Ref="text_ref_6" Version="1"></pm:ConceptDescription>
                     </pm:Type>
                     <pm:Channel Handle="channel_0.vmd_0.mds_0">
                         <pm:Type Code="67108871">
-                            <pm:ConceptDescription Lang="en-US">Channel that contains settings</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Channel that contains settings</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_7" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                         <pm:Metric xsi:type="pm:NumericMetricDescriptor" Resolution="0.1" MetricCategory="Set" MetricAvailability="Intr" Handle="numeric_metric_0.channel_0.vmd_0.mds_0">
                             <pm:Type Code="67108874">
-<pm:ConceptDescription Lang="en-US">Numeric setting, externally controllable</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Numeric setting, externally controllable</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_8" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -107,7 +116,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:EnumStringMetricDescriptor" MetricCategory="Set" MetricAvailability="Intr" Handle="enum_string_metric_0.channel_0.vmd_0.mds_0">
                             <pm:Type Code="67108875">
-<pm:ConceptDescription Lang="en-US">Enum setting, externally controllable</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Enum setting, externally controllable</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_9" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -133,7 +143,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:StringMetricDescriptor" MetricCategory="Set" MetricAvailability="Intr" Handle="string_metric_0.channel_0.vmd_0.mds_0">
                             <pm:Type Code="67108876">
-<pm:ConceptDescription Lang="en-US">String setting</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="l">String setting</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_10" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -141,7 +152,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:StringMetricDescriptor" MetricCategory="Set" MetricAvailability="Intr" Handle="string_metric_1.channel_0.vmd_0.mds_0">
                             <pm:Type Code="67108898">
-<pm:ConceptDescription Lang="en-US">Operation target of the activate operation</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Operation target of the activate operation</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_11" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -150,11 +162,13 @@
                     </pm:Channel>
                     <pm:Channel Handle="channel_1.vmd_0.mds_0">
                         <pm:Type Code="67108872">
-                            <pm:ConceptDescription Lang="en-US">Channel that contains measurements</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Channel that contains measurements</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_12" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                         <pm:Metric xsi:type="pm:NumericMetricDescriptor" Resolution="0.1" MetricCategory="Msrmt" MetricAvailability="Intr" DeterminationPeriod="PT5S" Handle="numeric_metric_1.channel_1.vmd_0.mds_0">
                             <pm:Type Code="67108880">
-<pm:ConceptDescription Lang="en-US">Periodically determined intermittent numeric measurement metric</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Periodically determined intermittent numeric measurement metric</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_13" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -163,7 +177,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Resolution="1" SamplePeriod="PT0.01S" MetricCategory="Msrmt" MetricAvailability="Cont" Handle="rtsa_metric_0.channel_1.vmd_0.mds_0">
                             <pm:Type Code="67108881">
-<pm:ConceptDescription Lang="en-US">Waveform metric 1</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xl">Waveform metric 1</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_14" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -171,7 +186,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Resolution="1" SamplePeriod="PT0.01S" MetricCategory="Msrmt" MetricAvailability="Cont" Handle="rtsa_metric_1.channel_1.vmd_0.mds_0">
                             <pm:Type Code="67108882">
-<pm:ConceptDescription Lang="en-US">Waveform metric 2</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xl">Waveform metric 2</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_15" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -179,7 +195,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Resolution="1" SamplePeriod="PT0.01S" MetricCategory="Msrmt" MetricAvailability="Cont" Handle="rtsa_metric_2.channel_1.vmd_0.mds_0">
                             <pm:Type Code="67108899">
-<pm:ConceptDescription Lang="en-US">Waveform metric 3</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xl">Waveform metric 3</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_16" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -187,7 +204,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:RealTimeSampleArrayMetricDescriptor" Resolution="1" SamplePeriod="PT0.5S" MetricCategory="Msrmt" MetricAvailability="Cont" Handle="rtsa_metric_3.channel_1.vmd_0.mds_0">
                             <pm:Type Code="67108883">
-<pm:ConceptDescription Lang="en-US">Waveform metric 4</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xl">Waveform metric 4</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_17" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -197,22 +215,26 @@
                 </pm:Vmd>
                 <pm:Vmd Handle="vmd_1.mds_0">
                     <pm:Type Code="67108869">
-                        <pm:ConceptDescription Lang="en-US">SDPi Test VMD that contains settings to be externally controlled by bulk operations</pm:ConceptDescription>
+                        <pm:ConceptDescription Lang="en-US" TextWidth="xxl">SDPi Test VMD that contains settings to be externally controlled by bulk operations</pm:ConceptDescription>
+                        <pm:ConceptDescription Ref="text_ref_18" Version="1"></pm:ConceptDescription>
                     </pm:Type>
                     <pm:Sco Handle="sco.vmd1.mds_0">
                         <pm:Operation xsi:type="pm:SetMetricStateOperationDescriptor" OperationTarget="channel_0.vmd_1.mds_0" Retriggerable="false" Handle="set_metric_0.sco.vmd_1.mds_0" SafetyClassification="MedA">
                             <pm:Type Code="67108890">
-<pm:ConceptDescription Lang="en-US">Sets the @Value of 2 metric states at once</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Sets the @Value of 2 metric states at once</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_19" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                         </pm:Operation>
                     </pm:Sco>
                     <pm:Channel Handle="channel_0.vmd_1.mds_0">
                         <pm:Type Code="67108871">
-                            <pm:ConceptDescription Lang="en-US">Channel that contains settings to be externally controlled by bulk operations</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Channel that contains settings to be externally controlled by bulk operations</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_20" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                         <pm:Metric xsi:type="pm:NumericMetricDescriptor" Resolution="1" MetricCategory="Set" MetricAvailability="Intr" Handle="numeric_metric_0.channel_0.vmd_1.mds_0">
                             <pm:Type Code="67108891">
-<pm:ConceptDescription Lang="en-US">Numeric setting, externally controllable by bulk update</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Numeric setting, externally controllable by bulk update</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_21" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -220,7 +242,8 @@
                         </pm:Metric>
                         <pm:Metric xsi:type="pm:NumericMetricDescriptor" Resolution="1" MetricCategory="Set" MetricAvailability="Intr" Handle="numeric_metric_1.channel_0.vmd_1.mds_0">
                             <pm:Type Code="67108892">
-<pm:ConceptDescription Lang="en-US">Numeric setting, externally controllable by bulk update</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Numeric setting, externally controllable by bulk update</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_22" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="262656">
 <pm:ConceptDescription Lang="en-US">Dimensionless</pm:ConceptDescription>
@@ -231,27 +254,38 @@
             </pm:Mds>
             <pm:Mds Handle="mds_1">
                 <pm:Type Code="67108866">
-                    <pm:ConceptDescription Lang="en-US">SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.</pm:ConceptDescription>
+                    <pm:ConceptDescription Lang="en-US" TextWidth="xxl">SDPi Test MDS used for description modification reports. This MDS periodically inserts and deletes a VMD including Channels including Metrics.</pm:ConceptDescription>
+                    <pm:ConceptDescription Ref="text_ref_23" Version="1"></pm:ConceptDescription>
                 </pm:Type>
                 <pm:Vmd Handle="vmd_0.mds_1">
                     <pm:Type Code="67108868">
-                        <pm:ConceptDescription Lang="en-US">SDPi Test VMD that contains a metric and an alarm for which units and cause-remedy information is periodically updated (description updates)</pm:ConceptDescription>
+                        <pm:ConceptDescription Lang="en-US" TextWidth="xxl">SDPi Test VMD that contains a metric and an alarm for which units and cause-remedy information is periodically updated (description updates)</pm:ConceptDescription>
+                        <pm:ConceptDescription Ref="text_ref_24" Version="1"></pm:ConceptDescription>
                     </pm:Type>
                     <pm:AlertSystem Handle="alert_system.vmd_0.mds_1">
                         <pm:AlertCondition Kind="Oth" Priority="None" Handle="alert_condition_0.vmd_0.mds_1">
                             <pm:Type Code="67108885">
-<pm:ConceptDescription Lang="en-US">An alert condition that periodically changes its cause-remedy information at least every 5 seconds</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">An alert condition that periodically changes its cause-remedy information at least every 5 seconds</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_25" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Source>numeric_metric_0.channel_0.vmd_0.mds_1</pm:Source>
+                            <pm:CauseInfo>
+<pm:RemedyInfo>
+    <pm:Description Lang="en-US">Remedy Info</pm:Description>
+</pm:RemedyInfo>
+<pm:Description Lang="en-US">Cause Info</pm:Description>
+                            </pm:CauseInfo>
                         </pm:AlertCondition>
                     </pm:AlertSystem>
                     <pm:Channel Handle="channel_0.vmd_0.mds_1">
                         <pm:Type Code="67108873">
-                            <pm:ConceptDescription Lang="en-US">Channel that contains a metric which is periodically changing its unit of measure</pm:ConceptDescription>
+                            <pm:ConceptDescription Lang="en-US" TextWidth="xxl">Channel that contains a metric which is periodically changing its unit of measure</pm:ConceptDescription>
+                            <pm:ConceptDescription Ref="text_ref_26" Version="1"></pm:ConceptDescription>
                         </pm:Type>
                         <pm:Metric xsi:type="pm:NumericMetricDescriptor" Resolution="1" MetricCategory="Set" MetricAvailability="Intr" Handle="numeric_metric_0.channel_0.vmd_0.mds_1">
                             <pm:Type Code="157784">
-<pm:ConceptDescription Lang="en-US">Flow Rate: Numeric measurement that periodically changes the unit of measure at least every 5 seconds</pm:ConceptDescription>
+<pm:ConceptDescription Lang="en-US" TextWidth="xxl">Flow Rate: Numeric measurement that periodically changes the unit of measure at least every 5 seconds</pm:ConceptDescription>
+<pm:ConceptDescription Ref="text_ref_27" Version="1"></pm:ConceptDescription>
                             </pm:Type>
                             <pm:Unit Code="265266"/>
                         </pm:Metric>
