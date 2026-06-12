@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - MDIBs with entity handling [#462](https://github.com/Draegerwerk/sdc11073/pull/462)
 - methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
 
+### Removed
+
+- `SafetyInformation.xsd` as it is not used in the code 
+
 ## [v2.3.0] - 2025-07-08
 
 ### Added:
