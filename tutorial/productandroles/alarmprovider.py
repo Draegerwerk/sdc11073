@@ -118,6 +118,7 @@ class AlertDelegateProvider(RoleProvider):
         return ExecuteResult(
             invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
             mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=operation_target_handle,
         )
 
     def _on_timeout_delegate_alert_signal(self, operation_instance: OperationDefinitionProtocol):

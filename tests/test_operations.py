@@ -191,7 +191,7 @@ class TestBuiltinOperations(unittest.TestCase):
         result = future.result(timeout=SET_TIMEOUT)
         state = result.InvocationInfo.InvocationState
         self.assertEqual(state, msg_types.InvocationState.FINISHED)
-        self.assertEqual(result.OperationTarget, patient_descriptor_container.Handle)
+        self.assertEqual(result.OperationTarget, proposed_context.Handle)
         patient_context_state_container = consumer_mdib.context_states.handle.get_one(
             patient_context_state_container.Handle,
         )

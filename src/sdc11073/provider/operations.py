@@ -48,10 +48,24 @@ class ExecuteParameters:
 
 @dataclass
 class ExecuteResult:
-    """The return value of the ExecuteHandler call."""
+    """The return value of the ExecuteHandler call.
+
+    Used to create OperationInvokedReport.
+    Definition in BICEPS IEEE 11073-10207-2017:
+    OperationInvokedReport is a change report that contains updated invocation information. It is delivered if
+    the state of the execution of a remote operation request has changed.
+
+    To identify which state of a multi-state is changed or created, OperationInvokedReport SHALL include
+    msg:OperationInvokedReportPart/@OperationTarget. This ATTRIBUTE defines the multi-state that is
+    created or updated.
+
+    OperationInvokedReport/ReportPart/@OperationTarget is  OPTIONAL HANDLE reference that provides a link to the
+    CONTAINMENT TREE ENTRY affected by the transaction.
+    """
 
     invocation_state: InvocationState  # only return a final state, not WAIT or STARTED
     mdib_version_group: MdibVersionGroup
+    operation_target_handle: str | None = None
 
 
 # ExecuteHandler also get the full soap message as parameter, because the soap header might contain

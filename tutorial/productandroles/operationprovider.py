@@ -56,6 +56,7 @@ class OperationProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=descriptor.OperationTarget,
             )
 
     def make_operation_instance(

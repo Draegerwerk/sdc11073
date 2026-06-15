@@ -110,6 +110,7 @@ class GenericMetricProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
     def on_pre_commit(
@@ -174,6 +175,7 @@ class GenericMetricProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
     def _set_string(self, params: ExecuteParameters) -> ExecuteResult:
@@ -197,4 +199,5 @@ class GenericMetricProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )

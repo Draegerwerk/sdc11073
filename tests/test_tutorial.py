@@ -150,6 +150,7 @@ class MyRoleProvider1(RoleProvider):
         return ExecuteResult(
             invocation_state=InvocationState.FINISHED,
             mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
         )
 
     def _handle_operation_2(self, params: ExecuteParameters) -> ExecuteResult:
@@ -167,6 +168,7 @@ class MyRoleProvider1(RoleProvider):
         return ExecuteResult(
             invocation_state=InvocationState.FINISHED,
             mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
         )
 
 
@@ -216,6 +218,7 @@ class MyRoleProvider2(RoleProvider):
         return ExecuteResult(
             invocation_state=InvocationState.FINISHED,
             mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
         )
 
 

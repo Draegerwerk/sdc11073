@@ -74,7 +74,7 @@ class GenericAudioPauseProvider(RoleProvider):
                 return cancel_ap_operation
         return None
 
-    def _set_global_audio_pause(self, _: ExecuteParameters) -> ExecuteResult:
+    def _set_global_audio_pause(self, params: ExecuteParameters) -> ExecuteResult:
         """Set global audio pause (ExecuteHandler).
 
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the
@@ -95,6 +95,7 @@ class GenericAudioPauseProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FAILED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
         with self._mdib.alert_state_transaction() as mgr:
@@ -146,9 +147,10 @@ class GenericAudioPauseProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
-    def _cancel_global_audio_pause(self, _: ExecuteParameters) -> ExecuteResult:
+    def _cancel_global_audio_pause(self, params: ExecuteParameters) -> ExecuteResult:
         """Cancel global audio pause (ExecuteHandler).
 
         If global audio pause is initiated, all SystemSignalActivation/State for all alarm systems of the product with
@@ -163,6 +165,7 @@ class GenericAudioPauseProvider(RoleProvider):
                 return ExecuteResult(
                     invocation_state=self._mdib.data_model.msg_types.InvocationState.FAILED,
                     mdib_version_group=self._mdib.mdib_version_group,
+                    operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
                 )
             for as_entity in alert_system_entities:
                 if as_entity.state.ActivationState != pm_types.AlertActivation.ON:
@@ -201,6 +204,7 @@ class GenericAudioPauseProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
 

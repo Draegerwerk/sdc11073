@@ -123,7 +123,7 @@ class _OperationsWorker(threading.Thread):
                             op_task.transaction_id,
                             execute_result.invocation_state,
                             execute_result.mdib_version_group,
-                            op_task.operation.operation_target_handle,
+                            execute_result.operation_target_handle,
                         )
                     except Exception as ex:
                         self._logger.exception(
@@ -265,7 +265,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
             transaction_id,
             execute_result.invocation_state,
             execute_result.mdib_version_group,
-            operation.operation_target_handle,
+            execute_result.operation_target_handle,
         )
         self._logger.debug('notifications for operation %s sent', operation.handle)
 

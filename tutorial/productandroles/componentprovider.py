@@ -86,10 +86,12 @@ class GenericSetComponentStateOperationProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
-    def _do_nothing(self, _: ExecuteParameters) -> ExecuteResult:
+    def _do_nothing(self, params: ExecuteParameters) -> ExecuteResult:
         return ExecuteResult(
             invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
             mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
         )

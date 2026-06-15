@@ -76,6 +76,7 @@ class GenericContextProvider(RoleProvider):
                 msg = f'more than one associated context for descriptor handle {handle}'
                 raise ValueError(msg)
 
+        operation_target_handles = []
         modified_state_handles: dict[str, list[str]] = defaultdict(list)
         modified_entities = []
         with self._mdib.context_state_transaction() as mgr:
@@ -96,6 +97,7 @@ class GenericContextProvider(RoleProvider):
                     if proposed_st.ContextAssociation == pm_types.ContextAssociation.ASSOCIATED:
                         # disassociate existing states
                         handles = self._mdib.xtra.disassociate_all(entity, unbinding_mdib_version=mgr.new_mdib_version)
+                        operation_target_handles.extend(handles)
                         modified_state_handles[entity.handle].extend(handles)
                         # set version and time in new state
                         proposed_st.BindingMdibVersion = mgr.new_mdib_version
@@ -130,6 +132,7 @@ class GenericContextProvider(RoleProvider):
                             unbinding_mdib_version=mgr.new_mdib_version,
                             ignored_handle=old_state_container.Handle,
                         )
+                        operation_target_handles.extend(handles)
                         modified_state_handles[entity.handle].extend(handles)
                     old_state_container.update_from_other_container(
                         proposed_st,
@@ -142,15 +145,23 @@ class GenericContextProvider(RoleProvider):
                         ],
                     )
                 modified_state_handles[entity.handle].append(proposed_st.Handle)
+                operation_target_handles.append(proposed_st.Handle)
 
             # write changes back to mdib
             for entity in modified_entities:
                 handles = modified_state_handles[entity.handle]
                 mgr.write_entity(entity, handles)
 
+            op_target = (
+                operation_target_handles[0]
+                if operation_target_handles
+                else params.operation_instance.descriptor_container.OperationTarget
+            )
+
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=op_target,
             )
 
 

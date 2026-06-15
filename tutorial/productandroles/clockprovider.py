@@ -122,6 +122,7 @@ class GenericSDCClockProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FAILED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
         clock_entities[0].state.ReferenceSource = [value]
@@ -130,6 +131,7 @@ class GenericSDCClockProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
     def _set_tz_string(self, params: ExecuteParameters) -> ExecuteResult:
@@ -155,6 +157,7 @@ class GenericSDCClockProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FAILED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
         clock_entities[0].state.TimeZone = value
@@ -163,4 +166,5 @@ class GenericSDCClockProvider(RoleProvider):
             return ExecuteResult(
                 invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
                 mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
