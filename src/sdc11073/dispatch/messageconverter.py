@@ -46,8 +46,8 @@ class MessageConverterMiddleware:
             http_status = ex.status
             http_reason = ex.reason
         except Exception as ex:  # noqa: BLE001
-            http_status = 500
-            http_reason = 'exception'
+            http_status = 400
+            http_reason = 'Bad request'
             self._logger.warning(traceback.format_exc())
             fault = Fault()
             fault.Code.Value = faultcodeEnum.SENDER
@@ -83,8 +83,8 @@ class MessageConverterMiddleware:
             fault.add_reason_text(str(ex))
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
             response_xml_string = response.serialize()
-            http_status = 500
-            http_reason = 'exception'
+            http_status = 400
+            http_reason = 'Bad request'
         finally:
             self._soap_response_out_logger.debug(response_xml_string, extra={'http_method': 'POST'})
         return http_status, http_reason, response_xml_string
