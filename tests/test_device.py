@@ -120,7 +120,6 @@ class TestDevice2Mds(unittest.TestCase):
     def test_mk_port_type_node_child(self):
         """Tests that port type subelement is added to parent node."""
         port_type_impl = self.sdc_device.hosted_services.state_event_service.hosting_service.port_type_impls[0]
-        self.sdc_device.hosted_services.set_service.handled_actions()
         parent_node = etree.Element('parent_node')
         port_type = port_type_impl._mk_port_type_node(parent_node)
         self.assertIn(port_type, parent_node, 'expected port_type node to be a subelement of the parent node')
