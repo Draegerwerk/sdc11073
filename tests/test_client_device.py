@@ -1174,17 +1174,18 @@ class TestClientSomeDevice(unittest.TestCase):
         # coll: wait for the next DescriptionModificationReport
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         new_handle = 'a_generated_descriptor'
-        node_name = pm.NumericMetricDescriptor
-        cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(node_name)
+        descr_cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.NumericMetricDescriptor)
+        state_cls = self.sdc_device.mdib.data_model.get_state_container_class(pm.NumericMetricState)
         with self.sdc_device.mdib.descriptor_transaction() as mgr:
-            new_descriptor_container = cls(
+            new_descriptor_container = descr_cls(
                 handle=new_handle,
                 parent_handle=descriptor_container.parent_handle,
             )
             new_descriptor_container.Type = pm_types.CodedValue('12345')
             new_descriptor_container.Unit = pm_types.CodedValue('hector')
             new_descriptor_container.Resolution = Decimal('0.42')
-            mgr.add_descriptor(new_descriptor_container)
+            state_container = state_cls(descriptor_container=new_descriptor_container)
+            mgr.add_descriptor(descriptor_container=new_descriptor_container, state_container=state_container)
         # long timeout, sometimes high load on jenkins makes these tests fail
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         cl_descriptor_container = client_mdib.descriptions.handle.get_one(new_handle, allow_none=True)

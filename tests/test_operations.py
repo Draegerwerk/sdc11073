@@ -4,6 +4,7 @@ import logging
 import time
 import unittest
 from decimal import Decimal
+from unittest import mock
 
 from tutorial.codedvaluecomparator import _coded_value_comparator
 from tutorial.productandroles.nomenclature import NomenclatureCodes
@@ -13,6 +14,8 @@ from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_facto
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
+from sdc11073.mdib.mdibbase import MdibVersionGroup
+from sdc11073.provider.sco import ScoOperationsRegistry
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import isoduration, msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
@@ -733,3 +736,44 @@ class TestBuiltinOperations(unittest.TestCase):
             # verify that the corresponding state has been updated
             state = consumer_mdib.states.descriptor_handle.get_one(my_operation_descriptor.OperationTarget)
             self.assertEqual(state.MetricValue.Value, Decimal(str(value)))
+
+    def test_operation_exception_handling(self):
+        """Test exception handling when handling operation."""
+        mdib = mock.MagicMock()
+        mdib.mdib_version_group = MdibVersionGroup(mdib_version=11, instance_id=12345, sequence_id='this_sequence_id')
+        set_service = mock.MagicMock()
+        sco_operations_registry = ScoOperationsRegistry(
+            set_service=set_service,
+            operation_cls_getter=mock.MagicMock(),
+            mdib=mdib,
+            sco_descriptor_container=mock.MagicMock(),
+        )
+        operation = mock.MagicMock()
+        operation.handle = 'FAKE_HANDLE'
+        operation.delayed_processing = False
+        operation.execute_operation.side_effect = Exception('test error')
+        transaction_id = 123
+        try:
+            self.log_watcher.setPaused(True)
+            invocation_state, mdib_version_group = sco_operations_registry.handle_operation_request(
+                operation=operation,
+                request=mock.MagicMock(),
+                operation_request=mock.MagicMock(),
+                transaction_id=transaction_id,
+            )
+
+            self.assertEqual(invocation_state, msg_types.InvocationState.FAILED)
+            self.assertEqual(mdib_version_group.mdib_version, 11)
+            self.assertEqual(mdib_version_group.instance_id, 12345)
+            self.assertEqual(mdib_version_group.sequence_id, 'this_sequence_id')
+
+            set_service.notify_operation.assert_called_once_with(
+                operation,
+                transaction_id,
+                msg_types.InvocationState.FAILED,
+                mdib_version_group,
+                error=mdib.data_model.msg_types.InvocationError.OTHER,
+                error_message=mock.ANY,
+            )
+        finally:
+            self.log_watcher.setPaused(False)
