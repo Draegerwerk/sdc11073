@@ -87,8 +87,8 @@ class TestDoPost:
 
         status, reason, body = middleware.do_post({}, '/uuid/path', '127.0.0.1', b'<bad/>')
 
-        assert status == 500
-        assert reason == 'exception'
+        assert status == 400
+        assert reason == 'Bad Request'
         assert body == mock_response.serialize.return_value
         mock_msg_factory.mk_soap_message.assert_called_once()
         call_payload = mock_msg_factory.mk_soap_message.call_args.kwargs['payload']
@@ -136,8 +136,8 @@ class TestDoPost:
 
         status, reason, body = middleware.do_post({}, '/uuid/path', '127.0.0.1', b'<request/>')
 
-        assert status == 500
-        assert reason == 'exception'
+        assert status == 400
+        assert reason == 'Bad Request'
         assert body == mock_reply.serialize.return_value
         mock_msg_factory.mk_reply_soap_message.assert_called_once()
         # The fault passed to mk_reply_soap_message should be a Fault
