@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - support for python 3.9
 - MDIBs with entity handling [#462](https://github.com/Draegerwerk/sdc11073/pull/462)
 - methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
+- methode `handled_actions` from class `SetService`
 
 ### Removed
 

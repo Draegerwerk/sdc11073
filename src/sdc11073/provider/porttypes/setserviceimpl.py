@@ -203,9 +203,6 @@ class SetService(ServiceWithOperations):
         )
         subscription_mgr.send_to_subscribers(body_node, report.action.value, mdib_version_group)
 
-    def handled_actions(self) -> list[str]:  # noqa: D102
-        return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]
-
     def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement):  # noqa: D102
         port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_two_way_operation(port_type, operation_name='Activate')

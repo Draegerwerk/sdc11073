@@ -92,6 +92,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.sdc_device.msg_factory,
         )
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
+
         mgr._subscriptions.add_object(test_subscription)
 
         waveform_provider = self.sdc_device.waveform_provider
