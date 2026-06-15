@@ -10,7 +10,6 @@ from sdc11073 import loghelper
 from sdc11073.namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
-
     from sdc11073 import xml_utils
     from sdc11073.dispatch.request import RequestData
     from sdc11073.namespaces import PrefixNamespace
