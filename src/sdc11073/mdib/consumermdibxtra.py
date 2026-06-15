@@ -1,3 +1,5 @@
+"""Extra methods for consumer mdib that are not core functionality."""
+
 from __future__ import annotations
 
 import time
@@ -7,19 +9,19 @@ from dataclasses import dataclass
 from enum import IntEnum
 from statistics import mean, stdev
 from threading import Lock
-from typing import TYPE_CHECKING, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
     from .consumermdib import ConsumerMdib
     from .statecontainers import AbstractMetricStateContainer, AbstractStateProtocol
-
-
 
 
 PROFILING = False
@@ -28,11 +30,13 @@ if PROFILING:
     import pstats
     from io import StringIO
 
+
 class _WarningState(IntEnum):
     A_NO_LOG = 0
     A_OUT_OF_RANGE = 1
     A_STILL_OUT_OF_RANGE = 2
     A_BACK_IN_RANGE = 3
+
 
 LOG_WF_AGE_INTERVAL = 30  # how often a log message is written with mean and stdev of waveforms age
 AGE_CALC_SAMPLES_COUNT = 100  # amount of data for wf mean age and stdev calculation
@@ -50,7 +54,7 @@ class DeterminationTimeWarner:
         (ST_OUT_OF_RANGE, ST_IN_RANGE): (_WarningState.A_BACK_IN_RANGE, False),
     }
 
-    def __init__(self, repeat_period: int=30):
+    def __init__(self, repeat_period: int = 30):
         """Construct the DeterminationTimeWarner.
 
         :param repeat_period: period after which an existing warning condition the warning shall be repeated.
@@ -59,9 +63,9 @@ class DeterminationTimeWarner:
         self._last_log_time = 0
         self.last_state = self.ST_IN_RANGE
 
-    def get_out_of_determination_time_log_state(self, min_age: float,
-                                                max_age: float,
-                                                warn_limit: float) -> _WarningState:
+    def get_out_of_determination_time_log_state(
+        self, min_age: float, max_age: float, warn_limit: float
+    ) -> _WarningState:
         """:return: one of above constants."""
         now = time.time()
         current_state = self.ST_OUT_OF_RANGE if min_age < -warn_limit or max_age > warn_limit else self.ST_IN_RANGE
@@ -81,10 +85,9 @@ class DeterminationTimeWarner:
 class AgeLogger:
     """A helper that write to lo  if incoming states are too old or in the future."""
 
-    def __init__(self, metric_time_warner: DeterminationTimeWarner,
-                 warn_limit: float,
-                 log_prefix: str,
-                 mdib_version: int):
+    def __init__(
+        self, metric_time_warner: DeterminationTimeWarner, warn_limit: float, log_prefix: str, mdib_version: int
+    ):
         self._metric_time_warner = metric_time_warner
         self._warn_limit = warn_limit
         self._log_prefix = log_prefix
@@ -103,20 +106,34 @@ class AgeLogger:
         min_age = min(self.age_list)
         max_age = max(self.age_list)
 
-        shall_log = self._metric_time_warner.get_out_of_determination_time_log_state(
-            min_age, max_age, self._warn_limit)
+        shall_log = self._metric_time_warner.get_out_of_determination_time_log_state(min_age, max_age, self._warn_limit)
         if shall_log == _WarningState.A_OUT_OF_RANGE:
             logger.warning(  # noqa: PLE1205
                 '{} mdib_version {}: age of states outside limit of {} sec.: max, min = {:03f}, {:03f}',
-                self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
+                self._log_prefix,
+                self._mdib_version,
+                self._warn_limit,
+                max_age,
+                min_age,
+            )
         elif shall_log == _WarningState.A_STILL_OUT_OF_RANGE:
-            logger.warning( # noqa: PLE1205
+            logger.warning(  # noqa: PLE1205
                 '{} mdib_version {}: age of states still outside limit of {} sec.: max, min = {:03f}, {:03f}',
-                self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
+                self._log_prefix,
+                self._mdib_version,
+                self._warn_limit,
+                max_age,
+                min_age,
+            )
         elif shall_log == _WarningState.A_BACK_IN_RANGE:
-            logger.info( # noqa: PLE1205
+            logger.info(  # noqa: PLE1205
                 '{} mdib_version {}: age of states back in limit of {} sec.: max, min = {:03f}, {:03f}',
-                self._log_prefix, self._mdib_version, self._warn_limit, max_age, min_age)
+                self._log_prefix,
+                self._mdib_version,
+                self._warn_limit,
+                max_age,
+                min_age,
+            )
 
 
 @dataclass
@@ -133,10 +150,10 @@ class AgeStatistics:
     """Keep age data of a single state over time."""
 
     min_list_lenght_for_statistics = 3
+
     def __init__(self, entry_count: int | None = None):
         length = entry_count or AGE_CALC_SAMPLES_COUNT
-        self._age_of_data_list = deque(
-            maxlen=length)  # used to calculate average age of samples when received
+        self._age_of_data_list = deque(maxlen=length)  # used to calculate average age of samples when received
         self._lock = Lock()
 
     def process_state(self, metric_state: AbstractMetricStateContainer):
@@ -147,7 +164,8 @@ class AgeStatistics:
                 self._age_of_data_list.append(age)
         except AttributeError as ex:
             if not metric_state.is_metric_state:
-                raise ApiUsageError(f'{self.__class__.__name__} can only handle metric states') from ex
+                msg = f'{self.__class__.__name__} can only handle metric states'
+                raise ApiUsageError(msg) from ex
             # or state.MetricValue is None or  DeterminationTime is None: ignore this
 
     def get_age_stdev(self) -> AgeData:
@@ -181,12 +199,12 @@ class ConsumerMdibMethods:
         self._calculate_wf_age_stats = False
 
     def set_calculate_wf_age_stats(self, shall_calculate: bool):
-        """Switch calculation of statistice on or off."""
+        """Switch calculation of statistics on or off."""
         self._calculate_wf_age_stats = shall_calculate
 
-    def wait_metric_matches(self, handle: str,
-                            matches_func: Callable[[AbstractMetricStateContainer], bool],
-                            timeout: float) -> AbstractMetricStateContainer:
+    def wait_metric_matches(
+        self, handle: str, matches_func: Callable[[AbstractMetricStateContainer], bool], timeout: float
+    ) -> AbstractMetricStateContainer:
         """Wait until a matching metric has been received.
 
         The matching is defined by the handle of the metric
@@ -218,15 +236,17 @@ class ConsumerMdibMethods:
             properties.bind(self._mdib, metrics_by_handle=on_metrics_by_handle)
             begin = time.monotonic()
             ret = fut.result(timeout)
-            self._logger.debug('wait_metric_matches: got result after {:.2f} seconds',  # noqa: PLE1205
-                               time.monotonic() - begin)
+            self._logger.debug(  # noqa: PLE1205
+                'wait_metric_matches: got result after {:.2f} seconds',
+                time.monotonic() - begin,
+            )
             return ret
         finally:
             properties.unbind(self._mdib, metrics_by_handle=on_metrics_by_handle)
 
-    def mk_proposed_state(self, descriptor_handle: str,
-                          copy_current_state: bool = True,
-                          handle: str | None = None) -> AbstractStateProtocol:
+    def mk_proposed_state(
+        self, descriptor_handle: str, copy_current_state: bool = True, handle: str | None = None
+    ) -> AbstractStateProtocol:
         """Create a new state that can be used as proposed state in according operations.
 
         The new state is not part of mdib!.
@@ -290,8 +310,9 @@ class ConsumerMdibMethods:
             return
 
         # generate warnings if age of states is out of accepted range
-        age_logger = AgeLogger(self.metric_time_warner, self.DETERMINATIONTIME_WARN_LIMIT,
-                               'EpisodicMetricReport', self._mdib.mdib_version)
+        age_logger = AgeLogger(
+            self.metric_time_warner, self.DETERMINATIONTIME_WARN_LIMIT, 'EpisodicMetricReport', self._mdib.mdib_version
+        )
         for report_part in report.ReportPart:
             for state_container in report_part.values_list:
                 desc_h = state_container.DescriptorHandle
@@ -299,16 +320,22 @@ class ConsumerMdibMethods:
                     # BICEPS: While Validity is "Ong" or "NA", the enclosing METRIC value SHALL not possess a
                     # determined value.
                     # Also ignore determination time if measurement is invalid or not active.
-                    if state_container.ActivationState == model.pm_types.ComponentActivation.ON and \
-                            state_container.MetricValue.MetricQuality.Validity not in [
-                        model.pm_types.MeasurementValidity.INVALID,
-                        model.pm_types.MeasurementValidity.NA,
-                        model.pm_types.MeasurementValidity.MEASUREMENT_ONGOING]:
+                    if (
+                        state_container.ActivationState == model.pm_types.ComponentActivation.ON
+                        and state_container.MetricValue.MetricQuality.Validity
+                        not in [
+                            model.pm_types.MeasurementValidity.INVALID,
+                            model.pm_types.MeasurementValidity.NA,
+                            model.pm_types.MeasurementValidity.MEASUREMENT_ONGOING,
+                        ]
+                    ):
                         determination_time = state_container.MetricValue.DeterminationTime
                         if determination_time is None:
                             self._logger.warning(  # noqa: PLE1205
                                 'EpisodicMetricReport: metric {} version {} has no DeterminationTime',
-                                desc_h, state_container.StateVersion)
+                                desc_h,
+                                state_container.StateVersion,
+                            )
                         else:
                             age_logger.add_determination_time(determination_time)
 
@@ -340,19 +367,22 @@ class ConsumerMdibMethods:
             if len(refs) > reference_count_print_limit:
                 print(f'object {name} has {len(refs)} idx references, {refs}')
 
-    def _on_waveform_report(self, received_message_data: ReceivedMessage):
+    def _on_waveform_report(self, received_message_data: ReceivedMessage):  # noqa: C901
         """Handle waveform report."""
         cls = self._mdib.data_model.msg_types.WaveformStream
         report = cls.from_node(received_message_data.p_msg.msg_node)
         if self._calculate_wf_age_stats:
             self._process_wf_age_statistics(report.State)
-        accepted_states = self._mdib.process_incoming_waveform_states(received_message_data.mdib_version_group,
-                                                                      report.State)
+        accepted_states = self._mdib.process_incoming_waveform_states(
+            received_message_data.mdib_version_group, report.State
+        )
 
         if accepted_states is None or len(accepted_states) == 0 or not self._mdib.is_initialized:
             return
 
-        waveform_age = {}  # collect age of all waveforms in this report, and make one report if age is above warn limit (instead of multiple)
+        # collect age of all waveforms in this report,
+        # and make one report if age is above warn limit (instead of multiple)
+        waveform_age = {}
         now = time.time()
         for state_container in accepted_states.values():
             rt_sample_containers = self._mdib.rt_buffers[state_container.DescriptorHandle].rt_data
@@ -363,21 +393,31 @@ class ConsumerMdibMethods:
             min_age = min(waveform_age.values())
             max_age = max(waveform_age.values())
             shall_log = self.waveform_time_warner.get_out_of_determination_time_log_state(
-                min_age, max_age, self.DETERMINATIONTIME_WARN_LIMIT)
+                min_age, max_age, self.DETERMINATIONTIME_WARN_LIMIT
+            )
             if shall_log != _WarningState.A_NO_LOG:
                 tmp = ', '.join(f'"{k}": {v:.3f}sec.' for k, v in waveform_age.items())
                 if shall_log == _WarningState.A_OUT_OF_RANGE:
                     self._logger.warning(  # noqa: PLE1205
                         '_on_waveform_report mdib_version {}: age of samples outside limit of {} sec.: {}',
-                        self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
+                        self._mdib.mdib_version,
+                        self.DETERMINATIONTIME_WARN_LIMIT,
+                        tmp,
+                    )
                 elif shall_log == _WarningState.A_STILL_OUT_OF_RANGE:
                     self._logger.warning(  # noqa: PLE1205
                         '_on_waveform_report mdib_version {}: age of samples still outside limit of {} sec.: {}',
-                        self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
+                        self._mdib.mdib_version,
+                        self.DETERMINATIONTIME_WARN_LIMIT,
+                        tmp,
+                    )
                 elif shall_log == _WarningState.A_BACK_IN_RANGE:
                     self._logger.info(  # noqa: PLE1205
                         '_on_waveform_report mdib_version {}: age of samples back in limit of {} sec.: {}',
-                        self._mdib.mdib_version, self.DETERMINATIONTIME_WARN_LIMIT, tmp)
+                        self._mdib.mdib_version,
+                        self.DETERMINATIONTIME_WARN_LIMIT,
+                        tmp,
+                    )
         if LOG_WF_AGE_INTERVAL:
             now = time.time()
             if now - self._last_wf_age_log >= LOG_WF_AGE_INTERVAL:
@@ -385,8 +425,11 @@ class ConsumerMdibMethods:
                 if age_data is not None:
                     self._logger.info(  # noqa: PLE1205
                         'waveform mean age={:.1f}ms., stdev={:.2f}ms. min={:.1f}ms., max={}',
-                        age_data.mean_age * 1000., age_data.stdev * 1000.,
-                        age_data.min_age * 1000., age_data.max_age * 1000.)
+                        age_data.mean_age * 1000.0,
+                        age_data.stdev * 1000.0,
+                        age_data.min_age * 1000.0,
+                        age_data.max_age * 1000.0,
+                    )
                 self._last_wf_age_log = now
 
     def _on_episodic_context_report(self, received_message_data: ReceivedMessage):

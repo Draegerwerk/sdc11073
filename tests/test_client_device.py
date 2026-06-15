@@ -15,6 +15,7 @@ import pathlib
 import socket
 import ssl
 import sys
+import threading
 import time
 import traceback
 import unittest
@@ -63,8 +64,8 @@ from tests.utils import container_diff
 FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
 
 CLIENT_VALIDATE = True
-SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
-NOTIFICATION_TIMEOUT = 5  # also jenkins related value
+SET_TIMEOUT = 10
+NOTIFICATION_TIMEOUT = 5
 
 mdib_70041 = '70041_MDIB_multi.xml'
 
@@ -146,7 +147,19 @@ def runtest_realtime_samples(
     client_mdib.init_mdib()
     client_mdib.xtra.set_calculate_wf_age_stats(True)
     time.sleep(3.5)  # Wait long enough to make the rt_buffers full.
-    d_handles = ('0x34F05500', '0x34F05501', '0x34F05506')
+    d_handles = {'0x34F05500': threading.Event(), '0x34F05501': threading.Event(), '0x34F05506': threading.Event()}
+    global_event = threading.Event()
+
+    def collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
+        for handle, evt in d_handles.items():
+            if handle in waveform_by_handle:
+                evt.set()
+
+        if all(ev.is_set() for ev in d_handles.values()):
+            global_event.set()
+
+    with observables.bound_context(client_mdib, waveform_by_handle=collect):
+        unit_test.assertTrue(global_event.wait(SET_TIMEOUT))
 
     # now verify that we have real time samples
     for d_handle in d_handles:
@@ -173,7 +186,8 @@ def runtest_realtime_samples(
                 _coded_value_comparator(w_a.annotations[0].Type, pm_types.CodedValue('a', 'b')),
             )  # like in provide_realtime_data
 
-    d_handle = d_handles[0]
+    waveform_handes = list(d_handles.keys())
+    d_handle = waveform_handes[0]
     waveform_event = Event()
 
     # now disable one waveform
@@ -195,7 +209,7 @@ def runtest_realtime_samples(
     unit_test.assertLess(rt_buffer.rt_data[-1].determination_time, assumed_time_of_deactivation)
 
     # check waveform for completeness: the delta between all two-value-pairs of the triangle must be identical
-    my_handle = d_handles[-1]
+    my_handle = waveform_handes[-1]
     expected_delta = 0.4  # triangle, waveform-period = 1 sec., 10 values per second, max-min=2
 
     time.sleep(1)
