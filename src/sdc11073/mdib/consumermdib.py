@@ -381,14 +381,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                         src.update_object(old_state_container)
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
                 else:
-                    self._logger.error(  # noqa: PLE1205
-                        '{}: got a new state {}',
-                        report_type,
-                        state_container.DescriptorHandle,
+                    msg = (
+                        f'Unknown state when processing {report_type} for descriptor with handle '
+                        f'"{state_container.DescriptorHandle}"'
                     )
-                    self._set_descriptor_container_reference(state_container)
-                    src.add_object(state_container)
-                    states_by_handle[state_container.DescriptorHandle] = state_container
+                    self._logger.error(msg)
+                    raise RuntimeError(msg)
         return states_by_handle
 
     def _update_from_context_states_report(
@@ -636,13 +634,12 @@ class ConsumerMdib(mdibbase.MdibBase):
                         self.states.update_object(old_state_container)
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
                 else:
-                    self._logger.error(  # noqa: PLE1205
-                        'waveform states: got a new state {}',
-                        state_container.DescriptorHandle,
+                    msg = (
+                        f'Unknown waveform state for descriptor with handle "{state_container.DescriptorHandle}" '
+                        f'received.'
                     )
-                    self._set_descriptor_container_reference(state_container)
-                    self.states.add_object(state_container)
-                    states_by_handle[state_container.DescriptorHandle] = state_container
+                    self._logger.error(msg)
+                    raise RuntimeError(msg)
 
             # add to Waveform Buffer
             for state_container in states_by_handle.values():
@@ -763,15 +760,19 @@ class ConsumerMdib(mdibbase.MdibBase):
                                 state_container.DescriptorHandle,
                                 allow_none=True,
                             )
-                            if old_state_container is None:
-                                self._logger.error(  # noqa: PLE1205
-                                    'process_incoming_descriptors: got update of state "{}" , '
-                                    'but it did not exist in mdib!',
-                                    state_container.DescriptorHandle,
-                                )
+
                         if old_state_container is not None:
                             old_state_container.update_from_other_container(state_container)
                             my_multi_key.update_object(old_state_container)
+                        else:
+                            msg = (
+                                f'Unknown state when processing incoming descriptor update for descriptor with handle '
+                                f'"{state_container.DescriptorHandle}"'
+                            )
+                            if state_container.is_context_state:
+                                msg += f' and context state with handle "{state_container.Handle}"'
+                            self._logger.error(msg)
+                            raise RuntimeError(msg)
 
                 elif modification_type == dmt.DELETE:
                     deleted_descriptor_containers = report_part.Descriptor
