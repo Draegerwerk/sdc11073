@@ -10,7 +10,6 @@ from sdc11073 import loghelper
 from sdc11073.namespaces import PrefixesEnum
 
 if TYPE_CHECKING:
-    import enum
 
     from sdc11073 import xml_utils
     from sdc11073.dispatch.request import RequestData
@@ -72,10 +71,6 @@ class DPWSPortTypeBase:
     def register_hosting_service(self, dpws_hosted_service: DPWSHostedService):
         """Register callbacks in hosting_service."""
         self.hosting_service = dpws_hosted_service
-
-    @property
-    def actions(self) -> enum.Enum:  # just a shortcut  # noqa: D102
-        return self._mdib.sdc_definitions.Actions
 
     def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement):  # noqa: D102
         raise NotImplementedError
