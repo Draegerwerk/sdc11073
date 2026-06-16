@@ -781,8 +781,12 @@ class TestBuiltinOperations(unittest.TestCase):
     def test_operation_failure_no_registered_op(self):
         operation = mock.MagicMock()
         operation.handle = 'fake_bla_handle'
-        invocation_result, mdib_version_group = self.sdc_device.handle_operation_request(
-            operation, mock.MagicMock(), mock.MagicMock(), 1
-        )
-        self.assertEqual(invocation_result, msg_types.InvocationState.FAILED)
-        self.assertIsInstance(mdib_version_group, MdibVersionGroup)
+        try:
+            self.log_watcher.setPaused(True)
+            invocation_result, mdib_version_group = self.sdc_device.handle_operation_request(
+                operation, mock.MagicMock(), mock.MagicMock(), 1
+            )
+            self.assertEqual(invocation_result, msg_types.InvocationState.FAILED)
+            self.assertIsInstance(mdib_version_group, MdibVersionGroup)
+        finally:
+            self.log_watcher.setPaused(False)
