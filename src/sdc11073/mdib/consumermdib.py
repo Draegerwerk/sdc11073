@@ -784,6 +784,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                         self.rm_descriptor_by_handle(descriptor_container.Handle)
                         deleted_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
 
+                    # following is already handled in rm_descriptor_by_handle
                     for state_container in deleted_state_containers:
                         multi_key(state_container).remove_object_no_lock(state_container)
                 else:
