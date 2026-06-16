@@ -24,7 +24,7 @@ import uuid
 from decimal import Decimal
 from http.client import NotConnected
 from threading import Event
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lxml import etree
 from tutorial.codedvaluecomparator import _coded_value_comparator
@@ -43,7 +43,7 @@ from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import ConsumerMdib, statecontainers
 from sdc11073.namespaces import default_ns_helper
-from sdc11073.observableproperties import observables
+from sdc11073.observableproperties import CollectTimeoutError, observables
 from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
@@ -60,6 +60,9 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
 from tests.utils import container_diff
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
 
@@ -1212,6 +1215,41 @@ class TestClientSomeDevice(unittest.TestCase):
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         cl_descriptor_container = client_mdib.descriptions.handle.get_one(new_handle, allow_none=True)
         self.assertIsNone(cl_descriptor_container)
+
+    def test_metric_state_wrong_descr_handle(self):
+        self._unknown_state_test(
+            descriptor_handle='0x34F00100',
+            report='episodic_metric_report',
+            func=self.sdc_device.mdib.metric_state_transaction,
+        )
+
+    def test_waveform_wrong_descr_handle(self):
+        self._unknown_state_test(
+            descriptor_handle='0x34F05500',
+            report='waveform_report',
+            func=self.sdc_device.mdib.rt_sample_state_transaction,
+        )
+
+    def _unknown_state_test(self, descriptor_handle: str, report: str, func: Callable):
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        coll = observableproperties.SingleValueCollector(self.sdc_client, report)
+
+        with func() as mgr:
+            state = mgr.get_state(descriptor_handle)
+            state.DescriptorHandle = 'FakeDescriptorHandle'
+
+        self.assertRaises(CollectTimeoutError, coll.result, timeout=NOTIFICATION_TIMEOUT)
+        watcher_logs = self.log_watcher.getAllRecords()
+
+        expected_msg = 'Unknown state with DescriptorHandle "FakeDescriptorHandle" received.'
+        found = any(expected_msg in tmp_log.record.message for tmp_log in watcher_logs)
+        self.assertTrue(
+            found,
+            msg=f'Expected log message "{expected_msg}" not found in logs: '
+            f'{[log.record.message for log in watcher_logs]}',
+        )
+        self.log_watcher.clearHandlers()
 
     def test_alert_condition_modification(self):
         alert_descriptor_handle = '0xD3C00100'

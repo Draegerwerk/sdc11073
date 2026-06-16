@@ -381,10 +381,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                         src.update_object(old_state_container)
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
                 else:
-                    msg = (
-                        f'Unknown state when processing {report_type} for descriptor with handle '
-                        f'"{state_container.DescriptorHandle}"'
-                    )
+                    msg = f'Unknown state with DescriptorHandle "{state_container.DescriptorHandle}" received.'
                     self._logger.error(msg)
                     raise RuntimeError(msg)
         return states_by_handle
@@ -634,10 +631,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                         self.states.update_object(old_state_container)
                         states_by_handle[old_state_container.DescriptorHandle] = old_state_container
                 else:
-                    msg = (
-                        f'Unknown waveform state for descriptor with handle "{state_container.DescriptorHandle}" '
-                        f'received.'
-                    )
+                    msg = f'Unknown state with DescriptorHandle "{state_container.DescriptorHandle}" received.'
                     self._logger.error(msg)
                     raise RuntimeError(msg)
 
@@ -723,13 +717,11 @@ class ConsumerMdib(mdibbase.MdibBase):
                             allow_none=True,
                         )
                         if old_container is None:
-                            self._logger.error(  # noqa: PLE1205
-                                'process_incoming_descriptors: got update of descriptor "{}", '
-                                'but it did not exist in mdib!',
-                                descriptor_container.Handle,
-                            )
-                        else:
-                            old_container.update_from_other_container(descriptor_container)
+                            msg = f'Update for unknown descriptor with handle "{descriptor_container.Handle}" received.'
+                            self._logger.error(msg)
+                            raise RuntimeError(msg)
+
+                        old_container.update_from_other_container(descriptor_container)
                         updated_descriptor_by_handle[descriptor_container.Handle] = descriptor_container
                         # if this is a context descriptor, delete all associated states that are not in
                         # state_containers list
@@ -764,13 +756,21 @@ class ConsumerMdib(mdibbase.MdibBase):
                         if old_state_container is not None:
                             old_state_container.update_from_other_container(state_container)
                             my_multi_key.update_object(old_state_container)
+                        elif state_container.is_context_state:
+                            self._logger.info(  # noqa: PLE1205
+                                'process_incoming_descriptors: new context state: handle = {} Descriptor Handle={} '
+                                'Assoc={}, Validators={}',
+                                state_container.Handle,
+                                state_container.DescriptorHandle,
+                                state_container.ContextAssociation,
+                                state_container.Validator,
+                            )
+                            self._set_descriptor_container_reference(state_container)
+                            my_multi_key.add_object_no_lock(state_container)
                         else:
                             msg = (
-                                f'Unknown state when processing incoming descriptor update for descriptor with handle '
-                                f'"{state_container.DescriptorHandle}"'
+                                f'Unknown state with DescriptorHandle "{state_container.DescriptorHandle}" received.'
                             )
-                            if state_container.is_context_state:
-                                msg += f' and context state with handle "{state_container.Handle}"'
                             self._logger.error(msg)
                             raise RuntimeError(msg)
 
