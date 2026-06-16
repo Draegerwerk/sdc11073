@@ -768,9 +768,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                             self._set_descriptor_container_reference(state_container)
                             my_multi_key.add_object_no_lock(state_container)
                         else:
-                            msg = (
-                                f'Unknown state with DescriptorHandle "{state_container.DescriptorHandle}" received.'
-                            )
+                            msg = f'Unknown state with DescriptorHandle "{state_container.DescriptorHandle}" received.'
                             self._logger.error(msg)
                             raise RuntimeError(msg)
 
