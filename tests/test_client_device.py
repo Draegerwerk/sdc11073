@@ -43,11 +43,11 @@ from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import ConsumerMdib, statecontainers
 from sdc11073.namespaces import default_ns_helper
-from sdc11073.observableproperties import CollectTimeoutError, observables
+from sdc11073.observableproperties import observables
 from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
-from sdc11073.pysoap.msgreader import MdibVersionGroupReader
+from sdc11073.pysoap.msgreader import MdibVersionGroupReader, ReceivedMessage
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
@@ -1219,30 +1219,38 @@ class TestClientSomeDevice(unittest.TestCase):
     def test_metric_state_wrong_descr_handle(self):
         self._unknown_state_test(
             descriptor_handle='0x34F00100',
-            report='episodic_metric_report',
             func=self.sdc_device.mdib.metric_state_transaction,
         )
 
     def test_waveform_wrong_descr_handle(self):
         self._unknown_state_test(
             descriptor_handle='0x34F05500',
-            report='waveform_report',
             func=self.sdc_device.mdib.rt_sample_state_transaction,
         )
 
-    def _unknown_state_test(self, descriptor_handle: str, report: str, func: Callable):
+    def _unknown_state_test(self, descriptor_handle: str, func: Callable):
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
-        coll = observableproperties.SingleValueCollector(self.sdc_client, report)
+        received = threading.Event()
 
-        with func() as mgr:
-            state = mgr.get_state(descriptor_handle)
-            state.DescriptorHandle = 'FakeDescriptorHandle'
+        descr_handle = str(uuid.uuid4())
 
-        self.assertRaises(CollectTimeoutError, coll.result, timeout=NOTIFICATION_TIMEOUT)
+        def _on_state_event_report(received_msg: ReceivedMessage):
+            if descr_handle in received_msg.p_msg.raw_data.decode(encoding='utf-8'):
+                received.set()
+
+        with observables.bound_context(self.sdc_client, state_event_report=_on_state_event_report):
+            with func() as mgr:
+                state = mgr.get_state(descriptor_handle)
+                state.DescriptorHandle = descr_handle
+
+            self.assertTrue(
+                received.wait(timeout=NOTIFICATION_TIMEOUT),
+                msg='Did not receive notification with unknown descriptor handle',
+            )
         watcher_logs = self.log_watcher.getAllRecords()
 
-        expected_msg = 'Unknown state with DescriptorHandle "FakeDescriptorHandle" received.'
+        expected_msg = f'Unknown state with DescriptorHandle "{descr_handle}" received.'
         found = any(expected_msg in tmp_log.record.message for tmp_log in watcher_logs)
         self.assertTrue(
             found,
