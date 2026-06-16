@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from concurrent import futures
 from dataclasses import dataclass
 from enum import IntEnum
 from statistics import mean, stdev
@@ -15,8 +14,6 @@ from sdc11073 import observableproperties as properties
 from sdc11073.exceptions import ApiUsageError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from sdc11073.loghelper import LoggerAdapter
     from sdc11073.pysoap.msgreader import ReceivedMessage
 
@@ -201,48 +198,6 @@ class ConsumerMdibMethods:
     def set_calculate_wf_age_stats(self, shall_calculate: bool):
         """Switch calculation of statistics on or off."""
         self._calculate_wf_age_stats = shall_calculate
-
-    def wait_metric_matches(
-        self, handle: str, matches_func: Callable[[AbstractMetricStateContainer], bool], timeout: float
-    ) -> AbstractMetricStateContainer:
-        """Wait until a matching metric has been received.
-
-        The matching is defined by the handle of the metric
-        and the result of a matching function. If the matching function returns true, this function returns.
-        :param handle: The handle string of the metric of interest.
-        :param matches_func: a callable, argument is the current state with matching handle.
-                              Can be None, in that case every state matches
-        Example:
-            expected = 42
-            def isMatchingValue(state):
-                if state.MetricValue is None:
-                    return False.
-
-                found_value = state.MetricValue.Value
-                return [expected] == found_value
-        :param timeout: timeout in seconds
-        :return: the matching state. In case of a timeout it raises a TimeoutError exception.
-        """
-        fut = futures.Future()
-
-        # define a callback function that sets value of fut
-        def on_metrics_by_handle(metrics_by_handle: dict[str, AbstractMetricStateContainer]):
-            metric = metrics_by_handle.get(handle)
-            if metric is not None:
-                if matches_func is None or matches_func(metric):
-                    fut.set_result(metric)
-
-        try:
-            properties.bind(self._mdib, metrics_by_handle=on_metrics_by_handle)
-            begin = time.monotonic()
-            ret = fut.result(timeout)
-            self._logger.debug(  # noqa: PLE1205
-                'wait_metric_matches: got result after {:.2f} seconds',
-                time.monotonic() - begin,
-            )
-            return ret
-        finally:
-            properties.unbind(self._mdib, metrics_by_handle=on_metrics_by_handle)
 
     def mk_proposed_state(
         self, descriptor_handle: str, copy_current_state: bool = True, handle: str | None = None

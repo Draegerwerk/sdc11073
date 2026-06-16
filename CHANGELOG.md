@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
 - methode `handled_actions` of class `SetService`
 - property `actions` of class `DPWSPortTypeBase`
+- methode `wait_metric_matches` of class `ConsumerMdibMethods`
 
 ### Removed
 
