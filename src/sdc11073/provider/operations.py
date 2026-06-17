@@ -59,7 +59,7 @@ class ExecuteResult:
     msg:OperationInvokedReportPart/@OperationTarget. This ATTRIBUTE defines the multi-state that is
     created or updated.
 
-    OperationInvokedReport/ReportPart/@OperationTarget is  OPTIONAL HANDLE reference that provides a link to the
+    OperationInvokedReport/ReportPart/@OperationTarget is OPTIONAL HANDLE reference that provides a link to the
     CONTAINMENT TREE ENTRY affected by the transaction.
     """
 
@@ -112,8 +112,8 @@ class OperationDefinitionBase:
         self.operation_target_handle: str = operation_target_handle
         # OperationTarget: HANDLE reference to the operation target.
         # If the operation modifies one CONTAINMENT TREE ENTRY, the HANDLE reference refers to this CONTAINMENT TREE
-        # ENTRY. If the operation modifies more than one  CONTAINMENT TREE ENTRY, the HANDLE reference refers to the
-        # root of a CONTAINMENT SUBTREE containing all  CONTAINMENT TREE ENTRIEs that are modified by the operation.
+        # ENTRY. If the operation modifies more than one CONTAINMENT TREE ENTRY, the HANDLE reference refers to the
+        # root of a CONTAINMENT SUBTREE containing all CONTAINMENT TREE ENTRIEs that are modified by the operation.
         self._operation_handler = operation_handler
         self._timeout_handler = timeout_handler
         self._coded_value = coded_value
