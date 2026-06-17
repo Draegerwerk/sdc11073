@@ -51,10 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `isoduration.UTC` class. Use `datetime.timezone.utc` instead. [#435](https://github.com/Draegerwerk/sdc11073/pull/445)
 - support for python 3.9
 - MDIBs with entity handling [#462](https://github.com/Draegerwerk/sdc11073/pull/462)
-- methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
-- methode `handled_actions` of class `SetService`
+- method `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
+- method `handled_actions` of class `SetService`
 - property `actions` of class `DPWSPortTypeBase`
-- methode `wait_metric_matches` of class `ConsumerMdibMethods`
+- method `wait_metric_matches` of class `ConsumerMdibMethods`
 
 ### Removed
 
