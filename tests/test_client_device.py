@@ -1028,7 +1028,7 @@ class TestClientSomeDevice(unittest.TestCase):
                 received.wait(timeout=NOTIFICATION_TIMEOUT),
                 msg='Did not receive update notification for descriptor.',
             )
-        coll.result(timeout=NOTIFICATION_TIMEOUT)
+        coll.result(timeout=NOTIFICATION_TIMEOUT)  # ensure that descriptor modification is applied to the mdib
 
         patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState)
         self.assertEqual(2, len(patient_context_state_containers))
@@ -1044,7 +1044,7 @@ class TestClientSomeDevice(unittest.TestCase):
                 received.wait(timeout=NOTIFICATION_TIMEOUT),
                 msg='Did not receive deletion notification for descriptor.',
             )
-        coll.result(timeout=NOTIFICATION_TIMEOUT)
+        coll.result(timeout=NOTIFICATION_TIMEOUT)  # ensure that descriptor modification is applied to the mdib
 
         patient_context_descr_container = client_mdib.descriptions.handle.get_one(
             patient_descr_container.Handle, allow_none=True
