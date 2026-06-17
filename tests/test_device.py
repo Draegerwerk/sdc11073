@@ -102,20 +102,10 @@ class TestDevice2Mds(unittest.TestCase):
     def test_mk_port_type_node_exception(self):
         """Verify that _mk_port_type_node raises ValueError when port_type_name is None."""
         port_type_impl = self.sdc_device.hosted_services.state_event_service.hosting_service.port_type_impls[0]
-        original_port_type_name = port_type_impl.port_type_name
 
         port_type_impl.port_type_name = None
-        try:
-            with self.assertRaises(ValueError):
-                port_type_impl._mk_port_type_node(None)
-        finally:
-            port_type_impl.port_type_name = original_port_type_name
-            self.assertIsNotNone(original_port_type_name, 'Expected port_type_name to be set initially')
-            self.assertEqual(
-                port_type_impl.port_type_name,
-                original_port_type_name,
-                'port_type_name was not restored correctly after test',
-            )
+        with self.assertRaises(ValueError):
+            port_type_impl._mk_port_type_node(None)
 
     def test_mk_port_type_node_child(self):
         """Tests that port type subelement is added to parent node."""

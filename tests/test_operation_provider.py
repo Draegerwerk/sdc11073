@@ -42,6 +42,7 @@ class FakeMdib:
     def __init__(self):
         self._state = FakeState()
         self.data_model = SimpleNamespace(msg_types=msg_types)
+        # needed to partially fulfill the provider mdib interface, used in role provider implementations
         self.mdib_version_group = MdibVersionGroup(1, 'this_is_fake', 12)
 
     def metric_state_transaction(self, set_determination_time: bool = True) -> FakeMgr:  # noqa: ARG002
