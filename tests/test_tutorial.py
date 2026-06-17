@@ -50,7 +50,7 @@ SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 s
 # Here this short timeout is used to accelerate the test.
 
 __HERE__ = pathlib.Path(__file__).parent
-__70041_MDIB_FINAL__ = __HERE__.joinpath('70041_MDIB_Final.xml')
+__MDIB_SINGLE_MDS_PATH__ = __HERE__.joinpath('mdib_single_mds.xml')
 
 
 def create_generic_provider(
@@ -273,7 +273,7 @@ class TestTutorial(unittest.TestCase):
         my_ws_discovery.start()
 
         # to create a device, this what you usually do:
-        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider)
 
     def test_search_provider(self):
@@ -282,10 +282,10 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
-        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, __70041_MDIB_FINAL__)
+        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider2)
 
         # Search for devices
@@ -321,7 +321,7 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
@@ -362,7 +362,7 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')

@@ -36,7 +36,7 @@ class TestBuiltinOperations(unittest.TestCase):
         self._logger.info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]

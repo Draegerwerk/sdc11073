@@ -73,7 +73,7 @@ CLIENT_VALIDATE = True
 SET_TIMEOUT = 10
 NOTIFICATION_TIMEOUT = 5
 
-mdib_70041 = '70041_MDIB_multi.xml'
+MDIB_NAME = 'mdib_multi_mds.xml'
 
 
 def provide_realtime_data(sdc_device: SomeDevice) -> None:
@@ -451,7 +451,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         with WSDiscovery('127.0.0.1') as wsd:
             location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-            sdc_device = SomeDevice.from_mdib_file(wsd, None, mdib_70041, ssl_context_container=ssl_context_container)
+            sdc_device = SomeDevice.from_mdib_file(wsd, None, MDIB_NAME, ssl_context_container=ssl_context_container)
             sdc_device.start_all(periodic_reports_interval=1.0)
             _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
             sdc_device.set_location(location, _loc_validators)
@@ -535,7 +535,7 @@ class TestClientSomeDevice(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             log_prefix=f'{self._testMethodName}: ',
         )
@@ -1716,7 +1716,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.sdc_device_1 = SomeDevice.from_mdib_file(
             self.wsd,
             'device1',
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}1: ',
         )
         self.sdc_device_1.start_all(shared_http_server=self.httpserver)
@@ -1726,7 +1726,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.sdc_device_2 = SomeDevice.from_mdib_file(
             self.wsd,
             'device2',
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}2: ',
         )
         self.sdc_device_2.start_all(shared_http_server=self.httpserver)
@@ -1801,7 +1801,7 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}: ',
             chunk_size=512,
         )
@@ -1864,7 +1864,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}: ',
             components=provider_components,
             chunk_size=512,
@@ -1958,7 +1958,7 @@ class TestClientSomeDeviceSync(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}: ',
             chunk_size=512,
         )
@@ -2059,13 +2059,13 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,
         )  # shorter duration for faster tests
         self.sdc_device_ssl = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             ssl_context_container=self.ssl_context_container,
         )
@@ -2173,7 +2173,7 @@ class TestQualifiedName(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
             log_prefix=f'{self._testMethodName}: ',
@@ -2244,7 +2244,7 @@ class TestWrongQualifiedName(unittest.TestCase):
         sdc_device = SomeDevice.from_mdib_file(
             wsdiscovery=wsd_mock,
             epr=None,
-            mdib_xml_path=mdib_70041,
+            mdib_xml_path=MDIB_NAME,
             alternative_hostname='some_random_invalid_hostname',
             log_prefix=f'{self._testMethodName}: ',
         )
@@ -2259,7 +2259,7 @@ class TestWrongQualifiedName(unittest.TestCase):
         sdc_device = SomeDevice.from_mdib_file(
             wsdiscovery=wsd_mock,
             epr=None,
-            mdib_xml_path=mdib_70041,
+            mdib_xml_path=MDIB_NAME,
             alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
             log_prefix=f'{self._testMethodName}: ',
         )

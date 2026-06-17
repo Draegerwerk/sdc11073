@@ -38,7 +38,7 @@ class TestCompression(unittest.TestCase):
         self.wsd.start()
         # Create a new device
         self.location = utils.random_location()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         self._loc_validators = [InstanceIdentifier('Validator', extension_string='System')]
 
     def tearDown(self):

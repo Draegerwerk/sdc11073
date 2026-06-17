@@ -23,7 +23,7 @@ class TestDevice(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         self.sdc_device.start_all()
         self._locValidators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._locValidators)
@@ -39,7 +39,7 @@ class TestDevice(unittest.TestCase):
     def test_restart(self):
         """Starting 2nd device with existing mdib shall not raise an exception."""
         self.sdc_device.stop_all()
-        sdc_device2 = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        sdc_device2 = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         try:
             sdc_device2.start_all()
         finally:
@@ -148,7 +148,7 @@ class TestHelloAndBye(unittest.TestCase):
         try:
             wsd_device.start()
             sdc_device = SomeDevice.from_mdib_file(
-                wsdiscovery=wsd_device, epr=device_uuid, mdib_xml_path='70041_MDIB_Final.xml'
+                wsdiscovery=wsd_device, epr=device_uuid, mdib_xml_path='mdib_single_mds.xml'
             )
 
             wsd_obj.set_remote_service_hello_callback(

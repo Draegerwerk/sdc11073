@@ -27,7 +27,7 @@ class TestDevicePeriodicReports(unittest.TestCase):
         self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
         self.wsd.start()
 
-        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, '70041_MDIB_Final.xml')
+        self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         mdib = self.sdc_device.mdib
         # add RetrievabilityMethod.PERIODIC to descriptors, this will trigger the device to sent periodic reports
         periods = cycle([1.0, 2.0, 3.0])
