@@ -44,8 +44,7 @@ class _OpTask:
 
 @dataclasses.dataclass
 class _QueueItem:
-    op_task: _OpTask
-    stop: bool = False
+    op_task: _OpTask | None  # if None
 
 
 class _OperationsWorker(threading.Thread):
@@ -66,7 +65,7 @@ class _OperationsWorker(threading.Thread):
         self._operations_registry = operations_registry
         self._set_service: SetServiceProtocol = set_service
         self._mdib = mdib
-        self._operations_queue = queue.Queue(10)  # spooled operations
+        self._operations_queue = queue.Queue(50)  # spooled operations
         self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
 
     def enqueue_operation(
@@ -90,7 +89,7 @@ class _OperationsWorker(threading.Thread):
                 except queue.Empty:
                     self._operations_registry.check_invocation_timeouts()
                 else:
-                    if task.stop:
+                    if task.op_task is None:
                         self._logger.info('stop request found. Terminating now.')
                         return
                     op_task: _OpTask = task.op_task
@@ -144,7 +143,7 @@ class _OperationsWorker(threading.Thread):
 
     def stop(self):
         # request to stop the thread
-        self._operations_queue.put(_QueueItem(op_task=_OpTask(None, None, None, None), stop=True))
+        self._operations_queue.put(_QueueItem(op_task=None))
         self.join(timeout=1)
 
 
