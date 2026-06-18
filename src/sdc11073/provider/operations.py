@@ -2,13 +2,15 @@
 
 These operations are the instances inside a provider that perform an operation by changing the mdib content.
 """
+
 from __future__ import annotations
 
 import inspect
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
@@ -18,7 +20,8 @@ from sdc11073.xml_types import pm_qnames as pm
 if TYPE_CHECKING:
     from lxml import etree
 
-    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
+    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol, AbstractOperationDescriptorProtocol
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet, InvocationState
@@ -29,10 +32,9 @@ class OperationDefinitionProtocol(Protocol):
     """Interface that ExecuteHandlers need."""
 
     handle: str
-    operation_target_handle: str
     current_value: Any
     last_called_time: float | None
-    descriptor_container: AbstractDescriptorProtocol
+    descriptor_container: AbstractOperationDescriptorProtocol
 
 
 @dataclass
@@ -46,10 +48,24 @@ class ExecuteParameters:
 
 @dataclass
 class ExecuteResult:
-    """The return value of the ExecuteHandler call."""
+    """The return value of the ExecuteHandler call.
 
-    operation_target_handle: str
-    invocation_state: InvocationState  # = InvocationState.FINISHED # only return a final state, not WAIT or STARTED
+    Used to create OperationInvokedReport.
+    Definition in BICEPS IEEE 11073-10207-2017:
+    OperationInvokedReport is a change report that contains updated invocation information. It is delivered if
+    the state of the execution of a remote operation request has changed.
+
+    To identify which state of a multi-state is changed or created, OperationInvokedReport SHALL include
+    msg:OperationInvokedReportPart/@OperationTarget. This ATTRIBUTE defines the multi-state that is
+    created or updated.
+
+    OperationInvokedReport/ReportPart/@OperationTarget is OPTIONAL HANDLE reference that provides a link to the
+    CONTAINMENT TREE ENTRY affected by the transaction.
+    """
+
+    invocation_state: InvocationState  # only return a final state, not WAIT or STARTED
+    mdib_version_group: MdibVersionGroup
+    operation_target_handle: str | None = None
 
 
 # ExecuteHandler also get the full soap message as parameter, because the soap header might contain
@@ -69,16 +85,18 @@ class OperationDefinitionBase:
     current_argument = properties.ObservableProperty(fire_only_on_changed_value=False)
     on_timeout = properties.ObservableProperty(fire_only_on_changed_value=False)
     OP_DESCR_QNAME: etree.QName | None = None  # to be defined in derived classes
-    OP_STATE_QNAME: etree.QName | None = None # to be defined in derived classes
+    OP_STATE_QNAME: etree.QName | None = None  # to be defined in derived classes
 
-    def __init__(self,  # noqa: PLR0913
-                 handle: str,
-                 operation_target_handle: str,
-                 operation_handler: ExecuteHandler,
-                 timeout_handler: TimeoutHandler | None = None,
-                 coded_value: CodedValue | None = None,
-                 delayed_processing: bool = True,
-                 log_prefix: str | None = None):
+    def __init__(  # noqa: PLR0913
+        self,
+        handle: str,
+        operation_target_handle: str,
+        operation_handler: ExecuteHandler,
+        timeout_handler: TimeoutHandler | None = None,
+        coded_value: CodedValue | None = None,
+        delayed_processing: bool = True,
+        log_prefix: str | None = None,
+    ):
         """Construct a OperationDefinitionBase.
 
         :param handle: the handle of the operation itself.
@@ -92,35 +110,31 @@ class OperationDefinitionBase:
         self._operation_entity = None
         self.handle: str = handle
         self.operation_target_handle: str = operation_target_handle
-        # documentation of operation_target_handle:
-        # A HANDLE reference this operation is targeted to. In case of a single state this is the HANDLE of the
-        # descriptor.
-        # In case that multiple states may belong to one descriptor (pm:AbstractMultiState),
-        # OperationTarget is the HANDLE of one of the state instances (if the state is modified by the operation).
+        # OperationTarget: HANDLE reference to the operation target.
+        # If the operation modifies one CONTAINMENT TREE ENTRY, the HANDLE reference refers to this CONTAINMENT TREE
+        # ENTRY. If the operation modifies more than one CONTAINMENT TREE ENTRY, the HANDLE reference refers to the
+        # root of a CONTAINMENT SUBTREE containing all CONTAINMENT TREE ENTRIEs that are modified by the operation.
         self._operation_handler = operation_handler
         self._timeout_handler = timeout_handler
         self._coded_value = coded_value
         self.delayed_processing = delayed_processing
-        self.calls = []  # record when operation was called
         self.last_called_time = None
 
     @property
     def descriptor_container(self) -> AbstractDescriptorProtocol:  # noqa: D102
         return self._operation_entity.descriptor
 
-    def execute_operation(self,
-                          soap_request: ReceivedSoapMessage,
-                          operation_request: AbstractSet) -> ExecuteResult:
+    def execute_operation(self, soap_request: ReceivedSoapMessage, operation_request: AbstractSet) -> ExecuteResult:
         """Execute the operation itself.
 
         This method calls the provided operation_handler.
         """
-        self.calls.append((time.time(), soap_request))
-        execute_result = self._operation_handler(ExecuteParameters(self, operation_request, soap_request))
-        self.current_request = soap_request
-        self.current_argument = operation_request.argument
-        self.last_called_time = time.time()
-        return execute_result
+        try:
+            return self._operation_handler(ExecuteParameters(self, operation_request, soap_request))
+        finally:
+            self.current_request = soap_request
+            self.current_argument = operation_request.argument
+            self.last_called_time = time.time()
 
     def check_timeout(self):
         """Set on_timeout observable if timeout is detected."""
@@ -151,9 +165,9 @@ class OperationDefinitionBase:
             # there is already a descriptor
             self._logger.debug('descriptor for operation "%s" is already present, re-using it', self.handle)
         else:
-            self._operation_entity = self._mdib.entities.new_entity(self.OP_DESCR_QNAME,
-                                                                    self.handle,
-                                                                    parent_descriptor_handle )
+            self._operation_entity = self._mdib.entities.new_entity(
+                self.OP_DESCR_QNAME, self.handle, parent_descriptor_handle
+            )
             self._init_operation_descriptor_container()
             with self._mdib.descriptor_transaction() as mgr:
                 mgr.write_entity(self._operation_entity)
@@ -173,8 +187,10 @@ class OperationDefinitionBase:
 
     def __str__(self):
         code = None if self._operation_entity is None else self._operation_entity.descriptor.Type
-        return (f'{self.__class__.__name__} handle={self.handle} code={code} '
-               f'operation-target={self.operation_target_handle}')
+        return (
+            f'{self.__class__.__name__} handle={self.handle} code={code} '
+            f'operation-target={self.operation_target_handle}'
+        )
 
 
 class SetStringOperation(OperationDefinitionBase):
@@ -228,8 +244,9 @@ class SetMetricStateOperation(OperationDefinitionBase):
 
 # mapping of states: xsi:type information to classes
 # find all classes in this module that have a member "OP_DESCR_QNAME"
-_classes = inspect.getmembers(sys.modules[__name__],
-                              lambda member: inspect.isclass(member) and member.__module__ == __name__)
+_classes = inspect.getmembers(
+    sys.modules[__name__], lambda member: inspect.isclass(member) and member.__module__ == __name__
+)
 _classes_with_qname = [c[1] for c in _classes if hasattr(c[1], 'OP_DESCR_QNAME') and c[1].OP_DESCR_QNAME is not None]
 # make a dictionary from found classes: (Key is OP_DESCR_QNAME, value is the class itself
 _operation_lookup_by_type = {c.OP_DESCR_QNAME: c for c in _classes_with_qname}

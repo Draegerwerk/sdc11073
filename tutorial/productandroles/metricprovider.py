@@ -106,10 +106,12 @@ class GenericMetricProvider(RoleProvider):
                         '_set_metric_state operation: ignore invalid referenced type %s in operation',
                         target_entity.state.NODETYPE,
                     )
-        return ExecuteResult(
-            params.operation_instance.operation_target_handle,
-            self._mdib.data_model.msg_types.InvocationState.FINISHED,
-        )
+
+            return ExecuteResult(
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+            )
 
     def on_pre_commit(
         self,
@@ -152,13 +154,13 @@ class GenericMetricProvider(RoleProvider):
         pm_types = self._mdib.data_model.pm_types
         self._logger.info(
             'set value of %s via %s from %r to %r',
-            params.operation_instance.operation_target_handle,
+            params.operation_instance.descriptor_container.OperationTarget,
             params.operation_instance.handle,
             params.operation_instance.current_value,
             value,
         )
         params.operation_instance.current_value = value
-        entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
+        entity = self._mdib.entities.by_handle(params.operation_instance.descriptor_container.OperationTarget)
         state = cast('MetricStateProtocol', entity.state)
         if state.MetricValue is None:
             state.mk_metric_value()
@@ -170,22 +172,23 @@ class GenericMetricProvider(RoleProvider):
 
         with self._mdib.metric_state_transaction() as mgr:
             mgr.write_entity(entity)
-        return ExecuteResult(
-            params.operation_instance.operation_target_handle,
-            self._mdib.data_model.msg_types.InvocationState.FINISHED,
-        )
+            return ExecuteResult(
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+            )
 
     def _set_string(self, params: ExecuteParameters) -> ExecuteResult:
         """Set a string value (ExecuteHandler)."""
         value = params.operation_request.argument
         self._logger.info(
             'set value %s from %s to %s',
-            params.operation_instance.operation_target_handle,
+            params.operation_instance.descriptor_container.OperationTarget,
             params.operation_instance.current_value,
             value,
         )
         params.operation_instance.current_value = value
-        entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
+        entity = self._mdib.entities.by_handle(params.operation_instance.descriptor_container.OperationTarget)
         state = cast('MetricStateProtocol', entity.state)
         if state.MetricValue is None:
             state.mk_metric_value()
@@ -193,7 +196,8 @@ class GenericMetricProvider(RoleProvider):
 
         with self._mdib.metric_state_transaction() as mgr:
             mgr.write_entity(entity)
-        return ExecuteResult(
-            params.operation_instance.operation_target_handle,
-            self._mdib.data_model.msg_types.InvocationState.FINISHED,
-        )
+            return ExecuteResult(
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+            )

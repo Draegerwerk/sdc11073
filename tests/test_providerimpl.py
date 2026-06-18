@@ -12,7 +12,8 @@ from sdc11073.namespaces import EventingActions, PrefixNamespace
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider.providerimpl import SdcProvider, provider_components_async_factory
 
-MDIB_FOLDER = pathlib.Path(__file__).parent
+__MDIB_FOLDER__ = pathlib.Path(__file__).parent
+__MDIB_PATH__ = __MDIB_FOLDER__.joinpath('mdib_single_mds.xml')
 
 
 class TestProviderHttpServerTimeout(unittest.TestCase):
@@ -21,7 +22,7 @@ class TestProviderHttpServerTimeout(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mock_mdib = ProviderMdib.from_mdib_file(
-            str(MDIB_FOLDER.joinpath('70041_MDIB_Final.xml')),
+            __MDIB_PATH__,
             protocol_definition=SdcV1Definitions,
         )
 
@@ -79,7 +80,7 @@ class TestSchemaSpecsPassedToMsgFactory(unittest.TestCase):
         components.msg_reader_class = mock_reader_cls
 
         mdib = ProviderMdib.from_mdib_file(
-            str(MDIB_FOLDER.joinpath('70041_MDIB_Final.xml')),
+            __MDIB_PATH__,
             protocol_definition=SdcV1Definitions,
         )
 
@@ -116,7 +117,7 @@ class TestEventingHandlersRegistration(unittest.TestCase):
 
     def setUp(self):
         self.mdib = ProviderMdib.from_mdib_file(
-            str(MDIB_FOLDER.joinpath('70041_MDIB_Final.xml')),
+            __MDIB_PATH__,
             protocol_definition=SdcV1Definitions,
         )
         self.provider = SdcProvider(

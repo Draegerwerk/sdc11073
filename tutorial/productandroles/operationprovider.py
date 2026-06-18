@@ -53,10 +53,11 @@ class OperationProvider(RoleProvider):
             state.MetricValue.Value = ''.join(
                 arg.ArgValue for arg in params.operation_request.argument
             )  # required for pat test 6f
-        return ExecuteResult(
-            params.operation_instance.operation_target_handle,
-            self._mdib.data_model.msg_types.InvocationState.FINISHED,
-        )
+            return ExecuteResult(
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=descriptor.OperationTarget,
+            )
 
     def make_operation_instance(
         self,

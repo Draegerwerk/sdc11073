@@ -105,12 +105,12 @@ class GenericSDCClockProvider(RoleProvider):
         pm_names = self._mdib.data_model.pm_names
         self._logger.info(
             'set value %s from %s to %s',
-            params.operation_instance.operation_target_handle,
+            params.operation_instance.descriptor_container.OperationTarget,
             params.operation_instance.current_value,
             value,
         )
 
-        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.descriptor_container.OperationTarget)
 
         # look for clock entities that are a direct child of this mds
         mds_handle = op_target_entity.descriptor.source_mds or op_target_entity.handle
@@ -120,17 +120,19 @@ class GenericSDCClockProvider(RoleProvider):
         if len(clock_entities) == 0:
             self._logger.warning('_set_ntp_string: no clock entity found')
             return ExecuteResult(
-                params.operation_instance.operation_target_handle,
-                self._mdib.data_model.msg_types.InvocationState.FAILED,
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FAILED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
         clock_entities[0].state.ReferenceSource = [value]
         with self._mdib.component_state_transaction() as mgr:
             mgr.write_entity(clock_entities[0])
-        return ExecuteResult(
-            params.operation_instance.operation_target_handle,
-            self._mdib.data_model.msg_types.InvocationState.FINISHED,
-        )
+            return ExecuteResult(
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+            )
 
     def _set_tz_string(self, params: ExecuteParameters) -> ExecuteResult:
         """Set the TimeZone value of clock state (ExecuteHandler)."""
@@ -138,12 +140,12 @@ class GenericSDCClockProvider(RoleProvider):
         pm_names = self._mdib.data_model.pm_names
         self._logger.info(
             'set value %s from %s to %s',
-            params.operation_instance.operation_target_handle,
+            params.operation_instance.descriptor_container.OperationTarget,
             params.operation_instance.current_value,
             value,
         )
 
-        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.operation_target_handle)
+        op_target_entity = self._mdib.entities.by_handle(params.operation_instance.descriptor_container.OperationTarget)
 
         # look for clock entities that are a direct child of this mds
         mds_handle = op_target_entity.descriptor.source_mds or op_target_entity.handle
@@ -153,14 +155,16 @@ class GenericSDCClockProvider(RoleProvider):
         if len(clock_entities) == 0:
             self._logger.warning('_set_ntp_string: no clock entity found')
             return ExecuteResult(
-                params.operation_instance.operation_target_handle,
-                self._mdib.data_model.msg_types.InvocationState.FAILED,
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FAILED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
             )
 
         clock_entities[0].state.TimeZone = value
         with self._mdib.component_state_transaction() as mgr:
             mgr.write_entity(clock_entities[0])
-        return ExecuteResult(
-            params.operation_instance.operation_target_handle,
-            self._mdib.data_model.msg_types.InvocationState.FINISHED,
-        )
+            return ExecuteResult(
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+            )

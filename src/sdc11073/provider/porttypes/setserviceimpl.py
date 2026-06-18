@@ -1,11 +1,12 @@
+"""SetService implementation."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from sdc11073.dispatch import DispatchKey
+from sdc11073.dispatch import DispatchKey, RequestData
 from sdc11073.namespaces import PrefixesEnum
-
-from .porttypebase import (
+from sdc11073.provider.porttypes.porttypebase import (
     ServiceWithOperations,
     WSDLMessageDescription,
     WSDLOperationBinding,
@@ -17,91 +18,89 @@ from .porttypebase import (
 if TYPE_CHECKING:
     from enum import Enum
 
-    from sdc11073.provider.sco import OperationDefinition
+    from sdc11073 import xml_utils
+    from sdc11073.dispatch.dispatchkey import RequestDispatcherProtocol
     from sdc11073.mdib.mdibbase import MdibVersionGroup
+    from sdc11073.provider.sco import OperationDefinitionBase
+    from sdc11073.pysoap.msgfactory import CreatedMessage
 
 
 @runtime_checkable
 class SetServiceProtocol(Protocol):
-    def notify_operation(self,
-                         operation: OperationDefinition,
-                         transaction_id: int,
-                         invocation_state: Enum,
-                         mdib_version_group: MdibVersionGroup,
-                         operation_target: str | None = None,
-                         error: Enum | None = None,
-                         error_message: str | None = None):
-        ...
+    """SetService interface definition."""
+
+    def notify_operation(  # noqa: D102, PLR0913
+        self,
+        operation: OperationDefinitionBase,
+        transaction_id: int,
+        invocation_state: Enum,
+        mdib_version_group: MdibVersionGroup,
+        operation_target: str | None = None,
+        error: Enum | None = None,
+        error_message: str | None = None,
+    ): ...
 
 
 class SetService(ServiceWithOperations):
-    port_type_name = PrefixesEnum.SDC.tag('SetService')
-    WSDLMessageDescriptions = (WSDLMessageDescription('Activate',
-                                                      (f'{msg_prefix}:Activate',)),
-                               WSDLMessageDescription('ActivateResponse',
-                                                      (f'{msg_prefix}:ActivateResponse',)),
-                               WSDLMessageDescription('SetString',
-                                                      (f'{msg_prefix}:SetString',)),
-                               WSDLMessageDescription('SetStringResponse',
-                                                      (f'{msg_prefix}:SetStringResponse',)),
-                               WSDLMessageDescription('SetComponentState',
-                                                      (f'{msg_prefix}:SetComponentState',)),
-                               WSDLMessageDescription('SetComponentStateResponse',
-                                                      (f'{msg_prefix}:SetComponentStateResponse',)),
-                               WSDLMessageDescription('SetAlertState',
-                                                      (f'{msg_prefix}:SetAlertState',)),
-                               WSDLMessageDescription('SetAlertStateResponse',
-                                                      (f'{msg_prefix}:SetAlertStateResponse',)),
-                               WSDLMessageDescription('SetMetricState',
-                                                      (f'{msg_prefix}:SetMetricState',)),
-                               WSDLMessageDescription('SetMetricStateResponse',
-                                                      (f'{msg_prefix}:SetMetricStateResponse',)),
-                               WSDLMessageDescription('SetValue',
-                                                      (f'{msg_prefix}:SetValue',)),
-                               WSDLMessageDescription('SetValueResponse',
-                                                      (f'{msg_prefix}:SetValueResponse',)),
-                               WSDLMessageDescription('OperationInvokedReport',
-                                                      (f'{msg_prefix}:OperationInvokedReport',)),
-                               )
-    WSDLOperationBindings = (WSDLOperationBinding('Activate', 'literal', 'literal'),  # fault?
-                             WSDLOperationBinding('SetString', 'literal', 'literal'),  # fault?
-                             WSDLOperationBinding('SetComponentState', 'literal', 'literal'),  # fault?
-                             WSDLOperationBinding('SetAlertState', 'literal', 'literal'),  # fault?
-                             WSDLOperationBinding('SetMetricState', 'literal', 'literal'),  # fault?
-                             WSDLOperationBinding('SetValue', 'literal', 'literal'),  # fault?
-                             WSDLOperationBinding('OperationInvokedReport', None, 'literal'),
-                             )
+    """SetService implementation."""
 
-    def register_hosting_service(self, hosting_service):
+    port_type_name = PrefixesEnum.SDC.tag('SetService')
+    WSDLMessageDescriptions = (
+        WSDLMessageDescription('Activate', (f'{msg_prefix}:Activate',)),
+        WSDLMessageDescription('ActivateResponse', (f'{msg_prefix}:ActivateResponse',)),
+        WSDLMessageDescription('SetString', (f'{msg_prefix}:SetString',)),
+        WSDLMessageDescription('SetStringResponse', (f'{msg_prefix}:SetStringResponse',)),
+        WSDLMessageDescription('SetComponentState', (f'{msg_prefix}:SetComponentState',)),
+        WSDLMessageDescription('SetComponentStateResponse', (f'{msg_prefix}:SetComponentStateResponse',)),
+        WSDLMessageDescription('SetAlertState', (f'{msg_prefix}:SetAlertState',)),
+        WSDLMessageDescription('SetAlertStateResponse', (f'{msg_prefix}:SetAlertStateResponse',)),
+        WSDLMessageDescription('SetMetricState', (f'{msg_prefix}:SetMetricState',)),
+        WSDLMessageDescription('SetMetricStateResponse', (f'{msg_prefix}:SetMetricStateResponse',)),
+        WSDLMessageDescription('SetValue', (f'{msg_prefix}:SetValue',)),
+        WSDLMessageDescription('SetValueResponse', (f'{msg_prefix}:SetValueResponse',)),
+        WSDLMessageDescription('OperationInvokedReport', (f'{msg_prefix}:OperationInvokedReport',)),
+    )
+    WSDLOperationBindings = (
+        WSDLOperationBinding('Activate', 'literal', 'literal'),  # fault?
+        WSDLOperationBinding('SetString', 'literal', 'literal'),  # fault?
+        WSDLOperationBinding('SetComponentState', 'literal', 'literal'),  # fault?
+        WSDLOperationBinding('SetAlertState', 'literal', 'literal'),  # fault?
+        WSDLOperationBinding('SetMetricState', 'literal', 'literal'),  # fault?
+        WSDLOperationBinding('SetValue', 'literal', 'literal'),  # fault?
+        WSDLOperationBinding('OperationInvokedReport', None, 'literal'),
+    )
+
+    def register_hosting_service(self, hosting_service: RequestDispatcherProtocol):  # noqa:  D102
         super().register_hosting_service(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
         msg_names = self._mdib.sdc_definitions.data_model.msg_names
-        hosting_service.register_post_handler(DispatchKey(actions.Activate, msg_names.Activate),
-                                              self._on_activate)
-        hosting_service.register_post_handler(DispatchKey(actions.SetValue, msg_names.SetValue),
-                                              self._on_set_value)
-        hosting_service.register_post_handler(DispatchKey(actions.SetString, msg_names.SetString),
-                                              self._on_set_string)
-        hosting_service.register_post_handler(DispatchKey(actions.SetMetricState, msg_names.SetMetricState),
-                                              self._on_set_metric_state)
-        hosting_service.register_post_handler(DispatchKey(actions.SetAlertState, msg_names.SetAlertState),
-                                              self._on_set_alert_state)
-        hosting_service.register_post_handler(DispatchKey(actions.SetComponentState, msg_names.SetComponentState),
-                                              self._on_set_component_state)
+        hosting_service.register_post_handler(DispatchKey(actions.Activate, msg_names.Activate), self._on_activate)
+        hosting_service.register_post_handler(DispatchKey(actions.SetValue, msg_names.SetValue), self._on_set_value)
+        hosting_service.register_post_handler(DispatchKey(actions.SetString, msg_names.SetString), self._on_set_string)
+        hosting_service.register_post_handler(
+            DispatchKey(actions.SetMetricState, msg_names.SetMetricState), self._on_set_metric_state
+        )
+        hosting_service.register_post_handler(
+            DispatchKey(actions.SetAlertState, msg_names.SetAlertState), self._on_set_alert_state
+        )
+        hosting_service.register_post_handler(
+            DispatchKey(actions.SetComponentState, msg_names.SetComponentState), self._on_set_component_state
+        )
 
-    def _on_activate(self, request_data):
-        """Handler for Active calls.
+    def _on_activate(self, request_data: RequestData) -> CreatedMessage:
+        """Handle Active operation invocations.
+
         It enqueues an operation and generates the expected operation invoked report.
         """
         data_model = self._sdc_definitions.data_model
         msg_node = request_data.message_data.p_msg.msg_node
         activate = data_model.msg_types.Activate.from_node(msg_node)
-        # ToDo: convert arguments to specific python types
         response = data_model.msg_types.ActivateResponse()
         return self._handle_operation_request(request_data, activate, response)
 
-    def _on_set_value(self, request_data):
-        """Handler for SetValue calls.
+    def _on_set_value(self, request_data: RequestData) -> CreatedMessage:
+        """Handle SetValue operation invocations.
+
         It enqueues an operation and generates the expected operation invoked report.
         """
         data_model = self._sdc_definitions.data_model
@@ -111,8 +110,9 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetValueResponse()
         return self._handle_operation_request(request_data, set_value, response)
 
-    def _on_set_string(self, request_data):
-        """Handler for SetString calls.
+    def _on_set_string(self, request_data: RequestData) -> CreatedMessage:
+        """Handle SetString operation invocations.
+
         It enqueues an operation and generates the expected operation invoked report.
         """
         data_model = self._sdc_definitions.data_model
@@ -122,8 +122,9 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetStringResponse()
         return self._handle_operation_request(request_data, set_string, response)
 
-    def _on_set_metric_state(self, request_data):
-        """Handler for SetMetricState calls.
+    def _on_set_metric_state(self, request_data: RequestData) -> CreatedMessage:
+        """Handle SetMetricState operation invocations.
+
         It enqueues an operation and generates the expected operation invoked report.
         """
         data_model = self._sdc_definitions.data_model
@@ -133,8 +134,9 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetMetricStateResponse()
         return self._handle_operation_request(request_data, set_metric_state, response)
 
-    def _on_set_alert_state(self, request_data):
-        """Handler for SetMetricState calls.
+    def _on_set_alert_state(self, request_data: RequestData) -> CreatedMessage:
+        """Handle SetAlertState operation invocations.
+
         It enqueues an operation and generates the expected operation invoked report.
         """
         data_model = self._sdc_definitions.data_model
@@ -144,8 +146,9 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetAlertStateResponse()
         return self._handle_operation_request(request_data, set_alert_state, response)
 
-    def _on_set_component_state(self, request_data):
-        """Handler for SetComponentState calls.
+    def _on_set_component_state(self, request_data: RequestData) -> CreatedMessage:
+        """Handle SetComponentState operation invocations.
+
         It enqueues an operation and generates the expected operation invoked report.
         """
         data_model = self._sdc_definitions.data_model
@@ -155,14 +158,16 @@ class SetService(ServiceWithOperations):
         response = data_model.msg_types.SetComponentStateResponse()
         return self._handle_operation_request(request_data, set_component_state, response)
 
-    def notify_operation(self,
-                         operation: OperationDefinition,
-                         transaction_id: int,
-                         invocation_state: Enum,
-                         mdib_version_group: MdibVersionGroup,
-                         operation_target: str | None = None,
-                         error: Enum | None = None,
-                         error_message: str | None = None):
+    def notify_operation(  # noqa: D102, PLR0913
+        self,
+        operation: OperationDefinitionBase,
+        transaction_id: int,
+        invocation_state: Enum,
+        mdib_version_group: MdibVersionGroup,
+        operation_target: str | None = None,
+        error: Enum | None = None,
+        error_message: str | None = None,
+    ):
         data_model = self._sdc_definitions.data_model
         nsh = data_model.ns_helper
         operation_handle_ref = operation.handle
@@ -179,22 +184,26 @@ class SetService(ServiceWithOperations):
         # implemented is only SDC R0077 for value of invocationSource:
         # Extension = "AnonymousSdcParticipant".
         # a known participant (R0078) is currently not supported
-        # ToDo: implement R0078
+        # TODO(a-kleinf): implement R0078,  # noqa: FIX002
+        #  https://github.com/Draegerwerk/sdc11073/issues/490
         report_part.InvocationSource = data_model.pm_types.InstanceIdentifier(
-            nsh.SDC.namespace, extension_string='AnonymousSdcParticipant')
+            nsh.SDC.namespace, extension_string='AnonymousSdcParticipant'
+        )
         report_part.OperationHandleRef = operation_handle_ref
         report_part.OperationTarget = operation_target
         ns_map = nsh.partial_map(nsh.PM, nsh.MSG, nsh.XSI, nsh.EXT, nsh.XML)
         body_node = report.as_etree_node(report.NODETYPE, ns_map)
-        self._logger.info(
+        self._logger.info(  # noqa: PLE1205
             'notify_operation transaction={} operation_handle_ref={}, operationState={}, error={}, errorMessage={}',
-            transaction_id, operation_handle_ref, invocation_state, error, error_message)
+            transaction_id,
+            operation_handle_ref,
+            invocation_state,
+            error,
+            error_message,
+        )
         subscription_mgr.send_to_subscribers(body_node, report.action.value, mdib_version_group)
 
-    def handled_actions(self) -> List[str]:
-        return [self._sdc_device.sdc_definitions.Actions.OperationInvokedReport]
-
-    def add_wsdl_port_type(self, parent_node):
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement):  # noqa: D102
         port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_two_way_operation(port_type, operation_name='Activate')
         mk_wsdl_two_way_operation(port_type, operation_name='SetString')

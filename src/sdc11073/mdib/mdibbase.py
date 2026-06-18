@@ -396,7 +396,8 @@ class MdibBase:
     @property
     def mdib_version_group(self) -> MdibVersionGroup:
         """Get current version data."""
-        return MdibVersionGroup(self.mdib_version, self.sequence_id, self.instance_id)
+        with self.mdib_lock:
+            return MdibVersionGroup(self.mdib_version, self.sequence_id, self.instance_id)
 
     def add_description_containers(self, description_containers: list[AbstractDescriptorContainer]):
         """Initialize descriptions member with provided descriptors.

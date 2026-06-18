@@ -92,7 +92,7 @@ class AlertDelegateProvider(RoleProvider):
         pm_names = self._mdib.data_model.pm_names
         all_alert_signal_entities = self._mdib.entities.by_node_type(pm_names.AlertSignalDescriptor)
 
-        operation_target_handle = params.operation_instance.operation_target_handle
+        operation_target_handle = params.operation_instance.descriptor_container.OperationTarget
         op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
         self._logger.info(
@@ -115,14 +115,18 @@ class AlertDelegateProvider(RoleProvider):
             mgr.write_entity(op_target_entity)
             mgr.write_entities(modified)
 
-        return ExecuteResult(operation_target_handle, self._mdib.data_model.msg_types.InvocationState.FINISHED)
+        return ExecuteResult(
+            invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+            mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=operation_target_handle,
+        )
 
     def _on_timeout_delegate_alert_signal(self, operation_instance: OperationDefinitionProtocol):
         """TimeoutHandler for delegated signal."""
         pm_types = self._mdib.data_model.pm_types
         pm_names = self._mdib.data_model.pm_names
 
-        operation_target_handle = operation_instance.operation_target_handle
+        operation_target_handle = operation_instance.descriptor_container.OperationTarget
         op_target_entity = self._mdib.entities.by_handle(operation_target_handle)
 
         all_alert_signal_entities = self._mdib.entities.by_node_type(pm_names.AlertSignalDescriptor)

@@ -7,6 +7,7 @@ import pytest
 from tutorial.productandroles.operationprovider import OperationProvider
 
 from sdc11073 import xml_utils
+from sdc11073.mdib.mdibbase import MdibVersionGroup
 from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.provider.operations import ActivateOperation
 from sdc11073.xml_types import msg_types, pm_types
@@ -41,6 +42,8 @@ class FakeMdib:
     def __init__(self):
         self._state = FakeState()
         self.data_model = SimpleNamespace(msg_types=msg_types)
+        # needed to partially fulfill the provider mdib interface, used in role provider implementations
+        self.mdib_version_group = MdibVersionGroup(1, 'this_is_fake', 12)
 
     def metric_state_transaction(self, set_determination_time: bool = True) -> FakeMgr:  # noqa: ARG002
         return FakeMgr(self._state)

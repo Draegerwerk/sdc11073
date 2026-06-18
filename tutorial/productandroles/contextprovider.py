@@ -152,16 +152,16 @@ class GenericContextProvider(RoleProvider):
                 handles = modified_state_handles[entity.handle]
                 mgr.write_entity(entity, handles)
 
-            if len(operation_target_handles) == 1:
-                return ExecuteResult(
-                    operation_target_handles[0],
-                    self._mdib.data_model.msg_types.InvocationState.FINISHED,
-                )
-            # the operation manipulated more than one context state, but the operation can only return a single handle.
-            # (that is a BICEPS shortcoming, the string return type only reflects that situation).
+            op_target = (
+                operation_target_handles[0]
+                if operation_target_handles
+                else params.operation_instance.descriptor_container.OperationTarget
+            )
+
             return ExecuteResult(
-                params.operation_instance.operation_target_handle,
-                self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                invocation_state=self._mdib.data_model.msg_types.InvocationState.FINISHED,
+                mdib_version_group=self._mdib.mdib_version_group,
+                operation_target_handle=op_target,
             )
 
 

@@ -15,6 +15,7 @@ import pathlib
 import socket
 import ssl
 import sys
+import threading
 import time
 import traceback
 import unittest
@@ -23,7 +24,7 @@ import uuid
 from decimal import Decimal
 from http.client import NotConnected
 from threading import Event
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from lxml import etree
 from tutorial.codedvaluecomparator import _coded_value_comparator
@@ -41,12 +42,13 @@ from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import ConsumerMdib, statecontainers
+from sdc11073.mdib.transactions import TransactionResult
 from sdc11073.namespaces import default_ns_helper
 from sdc11073.observableproperties import observables
 from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
 from sdc11073.pysoap.msgfactory import CreatedMessage
-from sdc11073.pysoap.msgreader import MdibVersionGroupReader
+from sdc11073.pysoap.msgreader import MdibVersionGroupReader, ReceivedMessage
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.pysoap.soapenvelope import Soap12Envelope, faultcodeEnum
@@ -60,13 +62,18 @@ from tests import utils
 from tests.mockstuff import SomeDevice, dec_list
 from tests.utils import container_diff
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sdc11073.mdib.statecontainers import PatientContextStateContainer
+
 FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
 
 CLIENT_VALIDATE = True
-SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
-NOTIFICATION_TIMEOUT = 5  # also jenkins related value
+SET_TIMEOUT = 10
+NOTIFICATION_TIMEOUT = 5
 
-mdib_70041 = '70041_MDIB_multi.xml'
+MDIB_NAME = 'mdib_multi_mds.xml'
 
 
 def provide_realtime_data(sdc_device: SomeDevice) -> None:
@@ -146,7 +153,19 @@ def runtest_realtime_samples(
     client_mdib.init_mdib()
     client_mdib.xtra.set_calculate_wf_age_stats(True)
     time.sleep(3.5)  # Wait long enough to make the rt_buffers full.
-    d_handles = ('0x34F05500', '0x34F05501', '0x34F05506')
+    d_handles = {'0x34F05500': threading.Event(), '0x34F05501': threading.Event(), '0x34F05506': threading.Event()}
+    global_event = threading.Event()
+
+    def collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
+        for handle, evt in d_handles.items():
+            if handle in waveform_by_handle:
+                evt.set()
+
+        if all(ev.is_set() for ev in d_handles.values()):
+            global_event.set()
+
+    with observables.bound_context(client_mdib, waveform_by_handle=collect):
+        unit_test.assertTrue(global_event.wait(SET_TIMEOUT))
 
     # now verify that we have real time samples
     for d_handle in d_handles:
@@ -173,7 +192,8 @@ def runtest_realtime_samples(
                 _coded_value_comparator(w_a.annotations[0].Type, pm_types.CodedValue('a', 'b')),
             )  # like in provide_realtime_data
 
-    d_handle = d_handles[0]
+    waveform_handes = list(d_handles.keys())
+    d_handle = waveform_handes[0]
     waveform_event = Event()
 
     # now disable one waveform
@@ -195,7 +215,7 @@ def runtest_realtime_samples(
     unit_test.assertLess(rt_buffer.rt_data[-1].determination_time, assumed_time_of_deactivation)
 
     # check waveform for completeness: the delta between all two-value-pairs of the triangle must be identical
-    my_handle = d_handles[-1]
+    my_handle = waveform_handes[-1]
     expected_delta = 0.4  # triangle, waveform-period = 1 sec., 10 values per second, max-min=2
 
     time.sleep(1)
@@ -431,7 +451,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         with WSDiscovery('127.0.0.1') as wsd:
             location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
-            sdc_device = SomeDevice.from_mdib_file(wsd, None, mdib_70041, ssl_context_container=ssl_context_container)
+            sdc_device = SomeDevice.from_mdib_file(wsd, None, MDIB_NAME, ssl_context_container=ssl_context_container)
             sdc_device.start_all(periodic_reports_interval=1.0)
             _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
             sdc_device.set_location(location, _loc_validators)
@@ -515,7 +535,7 @@ class TestClientSomeDevice(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             log_prefix=f'{self._testMethodName}: ',
         )
@@ -543,6 +563,7 @@ class TestClientSomeDevice(unittest.TestCase):
         self.logger.info('############### setUp %s done ##############', self._testMethodName)
         time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
+        self.alert_descriptor_handle = '0xD3C00100'
 
     def tearDown(self):
         self.logger.info('############### tearDown %s ...  ##############', self._testMethodName)
@@ -983,6 +1004,55 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertGreater(patient_context_state_container.BindingMdibVersion, tr_mdib_version)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
+        # trigger context descriptor update
+        received = threading.Event()
+        new_patient_handle = str(uuid.uuid4())
+
+        def _on_event_report(received_msg: ReceivedMessage):
+            raw_msg = received_msg.p_msg.raw_data.decode(encoding='utf-8')
+            if patient_descr_container.Handle in raw_msg and new_patient_handle in raw_msg:
+                received.set()
+
+        coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
+        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+            with self.sdc_device.mdib.descriptor_transaction() as mgr:
+                mgr.get_descriptor(patient_descr_container.Handle)
+                patient_state: PatientContextStateContainer = self.sdc_device.mdib.context_states.NODETYPE.get_one(
+                    pm.PatientContextState
+                )
+                cp_patient_state = patient_state.mk_copy()
+                cp_patient_state.Handle = new_patient_handle
+                mgr.add_state(cp_patient_state)
+
+            self.assertTrue(
+                received.wait(timeout=NOTIFICATION_TIMEOUT),
+                msg='Did not receive update notification for descriptor.',
+            )
+        coll.result(timeout=NOTIFICATION_TIMEOUT)  # ensure that descriptor modification is applied to the mdib
+
+        patient_context_state_containers = client_mdib.context_states.NODETYPE.get(pm.PatientContextState)
+        self.assertEqual(2, len(patient_context_state_containers))
+
+        # trigger context descriptor deletion
+        received.clear()
+        coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
+        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+            with self.sdc_device.mdib.descriptor_transaction() as mgr:
+                mgr.remove_descriptor(patient_descr_container.Handle)
+
+            self.assertTrue(
+                received.wait(timeout=NOTIFICATION_TIMEOUT),
+                msg='Did not receive deletion notification for descriptor.',
+            )
+        coll.result(timeout=NOTIFICATION_TIMEOUT)  # ensure that descriptor modification is applied to the mdib
+
+        patient_context_descr_container = client_mdib.descriptions.handle.get_one(
+            patient_descr_container.Handle, allow_none=True
+        )
+        patient_context_state_container = client_mdib.context_states.NODETYPE.get(pm.PatientContextState)
+        self.assertTrue(patient_context_descr_container is None)
+        self.assertTrue(patient_context_state_container is None)
+
     def test_get_containment_tree(self):
         self.log_watcher.setPaused(True)  # this will create an error log, but that shall be ignored
         self.assertRaises(
@@ -1174,17 +1244,18 @@ class TestClientSomeDevice(unittest.TestCase):
         # coll: wait for the next DescriptionModificationReport
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         new_handle = 'a_generated_descriptor'
-        node_name = pm.NumericMetricDescriptor
-        cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(node_name)
+        descr_cls = self.sdc_device.mdib.data_model.get_descriptor_container_class(pm.NumericMetricDescriptor)
+        state_cls = self.sdc_device.mdib.data_model.get_state_container_class(pm.NumericMetricState)
         with self.sdc_device.mdib.descriptor_transaction() as mgr:
-            new_descriptor_container = cls(
+            new_descriptor_container = descr_cls(
                 handle=new_handle,
                 parent_handle=descriptor_container.parent_handle,
             )
             new_descriptor_container.Type = pm_types.CodedValue('12345')
             new_descriptor_container.Unit = pm_types.CodedValue('hector')
             new_descriptor_container.Resolution = Decimal('0.42')
-            mgr.add_descriptor(new_descriptor_container)
+            state_container = state_cls(descriptor_container=new_descriptor_container)
+            mgr.add_descriptor(descriptor_container=new_descriptor_container, state_container=state_container)
         # long timeout, sometimes high load on jenkins makes these tests fail
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         cl_descriptor_container = client_mdib.descriptions.handle.get_one(new_handle, allow_none=True)
@@ -1198,8 +1269,89 @@ class TestClientSomeDevice(unittest.TestCase):
         cl_descriptor_container = client_mdib.descriptions.handle.get_one(new_handle, allow_none=True)
         self.assertIsNone(cl_descriptor_container)
 
+    def test_unknown_descriptor(self):
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+
+        received = threading.Event()
+
+        descr_handle = str(uuid.uuid4())
+
+        def _on_event_report(received_msg: ReceivedMessage):
+            if descr_handle in received_msg.p_msg.raw_data.decode(encoding='utf-8'):
+                received.set()
+
+        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+            with self.sdc_device.mdib._tr_lock:
+                orig_descriptor_container = self.sdc_device.mdib.descriptions.handle.get_one(
+                    self.alert_descriptor_handle
+                )
+                descriptor_container = orig_descriptor_container.mk_copy()
+                descriptor_container.Handle = descr_handle
+                tr = TransactionResult()
+                tr.descr_updated = [descriptor_container]
+                self.sdc_device.mdib.transaction = tr
+
+            self.assertTrue(
+                received.wait(timeout=NOTIFICATION_TIMEOUT),
+                msg='Did not receive notification with unknown descriptor handle',
+            )
+
+        watcher_logs = self.log_watcher.getAllRecords()
+
+        expected_msg = f'Update for unknown descriptor with handle "{descr_handle}" received.'
+        found = any(expected_msg in tmp_log.record.message for tmp_log in watcher_logs)
+        self.assertTrue(
+            found,
+            msg=f'Expected log message "{expected_msg}" not found in logs: '
+            f'{[log.record.message for log in watcher_logs]}',
+        )
+        self.log_watcher.clearHandlers()
+
+    def test_metric_state_wrong_descr_handle(self):
+        self._unknown_state_test(
+            descriptor_handle='0x34F00100',
+            func=self.sdc_device.mdib.metric_state_transaction,
+        )
+
+    def test_waveform_wrong_descr_handle(self):
+        self._unknown_state_test(
+            descriptor_handle='0x34F05500',
+            func=self.sdc_device.mdib.rt_sample_state_transaction,
+        )
+
+    def _unknown_state_test(self, descriptor_handle: str, func: Callable):
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+        received = threading.Event()
+
+        descr_handle = str(uuid.uuid4())
+
+        def _on_event_report(received_msg: ReceivedMessage):
+            if descr_handle in received_msg.p_msg.raw_data.decode(encoding='utf-8'):
+                received.set()
+
+        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+            with func() as mgr:
+                state = mgr.get_state(descriptor_handle)
+                state.DescriptorHandle = descr_handle
+
+            self.assertTrue(
+                received.wait(timeout=NOTIFICATION_TIMEOUT),
+                msg='Did not receive notification with unknown descriptor handle',
+            )
+        watcher_logs = self.log_watcher.getAllRecords()
+
+        expected_msg = f'Unknown state with DescriptorHandle "{descr_handle}" received.'
+        found = any(expected_msg in tmp_log.record.message for tmp_log in watcher_logs)
+        self.assertTrue(
+            found,
+            msg=f'Expected log message "{expected_msg}" not found in logs: '
+            f'{[log.record.message for log in watcher_logs]}',
+        )
+        self.log_watcher.clearHandlers()
+
     def test_alert_condition_modification(self):
-        alert_descriptor_handle = '0xD3C00100'
         limit_alert_descriptor_handle = '0xD3C00108'
 
         client_mdib = ConsumerMdib(self.sdc_client)
@@ -1208,7 +1360,7 @@ class TestClientSomeDevice(unittest.TestCase):
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
         # update descriptors
         with self.sdc_device.mdib.descriptor_transaction() as mgr:
-            alert_descriptor = mgr.get_descriptor(alert_descriptor_handle)
+            alert_descriptor = mgr.get_descriptor(self.alert_descriptor_handle)
             limit_alert_descriptor = mgr.get_descriptor(limit_alert_descriptor_handle)
 
             # update descriptors
@@ -1218,7 +1370,7 @@ class TestClientSomeDevice(unittest.TestCase):
         self.logger.info('changing alert descriptors done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that descriptor updates are transported to client
-        client_alert_descriptor = client_mdib.descriptions.handle.get_one(alert_descriptor_handle)
+        client_alert_descriptor = client_mdib.descriptions.handle.get_one(self.alert_descriptor_handle)
         self.assertEqual(client_alert_descriptor.SafetyClassification, pm_types.SafetyClassification.MED_C)
 
         client_limit_alert_descriptor = client_mdib.descriptions.handle.get_one(limit_alert_descriptor_handle)
@@ -1231,7 +1383,7 @@ class TestClientSomeDevice(unittest.TestCase):
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'episodic_alert_report')
         with self.sdc_device.mdib.alert_state_transaction() as mgr:
-            alert_state = mgr.get_state(alert_descriptor_handle)
+            alert_state = mgr.get_state(self.alert_descriptor_handle)
 
             limit_alert_state = mgr.get_state(limit_alert_descriptor_handle)
 
@@ -1243,14 +1395,14 @@ class TestClientSomeDevice(unittest.TestCase):
         self.logger.info('changing alert state done')
         coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for update in client
         # verify that state updates are transported to client
-        client_alert_state = client_mdib.states.descriptor_handle.get_one(alert_descriptor_handle)
+        client_alert_state = client_mdib.states.descriptor_handle.get_one(self.alert_descriptor_handle)
         self.assertEqual(client_alert_state.ActualPriority, pm_types.AlertConditionPriority.HIGH)
         self.assertEqual(client_alert_state.Presence, True)
 
         # verify that alert system state is also updated
         alert_system_descr = client_mdib.descriptions.handle.get_one(client_alert_descriptor.parent_handle)
         alert_system_state = client_mdib.states.descriptor_handle.get_one(alert_system_descr.Handle)
-        self.assertTrue(alert_descriptor_handle in alert_system_state.PresentPhysiologicalAlarmConditions)
+        self.assertTrue(self.alert_descriptor_handle in alert_system_state.PresentPhysiologicalAlarmConditions)
         self.assertGreater(alert_system_state.SelfCheckCount, 0)
 
         client_limit_alert_state = client_mdib.states.descriptor_handle.get_one(limit_alert_descriptor_handle)
@@ -1508,7 +1660,7 @@ class TestClientSomeDevice(unittest.TestCase):
         mdib = ConsumerMdib(self.sdc_client)
         mdib.init_mdib()
         self.assertEqual(1, len(mdib.descriptions.condition_signaled))
-        descriptors = mdib.descriptions.condition_signaled.get('0xD3C00100')
+        descriptors = mdib.descriptions.condition_signaled.get(self.alert_descriptor_handle)
         self.assertEqual(1, len(descriptors))
         self.assertEqual('0xD3C00100.loc.Vis', descriptors[0].Handle)
 
@@ -1519,8 +1671,8 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertEqual(len(mdib.descriptions.source), 4)
         descriptors = mdib.descriptions.source.get('3569')
         self.assertEqual(1, len(descriptors))
-        self.assertEqual('0xD3C00100', descriptors[0].Handle)
-        self.assertEqual('0xD3C00100', mdib.descriptions.source.get_one('3569').Handle)
+        self.assertEqual(self.alert_descriptor_handle, descriptors[0].Handle)
+        self.assertEqual(self.alert_descriptor_handle, mdib.descriptions.source.get_one('3569').Handle)
         descriptors = mdib.descriptions.source.get('0x34F00150')
         self.assertEqual(2, len(descriptors))
         exp_handles = [d.Handle for d in descriptors]
@@ -1564,7 +1716,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.sdc_device_1 = SomeDevice.from_mdib_file(
             self.wsd,
             'device1',
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}1: ',
         )
         self.sdc_device_1.start_all(shared_http_server=self.httpserver)
@@ -1574,7 +1726,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.sdc_device_2 = SomeDevice.from_mdib_file(
             self.wsd,
             'device2',
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}2: ',
         )
         self.sdc_device_2.start_all(shared_http_server=self.httpserver)
@@ -1649,7 +1801,7 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}: ',
             chunk_size=512,
         )
@@ -1712,7 +1864,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}: ',
             components=provider_components,
             chunk_size=512,
@@ -1806,7 +1958,7 @@ class TestClientSomeDeviceSync(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             log_prefix=f'{self._testMethodName}: ',
             chunk_size=512,
         )
@@ -1907,13 +2059,13 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,
         )  # shorter duration for faster tests
         self.sdc_device_ssl = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             ssl_context_container=self.ssl_context_container,
         )
@@ -2021,7 +2173,7 @@ class TestQualifiedName(unittest.TestCase):
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
-            mdib_70041,
+            MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
             log_prefix=f'{self._testMethodName}: ',
@@ -2092,7 +2244,7 @@ class TestWrongQualifiedName(unittest.TestCase):
         sdc_device = SomeDevice.from_mdib_file(
             wsdiscovery=wsd_mock,
             epr=None,
-            mdib_xml_path=mdib_70041,
+            mdib_xml_path=MDIB_NAME,
             alternative_hostname='some_random_invalid_hostname',
             log_prefix=f'{self._testMethodName}: ',
         )
@@ -2107,7 +2259,7 @@ class TestWrongQualifiedName(unittest.TestCase):
         sdc_device = SomeDevice.from_mdib_file(
             wsdiscovery=wsd_mock,
             epr=None,
-            mdib_xml_path=mdib_70041,
+            mdib_xml_path=MDIB_NAME,
             alternative_hostname=FULLY_QUALIFIED_HOST_NAME,
             log_prefix=f'{self._testMethodName}: ',
         )

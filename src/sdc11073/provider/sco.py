@@ -12,6 +12,7 @@ otherwise it would not get informed about progress.
 
 from __future__ import annotations
 
+import dataclasses
 import queue
 import threading
 import time
@@ -24,13 +25,26 @@ from sdc11073.xml_types.msg_types import InvocationError, InvocationState
 
 if TYPE_CHECKING:
     from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.provider.operations import ExecuteResult, OperationDefinitionBase
+    from sdc11073.provider.porttypes.setserviceimpl import SetServiceProtocol
     from sdc11073.provider.protocols.roleproviderprotocol import OperationClassGetter
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
 
-    from .operations import OperationDefinitionBase
-    from .porttypes.setserviceimpl import SetServiceProtocol
+
+@dataclasses.dataclass
+class _OpTask:
+    transaction_id: int
+    operation: OperationDefinitionBase
+    operation_request: AbstractSet
+    request: ReceivedSoapMessage
+
+
+@dataclasses.dataclass
+class _QueueItem:
+    op_task: _OpTask | None  # if None
 
 
 class _OperationsWorker(threading.Thread):
@@ -51,7 +65,7 @@ class _OperationsWorker(threading.Thread):
         self._operations_registry = operations_registry
         self._set_service: SetServiceProtocol = set_service
         self._mdib = mdib
-        self._operations_queue = queue.Queue(10)  # spooled operations
+        self._operations_queue = queue.Queue(50)  # spooled operations
         self._logger = loghelper.get_logger_adapter('sdc.device.op_worker', log_prefix)
 
     def enqueue_operation(
@@ -62,54 +76,63 @@ class _OperationsWorker(threading.Thread):
         transaction_id: int,
     ):
         """Enqueue operation."""
-        self._operations_queue.put((transaction_id, operation, request, operation_request), timeout=1)
+        op_task = _OpTask(
+            transaction_id=transaction_id, operation=operation, request=request, operation_request=operation_request
+        )
+        self._operations_queue.put(_QueueItem(op_task=op_task), timeout=1)
 
     def run(self):
         while True:
             try:
                 try:
-                    from_queue = self._operations_queue.get(timeout=1.0)
+                    task: _QueueItem = self._operations_queue.get(timeout=1.0)
                 except queue.Empty:
                     self._operations_registry.check_invocation_timeouts()
                 else:
-                    if from_queue == 'stop_sco':
+                    if task.op_task is None:
                         self._logger.info('stop request found. Terminating now.')
                         return
-                    tr_id, operation, request, operation_request = from_queue  # unpack tuple
+                    op_task: _OpTask = task.op_task
                     time.sleep(0.001)
                     self._logger.info(
                         '%s: starting operation "%s" argument=%r',
-                        operation.__class__.__name__,
-                        operation.handle,
-                        operation_request.argument,
+                        op_task.operation.__class__.__name__,
+                        op_task.operation.handle,
+                        op_task.operation_request.argument,
                     )
                     # duplicate the WAIT response to the operation request as notification. Standard requires this.
                     self._set_service.notify_operation(
-                        operation, tr_id, InvocationState.WAIT, self._mdib.mdib_version_group
+                        op_task.operation, op_task.transaction_id, InvocationState.WAIT, self._mdib.mdib_version_group
                     )
                     time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                     self._set_service.notify_operation(
-                        operation, tr_id, InvocationState.START, self._mdib.mdib_version_group
+                        op_task.operation, op_task.transaction_id, InvocationState.START, self._mdib.mdib_version_group
                     )
                     try:
-                        execute_result = operation.execute_operation(request, operation_request)
+                        execute_result: ExecuteResult = op_task.operation.execute_operation(
+                            op_task.request, op_task.operation_request
+                        )
                         self._logger.info(
-                            '%s: successfully finished operation "%s"', operation.__class__.__name__, operation.handle
+                            '%s: successfully finished operation "%s"',
+                            op_task.operation.__class__.__name__,
+                            op_task.operation.handle,
                         )
                         self._set_service.notify_operation(
-                            operation,
-                            tr_id,
+                            op_task.operation,
+                            op_task.transaction_id,
                             execute_result.invocation_state,
-                            self._mdib.mdib_version_group,
+                            execute_result.mdib_version_group,
                             execute_result.operation_target_handle,
                         )
                     except Exception as ex:
                         self._logger.exception(
-                            '%s: error executing operation "%s"', operation.__class__.__name__, operation.handle
+                            '%s: error executing operation "%s"',
+                            op_task.operation.__class__.__name__,
+                            op_task.operation.handle,
                         )
                         self._set_service.notify_operation(
-                            operation,
-                            tr_id,
+                            op_task.operation,
+                            op_task.transaction_id,
                             InvocationState.FAILED,
                             self._mdib.mdib_version_group,
                             error=InvocationError.OTHER,
@@ -119,7 +142,8 @@ class _OperationsWorker(threading.Thread):
                 self._logger.exception('%s: unexpected error while handling operation', self.__class__.__name__)
 
     def stop(self):
-        self._operations_queue.put('stop_sco')  # a dummy request to stop the thread
+        # request to stop the thread
+        self._operations_queue.put(_QueueItem(op_task=None))
         self.join(timeout=1)
 
 
@@ -167,7 +191,7 @@ class AbstractScoOperationsRegistry(ABC):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
-    ) -> InvocationState:
+    ) -> tuple[InvocationState, MdibVersionGroup]:
         """Handle operation "operation"."""
 
     @abstractmethod
@@ -212,37 +236,39 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
-    ) -> InvocationState:
+    ) -> tuple[InvocationState, MdibVersionGroup]:
         """Handle operation immediately or delayed in worker thread, depending on operation.delayed_processing."""
         if operation.delayed_processing:
             self._worker.enqueue_operation(operation, request, operation_request, transaction_id)
-            return InvocationState.WAIT
+            return InvocationState.WAIT, self._mdib.mdib_version_group
         try:
-            execute_result = operation.execute_operation(request, operation_request)
+            execute_result: ExecuteResult = operation.execute_operation(request, operation_request)
             self._logger.info(
                 '%s: successfully finished operation "%s"', operation.__class__.__name__, operation.handle
             )
-            self._set_service.notify_operation(
-                operation,
-                transaction_id,
-                execute_result.invocation_state,
-                self._mdib.mdib_version_group,
-                execute_result.operation_target_handle,
-            )
-            self._logger.debug('notifications for operation %s sent', operation.handle)
         except Exception as ex:
+            mdib_version_group = self._mdib.mdib_version_group
             self._logger.exception('%s: error executing operation "%s"', operation.__class__.__name__, operation.handle)
             self._set_service.notify_operation(
                 operation,
                 transaction_id,
                 InvocationState.FAILED,
-                self._mdib.mdib_version_group,
+                mdib_version_group,
                 error=self._mdib.data_model.msg_types.InvocationError.OTHER,
                 error_message=repr(ex),
             )
-            return InvocationState.FAILED
+            return InvocationState.FAILED, mdib_version_group
 
-        return InvocationState.FINISHED
+        self._set_service.notify_operation(
+            operation,
+            transaction_id,
+            execute_result.invocation_state,
+            execute_result.mdib_version_group,
+            execute_result.operation_target_handle,
+        )
+        self._logger.debug('notifications for operation %s sent', operation.handle)
+
+        return execute_result.invocation_state, execute_result.mdib_version_group
 
     def start_worker(self):
         """Start worker thread."""

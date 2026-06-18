@@ -28,7 +28,7 @@ class TestDeviceServices(unittest.TestCase):
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
         my_uuid = None  # let device create one
-        self.sdc_device = mockstuff.SomeDevice.from_mdib_file(self.wsd, my_uuid, '70041_MDIB_Final.xml')
+        self.sdc_device = mockstuff.SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_single_mds.xml')
         self.sdc_device.start_all()
         self.msg_reader = self.sdc_device.msg_reader
 

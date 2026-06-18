@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - command line parameter changed from --adapter to --ip for both provider and consumer
 - SDC Consumer parameter renamed from `device_location` to `provider_address` to better reflect the expected value
 - DiscoProxyClient parameter renamed from `my_address` to `host_address` to better reflect the expected value
+- change interface of ExecuteResult used as return value for SDC Provider operation implementation
 
 ### Fixed
 
@@ -43,13 +44,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - remove dns resolution to prevent http server start issues [#320](https://github.com/Draegerwerk/sdc11073/issues/320)
 - when a consumer subscribed without an `EndTo` and the provider tries to send an unsubscribe this would result in an `AttributeError` [#475](https://github.com/Draegerwerk/sdc11073/issues/475)
 - when a consumer subscribed with an `EndTo` the provider now sends the `SubscriptionEnd` actually to the end to url instead of notify to url [#475](https://github.com/Draegerwerk/sdc11073/issues/475)
+- operation handling with regard to returned MdibVersion, SequenceId and InstanceId
 
 ### Removed
 
 - `isoduration.UTC` class. Use `datetime.timezone.utc` instead. [#435](https://github.com/Draegerwerk/sdc11073/pull/445)
 - support for python 3.9
 - MDIBs with entity handling [#462](https://github.com/Draegerwerk/sdc11073/pull/462)
-- methode `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
+- method `network.NetworkAdapterNotFoundError` and `network.get_adapter_containing_ip`
+- method `handled_actions` of class `SetService`
+- property `actions` of class `DPWSPortTypeBase`
+- method `wait_metric_matches` of class `ConsumerMdibMethods`
 
 ### Removed
 

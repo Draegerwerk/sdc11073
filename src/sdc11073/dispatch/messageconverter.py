@@ -46,13 +46,14 @@ class MessageConverterMiddleware:
             http_status = ex.status
             http_reason = ex.reason
         except Exception as ex:  # noqa: BLE001
-            http_status = 500
-            http_reason = 'exception'
             self._logger.warning(traceback.format_exc())
             fault = Fault()
             fault.Code.Value = faultcodeEnum.SENDER
             fault.add_reason_text(str(ex))
-
+            # SOAP Version 1.2 Part 2 requires SOAP Fault 'env:Sender' with HTTP Status Code 400
+            http_status = 400
+            # SOAP Version 1.2 Part 2 requires SOAP Fault "env:Sender" with HTTP Reason Phrase 'Bad Request'
+            http_reason = 'Bad Request'
         if fault is not None:
             inf = HeaderInformationBlock(action=fault.action, addr_to=None)
             response = self._msg_factory.mk_soap_message(inf, payload=fault)
@@ -74,7 +75,6 @@ class MessageConverterMiddleware:
             http_status = ex.status
             http_reason = ex.reason
         except Exception as ex:
-            # make an error 500 response with the soap fault as content
             self._logger.exception('Exception while handling POST request')
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
             request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
@@ -83,8 +83,10 @@ class MessageConverterMiddleware:
             fault.add_reason_text(str(ex))
             response = self._msg_factory.mk_reply_soap_message(request_data, fault)
             response_xml_string = response.serialize()
-            http_status = 500
-            http_reason = 'exception'
+            # SOAP Version 1.2 Part 2 requires SOAP Fault 'env:Sender' with HTTP Status Code 400
+            http_status = 400
+            # SOAP Version 1.2 Part 2 requires SOAP Fault "env:Sender" with HTTP Reason Phrase 'Bad Request'
+            http_reason = 'Bad Request'
         finally:
             self._soap_response_out_logger.debug(response_xml_string, extra={'http_method': 'POST'})
         return http_status, http_reason, response_xml_string

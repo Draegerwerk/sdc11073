@@ -50,7 +50,7 @@ SEARCH_TIMEOUT = 2  # in real world applications this timeout is too short, 10 s
 # Here this short timeout is used to accelerate the test.
 
 __HERE__ = pathlib.Path(__file__).parent
-__70041_MDIB_FINAL__ = __HERE__.joinpath('70041_MDIB_Final.xml')
+__MDIB_SINGLE_MDS_PATH__ = __HERE__.joinpath('mdib_single_mds.xml')
 
 
 def create_generic_provider(
@@ -147,7 +147,11 @@ class MyRoleProvider1(RoleProvider):
         self.operation1_called += 1
         self.operation1_args = argument
         self._logger.info('_handle_operation_1 called arg=%r', argument)
-        return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
+        return ExecuteResult(
+            invocation_state=InvocationState.FINISHED,
+            mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+        )
 
     def _handle_operation_2(self, params: ExecuteParameters) -> ExecuteResult:
         """Manipulate the operation target, and increments the call counter."""
@@ -161,7 +165,11 @@ class MyRoleProvider1(RoleProvider):
         op_target_entity.state.MetricValue.Value = argument
         with self._mdib.metric_state_transaction() as mgr:
             mgr.write_entity(op_target_entity)
-        return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
+        return ExecuteResult(
+            invocation_state=InvocationState.FINISHED,
+            mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+        )
 
 
 class MyRoleProvider2(RoleProvider):
@@ -207,7 +215,11 @@ class MyRoleProvider2(RoleProvider):
         op_target_entity.state.MetricValue.Value = argument
         with self._mdib.metric_state_transaction() as mgr:
             mgr.write_entity(op_target_entity)
-        return ExecuteResult(params.operation_instance.operation_target_handle, InvocationState.FINISHED)
+        return ExecuteResult(
+            invocation_state=InvocationState.FINISHED,
+            mdib_version_group=self._mdib.mdib_version_group,
+            operation_target_handle=params.operation_instance.descriptor_container.OperationTarget,
+        )
 
 
 class MyProductImpl(BaseProduct):
@@ -261,7 +273,7 @@ class TestTutorial(unittest.TestCase):
         my_ws_discovery.start()
 
         # to create a device, this what you usually do:
-        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider)
 
     def test_search_provider(self):
@@ -270,10 +282,10 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
-        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, __70041_MDIB_FINAL__)
+        my_generic_provider2 = create_generic_provider(my_ws_discovery, self.my_location2, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider2)
 
         # Search for devices
@@ -309,7 +321,7 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')
@@ -350,7 +362,7 @@ class TestTutorial(unittest.TestCase):
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
-        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __70041_MDIB_FINAL__)
+        my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
         my_client_ws_discovery = WSDiscovery('127.0.0.1')

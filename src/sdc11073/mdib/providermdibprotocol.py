@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
     from sdc11073.definitions_base import AbstractDataModel, BaseDefinitions
     from sdc11073.mdib.entityprotocol import ProviderEntityGetterProtocol
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.transactionsprotocol import (
         ContextStateTransactionManagerProtocol,
         DescriptorTransactionManagerProtocol,
@@ -58,3 +59,7 @@ class ProviderMdibProtocol(Protocol):  # pragma: no cover
 
     def operational_state_transaction(self) -> AbstractContextManager[StateTransactionManagerProtocol]:
         """Return a transaction."""
+
+    @property
+    def mdib_version_group(self) -> MdibVersionGroup:
+        """Get current version data."""

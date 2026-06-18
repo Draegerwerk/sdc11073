@@ -61,6 +61,7 @@ if TYPE_CHECKING:
     from lxml import etree
 
     from sdc11073.location import SdcLocation
+    from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
     from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
@@ -360,6 +361,8 @@ class SdcProvider:
 
         entities = self._mdib.entities.by_node_type(self._mdib.data_model.pm_names.ScoDescriptor)
 
+        # TODO(a-kleinf): change registry of operation handler - must not be done per SCO,  # noqa: FIX002
+        #  https://github.com/Draegerwerk/sdc11073/issues/492
         if self._role_provider_components.role_provider_class is not None:
             for entity in entities:
                 sco_operations_registry = self._components.sco_operations_registry_class(
@@ -515,14 +518,17 @@ class SdcProvider:
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
-    ) -> Enum:
+    ) -> tuple[Enum, MdibVersionGroup]:
         """Find the responsible sco and forward request to it."""
         for sco in self._sco_operations_registries.values():
+            # TODO(a-kleinf): first found/registered operation with this handle is used,  # noqa: FIX002
+            #  duplicate registered handlers must be avoided,
+            #  https://github.com/Draegerwerk/sdc11073/issues/492
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
                 return sco.handle_operation_request(operation, request, operation_request, transaction_id)
         self._logger.error('no sco has operation %s', operation.handle)
-        return self.mdib.data_model.msg_types.InvocationState.FAILED
+        return self.mdib.data_model.msg_types.InvocationState.FAILED, self._mdib.mdib_version_group
 
     def start_all(
         self,

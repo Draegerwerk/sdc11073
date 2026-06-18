@@ -25,7 +25,7 @@ from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
 from tests import mockstuff
 
-MDIB_FOLDER = pathlib.Path(__file__).parent / '70041_MDIB_Final.xml'
+MDIB_PATH = pathlib.Path(__file__).parent / 'mdib_single_mds.xml'
 
 # pylint: disable=protected-access
 
@@ -44,7 +44,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
     def setUp(self):
         basic_logging_setup()
         self.logger = get_logger_adapter('sdc.test')
-        self.mdib = ProviderMdib.from_mdib_file(MDIB_FOLDER)
+        self.mdib = ProviderMdib.from_mdib_file(MDIB_PATH)
 
         this_model = ThisModelType(
             manufacturer='ABCDEFG GmbH',
@@ -92,6 +92,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             self.sdc_device.msg_factory,
         )
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
+
         mgr._subscriptions.add_object(test_subscription)
 
         waveform_provider = self.sdc_device.waveform_provider
