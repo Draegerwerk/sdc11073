@@ -2,12 +2,15 @@
 
 import logging
 import sys
+import threading
 import time
 import unittest
 
 from sdc11073 import loghelper
 from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.mdib.consumermdib import ConsumerMdib
+from sdc11073.mdib.statecontainers import AbstractAlertStateContainer
+from sdc11073.observableproperties import observables
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types.actions import periodic_actions
@@ -32,7 +35,9 @@ class TestClientSomeDeviceAlertDelegate(unittest.TestCase):
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.mdib.xtra.ensure_location_context_descriptor()
         self.sdc_device.set_location(
-            utils.random_location(), self._loc_validators, location_context_descriptor_handle='LC.mds0',
+            utils.random_location(),
+            self._loc_validators,
+            location_context_descriptor_handle='LC.mds0',
         )
 
         time.sleep(0.5)  # allow full init of devices
@@ -77,34 +82,51 @@ class TestClientSomeDeviceAlertDelegate(unittest.TestCase):
     def test_delegate(self):
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
+        as_handle = 'as0.mds0'
+        as_rem_handle = 'as0.mds0_rem'
         # set an alarm condition and start local signal
         with self.sdc_device.mdib.alert_state_transaction() as mgr:
             alert_condition_state = mgr.get_state('ac0.mds0')
             alert_condition_state.ActivationState = pm_types.AlertActivation.ON
             alert_condition_state.Presence = True
-            local_alert_signal_state = mgr.get_state('as0.mds0')
+            local_alert_signal_state = mgr.get_state(as_handle)
             local_alert_signal_state.ActivationState = pm_types.AlertActivation.ON
             local_alert_signal_state.Presence = pm_types.AlertSignalPresence.ON
         # verify that remote signal is still off
-        remote_alert_signal_state = self.sdc_device.mdib.states.descriptor_handle.get_one('as0.mds0_rem')
+        remote_alert_signal_state = self.sdc_device.mdib.states.descriptor_handle.get_one(as_rem_handle)
         self.assertEqual(pm_types.AlertSignalPresence.OFF, remote_alert_signal_state.Presence)
         self.assertEqual(pm_types.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
 
         # call activate method for delegate all alarms
-        proposed_alert_state = cl_mdib.xtra.mk_proposed_state('as0.mds0_rem')
+        proposed_alert_state = cl_mdib.xtra.mk_proposed_state(as_rem_handle)
         proposed_alert_state.ActivationState = pm_types.AlertActivation.ON
         proposed_alert_state.Presence = pm_types.AlertSignalPresence.ON
-        future = self.sdc_client.set_service_client.set_alert_state('as0.mds0_rem_dele', proposed_alert_state)
 
-        result = future.result(timeout=SET_TIMEOUT)
-        state = result.InvocationInfo.InvocationState
-        self.assertEqual(state, msg_types.InvocationState.FINISHED)
+        event1 = threading.Event()
+        event2 = threading.Event()
 
-        # verify that now remote signal in on and local signal is off
-        local_alert_signal_state = cl_mdib.states.descriptor_handle.get_one('as0.mds0')
-        remote_alert_signal_state = cl_mdib.states.descriptor_handle.get_one('as0.mds0_rem')
-        self.assertEqual(pm_types.AlertActivation.PAUSED, local_alert_signal_state.ActivationState)
-        self.assertEqual(pm_types.AlertActivation.ON, remote_alert_signal_state.ActivationState)
-        time.sleep(5)
-        self.assertEqual(pm_types.AlertActivation.ON, local_alert_signal_state.ActivationState)
-        self.assertEqual(pm_types.AlertActivation.OFF, remote_alert_signal_state.ActivationState)
+        def _on_alert_update(update: dict[str, AbstractAlertStateContainer]):
+            if as_handle in update and as_rem_handle in update:
+                as_activation_1 = update[as_handle].ActivationState
+                as_activation_2 = update[as_rem_handle].ActivationState
+
+                if (
+                    as_activation_1 == pm_types.AlertActivation.PAUSED
+                    and as_activation_2 == pm_types.AlertActivation.ON
+                ):
+                    event1.set()
+
+                if (
+                    event1.is_set()
+                    and as_activation_1 == pm_types.AlertActivation.ON
+                    and as_activation_2 == pm_types.AlertActivation.OFF
+                ):
+                    event2.set()
+
+        with observables.bound_context(cl_mdib, alert_by_handle=_on_alert_update):
+            future = self.sdc_client.set_service_client.set_alert_state('as0.mds0_rem_dele', proposed_alert_state)
+            result = future.result(timeout=SET_TIMEOUT)
+            state = result.InvocationInfo.InvocationState
+            self.assertEqual(state, msg_types.InvocationState.FINISHED)
+            self.assertTrue(event1.wait(timeout=SET_TIMEOUT), msg='Remote alert signal was not sent.')
+            self.assertTrue(event2.wait(timeout=SET_TIMEOUT), msg='Remote alert signal was not unset automatically.')
