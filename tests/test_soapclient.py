@@ -1,7 +1,10 @@
 """Test SoapClient - e.g. error handling."""
+
+import ssl
 from http.client import HTTPException, NotConnected
 from unittest import TestCase, mock
 
+from sdc11073.consumer.consumerimpl import SdcConsumer
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.loghelper import get_logger_adapter
 from sdc11073.pysoap.msgfactory import MessageFactory
@@ -67,25 +70,39 @@ class TestSoapClient(TestCase):
         self.assertIsInstance(result, ReceivedMessage)
         self.assertFalse(self.soap_client.is_closed())
 
-        # request method of http connection raises an Exception => exception is converted to NotConnected
+        # request method of http connection raises an Exception => exception is converted to NotConnected,
+        # keeping the original exception as reason (message) and cause (__cause__).
         for exception in (HTTPException('mock'), OSError('mock'), Exception('mock')):
             mocked_connection, http_response = self._setup_mock(body)
             mocked_connection.request.side_effect = exception
-            self.assertRaises(NotConnected, self.soap_client.post_message_to, 'renew', created_message, validate=False)
+            with self.assertRaises(NotConnected) as ctx:
+                self.soap_client.post_message_to('renew', created_message, validate=False)
+            self.assertIn('mock', str(ctx.exception))
+            self.assertIn(exception.__class__.__name__, str(ctx.exception))
+            self.assertIs(ctx.exception.__cause__, exception)
             self.assertTrue(self.soap_client.is_closed())
 
-        # getresponse method of http connection raises an Exception => exception is converted to NotConnected
+        # getresponse method of http connection raises an Exception => exception is converted to NotConnected,
+        # keeping the original exception as reason (message) and cause (__cause__).
         for exception in (HTTPException('mock'), OSError('mock'), Exception('mock')):
             mocked_connection, http_response = self._setup_mock(body)
             mocked_connection.getresponse.side_effect = exception
-            self.assertRaises(NotConnected, self.soap_client.post_message_to, 'renew', created_message, validate=False)
+            with self.assertRaises(NotConnected) as ctx:
+                self.soap_client.post_message_to('renew', created_message, validate=False)
+            self.assertIn('mock', str(ctx.exception))
+            self.assertIn(exception.__class__.__name__, str(ctx.exception))
+            self.assertIs(ctx.exception.__cause__, exception)
             self.assertTrue(self.soap_client.is_closed())
 
         # returned status >= 300 => raise HTTPReturnCodeError, connection stays open
         mocked_connection, http_response = self._setup_mock(body)
         http_response.status = 333
         self.assertRaises(
-            HTTPReturnCodeError, self.soap_client.post_message_to, 'renew', created_message, validate=False,
+            HTTPReturnCodeError,
+            self.soap_client.post_message_to,
+            'renew',
+            created_message,
+            validate=False,
         )
         self.assertFalse(self.soap_client.is_closed())
 
@@ -112,9 +129,39 @@ class TestSoapClient(TestCase):
         request_manipulator = mock.MagicMock()
         request_manipulator.manipulate_soapenvelope = mock.MagicMock()
         return_value = self.soap_client._prepare_message(
-            created_message=created_message, request_manipulator=request_manipulator, validate=True,
+            created_message=created_message,
+            request_manipulator=request_manipulator,
+            validate=True,
         )
 
         created_message.serialize.assert_called_once_with(request_manipulator=request_manipulator, validate=False)
         self.assertTrue(request_manipulator.manipulate_string.called)
         self.assertEqual(return_value, request_manipulator.manipulate_string.return_value)
+
+    def test_connect_ssl_fallback_logs_reason(self):
+        """When auto-detect falls back from ssl to non-ssl, the ssl error reason is logged (see issue #427)."""
+        consumer = SdcConsumer(
+            'https://127.0.0.1:9999',  # exact value does not matter
+            sdc_definitions=SdcV1Definitions,
+            ssl_context_container=None,
+            validate=False,
+        )
+        # ssl_context_container=None sets is_ssl_connection=False; force auto-detect so the ssl attempt runs first
+        consumer.is_ssl_connection = None
+        consumer._logger = mock.MagicMock()
+
+        ssl_error = ssl.SSLError('certificate verify failed')
+        ssl_soap_client = mock.MagicMock()
+        ssl_soap_client.connect.side_effect = ssl_error  # ssl attempt fails
+        plain_soap_client = mock.MagicMock()  # non-ssl retry succeeds
+
+        consumer.get_soap_client = mock.MagicMock(side_effect=[ssl_soap_client, plain_soap_client])
+        consumer._forget_soap_client = mock.MagicMock()
+
+        consumer._connect()
+
+        # fell back to a non-ssl connection ...
+        self.assertFalse(consumer.is_ssl_connection)
+        # ... and the swallowed ssl error was made visible via a warning that carries the reason
+        consumer._logger.warning.assert_called_once()
+        self.assertIn(ssl_error, consumer._logger.warning.call_args.args)
