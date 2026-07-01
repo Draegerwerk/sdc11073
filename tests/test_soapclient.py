@@ -165,3 +165,10 @@ class TestSoapClient(TestCase):
         # ... and the swallowed ssl error was made visible via a warning that carries the reason
         consumer._logger.warning.assert_called_once()
         self.assertIn(ssl_error, consumer._logger.warning.call_args.args)
+
+    def test_get_from_url_raises_not_connected_error(self):
+        """Test that get_from_url raises NotConnected when the connection is closed."""
+        self.soap_client.connect = mock.MagicMock()
+        with self.assertRaises(NotConnected, msg=f'not connected to {self.soap_client._netloc}'):
+            self.soap_client.get_from_url('foo', msg='')
+        self.soap_client.connect.assert_called_once()  # tried to reconnect once
