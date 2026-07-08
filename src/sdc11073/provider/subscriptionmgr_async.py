@@ -14,12 +14,11 @@ from lxml import etree
 
 from sdc11073 import observableproperties
 from sdc11073.etc import apply_map
+from sdc11073.provider.subscriptionmgr_base import ActionBasedSubscription, RoundTripData, SubscriptionsManagerBase
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.xml_types import eventing_types as evt_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.basetypes import MessageType
-
-from .subscriptionmgr_base import ActionBasedSubscription, RoundTripData, SubscriptionsManagerBase
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Iterable
@@ -81,13 +80,22 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             raise
 
     async def async_send_notification_end_message(
-        self, code: str = 'SourceShuttingDown', reason: str = 'Event source going off line.'
+        self,
+        code: str = evt_types.SubscriptionEndStatus.SOURCE_SHUTTING_DOWN,
+        reason: str = 'Event source going off line.',
     ) -> ReceivedMessage | None:
-        """Send notification end message to subscriber."""
+        """Send notification end message to subscriber.
+
+        A SubscriptionEnd message is sent to the EndTo endpoint reference of the subscribe request.
+        If no EndTo was provided, no message is sent.
+        """
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
 
         if not self.is_valid:
+            return None
+        if self._end_to_url is None:
+            # no EndTo endpoint reference -> per WS-Eventing the default is not to send this message
             return None
         subscription_end = evt_types.SubscriptionEnd()
         subscription_end.SubscriptionManager.Address = my_addr
@@ -96,11 +104,11 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
         subscription_end.add_reason(reason, 'en-US')
         inf = HeaderInformationBlock(
             action=subscription_end.action,
-            addr_to=self.end_to_address or self.notify_to_address,
-            reference_parameters=self.end_to_ref_params or self.notify_ref_params,
+            addr_to=self.end_to_address,
+            reference_parameters=self.end_to_ref_params,
         )
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-        url = self._end_to_url or self.notify_to_url
+        url = self._end_to_url
         soap_client = self._get_soap_client(url.netloc)
         self._logger.info('async send subscription end to {}, subscription = {}', url, self)  # noqa: PLE1205
         try:

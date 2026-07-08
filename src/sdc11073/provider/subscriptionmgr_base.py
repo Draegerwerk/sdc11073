@@ -196,14 +196,21 @@ class SubscriptionBase:
 
     def send_notification_end_message(
         self,
-        code: str = 'SourceShuttingDown',
+        code: str = evt_types.SubscriptionEndStatus.SOURCE_SHUTTING_DOWN,
         reason: str = 'Event source going off line.',
     ):
-        """Send a notification end message."""
+        """Send a notification end message.
+
+        A SubscriptionEnd message is sent to the EndTo endpoint reference of the subscribe request.
+        If no EndTo was provided, no message is sent.
+        """
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
 
         if not self.is_valid:
+            return
+        if self._end_to_url is None:
+            # no EndTo endpoint reference -> per WS-Eventing the default is not to send this message
             return
         subscription_end = evt_types.SubscriptionEnd()
         subscription_end.SubscriptionManager.Address = my_addr
@@ -212,11 +219,11 @@ class SubscriptionBase:
         subscription_end.add_reason(reason, 'en-US')
         inf = HeaderInformationBlock(
             action=subscription_end.action,
-            addr_to=self.end_to_address or self.notify_to_address,
-            reference_parameters=self.end_to_ref_params or self.notify_ref_params,
+            addr_to=self.end_to_address,
+            reference_parameters=self.end_to_ref_params,
         )
         message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-        url = self._end_to_url or self.notify_to_url
+        url = self._end_to_url
         soap_client = self._get_soap_client(url.netloc)
         try:
             soap_client.post_message_to(url.path, message, msg='send_notification_end_message')

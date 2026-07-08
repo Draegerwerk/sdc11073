@@ -203,12 +203,24 @@ def test_send_notification_report_error_handling():
         mgr._send_notification_report(DummySub(etree.DocumentInvalid('bad')), etree.Element('n'), 'act')
 
 
-def test_end_to_url_is_none_when_end_to_not_provided(soap_client_pool: mock.MagicMock):
-    """Test that _end_to_url is None when EndTo is not in the subscribe request.
+def _mk_subscription(subscribe: evt.Subscribe, soap_client_pool: mock.MagicMock) -> ActionBasedSubscription:
+    return ActionBasedSubscription(
+        mgr=None,
+        subscribe_request=subscribe,
+        accepted_encodings=[],
+        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
+        max_subscription_duration=60,
+        soap_client_pool=soap_client_pool,
+        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
+        log_prefix='t',
+    )
 
-    Before the fix, SubscriptionBase.__init__ did not set _end_to_url when
-    subscribe_request.EndTo was None, causing an AttributeError when
-    send_notification_end_message later accessed self._end_to_url.
+
+def test_no_subscription_end_when_end_to_not_provided(soap_client_pool: mock.MagicMock):
+    """Test that no SubscriptionEnd is sent when EndTo is not in the subscribe request.
+
+    A SubscriptionEnd message is sent to the EndTo endpoint reference.
+    If no EndTo is provided the default is not to send this message.
     """
     subscribe = evt.Subscribe()
     subscribe.set_filter('http://x/y/Act')
@@ -216,45 +228,25 @@ def test_end_to_url_is_none_when_end_to_not_provided(soap_client_pool: mock.Magi
     # EndTo is NOT set (the default is None)
     assert subscribe.EndTo is None
 
-    sub = ActionBasedSubscription(
-        mgr=None,
-        subscribe_request=subscribe,
-        accepted_encodings=[],
-        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
-        max_subscription_duration=60,
-        soap_client_pool=soap_client_pool,
-        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
-        log_prefix='t',
-    )
+    sub = _mk_subscription(subscribe, soap_client_pool)
     assert sub._end_to_url is None
     assert sub.end_to_address is None
 
-    # send_notification_end_message must not raise AttributeError
+    # no EndTo -> no message is sent (and no AttributeError)
     sub.send_notification_end_message()
-    soap_client_pool.get_soap_client.assert_called_once_with('localhost:8000', [], sub)
-    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
-        '/notify', mock.ANY, msg='send_notification_end_message'
-    )
+    soap_client_pool.get_soap_client.assert_not_called()
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_not_called()
 
 
-def test_end_to_url_is_set_when_end_to_provided(soap_client_pool: mock.MagicMock):
-    """Test that _end_to_url is correctly parsed when EndTo is provided."""
+def test_subscription_end_sent_to_end_to_when_provided(soap_client_pool: mock.MagicMock):
+    """Test that a SubscriptionEnd is sent to the EndTo address when EndTo is provided."""
     subscribe = evt.Subscribe()
     subscribe.set_filter('http://x/y/Act')
     subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
     subscribe.init_end_to()
     subscribe.EndTo.Address = 'http://localhost:9000/end'
 
-    sub = ActionBasedSubscription(
-        mgr=None,
-        subscribe_request=subscribe,
-        accepted_encodings=[],
-        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
-        max_subscription_duration=60,
-        soap_client_pool=soap_client_pool,
-        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
-        log_prefix='t',
-    )
+    sub = _mk_subscription(subscribe, soap_client_pool)
     assert sub._end_to_url is not None
     assert sub._end_to_url.netloc == 'localhost:9000'
     assert sub.end_to_address == 'http://localhost:9000/end'
@@ -265,8 +257,8 @@ def test_end_to_url_is_set_when_end_to_provided(soap_client_pool: mock.MagicMock
     )
 
 
-def test_end_to_url_is_none_when_end_to_address_is_none(soap_client_pool: mock.MagicMock):
-    """Test that _end_to_url is None when EndTo exists but Address is None."""
+def test_no_subscription_end_when_end_to_address_is_none(soap_client_pool: mock.MagicMock):
+    """Test that no SubscriptionEnd is sent when EndTo exists but its Address is None."""
     subscribe = evt.Subscribe()
     subscribe.set_filter('http://x/y/Act')
     subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
@@ -275,19 +267,27 @@ def test_end_to_url_is_none_when_end_to_address_is_none(soap_client_pool: mock.M
     assert subscribe.EndTo is not None
     subscribe.EndTo.Address = None
 
-    sub = ActionBasedSubscription(
-        mgr=None,
-        subscribe_request=subscribe,
-        accepted_encodings=[],
-        base_urls=[SimpleNamespace(scheme='http', netloc='127.0.0.1:9000', path='path')],
-        max_subscription_duration=60,
-        soap_client_pool=soap_client_pool,
-        msg_factory=MessageFactory(SdcV1Definitions, None, logger=None, validate=False),
-        log_prefix='t',
-    )
+    sub = _mk_subscription(subscribe, soap_client_pool)
     assert sub._end_to_url is None
     sub.send_notification_end_message()
-    soap_client_pool.get_soap_client.assert_called_once_with('localhost:8000', [], sub)
-    soap_client_pool.get_soap_client.return_value.post_message_to.assert_called_once_with(
-        '/notify', mock.ANY, msg='send_notification_end_message'
-    )
+    soap_client_pool.get_soap_client.assert_not_called()
+    soap_client_pool.get_soap_client.return_value.post_message_to.assert_not_called()
+
+
+def test_subscription_end_status_is_full_uri(soap_client_pool: mock.MagicMock):
+    """Test that the SubscriptionEnd status is the full WS-Eventing URI, not a bare local name."""
+    subscribe = evt.Subscribe()
+    subscribe.set_filter('http://x/y/Act')
+    subscribe.Delivery.NotifyTo.Address = 'http://localhost:8000/notify'
+    subscribe.init_end_to()
+    subscribe.EndTo.Address = 'http://localhost:9000/end'
+
+    sub = _mk_subscription(subscribe, soap_client_pool)
+    sub.send_notification_end_message()
+
+    call_args = soap_client_pool.get_soap_client.return_value.post_message_to.call_args
+    created_message = call_args.args[1]
+    xml = created_message.serialize(validate=False)
+    assert b'http://schemas.xmlsoap.org/ws/2004/08/eventing/SourceShuttingDown' in xml
+    # the bare local name must not appear as the Status text
+    assert b'>SourceShuttingDown<' not in xml
