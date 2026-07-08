@@ -36,6 +36,11 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgreader import MessageReader, ReceivedMessage
 
 
+def _connection_error_reason(ex: BaseException) -> str:
+    """Return a human-readable reason for a connection error, including the exception type."""
+    return f'{type(ex).__name__}: {ex}'
+
+
 class HTTPConnectionNoDelay(HTTPConnection):
     """Connect method sets specific socket options."""
 
@@ -261,7 +266,8 @@ class SoapClient(SoapClientProtocol):
             # implicit connect
             self.connect()
         if self.is_closed():
-            raise NotConnected
+            msg = f'not connected to {self._netloc}'
+            raise NotConnected(msg)
         xml_request = self._prepare_message(created_message, request_manipulator, validate)
         started = time.perf_counter()
         try:
@@ -312,7 +318,7 @@ class SoapClient(SoapClientProtocol):
             self._log.warn('{}: could not send request, http exception = {!r}', log_msg, ex)
             self._close_without_lock()
             self._has_connection_error = True
-            raise NotConnected from ex
+            raise NotConnected(_connection_error_reason(ex)) from ex
         except OSError as ex:
             if ex.errno in (10053, 10054):
                 self._log.warn('{}: could not send request to {}, OSError={!r}', log_msg, self.netloc, ex)
@@ -325,7 +331,7 @@ class SoapClient(SoapClientProtocol):
                 )
             self._has_connection_error = True
             self._close_without_lock()
-            raise NotConnected from ex
+            raise NotConnected(_connection_error_reason(ex)) from ex
         except Exception as ex:
             self._log.warn(
                 "{}: POST to netloc='{}' path='{}': could not send request, error={!r}\n{}",
@@ -337,7 +343,7 @@ class SoapClient(SoapClientProtocol):
             )
             self._has_connection_error = True
             self._close_without_lock()
-            raise NotConnected from ex
+            raise NotConnected(_connection_error_reason(ex)) from ex
 
         # read the response
         try:
@@ -346,7 +352,7 @@ class SoapClient(SoapClientProtocol):
             self._log.warn('{}: could not receive response, http exception = {!r} ', log_msg, ex)
             self._has_connection_error = True
             self._close_without_lock()
-            raise NotConnected from ex
+            raise NotConnected(_connection_error_reason(ex)) from ex
         except OSError as ex:
             if ex.errno in (10053, 10054):
                 self._log.warn('{}: could not receive response, OSError={!r}', log_msg, ex)
@@ -360,7 +366,7 @@ class SoapClient(SoapClientProtocol):
                 )
             self._has_connection_error = True
             self._close_without_lock()
-            raise NotConnected from ex
+            raise NotConnected(_connection_error_reason(ex)) from ex
         except Exception as ex:
             self._log.warn(
                 "{}: POST to netloc='{}' path='{}': could not receive response, error={!r}\n{}",
@@ -372,7 +378,7 @@ class SoapClient(SoapClientProtocol):
             )
             self._has_connection_error = True
             self._close_without_lock()
-            raise NotConnected from ex
+            raise NotConnected(_connection_error_reason(ex)) from ex
 
         content = HTTPReader.read_response_body(response)
 
@@ -414,7 +420,8 @@ class SoapClient(SoapClientProtocol):
             # implicit connect
             self.connect()
         if self.is_closed():
-            raise NotConnected
+            msg = f'not connected to {self._netloc}'
+            raise NotConnected(msg)
 
         if not url.startswith('/'):
             url = '/' + url

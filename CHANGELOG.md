@@ -5,6 +5,12 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- the `http.client.NotConnected` raised by `SoapClient` now carries the reason of the underlying connection/SSL error, and the consumer now logs the SSL error when it falls back from an encrypted to an unencrypted connection [#427](https://github.com/Draegerwerk/sdc11073/issues/427)
+
 ## [v3.0.0] - 2026-06-24
 
 ### Added

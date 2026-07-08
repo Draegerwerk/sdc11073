@@ -691,8 +691,13 @@ class SdcConsumer:
             try:
                 soap_client.connect()
                 self.is_ssl_connection = True
-            except ssl.SSLError:
+            except ssl.SSLError as ex:
                 # could not connect with ssl, try without it
+                self._logger.warning(  # noqa: PLE1205
+                    'ssl connection to {} failed, retrying without ssl. reason: {!r}',
+                    self._provider_address,
+                    ex,
+                )
                 soap_client.close()
                 self._forget_soap_client(soap_client)
                 self.is_ssl_connection = False
