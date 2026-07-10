@@ -89,35 +89,18 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
         A SubscriptionEnd message is sent to the EndTo endpoint reference of the subscribe request.
         If no EndTo was provided, no message is sent.
         """
-        url = self.base_urls[0]
-        my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
-
-        if not self.is_valid:
+        message = self._prepare_subscription_end(code=code, reason=reason)
+        if message is None:
             return None
-        if self._end_to_url is None:
-            # no EndTo endpoint reference -> per WS-Eventing the default is not to send this message
-            return None
-        subscription_end = evt_types.SubscriptionEnd()
-        subscription_end.SubscriptionManager.Address = my_addr
-        subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
-        subscription_end.Status = code
-        subscription_end.add_reason(reason, 'en-US')
-        inf = HeaderInformationBlock(
-            action=subscription_end.action,
-            addr_to=self.end_to_address,
-            reference_parameters=self.end_to_ref_params,
-        )
-        message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-        url = self._end_to_url
-        soap_client = self._get_soap_client(url.netloc)
-        self._logger.info('async send subscription end to {}, subscription = {}', url, self)  # noqa: PLE1205
+        soap_client = self._get_soap_client(self._end_to_url.netloc)
+        self._logger.info('async send subscription end to {}, subscription = {}', self._end_to_url, self)  # noqa: PLE1205
         try:
-            return await soap_client.async_post_message_to(url.path, message)
+            return await soap_client.async_post_message_to(self._end_to_url.path, message)
         except aiohttp.client_exceptions.ClientConnectorError:
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info(  # noqa: PLE1205
                 'exception async send subscription end to {}, subscription = {}',
-                url,
+                self._end_to_url,
                 self,
             )
         except Exception:  # noqa: BLE001

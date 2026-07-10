@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import http.client
 import time
+import urllib.parse
 import uuid
 from collections import deque
 from threading import Thread
 from typing import TYPE_CHECKING, Any, Protocol
-from urllib.parse import urlparse
 
 from lxml import etree
 
@@ -22,7 +22,6 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.basetypes import MessageType
 
 if TYPE_CHECKING:
-    import urllib.parse
     from collections.abc import Sequence
     from urllib.parse import SplitResult
 
@@ -104,16 +103,16 @@ class SubscriptionBase:
 
         self.mode = subscribe_request.Delivery.Mode
         self.notify_to_address = subscribe_request.Delivery.NotifyTo.Address
-        self.notify_to_url = urlparse(self.notify_to_address)
+        self.notify_to_url = urllib.parse.urlparse(self.notify_to_address)
         self.notify_ref_params = subscribe_request.Delivery.NotifyTo.ReferenceParameters
         self.end_to_address = None
         self.end_to_ref_params = []
-        self._end_to_url = None
+        self._end_to_url: urllib.parse.ParseResult | None = None
         if subscribe_request.EndTo is not None:
             self.end_to_address = subscribe_request.EndTo.Address
             self.end_to_ref_params = subscribe_request.EndTo.ReferenceParameters
             if self.end_to_address is not None:
-                self._end_to_url = urlparse(self.end_to_address)
+                self._end_to_url = urllib.parse.urlparse(self.end_to_address)
 
         self.identifier_uuid = uuid.uuid4()
         self.reference_parameters = []  # default: no reference parameters
@@ -194,24 +193,19 @@ class SubscriptionBase:
             return False
         return self.remaining_seconds > 0 and not self.has_delivery_failure
 
-    def send_notification_end_message(
+    def _prepare_subscription_end(
         self,
         code: str = evt_types.SubscriptionEndStatus.SOURCE_SHUTTING_DOWN,
         reason: str = 'Event source going off line.',
-    ):
-        """Send a notification end message.
-
-        A SubscriptionEnd message is sent to the EndTo endpoint reference of the subscribe request.
-        If no EndTo was provided, no message is sent.
-        """
+    ) -> CreatedMessage | None:
         url = self.base_urls[0]
         my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
 
         if not self.is_valid:
-            return
+            return None
         if self._end_to_url is None:
             # no EndTo endpoint reference -> per WS-Eventing the default is not to send this message
-            return
+            return None
         subscription_end = evt_types.SubscriptionEnd()
         subscription_end.SubscriptionManager.Address = my_addr
         subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
@@ -222,11 +216,24 @@ class SubscriptionBase:
             addr_to=self.end_to_address,
             reference_parameters=self.end_to_ref_params,
         )
-        message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-        url = self._end_to_url
-        soap_client = self._get_soap_client(url.netloc)
+        return self._msg_factory.mk_soap_message(inf, payload=subscription_end)
+
+    def send_notification_end_message(
+        self,
+        code: str = evt_types.SubscriptionEndStatus.SOURCE_SHUTTING_DOWN,
+        reason: str = 'Event source going off line.',
+    ):
+        """Send a notification end message.
+
+        A SubscriptionEnd message is sent to the EndTo endpoint reference of the subscribe request.
+        If no EndTo was provided, no message is sent.
+        """
+        message = self._prepare_subscription_end(code=code, reason=reason)
+        if message is None:
+            return
+        soap_client = self._get_soap_client(self._end_to_url.netloc)
         try:
-            soap_client.post_message_to(url.path, message, msg='send_notification_end_message')
+            soap_client.post_message_to(self._end_to_url.path, message, msg='send_notification_end_message')
         except Exception as ex:  # noqa: BLE001
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info('could not send subscription end message, error = {}', ex)  # noqa: PLE1205

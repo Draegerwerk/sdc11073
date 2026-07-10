@@ -269,6 +269,7 @@ def test_no_subscription_end_when_end_to_address_is_none(soap_client_pool: mock.
 
     sub = _mk_subscription(subscribe, soap_client_pool)
     assert sub._end_to_url is None
+    assert sub.end_to_address is None
     sub.send_notification_end_message()
     soap_client_pool.get_soap_client.assert_not_called()
     soap_client_pool.get_soap_client.return_value.post_message_to.assert_not_called()
