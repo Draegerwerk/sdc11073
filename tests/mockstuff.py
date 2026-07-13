@@ -24,7 +24,7 @@ from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types import pm_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
-from sdc11073.xml_types.eventing_types import Subscribe
+from sdc11073.xml_types.eventing_types import Subscribe, SubscriptionEndStatus
 
 if TYPE_CHECKING:
     import ipaddress
@@ -123,7 +123,7 @@ class TestDevSubscription(BicepsSubscription):
 
     async def async_send_notification_end_message(
         self,
-        code: str = 'SourceShuttingDown',
+        code: str = SubscriptionEndStatus.SOURCE_SHUTTING_DOWN,
         reason: str = 'Event source going off line.',
     ):
         """Do nothing.

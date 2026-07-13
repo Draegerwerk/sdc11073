@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - the `http.client.NotConnected` raised by `SoapClient` now carries the reason of the underlying connection/SSL error, and the consumer now logs the SSL error when it falls back from an encrypted to an unencrypted connection [#427](https://github.com/Draegerwerk/sdc11073/issues/427)
 
+### Fixed
+
+- `SubscriptionEnd` messages now use the full WS-Eventing status URI (e.g. `http://schemas.xmlsoap.org/ws/2004/08/eventing/SourceShuttingDown`) instead of the bare local name, and are sent to the `EndTo` endpoint reference of the subscribe request. If no `EndTo` was provided, no `SubscriptionEnd` message is sent [#404](https://github.com/Draegerwerk/sdc11073/issues/404)
+- the parameter and return type in `RequestManipulatorProtocol.manipulate_string` from `str` to `bytes`
+
 ## [v3.0.0] - 2026-06-24
 
 ### Added

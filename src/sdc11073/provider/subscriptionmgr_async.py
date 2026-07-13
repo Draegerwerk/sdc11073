@@ -14,12 +14,11 @@ from lxml import etree
 
 from sdc11073 import observableproperties
 from sdc11073.etc import apply_map
+from sdc11073.provider.subscriptionmgr_base import ActionBasedSubscription, RoundTripData, SubscriptionsManagerBase
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.xml_types import eventing_types as evt_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.basetypes import MessageType
-
-from .subscriptionmgr_base import ActionBasedSubscription, RoundTripData, SubscriptionsManagerBase
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Iterable
@@ -81,35 +80,27 @@ class BicepsSubscriptionAsync(ActionBasedSubscription):
             raise
 
     async def async_send_notification_end_message(
-        self, code: str = 'SourceShuttingDown', reason: str = 'Event source going off line.'
+        self,
+        code: str = evt_types.SubscriptionEndStatus.SOURCE_SHUTTING_DOWN,
+        reason: str = 'Event source going off line.',
     ) -> ReceivedMessage | None:
-        """Send notification end message to subscriber."""
-        url = self.base_urls[0]
-        my_addr = f'{url.scheme}:{url.netloc}/{url.path}'
+        """Send notification end message to subscriber.
 
-        if not self.is_valid:
+        A SubscriptionEnd message is sent to the EndTo endpoint reference of the subscribe request.
+        If no EndTo was provided, no message is sent.
+        """
+        message = self._prepare_subscription_end(code=code, reason=reason)
+        if message is None:
             return None
-        subscription_end = evt_types.SubscriptionEnd()
-        subscription_end.SubscriptionManager.Address = my_addr
-        subscription_end.SubscriptionManager.ReferenceParameters = self.reference_parameters
-        subscription_end.Status = code
-        subscription_end.add_reason(reason, 'en-US')
-        inf = HeaderInformationBlock(
-            action=subscription_end.action,
-            addr_to=self.end_to_address or self.notify_to_address,
-            reference_parameters=self.end_to_ref_params or self.notify_ref_params,
-        )
-        message = self._msg_factory.mk_soap_message(inf, payload=subscription_end)
-        url = self._end_to_url or self.notify_to_url
-        soap_client = self._get_soap_client(url.netloc)
-        self._logger.info('async send subscription end to {}, subscription = {}', url, self)  # noqa: PLE1205
+        soap_client = self._get_soap_client(self._end_to_url.netloc)
+        self._logger.info('async send subscription end to {}, subscription = {}', self._end_to_url, self)  # noqa: PLE1205
         try:
-            return await soap_client.async_post_message_to(url.path, message)
+            return await soap_client.async_post_message_to(self._end_to_url.path, message)
         except aiohttp.client_exceptions.ClientConnectorError:
             # it does not matter that we could not send the message - end is end ;)
             self._logger.info(  # noqa: PLE1205
                 'exception async send subscription end to {}, subscription = {}',
-                url,
+                self._end_to_url,
                 self,
             )
         except Exception:  # noqa: BLE001
