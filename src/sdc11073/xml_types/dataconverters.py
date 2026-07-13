@@ -378,7 +378,7 @@ class UnsignedIntConverter(IntegerConverter):
         :param py_value: the Python value to check.
         """
         if STRICT_VALUE_CHECK and py_value is not None:
-            if not (isinstance(py_value, int) or py_value < 0 or py_value > cls.MAX):
+            if not (isinstance(py_value, int) and 0 <= py_value <= cls.MAX):
                 msg = f'expected an unsigned integer, got {type(py_value)} value={py_value}'
                 raise ValueError(msg)
 
@@ -455,5 +455,5 @@ class DurationConverter(NullConverter):
         """
         if STRICT_VALUE_CHECK and py_value is not None:
             if not isinstance(py_value, (int, float, Decimal)):
-                msg = f'expected a boolean, got {type(py_value)}'
+                msg = f'expected a number, got {type(py_value)}'
                 raise ValueError(msg)
