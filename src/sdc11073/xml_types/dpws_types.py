@@ -1,29 +1,38 @@
+"""DPWS (Devices Profile for Web Services) XML types."""
+
 from __future__ import annotations
 
 from enum import Enum
-from typing import Union, Optional
 
-from .addressing_types import EndpointReferenceType
-from . import xml_structure as cp
 from sdc11073.namespaces import default_ns_helper
-from .basetypes import XMLTypeBase, ElementWithText
+from sdc11073.xml_types import xml_structure as cp
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
+from sdc11073.xml_types.basetypes import ElementWithText, XMLTypeBase
 
 
 class DeviceRelationshipTypeURI(str, Enum):
-    HOST = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/host"
+    """URIs identifying DPWS device relationship types."""
+
+    HOST = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/host'
 
 
 class DeviceMetadataDialectURI(str, Enum):
-    THIS_MODEL = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/ThisModel"
-    THIS_DEVICE = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/ThisDevice"
-    RELATIONSHIP = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Relationship"
+    """URIs identifying DPWS device metadata dialects."""
+
+    THIS_MODEL = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/ThisModel'
+    THIS_DEVICE = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/ThisDevice'
+    RELATIONSHIP = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Relationship'
 
 
 class DeviceEventingFilterDialectURI(str, Enum):
-    ACTION = "http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Action"
+    """URIs identifying DPWS eventing filter dialects."""
+
+    ACTION = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Action'
 
 
 class Relationship:
+    """Container for a host service and its hosted services."""
+
     __slots__ = ('host', 'hosted')
 
     def __init__(self):
@@ -32,45 +41,55 @@ class Relationship:
 
 
 class LocalizedStringTypeDict(dict):
-    """This class represents LocalizedStringType elements. It is a dictionary of lang:string entries.
-     If lang is None, the_string is the default string."""
+    """Represent LocalizedStringType elements as a dictionary of lang:string entries.
 
-    def add_localized_string(self, the_string: str, lang: Optional[str] = None) -> None:
-        """
-        Method for better readability of code
-        :param the_string:
-        :param lang:
+    If lang is None, the_string is the default string.
+    """
+
+    def add_localized_string(self, the_string: str, lang: str | None = None) -> None:
+        """Add a localized string for the given language.
+
+        :param the_string: the localized text
+        :param lang: the language of the text, or None for the default string
         :return: None
         """
         self[lang] = the_string
 
 
 class HostServiceType(XMLTypeBase):
-    EndpointReference = cp.SubElementProperty(default_ns_helper.WSA.tag('EndpointReference'),
-                                              value_class=EndpointReferenceType)
+    """DPWS HostServiceType describing the hosting service of a device."""
+
+    EndpointReference = cp.SubElementProperty(
+        default_ns_helper.WSA.tag('EndpointReference'), value_class=EndpointReferenceType
+    )
     Types = cp.NodeTextQNameListProperty(default_ns_helper.DPWS.tag('Types'))
     _props = ('EndpointReference', 'Types')
 
 
 class HostedServiceType(XMLTypeBase):
-    EndpointReference = cp.SubElementListProperty(default_ns_helper.WSA.tag('EndpointReference'),
-                                                  value_class=EndpointReferenceType)
+    """DPWS HostedServiceType describing a service hosted by a device."""
+
+    EndpointReference = cp.SubElementListProperty(
+        default_ns_helper.WSA.tag('EndpointReference'), value_class=EndpointReferenceType
+    )
     Types = cp.NodeTextQNameListProperty(default_ns_helper.DPWS.tag('Types'))
     ServiceId = cp.AnyUriTextElement(default_ns_helper.DPWS.tag('ServiceId'))
     _props = ('EndpointReference', 'Types', 'ServiceId')
 
 
 class LocalizedStringType(ElementWithText):
+    """DPWS LocalizedStringType: a text element with an optional language attribute."""
+
     lang = cp.StringAttributeProperty(default_ns_helper.XML.tag('lang'))
     _props = ('lang',)
 
     @classmethod
-    def init(cls, text: str, lang: Optional[str] = None):
-        """
-        This class represents the LocalizedStringType in DPWS.
+    def init(cls, text: str, lang: str | None = None) -> LocalizedStringType:
+        """Create a LocalizedStringType instance.
+
         :param text: the text
         :param lang: if given, the actual language
-        :return:
+        :return: the created instance
         """
         instance = cls()
         instance.lang = lang
@@ -79,20 +98,23 @@ class LocalizedStringType(ElementWithText):
 
 
 class ThisDeviceType(XMLTypeBase):
-    """
-    This class represents "ThisDeviceType" in dpws schema.
-    """
-    FriendlyName = cp.SubElementListProperty(default_ns_helper.DPWS.tag('FriendlyName'),
-                                             value_class=LocalizedStringType)
+    """DPWS ThisDeviceType metadata (friendly name, firmware and serial number)."""
+
+    FriendlyName = cp.SubElementListProperty(
+        default_ns_helper.DPWS.tag('FriendlyName'), value_class=LocalizedStringType
+    )
     FirmwareVersion = cp.NodeStringProperty(default_ns_helper.DPWS.tag('FirmwareVersion'), is_optional=True)
     SerialNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('SerialNumber'), is_optional=True)
     _props = ('FriendlyName', 'FirmwareVersion', 'SerialNumber')
 
-    def __init__(self, friendly_name: Union[str, LocalizedStringTypeDict, None] = None,
-                 firmware_version: Optional[str] = None,
-                 serial_number: Optional[str] = None):
-        """
-        This class represents "ThisDeviceType" in dpws schema.
+    def __init__(
+        self,
+        friendly_name: str | LocalizedStringTypeDict | None = None,
+        firmware_version: str | None = None,
+        serial_number: str | None = None,
+    ):
+        """Construct a ThisDeviceType.
+
         :param friendly_name: If argument is a string, it is considered to be the default name.
                               If argument is a dictionary, it is expected to be key=language, value=name.
                               None as key marks the default name.
@@ -110,23 +132,27 @@ class ThisDeviceType(XMLTypeBase):
 
 
 class ThisModelType(XMLTypeBase):
-    Manufacturer = cp.SubElementListProperty(default_ns_helper.DPWS.tag('Manufacturer'),
-                                             value_class=LocalizedStringType)
+    """DPWS ThisModelType metadata (manufacturer and model information)."""
+
+    Manufacturer = cp.SubElementListProperty(
+        default_ns_helper.DPWS.tag('Manufacturer'), value_class=LocalizedStringType
+    )
     ManufacturerUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ManufacturerUrl'))
-    ModelName = cp.SubElementListProperty(default_ns_helper.DPWS.tag('ModelName'),
-                                          value_class=LocalizedStringType)
+    ModelName = cp.SubElementListProperty(default_ns_helper.DPWS.tag('ModelName'), value_class=LocalizedStringType)
     ModelNumber = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ModelNumber'), is_optional=True)
     ModelUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('ModelUrl'), is_optional=True)
     PresentationUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('PresentationUrl'), is_optional=True)
     _props = ('Manufacturer', 'ManufacturerUrl', 'ModelName', 'ModelNumber', 'ModelUrl', 'PresentationUrl')
 
-    def __init__(self,
-                 manufacturer: Union[str, LocalizedStringTypeDict, None] = None,
-                 manufacturer_url: Optional[str] = None,
-                 model_name: Union[str, LocalizedStringTypeDict, None] = None,
-                 model_number: Optional[str] = None,
-                 model_url: Optional[str] = None,
-                 presentation_url: Optional[str] = None):
+    def __init__(  # noqa: PLR0913 - mirrors the DPWS ThisModelType schema fields; part of public API
+        self,
+        manufacturer: str | LocalizedStringTypeDict | None = None,
+        manufacturer_url: str | None = None,
+        model_name: str | LocalizedStringTypeDict | None = None,
+        model_number: str | None = None,
+        model_url: str | None = None,
+        presentation_url: str | None = None,
+    ):
         super().__init__()
         if isinstance(manufacturer, str):
             self.Manufacturer.append(LocalizedStringType.init(manufacturer))
@@ -142,4 +168,3 @@ class ThisModelType(XMLTypeBase):
         self.ModelNumber = model_number
         self.ModelUrl = model_url
         self.PresentationUrl = presentation_url
-

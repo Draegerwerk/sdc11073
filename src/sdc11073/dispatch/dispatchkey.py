@@ -1,8 +1,11 @@
+"""The dispatchkey module provides dispatch keys and request dispatchers for routing SOAP messages."""
+
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from sdc11073 import loghelper
 from sdc11073.dispatch.request import RequestData
@@ -100,7 +103,8 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         returned_message = func(request_data)
         duration = time.monotonic() - begin
         self._logger.debug(  # noqa: PLE1205
-            'incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration)
+            'incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration
+        )
         return returned_message
 
     def on_get(self, request_data: RequestData) -> str:

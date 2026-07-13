@@ -9,7 +9,10 @@ import pathlib
 import threading
 import time
 import warnings
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 warnings.warn('commlog module is deprecated and will be removed in a future version.', DeprecationWarning, stacklevel=2)
 

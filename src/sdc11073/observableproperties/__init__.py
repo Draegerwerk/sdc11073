@@ -7,12 +7,12 @@ from sdc11073.observableproperties.valuecollector import (
 )
 
 __all__ = [
-    'bind',
-    'strongbind',
-    'unbind',
+    'CancelledError',
+    'CollectTimeoutError',
     'ObservableProperty',
     'SingleValueCollector',
     'ValuesCollector',
-    'CancelledError',
-    'CollectTimeoutError',
+    'bind',
+    'strongbind',
+    'unbind',
 ]

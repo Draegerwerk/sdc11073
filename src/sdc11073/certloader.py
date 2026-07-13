@@ -1,28 +1,38 @@
+"""The certloader module provides convenience functions for creating SSL contexts."""
+
 from __future__ import annotations
 
 import dataclasses
 import pathlib
 import ssl
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    PasswordType = Union[Callable[[], Union[str, bytes]], str, bytes]  # taken from ssl._PasswordType
+    from collections.abc import Callable
+
+    PasswordType = Callable[[], str | bytes] | str | bytes  # taken from ssl._PasswordType
 
 
 @dataclasses.dataclass
 class SSLContextContainer:
+    """Container for a client and a server SSL context."""
+
     client_context: ssl.SSLContext
     server_context: ssl.SSLContext
 
 
-def mk_ssl_contexts_from_folder(ca_folder: str | pathlib.Path,
-                                private_key: str = 'userkey.pem',
-                                certificate: str = 'usercert.pem',
-                                ca_public_key: str | None = 'cacert.pem',
-                                cyphers_file: str | pathlib.Path | None = None,
-                                ssl_passwd: PasswordType | None = None) -> SSLContextContainer:
-    """Convenience method for easy creation of SSL context, assuming all needed files are in the same folder.
-    Create an ssl context from files 'userkey.pem', 'usercert.pem', and optional 'cacert.pem' and cyphers file
+def mk_ssl_contexts_from_folder(  # noqa: PLR0913
+    ca_folder: str | pathlib.Path,
+    private_key: str = 'userkey.pem',
+    certificate: str = 'usercert.pem',
+    ca_public_key: str | None = 'cacert.pem',
+    cyphers_file: str | pathlib.Path | None = None,
+    ssl_passwd: PasswordType | None = None,
+) -> SSLContextContainer:
+    """Create an SSL context from files, assuming all needed files are in the same folder.
+
+    Create an ssl context from files 'userkey.pem', 'usercert.pem', and optional 'cacert.pem' and cyphers file.
+
     :param ca_folder: base path of all files
     :param private_key: name of the private key file of the user
     :param certificate: name of the signed certificate of the user
@@ -38,23 +48,29 @@ def mk_ssl_contexts_from_folder(ca_folder: str | pathlib.Path,
         for line in ca_folder.joinpath(cyphers_file).read_text().splitlines():
             raw_cyphers = line.strip()
             # allow comment lines, starting with #
-            if len(raw_cyphers) > 0 and not raw_cyphers.startswith("#"):
+            if len(raw_cyphers) > 0 and not raw_cyphers.startswith('#'):
                 cyphers = raw_cyphers
                 break
-    return mk_ssl_contexts(ca_folder.joinpath(private_key),
-                           ca_folder.joinpath(certificate),
-                           ca_folder.joinpath(ca_public_key) if ca_public_key else None,
-                           cyphers,
-                           ssl_passwd)
+    return mk_ssl_contexts(
+        ca_folder.joinpath(private_key),
+        ca_folder.joinpath(certificate),
+        ca_folder.joinpath(ca_public_key) if ca_public_key else None,
+        cyphers,
+        ssl_passwd,
+    )
 
 
-def mk_ssl_contexts(key_file: pathlib.Path,
-                    cert_file: pathlib.Path,
-                    ca_file: pathlib.Path | None = None,
-                    cyphers: str | None = None,
-                    ssl_passwd: PasswordType | None = None) -> SSLContextContainer:
-    """Convenience method for easy creation of SSL context.
-    Create an ssl context from files 'userkey.pem', 'usercert.pem', 'cacert.pem' and optional 'cyphers.json'
+def mk_ssl_contexts(
+    key_file: pathlib.Path,
+    cert_file: pathlib.Path,
+    ca_file: pathlib.Path | None = None,
+    cyphers: str | None = None,
+    ssl_passwd: PasswordType | None = None,
+) -> SSLContextContainer:
+    """Create an SSL context from the given files.
+
+    Create an ssl context from files 'userkey.pem', 'usercert.pem', 'cacert.pem' and optional 'cyphers.json'.
+
     :param key_file: the private key pem file of the user
     :param cert_file: the signed certificate of the user
     :param ca_file: optional public key of the certificate authority that signed the certificate; if given,

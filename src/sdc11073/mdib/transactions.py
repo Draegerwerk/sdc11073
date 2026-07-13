@@ -1,4 +1,5 @@
 """The module contains the implementations of transactions for ProviderMdib."""
+
 from __future__ import annotations
 
 import copy
@@ -7,9 +8,7 @@ import uuid
 from typing import TYPE_CHECKING, cast
 
 from sdc11073.exceptions import ApiUsageError
-
-from .statecontainers import AbstractMultiStateProtocol
-from .transactionsprotocol import (
+from sdc11073.mdib.transactionsprotocol import (
     AnyTransactionManagerProtocol,
     TransactionItem,
     TransactionResultProtocol,
@@ -18,16 +17,14 @@ from .transactionsprotocol import (
 
 if TYPE_CHECKING:
     from sdc11073.loghelper import LoggerAdapter
+    from sdc11073.mdib.descriptorcontainers import AbstractDescriptorProtocol
+    from sdc11073.mdib.mdibbase import Entity, MultiStateEntity
+    from sdc11073.mdib.providermdib import ProviderMdib
+    from sdc11073.mdib.statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
 
-    from .descriptorcontainers import AbstractDescriptorProtocol
-    from .mdibbase import Entity, MultiStateEntity
-    from .providermdib import ProviderMdib
-    from .statecontainers import AbstractStateProtocol
 
 class _TransactionBase:
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         self._mdib = device_mdib_container
         # provide the new mdib version that the commit of this transaction will create
         self.new_mdib_version = device_mdib_container.mdib_version + 1
@@ -61,12 +58,14 @@ class _TransactionBase:
         """
         if not handle:
             raise ValueError('No handle for state specified')
-        for lookup in (self.metric_state_updates,
-                       self.alert_state_updates,
-                       self.component_state_updates,
-                       self.context_state_updates,
-                       self.operational_state_updates,
-                       self.rt_sample_state_updates):
+        for lookup in (
+            self.metric_state_updates,
+            self.alert_state_updates,
+            self.component_state_updates,
+            self.context_state_updates,
+            self.operational_state_updates,
+            self.rt_sample_state_updates,
+        ):
             if handle in lookup:
                 return lookup[handle]
         return None
@@ -79,9 +78,7 @@ class _TransactionBase:
 class DescriptorTransaction(_TransactionBase):
     """A Transaction that allows to insert / update / delete Descriptors and to modify states related to them."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
 
     def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
@@ -101,10 +98,12 @@ class DescriptorTransaction(_TransactionBase):
             return tr_container.new
         return self._mdib.descriptions.handle.get_one(descriptor_handle)
 
-    def add_descriptor(self,
-                       descriptor_container: AbstractDescriptorProtocol,
-                       adjust_descriptor_version: bool = True,
-                       state_container: AbstractStateProtocol | None = None):
+    def add_descriptor(
+        self,
+        descriptor_container: AbstractDescriptorProtocol,
+        adjust_descriptor_version: bool = True,
+        state_container: AbstractStateProtocol | None = None,
+    ):
         """Add a new descriptor to mdib."""
         descriptor_handle = descriptor_container.Handle
         if descriptor_handle in self.descriptor_updates:
@@ -204,9 +203,11 @@ class DescriptorTransaction(_TransactionBase):
                 self._mdib.states.set_version(state_container)
         updates_dict[key] = TransactionItem(None, state_container)
 
-    def write_entity(self, # noqa: PLR0912, C901
-                     entity: Entity | MultiStateEntity,
-                     adjust_version_counter: bool = True):
+    def write_entity(  # noqa: C901, PLR0912
+        self,
+        entity: Entity | MultiStateEntity,
+        adjust_version_counter: bool = True,
+    ):
         """Insert or update an entity."""
         descriptor_handle = entity.descriptor.Handle
         if descriptor_handle in self.descriptor_updates:
@@ -224,15 +225,14 @@ class DescriptorTransaction(_TransactionBase):
                 # update from old
                 tmp_descriptor.DescriptorVersion = orig_descriptor_container.DescriptorVersion + 1
 
-        self.descriptor_updates[descriptor_handle] = TransactionItem(orig_descriptor_container,
-                                                                     tmp_descriptor)
+        self.descriptor_updates[descriptor_handle] = TransactionItem(orig_descriptor_container, tmp_descriptor)
 
         if entity.is_multi_state:
             old_states = self._mdib.context_states.descriptor_handle.get(descriptor_handle, [])
             old_states_dict = {s.Handle: s for s in old_states}
             for state_container in entity.states.values():
                 tmp_state = copy.deepcopy(state_container)
-                old_state = old_states_dict.get(tmp_state.Handle) # can be None => new state
+                old_state = old_states_dict.get(tmp_state.Handle)  # can be None => new state
                 if adjust_version_counter:
                     tmp_state.DescriptorVersion = tmp_descriptor.DescriptorVersion
                     if old_state is not None:
@@ -264,9 +264,11 @@ class DescriptorTransaction(_TransactionBase):
         ent_dict = {ent.handle: ent for ent in entities}
         while len(written_handles) < len(ent_dict):
             for handle, ent in ent_dict.items():
-                write_now = not(ent.parent_handle is not None
-                                and ent.parent_handle in ent_dict
-                                and ent.parent_handle not in written_handles)
+                write_now = not (
+                    ent.parent_handle is not None
+                    and ent.parent_handle in ent_dict
+                    and ent.parent_handle not in written_handles
+                )
                 if write_now and handle not in written_handles:
                     # it has a parent, and parent has not been written yet
                     self.write_entity(ent, adjust_version_counter)
@@ -286,10 +288,16 @@ class DescriptorTransaction(_TransactionBase):
         if self.descriptor_updates:
             self._mdib.mdib_version = self.new_mdib_version
             # need to know all to be deleted and to be created descriptors
-            to_be_deleted_handles = [tr_item.old.Handle for tr_item in self.descriptor_updates.values()
-                                     if tr_item.new is None and tr_item.old is not None]
-            to_be_created_handles = [tr_item.new.Handle for tr_item in self.descriptor_updates.values()
-                                     if tr_item.old is None and tr_item.new is not None]
+            to_be_deleted_handles = [
+                tr_item.old.Handle
+                for tr_item in self.descriptor_updates.values()
+                if tr_item.new is None and tr_item.old is not None
+            ]
+            to_be_created_handles = [
+                tr_item.new.Handle
+                for tr_item in self.descriptor_updates.values()
+                if tr_item.old is None and tr_item.new is not None
+            ]
             # Remark 1:
             # handling only updated states here: If a descriptor is created, it can be assumed that the
             # application also creates the state in a transaction.
@@ -309,12 +317,16 @@ class DescriptorTransaction(_TransactionBase):
                     # this is a create operation
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: new descriptor Handle={}, DescriptorVersion={}',
-                        new_descriptor.Handle, new_descriptor.DescriptorVersion)
+                        new_descriptor.Handle,
+                        new_descriptor.DescriptorVersion,
+                    )
                     proc.descr_created.append(new_descriptor.mk_copy())
                     self._mdib.descriptions.add_object_no_lock(new_descriptor)
                     # increment DescriptorVersion if a child descriptor is added or deleted.
-                    if new_descriptor.parent_handle is not None \
-                            and new_descriptor.parent_handle not in to_be_created_handles:
+                    if (
+                        new_descriptor.parent_handle is not None
+                        and new_descriptor.parent_handle not in to_be_created_handles
+                    ):
                         # only update parent if it is not also created in this transaction
                         self._increment_parent_descriptor_version(proc, new_descriptor)
                     self._update_corresponding_state(new_descriptor)
@@ -322,13 +334,17 @@ class DescriptorTransaction(_TransactionBase):
                     # this is a delete operation
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: rm descriptor Handle={}, DescriptorVersion={}',
-                        orig_descriptor.Handle, orig_descriptor.DescriptorVersion)
+                        orig_descriptor.Handle,
+                        orig_descriptor.DescriptorVersion,
+                    )
                     all_descriptors = self._mdib.get_all_descriptors_in_subtree(orig_descriptor)
                     self._mdib.rm_descriptors_and_states(all_descriptors)
                     proc.descr_deleted.extend([d.mk_copy() for d in all_descriptors])
                     # increment DescriptorVersion if a child descriptor is added or deleted.
-                    if orig_descriptor.parent_handle is not None \
-                            and orig_descriptor.parent_handle not in to_be_deleted_handles:
+                    if (
+                        orig_descriptor.parent_handle is not None
+                        and orig_descriptor.parent_handle not in to_be_deleted_handles
+                    ):
                         # only update parent if it is not also deleted in this transaction
                         self._increment_parent_descriptor_version(proc, orig_descriptor)
                 else:
@@ -336,17 +352,20 @@ class DescriptorTransaction(_TransactionBase):
                     proc.descr_updated.append(new_descriptor)
                     self._logger.debug(  # noqa: PLE1205
                         'transaction_manager: update descriptor Handle={}, DescriptorVersion={}',
-                        new_descriptor.Handle, new_descriptor.DescriptorVersion)
+                        new_descriptor.Handle,
+                        new_descriptor.DescriptorVersion,
+                    )
                     orig_descriptor.update_from_other_container(new_descriptor)
                     self._update_corresponding_state(orig_descriptor)
                     self._mdib.descriptions.update_object_no_lock(orig_descriptor)
-            for updates_dict, dest_list in ((self.alert_state_updates, proc.alert_updates),
-                                            (self.metric_state_updates, proc.metric_updates),
-                                            (self.context_state_updates, proc.ctxt_updates),
-                                            (self.component_state_updates, proc.comp_updates),
-                                            (self.operational_state_updates, proc.op_updates),
-                                            (self.rt_sample_state_updates, proc.rt_updates),
-                                            ):
+            for updates_dict, dest_list in (
+                (self.alert_state_updates, proc.alert_updates),
+                (self.metric_state_updates, proc.metric_updates),
+                (self.context_state_updates, proc.ctxt_updates),
+                (self.component_state_updates, proc.comp_updates),
+                (self.operational_state_updates, proc.op_updates),
+                (self.rt_sample_state_updates, proc.rt_updates),
+            ):
                 updates = self._handle_state_updates(updates_dict)
                 dest_list.extend(updates)
         return proc
@@ -354,8 +373,7 @@ class DescriptorTransaction(_TransactionBase):
     def _update_corresponding_state(self, descriptor_container: AbstractDescriptorProtocol):
         updates_dict = self._get_states_update(descriptor_container)
         if descriptor_container.is_context_descriptor:
-            all_context_states = self._mdib.context_states.descriptor_handle.get(
-                descriptor_container.Handle, [])
+            all_context_states = self._mdib.context_states.descriptor_handle.get(descriptor_container.Handle, [])
             for context_state in all_context_states:
                 state_update = updates_dict.get(context_state.Handle)
                 if state_update is not None:
@@ -380,8 +398,7 @@ class DescriptorTransaction(_TransactionBase):
                     raise ValueError(msg)
                 tr_item.new.update_descriptor_version()
             else:
-                old_state = self._mdib.states.descriptor_handle.get_one(
-                    descriptor_container.Handle, allow_none=True)
+                old_state = self._mdib.states.descriptor_handle.get_one(descriptor_container.Handle, allow_none=True)
                 if old_state is not None:
                     new_state = old_state.mk_copy()
                     new_state.descriptor_container = descriptor_container
@@ -389,18 +406,21 @@ class DescriptorTransaction(_TransactionBase):
                     new_state.increment_state_version()
                     updates_dict[descriptor_container.Handle] = TransactionItem(old_state, new_state)
 
-    def _increment_parent_descriptor_version(self, proc: TransactionResult,
-                                             descriptor_container: AbstractDescriptorProtocol):
+    def _increment_parent_descriptor_version(
+        self, proc: TransactionResult, descriptor_container: AbstractDescriptorProtocol
+    ):
         parent_descriptor_container = self._mdib.descriptions.handle.get_one(
-            descriptor_container.parent_handle, allow_none=True)
+            descriptor_container.parent_handle, allow_none=True
+        )
         if parent_descriptor_container is not None:
             parent_descriptor_container.increment_descriptor_version()
             proc.descr_updated.append(parent_descriptor_container.mk_copy())
             self._update_corresponding_state(parent_descriptor_container)
 
     def _get_states_update(self, container: AbstractStateProtocol | AbstractDescriptorProtocol) -> dict:
-        if getattr(container, 'is_realtime_sample_array_metric_state', False) \
-                or getattr(container, 'is_realtime_sample_array_metric_descriptor', False):
+        if getattr(container, 'is_realtime_sample_array_metric_state', False) or getattr(
+            container, 'is_realtime_sample_array_metric_descriptor', False
+        ):
             return self.rt_sample_state_updates
         if getattr(container, 'is_metric_state', False) or getattr(container, 'is_metric_descriptor', False):
             return self.metric_state_updates
@@ -419,9 +439,7 @@ class DescriptorTransaction(_TransactionBase):
 class StateTransactionBase(_TransactionBase):
     """Base Class for all transactions that modify states."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = {}  # will be set to proper value in derived classes
 
@@ -506,9 +524,7 @@ class StateTransactionBase(_TransactionBase):
 class AlertStateTransaction(StateTransactionBase):
     """A Transaction for alert states."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = self.alert_state_updates
 
@@ -540,9 +556,7 @@ class AlertStateTransaction(StateTransactionBase):
 class MetricStateTransaction(StateTransactionBase):
     """A Transaction for metric states (except real time samples)."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = self.metric_state_updates
 
@@ -567,9 +581,7 @@ class MetricStateTransaction(StateTransactionBase):
 class ComponentStateTransaction(StateTransactionBase):
     """A Transaction for component states."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = self.component_state_updates
 
@@ -590,9 +602,7 @@ class ComponentStateTransaction(StateTransactionBase):
 class RtStateTransaction(StateTransactionBase):
     """A Transaction for real time sample states."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = self.rt_sample_state_updates
 
@@ -613,9 +623,7 @@ class RtStateTransaction(StateTransactionBase):
 class OperationalStateTransaction(StateTransactionBase):
     """A Transaction for operational states."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = self.operational_state_updates
 
@@ -636,9 +644,7 @@ class OperationalStateTransaction(StateTransactionBase):
 class ContextStateTransaction(_TransactionBase):
     """A Transaction for context states."""
 
-    def __init__(self,
-                 device_mdib_container: ProviderMdib,
-                 logger: LoggerAdapter):
+    def __init__(self, device_mdib_container: ProviderMdib, logger: LoggerAdapter):
         super().__init__(device_mdib_container, logger)
         self._state_updates = self.context_state_updates
 
@@ -656,10 +662,13 @@ class ContextStateTransaction(_TransactionBase):
         self._state_updates[context_state_handle] = TransactionItem(mdib_state, copied_state)
         return copied_state
 
-    def mk_context_state(self, descriptor_handle: str,
-                         context_state_handle: str | None = None,
-                         adjust_state_version: bool = True,
-                         set_associated: bool = False) -> AbstractMultiStateProtocol:
+    def mk_context_state(
+        self,
+        descriptor_handle: str,
+        context_state_handle: str | None = None,
+        adjust_state_version: bool = True,
+        set_associated: bool = False,
+    ) -> AbstractMultiStateProtocol:
         """Create a new ContextStateContainer and add it to transaction.
 
         If context_state_handle is None, a unique handle is generated.
@@ -686,13 +695,12 @@ class ContextStateTransaction(_TransactionBase):
             # bind to new mdib version of this transaction
             new_state_container.BindingMdibVersion = self.new_mdib_version
             new_state_container.BindingStartTime = time.time()
-            new_state_container.ContextAssociation = \
-                self._mdib.data_model.pm_types.ContextAssociation.ASSOCIATED
+            new_state_container.ContextAssociation = self._mdib.data_model.pm_types.ContextAssociation.ASSOCIATED
         if context_state_handle is not None and adjust_state_version:
             self._mdib.context_states.set_version(new_state_container)
 
         self._state_updates[new_state_container.Handle] = TransactionItem(None, new_state_container)
-        return cast(AbstractMultiStateProtocol, new_state_container)
+        return cast('AbstractMultiStateProtocol', new_state_container)
 
     def add_state(self, state_container: AbstractMultiStateProtocol, adjust_state_version: bool = True):
         """Add a new context state to mdib."""
@@ -709,10 +717,7 @@ class ContextStateTransaction(_TransactionBase):
             self._mdib.context_states.set_version(state_container)
         self._state_updates[state_container.Handle] = TransactionItem(None, state_container)
 
-
-    def disassociate_all(self,
-                         context_descriptor_handle: str,
-                         ignored_handle: str | None = None) -> list[str]:
+    def disassociate_all(self, context_descriptor_handle: str, ignored_handle: str | None = None) -> list[str]:
         """Disassociate all associated states in mdib for context_descriptor_handle.
 
         The updated states are added to the transaction.
@@ -727,10 +732,11 @@ class ContextStateTransaction(_TransactionBase):
             if old_state.Handle == ignored_handle or old_state.Handle in self._state_updates:
                 # If state is already part of this transaction leave it also untouched, accept what the user wanted.
                 continue
-            if old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED \
-                    or old_state.UnbindingMdibVersion is None:
-                self._logger.info('disassociate %s, handle=%s', old_state.NODETYPE.localname,
-                                  old_state.Handle)
+            if (
+                old_state.ContextAssociation != pm_types.ContextAssociation.DISASSOCIATED
+                or old_state.UnbindingMdibVersion is None
+            ):
+                self._logger.info('disassociate %s, handle=%s', old_state.NODETYPE.localname, old_state.Handle)
                 transaction_state = self.get_context_state(old_state.Handle)
                 transaction_state.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
                 if transaction_state.UnbindingMdibVersion is None:
@@ -739,9 +745,7 @@ class ContextStateTransaction(_TransactionBase):
                 disassociated_state_handles.append(transaction_state.Handle)
         return disassociated_state_handles
 
-    def write_entity(self, entity: MultiStateEntity,
-                  modified_handles: list[str],
-                  adjust_version_counter: bool = True):
+    def write_entity(self, entity: MultiStateEntity, modified_handles: list[str], adjust_version_counter: bool = True):
         """Insert or update a context state in mdib."""
         for handle in modified_handles:
             state_container = entity.states.get(handle)
@@ -810,21 +814,29 @@ class TransactionResult:
 
     def all_states(self) -> list[AbstractStateProtocol]:
         """Return all states in this transaction."""
-        return self.metric_updates + self.alert_updates + self.comp_updates + self.ctxt_updates \
-               + self.op_updates + self.rt_updates
+        return (
+            self.metric_updates
+            + self.alert_updates
+            + self.comp_updates
+            + self.ctxt_updates
+            + self.op_updates
+            + self.rt_updates
+        )
 
 
-_transaction_type_lookup = {TransactionType.descriptor: DescriptorTransaction,
-                            TransactionType.alert: AlertStateTransaction,
-                            TransactionType.metric: MetricStateTransaction,
-                            TransactionType.operational: OperationalStateTransaction,
-                            TransactionType.context: ContextStateTransaction,
-                            TransactionType.component: ComponentStateTransaction,
-                            TransactionType.rt_sample: RtStateTransaction}
+_transaction_type_lookup = {
+    TransactionType.descriptor: DescriptorTransaction,
+    TransactionType.alert: AlertStateTransaction,
+    TransactionType.metric: MetricStateTransaction,
+    TransactionType.operational: OperationalStateTransaction,
+    TransactionType.context: ContextStateTransaction,
+    TransactionType.component: ComponentStateTransaction,
+    TransactionType.rt_sample: RtStateTransaction,
+}
 
 
-def mk_transaction(provider_mdib: ProviderMdib,
-                   transaction_type: TransactionType,
-                   logger: LoggerAdapter) -> AnyTransactionManagerProtocol:
+def mk_transaction(
+    provider_mdib: ProviderMdib, transaction_type: TransactionType, logger: LoggerAdapter
+) -> AnyTransactionManagerProtocol:
     """Create a transaction according to transaction_type."""
     return _transaction_type_lookup[transaction_type](provider_mdib, logger)
