@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from sdc11073.dispatch import DispatchKey
@@ -18,6 +17,8 @@ from sdc11073.provider.porttypes.porttypebase import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
     from sdc11073 import xml_utils
     from sdc11073.dispatch.request import RequestData
     from sdc11073.provider.dpwshostedservice import DPWSHostedService

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -14,6 +13,8 @@ from sdc11073.xml_types import xml_structure as struct
 from sdc11073.xml_types.basetypes import ElementWithText, MessageType, XMLTypeBase
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sdc11073 import xml_utils
     from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 

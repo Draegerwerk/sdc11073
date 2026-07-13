@@ -22,7 +22,7 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .request_handler_deferred import EmptyResponse
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Iterable
+    from collections.abc import Callable, Iterable, Mapping
 
     from sdc11073 import xml_utils
     from sdc11073.definitions_base import AbstractDataModel

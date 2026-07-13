@@ -6,7 +6,6 @@ import enum
 import inspect
 import traceback
 import typing
-from collections.abc import Sequence
 from math import isclose
 from typing import TYPE_CHECKING
 
@@ -15,6 +14,8 @@ from lxml import etree
 from .xml_structure import NodeStringProperty, NodeTextListProperty
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from sdc11073 import xml_utils
 
 
