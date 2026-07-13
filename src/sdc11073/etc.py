@@ -6,6 +6,7 @@ from typing import TypeVar
 P = TypeVar('P')
 R = TypeVar('R')
 
+
 def apply_map(function: Callable[P, R], *iterable: P) -> Sequence[R]:
     """Call function for all elements of iterable(s).
 
