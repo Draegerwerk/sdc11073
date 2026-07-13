@@ -49,7 +49,7 @@ class TestDataConverters(unittest.TestCase):
             with self.assertRaises(ValueError):
                 dataconverters.TimestampConverter.check_valid(value)
         # negative values are rejected
-        for value in (-1, -0.001, Decimal('-1')):
+        for value in (-1, -0.001, Decimal(-1)):
             with self.assertRaises(ValueError):
                 dataconverters.TimestampConverter.check_valid(value)
 
