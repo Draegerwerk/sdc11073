@@ -30,8 +30,6 @@ class DeviceEventingFilterDialectURI(str, Enum):
     ACTION = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Action'
 
 
-
-
 class LocalizedStringTypeDict(dict):
     """Represent LocalizedStringType elements as a dictionary of lang:string entries.
 

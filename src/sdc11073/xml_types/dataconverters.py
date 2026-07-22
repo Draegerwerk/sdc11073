@@ -228,7 +228,7 @@ class TimestampConverter(NullConverter):
         return int(xml_value) / 1000
 
     @staticmethod
-    def to_xml(py_value: float| Decimal) -> str:
+    def to_xml(py_value: float | Decimal) -> str:
         """Convert a timestamp in seconds to an XML string in milliseconds.
 
         :param py_value: the timestamp in seconds.
