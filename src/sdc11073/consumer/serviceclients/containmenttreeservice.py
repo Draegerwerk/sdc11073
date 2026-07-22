@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from sdc11073.consumer.serviceclients.serviceclientbase import GetRequestResult, HostedServiceClient
 from sdc11073.namespaces import PrefixesEnum
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-
-from .serviceclientbase import GetRequestResult, HostedServiceClient
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

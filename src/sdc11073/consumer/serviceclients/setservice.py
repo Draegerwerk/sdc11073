@@ -5,13 +5,12 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
 from sdc11073.dispatch import DispatchKey
 from sdc11073.namespaces import PrefixesEnum
 from sdc11073.xml_types import msg_qnames
 from sdc11073.xml_types.actions import Actions
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
-
-from .serviceclientbase import HostedServiceClient
 
 if TYPE_CHECKING:
     from concurrent.futures import Future

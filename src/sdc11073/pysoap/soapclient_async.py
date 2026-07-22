@@ -12,9 +12,8 @@ from sdc11073 import commlog, observableproperties
 from sdc11073.httpserver.compression import CompressionHandler
 from sdc11073.httpserver.httpreader import mk_chunks
 from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import Fault
-
-from .soapclient import HTTPReturnCodeError
 
 if TYPE_CHECKING:
     from ssl import SSLContext

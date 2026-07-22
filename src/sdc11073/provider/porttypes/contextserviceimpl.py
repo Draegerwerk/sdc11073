@@ -15,8 +15,7 @@ from sdc11073.provider.porttypes.porttypebase import (
     mk_wsdl_two_way_operation,
     msg_prefix,
 )
-
-from .stateeventserviceimpl import fill_episodic_report_body, fill_periodic_report_body
+from sdc11073.provider.porttypes.stateeventserviceimpl import fill_episodic_report_body, fill_periodic_report_body
 
 if TYPE_CHECKING:
     from sdc11073 import xml_utils

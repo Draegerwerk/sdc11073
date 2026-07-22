@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, NoReturn
 
 from sdc11073.dispatch import DispatchKey
 from sdc11073.namespaces import PrefixesEnum
-
-from .porttypebase import (
+from sdc11073.provider.porttypes.porttypebase import (
     DPWSPortTypeBase,
     WSDLMessageDescription,
     WSDLOperationBinding,

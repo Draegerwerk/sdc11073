@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from lxml import etree
 
-from .xml_structure import NodeStringProperty, NodeTextListProperty
+from sdc11073.xml_types.xml_structure import NodeStringProperty, NodeTextListProperty
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
