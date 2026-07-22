@@ -7,7 +7,6 @@ from collections.abc import Sequence
 from logging import handlers as logging_handlers
 
 
-
 def reset_log_levels(root_logger_name: str = 'sdc') -> None:
     """Reset the log level of the given logger and all its sub-loggers to NOTSET.
 
