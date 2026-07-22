@@ -1,10 +1,9 @@
 """WS-Discovery XML types (Hello, Bye, Probe, Resolve and their matches)."""
 
 from sdc11073.namespaces import default_ns_helper
-
-from . import xml_structure as struct
-from .addressing_types import EndpointReferenceType
-from .basetypes import ElementWithTextList, MessageType, XMLTypeBase
+from sdc11073.xml_types import xml_structure as struct
+from sdc11073.xml_types.addressing_types import EndpointReferenceType
+from sdc11073.xml_types.basetypes import ElementWithTextList, MessageType, XMLTypeBase
 
 ########## Meta Data Exchange #########
 wsa_tag = default_ns_helper.WSA.tag  # shortcut

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, NoReturn, Protocol
 
 from sdc11073.xml_types import isoduration
 
@@ -89,15 +89,12 @@ class ClassCheckConverter(NullConverter):
         """
         self._klass = klass
 
-    def check_valid(self, py_value: Any) -> None:
+    def check_valid(self, py_value: Any) -> NoReturn:
         """Verify that the value is an instance of one of the configured classes.
 
         :param py_value: the Python value to check.
         """
-        if STRICT_VALUE_CHECK and py_value is not None:
-            for cls in self._klass:
-                if isinstance(py_value, cls):
-                    return
+        if STRICT_VALUE_CHECK and py_value is not None and not isinstance(py_value, self._klass):
             msg = f'Value can only be {[cls.__name__ for cls in self._klass]}, got {type(py_value)}'
             raise ValueError(msg)
 
@@ -140,7 +137,7 @@ class EnumConverter(NullConverter):
 
 
 class StringConverter(NullConverter):
-    """Convert None to empty string, everything else is unchanged."""
+    """Convert an XML string to a python string and None to an empty string."""
 
     @staticmethod
     def to_py(xml_value: str | None) -> str:
@@ -164,7 +161,7 @@ class StringConverter(NullConverter):
 
 
 class ListConverter(NullConverter):
-    """Each element in list is checked and converted with provided element_converter."""
+    """Convert list elements from and to XML."""
 
     def __init__(self, element_converter: DataConverterProtocol) -> None:
         """Store the converter used for each list element.
@@ -231,7 +228,7 @@ class TimestampConverter(NullConverter):
         return int(xml_value) / 1000
 
     @staticmethod
-    def to_xml(py_value: float) -> str:
+    def to_xml(py_value: float| Decimal) -> str:
         """Convert a timestamp in seconds to an XML string in milliseconds.
 
         :param py_value: the timestamp in seconds.
@@ -240,7 +237,7 @@ class TimestampConverter(NullConverter):
         return str(int(py_value * 1000))
 
     @staticmethod
-    def check_valid(py_value: Any) -> None:
+    def check_valid(py_value: float | Decimal) -> None:
         """Verify that the value is a non-negative number.
 
         :param py_value: the Python value to check.
@@ -275,7 +272,7 @@ class DecimalConverter(NullConverter):
         return int(xml_value)
 
     @staticmethod
-    def _float_to_xml(py_value: Decimal | float) -> str:
+    def _float_to_xml(py_value: float) -> str:
         # round value to handle float inaccuracies
         if abs(py_value) >= 100:  # noqa: PLR2004 - order-of-magnitude threshold selecting decimal precision
             xml_value = f'{round(py_value, 1):.1f}'

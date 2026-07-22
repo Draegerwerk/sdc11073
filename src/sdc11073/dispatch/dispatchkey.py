@@ -77,8 +77,8 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
     """
 
     def __init__(self, log_prefix: str | None = None):
-        self._post_handlers = {}
-        self._get_handlers = {}
+        self._post_handlers: dict[DispatchKey, OnPostHandler] = {}
+        self._get_handlers: dict[str, OnGetHandler] = {}
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def register_post_handler(self, dispatch_key: DispatchKey, on_post_handler: OnPostHandler):
@@ -122,9 +122,9 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         self._logger.error(error_text)
         raise KeyError(error_text)
 
-    def _get_post_handler(self, request_data: RequestData) -> OnPostHandler:
+    def _get_post_handler(self, request_data: RequestData) -> OnPostHandler | None:
         key = DispatchKey(request_data.message_data.action, request_data.message_data.q_name)
         handler = self._post_handlers.get(key)
         if handler is None:
             self._logger.info('no handler for key={}', key)  # noqa: PLE1205
-        return self._post_handlers.get(key)
+        return handler

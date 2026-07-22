@@ -348,7 +348,7 @@ class SubscriptionManagerProtocol(Protocol):
         ...
 
 
-class SubscriptionsManagerBase:
+class SubscriptionsManagerBase(SubscriptionManagerProtocol):
     """Base class for subscription manager."""
 
     DEFAULT_MAX_SUBSCR_DURATION = 7200  # max. possible duration of a subscription

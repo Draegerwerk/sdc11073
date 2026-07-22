@@ -5,13 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .dpwshostedservice import DPWSHostedService
+from sdc11073.provider.dpwshostedservice import DPWSHostedService
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from .porttypes.porttypebase import DPWSPortTypeBase
-    from .providerimpl import SdcProvider, SdcProviderComponents
+    from sdc11073.provider.porttypes.porttypebase import DPWSPortTypeBase
+    from sdc11073.provider.providerimpl import SdcProvider, SdcProviderComponents
+    from sdc11073.provider.subscriptionmgr_base import SubscriptionManagerProtocol
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,7 @@ def mk_dpws_hosts(
     sdc_device: SdcProvider,
     components: SdcProviderComponents,
     dpws_hosted_service_cls: type[DPWSHostedService],
-    subscription_managers: dict,
+    subscription_managers: Mapping[str, SubscriptionManagerProtocol],
 ) -> tuple[dict, dict]:
     """Instantiate the DPWS hosted services defined by the components.
 
@@ -63,7 +64,7 @@ def mk_dpws_hosts(
 def mk_all_services(
     sdc_device: SdcProvider,
     components: SdcProviderComponents,
-    subscription_managers: Mapping,
+    subscription_managers: Mapping[str, SubscriptionManagerProtocol],
 ) -> HostedServices:
     """Instantiate all hosted services of the provider.
 

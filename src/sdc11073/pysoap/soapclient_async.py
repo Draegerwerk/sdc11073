@@ -1,4 +1,4 @@
-"""The soapclient_async module provides an asyncio-based SOAP client."""
+"""Implementation of an asyncio-based SOAP client."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ class SoapClientAsync:
         netloc: str,
         socket_timeout: float,
         logger: LoggerAdapter,
-        ssl_context: [SSLContext, None],
+        ssl_context: SSLContext | None,
         sdc_definitions: BaseDefinitions,
         msg_reader: MessageReader,
         supported_encodings: list[str] | None = None,
@@ -87,11 +87,6 @@ class SoapClientAsync:
     async def async_connect(self):
         """Connect to netloc."""
         self._http_connection = await self._mk_http_connection()
-
-    def close(self):
-        """Close connection."""
-        # TODO: run async_close in event loop  # noqa: FIX002, TD002, TD003
-        self._http_connection = None
 
     async def async_close(self):
         """Close connection."""

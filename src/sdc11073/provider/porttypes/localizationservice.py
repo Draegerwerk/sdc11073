@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import typing
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from sdc11073.dispatch import DispatchKey
 from sdc11073.namespaces import PrefixesEnum
@@ -17,7 +18,7 @@ from sdc11073.provider.porttypes.porttypebase import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from sdc11073 import xml_utils
     from sdc11073.dispatch.request import RequestData
@@ -26,14 +27,24 @@ if TYPE_CHECKING:
     from sdc11073.xml_types.pm_types import LocalizedText
 
 
+TEXT_WIDTH_TO_INT: typing.Final[Mapping[str | None, int]] = {
+    'xs': 0,
+    's': 1,
+    'm': 2,
+    'l': 3,
+    'xl': 4,
+    'xxl': 5,
+    None: 999,
+}
+
+
 def _tw2i(text_width_string: str | None) -> int:
     """Map a text width string to an integer.
 
     :param text_width_string: a text width value (e.g. 'xs', 's', ...) or None
     :return: the integer representation of the text width
     """
-    lookup = {'xs': 0, 's': 1, 'm': 2, 'l': 3, 'xl': 4, 'xxl': 5, None: 999}
-    return lookup[text_width_string]
+    return TEXT_WIDTH_TO_INT[text_width_string]
 
 
 def _calc_number_of_lines(text: str) -> int:
@@ -278,7 +289,7 @@ class LocalizationService(DPWSPortTypeBase):
         response.set_mdib_version_group(self._mdib.mdib_version_group)
         return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
 
-    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> None:
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> NoReturn:
         """Add the wsdl port type node for this service to parent_node."""
         port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetLocalizedText')

@@ -106,7 +106,7 @@ class XMLTypeBase:
                     ret.append((name, obj))
         return ret
 
-    def __eq__(self, other: XMLTypeBase):
+    def __eq__(self, other: object):
         """Compare all properties."""
         try:
             for name, _ in self.sorted_container_properties():
@@ -121,7 +121,7 @@ class XMLTypeBase:
         except (TypeError, AttributeError):
             return False
 
-    def __ne__(self, other: XMLTypeBase):
+    def __ne__(self, other: object):
         return not self == other
 
     def __repr__(self):
@@ -135,7 +135,7 @@ class XMLTypeBase:
         return obj
 
     @classmethod
-    def value_class_from_node(cls, _) -> type[typing.Self]:  # noqa: ANN001
+    def value_class_from_node(cls, _) -> type[XMLTypeBase]:  # noqa: ANN001
         """Return the concrete value class for deserialization from an XML node."""
         return cls
 

@@ -4,6 +4,7 @@ from unittest import TestCase
 
 from sdc11073.dispatch.pathelementregistry import PathElementRegistry
 from sdc11073.exceptions import ApiUsageError, InvalidPathError
+from sdc11073.pysoap.soapenvelope import Fault
 
 
 class TestPathElementRegistry(TestCase):
@@ -59,4 +60,4 @@ class TestPathElementRegistry(TestCase):
         error = ctx.exception
         self.assertEqual(error.status, 404)
         self.assertIn('unknown', error.reason)
-        self.assertIsNotNone(error.soap_fault)
+        self.assertIsInstance(error.soap_fault, Fault)

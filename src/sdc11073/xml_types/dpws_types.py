@@ -30,14 +30,6 @@ class DeviceEventingFilterDialectURI(str, Enum):
     ACTION = 'http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01/Action'
 
 
-class Relationship:
-    """Container for a host service and its hosted services."""
-
-    __slots__ = ('host', 'hosted')
-
-    def __init__(self):
-        self.host = None
-        self.hosted = {}
 
 
 class LocalizedStringTypeDict(dict):

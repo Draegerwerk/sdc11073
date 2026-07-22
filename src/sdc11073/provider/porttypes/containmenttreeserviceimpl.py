@@ -51,7 +51,7 @@ class ContainmentTreeService(DPWSPortTypeBase):
 
     def _on_get_containment_tree(self, request_data: RequestData) -> NoReturn:  # noqa: ARG002
         """Handle a GetContainmentTree request by raising a not-implemented SOAP fault."""
-        # TODO: implement, currently method only raises a soap fault  # noqa: FIX002, TD002, TD003
+        # TODO(#498): implement, currently method only raises a soap fault  # noqa: FIX002
         fault = Fault()
         fault.Code.Value = faultcodeEnum.RECEIVER
         fault.add_reason_text('not implemented')
@@ -60,13 +60,13 @@ class ContainmentTreeService(DPWSPortTypeBase):
 
     def _on_get_descriptor(self, request_data: RequestData) -> NoReturn:  # noqa: ARG002
         """Handle a GetDescriptor request by raising a not-implemented SOAP fault."""
-        # TODO: implement, currently method only raises a soap fault  # noqa: FIX002, TD002, TD003
+        # TODO(#499): implement, currently method only raises a soap fault  # noqa: FIX002
         fault = Fault()
         fault.Code.Value = faultcodeEnum.RECEIVER
         fault.add_reason_text('not implemented')
         raise FunctionNotImplementedError(fault)
 
-    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement):
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> NoReturn:
         """Add the ContainmentTreeService wsdl:portType node with its operations to parent_node."""
         port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetDescriptor')

@@ -3,22 +3,9 @@
 import logging
 import traceback
 import typing
+from collections.abc import Sequence
 from logging import handlers as logging_handlers
 
-
-def ensure_log_stream() -> None:
-    """Ensure that the sdc11073 root logger has a stream handler with the default format."""
-    applog = logging.getLogger('sdc')
-    for handler in applog.handlers:
-        if isinstance(handler, logging.StreamHandler):
-            return
-    stream_handler = logging.StreamHandler()
-    # create formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    # add formatter to ch
-    stream_handler.setFormatter(formatter)
-    # add ch to logger
-    applog.addHandler(stream_handler)
 
 
 def reset_log_levels(root_logger_name: str = 'sdc') -> None:
@@ -148,17 +135,6 @@ def get_logger_adapter(name: str, prefix: str | None = None) -> LoggerAdapter:
     return LoggerAdapter(logging.getLogger(name), prefix)
 
 
-class LogWatchError(Exception):
-    """Exception raised by LogWatcher when unexpected log records were recorded."""
-
-    def __init__(self, issues: list) -> None:
-        super().__init__()
-        self.issues = issues
-
-    def __repr__(self) -> str:
-        return f'LogWatchException: {self.issues}'
-
-
 class _LogIssue:
     def __init__(self, record: logging.LogRecord) -> None:
         self.record = record
@@ -174,6 +150,17 @@ class _LogIssue:
             f'log msg="{self.record.msg}" level={self.record.levelname} '
             f'thread="{self.record.threadName or self.record.thread}"; call-stack:\n{call_stack}'
         )
+
+
+class LogWatchError(Exception):
+    """Exception raised by LogWatcher when unexpected log records were recorded."""
+
+    def __init__(self, issues: Sequence[_LogIssue]) -> None:
+        super().__init__()
+        self.issues = issues
+
+    def __repr__(self) -> str:
+        return f'LogWatchException: {self.issues}'
 
 
 class LogWatcherHandler(logging.Handler):
@@ -221,7 +208,7 @@ class LogWatcher:
         self,
         logger: logging.Logger,
         level: int = logging.ERROR,
-        startPaused: bool = False,  # noqa: N803  # public API mirroring stdlib logging naming
+        startPaused: bool = False,  # noqa: N803
     ) -> None:
         """Record log messages of the given logger.
 
@@ -236,7 +223,6 @@ class LogWatcher:
         self.addHandler(logger, level)
         self._collecting = not startPaused
 
-    # addHandler mirrors the stdlib logging API and is public; keep the name.
     def addHandler(self, logger: logging.Logger, level: int) -> LogWatcherHandler:  # noqa: N802
         """Add another LogWatcherHandler.
 
@@ -249,7 +235,6 @@ class LogWatcher:
         self.handlers.append(coll)
         return coll
 
-    # setPaused mirrors the stdlib logging API and is public; keep the names.
     def setPaused(self, isPaused: bool) -> None:  # noqa: N802, N803
         """Enable or disable recording.
 
@@ -264,14 +249,13 @@ class LogWatcher:
             handler.disconnect()
         self.handlers = []
 
-    # clearHandlers mirrors the stdlib logging API and is public; keep the name.
     def clearHandlers(self) -> None:  # noqa: N802
         """Delete all recorded records in all handlers."""
         for handler in self.handlers:
             handler.clear()
 
     # getAllRecords is public API used by callers/tests; keep the name.
-    def getAllRecords(self) -> list[_LogIssue]:  # noqa: N802
+    def getAllRecords(self) -> Sequence[_LogIssue]:  # noqa: N802
         """Return a list of all records in all handlers."""
         all_records = []
         for handler in self.handlers:
@@ -297,7 +281,7 @@ class LogWatcher:
         """Return whether records are currently being collected."""
         return self._collecting
 
-    def __enter__(self) -> 'LogWatcher':  # noqa: PYI034  # typing.Self unavailable on py310 target
+    def __enter__(self) -> 'LogWatcher':  # noqa: PYI034
         return self
 
     def __exit__(self, et: object, ev: object, tb: object) -> None:

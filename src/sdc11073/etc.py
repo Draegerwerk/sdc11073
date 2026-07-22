@@ -12,18 +12,3 @@ def apply_map(function: Callable[..., R], *iterable: Iterable[Any]) -> Sequence[
     apply_map uses builtin map internally.
     """
     return list(map(function, *iterable))
-
-
-def _short_action_string(action: str) -> str:
-    """Return only the last 2 elements of the action."""
-    elements = action.split('/')
-    return '/'.join(elements[-2:])
-
-
-def short_filter_string(actions: Iterable[str]) -> str:
-    """Make shorter action strings for logging.
-
-    :param actions: list of strings
-    :return: a comma separated string of shortened names
-    """
-    return ', '.join([_short_action_string(a) for a in actions])

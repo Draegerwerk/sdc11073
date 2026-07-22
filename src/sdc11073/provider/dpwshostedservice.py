@@ -48,7 +48,7 @@ class _EventService(RequestDispatcher):
     def __init__(
         self,
         sdc_device: SdcProvider,
-        subscriptions_manager: subscriptionmgr_base.SubscriptionsManagerBase | None,
+        subscriptions_manager: subscriptionmgr_base.SubscriptionManagerProtocol | None,
         offered_subscriptions: Sequence[actions.Actions],
     ):
         super().__init__()
@@ -92,7 +92,7 @@ class DPWSHostedService(_EventService):
     def __init__(
         self,
         sdc_device: SdcProvider,
-        subscriptions_manager: subscriptionmgr_base.SubscriptionsManagerBase | None,
+        subscriptions_manager: subscriptionmgr_base.SubscriptionManagerProtocol | None,
         path_element: str,
         port_type_impls: Sequence[DPWSPortTypeBase],
     ):
