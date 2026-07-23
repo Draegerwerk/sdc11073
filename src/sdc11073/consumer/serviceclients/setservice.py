@@ -1,4 +1,4 @@
-"""The setservice module provides the consumer client for the SetService."""
+"""Implementation of the consumer client for the SetService."""
 
 from __future__ import annotations
 

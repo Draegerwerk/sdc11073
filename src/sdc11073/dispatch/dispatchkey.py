@@ -1,4 +1,4 @@
-"""The dispatchkey module provides dispatch keys and request dispatchers for routing SOAP messages."""
+"""Implementation of the dispatch keys and request dispatchers for routing SOAP messages."""
 
 from __future__ import annotations
 

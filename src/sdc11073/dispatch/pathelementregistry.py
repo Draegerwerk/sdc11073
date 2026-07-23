@@ -1,4 +1,4 @@
-"""The pathelementregistry module provides a lookup of instances by path element."""
+"""Implementation of a lookup of instances by path element."""
 
 from typing import Any
 

@@ -1,4 +1,4 @@
-"""The certloader module provides convenience functions for creating SSL contexts."""
+"""Implementation of convenience functions for creating SSL contexts."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""The soapenvelope module provides SOAP envelope and fault handling classes."""
+"""Implementation of SOAP envelope and fault handling classes."""
 
 from __future__ import annotations
 

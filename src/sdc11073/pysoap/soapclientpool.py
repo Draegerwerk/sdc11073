@@ -1,4 +1,4 @@
-"""The soapclientpool module provides a reference-counted pool of soap clients."""
+"""Implementation of a reference-counted pool of soap clients."""
 
 from __future__ import annotations
 

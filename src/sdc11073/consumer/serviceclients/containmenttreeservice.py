@@ -1,4 +1,4 @@
-"""The containmenttreeservice module provides the consumer client for the ContainmentTreeService."""
+"""Implementation of the consumer client for the ContainmentTreeService."""
 
 from __future__ import annotations
 

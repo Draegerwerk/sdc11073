@@ -94,7 +94,10 @@ class SdcProviderComponents:
     msg_reader_class: type[MessageReader]
     client_msg_reader_class: type[MessageReader]  # the corresponding reader for client
     xml_reader_class: type[MessageReader]  # needed to read xml based mdib files
-    services_factory: Callable[[SdcProvider, SdcProviderComponents, Mapping], HostedServices]
+    services_factory: Callable[
+        [SdcProvider, SdcProviderComponents, Mapping[str, SubscriptionManagerProtocol]],
+        HostedServices,
+    ]
     operation_cls_getter: Callable[[etree.QName], type]
     sco_operations_registry_class: type[AbstractScoOperationsRegistry]
     subscriptions_manager_class: MutableMapping[str, type[SubscriptionManagerProtocol]]
