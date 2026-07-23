@@ -1,3 +1,5 @@
+"""Implementation of SOAP envelope and fault handling classes."""
+
 from __future__ import annotations
 
 from enum import Enum
@@ -11,8 +13,10 @@ from sdc11073.xml_types import xml_structure as struct
 from sdc11073.xml_types.basetypes import ElementWithText, MessageType, XMLTypeBase
 
 if TYPE_CHECKING:
-    from sdc11073.xml_types.addressing_types import HeaderInformationBlock
+    from collections.abc import Sequence
+
     from sdc11073 import xml_utils
+    from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
 CHECK_NAMESPACES = False  # can be used to enable additional checks for too many namespaces or undefined namespaces
 
@@ -32,7 +36,7 @@ class ExtendedDocumentInvalid(etree.DocumentInvalid):
 class Soap12Envelope:
     """Soap12Envelope represents an outgoing soap envelope."""
 
-    __slots__ = ('_header_nodes', '_payload_element', '_nsmap', 'header_info_block')
+    __slots__ = ('_header_nodes', '_nsmap', '_payload_element', 'header_info_block')
 
     def __init__(self, ns_map: dict | None = None):
         self._header_nodes = []
@@ -78,10 +82,10 @@ class Soap12Envelope:
 class ReceivedSoapMessage:
     """Represents a received soap envelope."""
 
-    __slots__ = ('msg_node', 'msg_name', 'raw_data', 'header_info_block', '_doc_root', 'header_node', 'body_node')
+    __slots__ = ('_doc_root', 'body_node', 'header_info_block', 'header_node', 'msg_name', 'msg_node', 'raw_data')
 
     def __init__(self, xml_text: bytes, doc_root: xml_utils.LxmlElement):
-        self.raw_data = xml_text
+        self.raw_data: bytes = xml_text
         self._doc_root: xml_utils.LxmlElement = doc_root
         self.header_node: xml_utils.LxmlElement = self._doc_root.find(ns_hlp.S12.tag('Header'))
         self.body_node: xml_utils.LxmlElement = self._doc_root.find(ns_hlp.S12.tag('Body'))
@@ -115,7 +119,7 @@ class reasontext(ElementWithText):  # noqa: N801
 class faultreason(XMLTypeBase):  # noqa: N801
     """List of reasontext."""
 
-    Text: list[reasontext] = struct.SubElementListProperty(ns_hlp.S12.tag('Text'), value_class=reasontext)
+    Text: Sequence[reasontext] = struct.SubElementListProperty(ns_hlp.S12.tag('Text'), value_class=reasontext)
     _props = ('Text',)
 
 
@@ -130,8 +134,8 @@ class subcode(XMLTypeBase):  # noqa: N801
 class faultcode(XMLTypeBase):  # noqa: N801
     """Code wit subcode."""
 
-    Value = struct.NodeEnumQNameProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
-    Subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
+    Value: faultcodeEnum = struct.NodeEnumQNameProperty(ns_hlp.S12.tag('Value'), faultcodeEnum)
+    Subcode: subcode = struct.SubElementProperty(ns_hlp.S12.tag('Subcode'), value_class=subcode, is_optional=True)
     _props = ('Value', 'Subcode')
 
 
@@ -140,9 +144,12 @@ class Fault(MessageType):
 
     NODETYPE = ns_hlp.S12.tag('Fault')
     action = f'{ns_hlp.WSA.namespace}/fault'
-    Code = struct.SubElementProperty(ns_hlp.S12.tag('Code'), value_class=faultcode, default_py_value=faultcode())
-    Reason = struct.SubElementProperty(ns_hlp.S12.tag('Reason'), value_class=faultreason,
-                                       default_py_value=faultreason())
+    Code: faultcode = struct.SubElementProperty(
+        ns_hlp.S12.tag('Code'), value_class=faultcode, default_py_value=faultcode()
+    )
+    Reason: faultreason = struct.SubElementProperty(
+        ns_hlp.S12.tag('Reason'), value_class=faultreason, default_py_value=faultreason()
+    )
     Node = struct.AnyUriTextElement(ns_hlp.S12.tag('Node'), is_optional=True)
     Role = struct.AnyUriTextElement(ns_hlp.S12.tag('Role'), is_optional=True)
     # Schema says Detail is an "any" type. Here it is modelled as a string that becomes the text of the Detail node

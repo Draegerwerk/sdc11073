@@ -6,22 +6,23 @@ import http.client
 import threading
 import time
 import uuid
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Protocol
 from urllib.parse import urlparse
 
 from lxml import etree
 
 from sdc11073 import loghelper
 from sdc11073 import observableproperties as properties
+from sdc11073.consumer.request_handler_deferred import EmptyResponse
 from sdc11073.namespaces import EventingActions
 from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import SoapResponseError
 from sdc11073.xml_types import eventing_types as evt_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 
-from .request_handler_deferred import EmptyResponse
-
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Mapping
+
     from sdc11073 import xml_utils
     from sdc11073.definitions_base import AbstractDataModel
     from sdc11073.dispatch import RequestData
@@ -113,7 +114,10 @@ class ConsumerSubscription:
         self.subscribe_response: evt_types.SubscribeResponse | None = None
 
     def subscribe(
-        self, expires: float = 3600, any_elements: list | None = None, any_attributes: dict | None = None,
+        self,
+        expires: float = 3600,
+        any_elements: Iterable[xml_utils.LxmlElement] | None = None,
+        any_attributes: Mapping[str | bytes | etree.QName, str | bytes] | None = None,
     ) -> None:
         """Send a subscribe request to the provider and handle the response."""
         self._logger.info('start subscription "{}"', self.short_filter_string)  # noqa: PLE1205
@@ -188,7 +192,9 @@ class ConsumerSubscription:
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
             inf = HeaderInformationBlock(
-                action=renew.action, addr_to=subscription_manager_address, reference_parameters=dev_reference_param,
+                action=renew.action,
+                addr_to=subscription_manager_address,
+                reference_parameters=dev_reference_param,
             )
             message = self._msg_factory.mk_soap_message(inf, payload=renew)
             try:
@@ -227,23 +233,29 @@ class ConsumerSubscription:
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
             inf = HeaderInformationBlock(
-                action=request.action, addr_to=subscription_manager_address, reference_parameters=dev_reference_param,
+                action=request.action,
+                addr_to=subscription_manager_address,
+                reference_parameters=dev_reference_param,
             )
             message = self._msg_factory.mk_soap_message(inf, payload=request)
             soap_client = self._get_soap_client_func(subscription_manager_address)
             received_message_data = soap_client.post_message_to(
-                self._subscription_manager_path, message, msg='unsubscribe',
+                self._subscription_manager_path,
+                message,
+                msg='unsubscribe',
             )
             response_action = received_message_data.action
             # check response: response does not contain explicit status. If action== UnsubscribeResponse all is fine.
             if response_action == EventingActions.UnsubscribeResponse:
                 self._logger.info(  # noqa: PLE1205
-                    'unsubscribe: end of subscription {} was confirmed.', self.notification_url,
+                    'unsubscribe: end of subscription {} was confirmed.',
+                    self.notification_url,
                 )
                 self.is_subscribed = False
             else:
                 self._logger.error(  # noqa: PLE1205
-                    'unsubscribe: unexpected response action: {}', received_message_data.p_msg.raw_data,
+                    'unsubscribe: unexpected response action: {}',
+                    received_message_data.p_msg.raw_data,
                 )
                 msg = f'unsubscribe: unexpected response action: {received_message_data.p_msg.raw_data}'
                 raise ValueError(msg)
@@ -260,7 +272,9 @@ class ConsumerSubscription:
             dev_reference_param = self.subscribe_response.SubscriptionManager.ReferenceParameters
             subscription_manager_address = self.subscribe_response.SubscriptionManager.Address
             inf = HeaderInformationBlock(
-                action=request.action, addr_to=subscription_manager_address, reference_parameters=dev_reference_param,
+                action=request.action,
+                addr_to=subscription_manager_address,
+                reference_parameters=dev_reference_param,
             )
             message = self._msg_factory.mk_soap_message(inf, payload=request)
             try:
@@ -272,7 +286,9 @@ class ConsumerSubscription:
             except (http.client.HTTPException, ConnectionError) as ex:
                 self.is_subscribed = False
                 self._logger.warning(  # noqa: PLE1205
-                    'get_status: Connection Error {} for subscription {}', ex, self._filter_text,
+                    'get_status: Connection Error {} for subscription {}',
+                    ex,
+                    self._filter_text,
                 )
             except Exception as ex:  # noqa: BLE001
                 # log any other exception as error and consider subscription to be broken
@@ -372,7 +388,8 @@ class ConsumerSubscriptionManagerProtocol(Protocol):
 
 
 class ConsumerSubscriptionManager(
-    threading.Thread, ConsumerSubscriptionManagerProtocol,
+    threading.Thread,
+    ConsumerSubscriptionManagerProtocol,
 ):  # derive from protocol to help typing.
     """Factory for Subscription objects.
 
@@ -506,7 +523,9 @@ class ConsumerSubscriptionManager(
             if subscription.end_to_url.endswith(request_data.current_path_element):
                 return subscription
         self._logger.warning(  # noqa: PLE1205
-            '{}: have no subscription for identifier = {}', log_prefix, request_data.current_path_element,
+            '{}: have no subscription for identifier = {}',
+            log_prefix,
+            request_data.current_path_element,
         )
         return None
 
@@ -582,6 +601,8 @@ class ClientSubscriptionManagerReferenceParams(ConsumerSubscriptionManager):
             if subscr_ident.text == subscription.end_to_identifier.text:
                 return subscription
         self._logger.warning(  # noqa: PLE1205
-            '{}}: have no subscription for identifier = {}', log_prefix, subscr_ident.text,
+            '{}}: have no subscription for identifier = {}',
+            log_prefix,
+            subscr_ident.text,
         )
         return None

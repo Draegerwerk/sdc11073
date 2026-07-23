@@ -203,7 +203,7 @@ class SetService(ServiceWithOperations):
         )
         subscription_mgr.send_to_subscribers(body_node, report.action.value, mdib_version_group)
 
-    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement):  # noqa: D102
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> None:  # noqa: D102
         port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_two_way_operation(port_type, operation_name='Activate')
         mk_wsdl_two_way_operation(port_type, operation_name='SetString')

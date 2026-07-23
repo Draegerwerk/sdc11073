@@ -1,27 +1,33 @@
+"""Reading of http messages with support for chunking and de-compression."""
+
 from __future__ import annotations
 
 from io import BytesIO
+from typing import TYPE_CHECKING
 
-from .compression import CompressionHandler
+from sdc11073.httpserver.compression import CompressionHandler
 
-""" This module handles reading http messages. It supports chunking and de-compression"""
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from http.client import HTTPResponse
+    from http.server import BaseHTTPRequestHandler
+    from typing import BinaryIO
+
 
 class DechunkError(Exception):
-    """Raised when could not de-chunk stream.
-    """
+    """Raised when could not de-chunk stream."""
 
 
 class DecompressError(Exception):
-    """Raised when could not de-compress stream.
-    """
+    """Raised when could not de-compress stream."""
 
 
-def mk_chunks(body, chunk_size=512):
-    """
-    convert plain body bytes to chunked bytes
-    :param body: bytes
-    :param chunk_size: size of chunks
-    :return: body converted to chunks (but still as single bytes array)
+def mk_chunks(body: bytes, chunk_size: int = 512) -> bytes:
+    """Convert plain body bytes to chunked bytes.
+
+    :param body: the plain body bytes.
+    :param chunk_size: size of chunks.
+    :return: body converted to chunks (but still as single bytes array).
     """
     data = BytesIO()
     tail = body
@@ -38,7 +44,8 @@ CR_LF = b'\r\n'
 
 
 class HTTPReader:
-    """ Base class that implements decoding of incoming http requests.
+    """Base class that implements decoding of incoming http requests.
+
     Supported features:
     - read data by content-length
     - handle chunk-encoding
@@ -46,11 +53,12 @@ class HTTPReader:
     """
 
     @classmethod
-    def _read_dechunk(cls, stream):
+    def _read_dechunk(cls, stream: BinaryIO) -> bytes:
         """De-chunk HTTP body stream.
-        :param file stream: readable file-like object.
-        :rtype: bytes
-        :raise: DechunkError
+
+        :param stream: readable file-like object.
+        :return: the de-chunked bytes.
+        :raise DechunkError: if the stream could not be de-chunked.
         """
         body = []
         while True:
@@ -58,8 +66,7 @@ class HTTPReader:
             chunk_headers = chunk_header.split(b';')  # length + optional chunk-extensions (name=value pairs)
             chunk_len, _ = chunk_headers[0], chunk_headers[1:]  # we do nothing with chunk-extensions...
             if chunk_len is None:
-                raise DechunkError(
-                    'Could not extract chunk size: unexpected end of data.')
+                raise DechunkError('Could not extract chunk size: unexpected end of data.')
 
             try:
                 chunk_len = int(chunk_len.strip(), 16)
@@ -81,12 +88,13 @@ class HTTPReader:
         return b''.join(body)
 
     @staticmethod
-    def _read_until(stream, delimiter, max_bytes=16):
-        """Read until we have found the given delimiter.
-        :param file stream: readable file-like object.
-        :param bytes delimiter: delimiter string.
-        :param int max_bytes: maximum bytes to read.
-        :rtype: bytes|None
+    def _read_until(stream: BinaryIO, delimiter: bytes, max_bytes: int = 16) -> bytes | None:
+        """Read until the given delimiter has been found.
+
+        :param stream: readable file-like object.
+        :param delimiter: delimiter string.
+        :param max_bytes: maximum bytes to read.
+        :return: the bytes read before the delimiter, or None if the delimiter was not found.
         """
         buf = bytearray()
         delim_len = len(delimiter)
@@ -103,11 +111,18 @@ class HTTPReader:
         return None
 
     @classmethod
-    def read_request_body(cls, http_message, supported_encodings=None):
-        """ checks header for content-length, chunk-encoding and compression entries.
+    def read_request_body(
+        cls,
+        http_message: BaseHTTPRequestHandler,
+        supported_encodings: Sequence[str] | None = None,
+    ) -> bytes | None:
+        """Check header for content-length, chunk-encoding and compression entries.
+
         Handles incoming bytes correspondingly.
-        @http_message: a http request or response read from network
-        :return: bytes
+
+        :param http_message: a http request read from network.
+        :param supported_encodings: if given, only these encodings may be used.
+        :return: the request body as bytes.
         """
         http_body = None
         transfer_encoding = http_message.headers.get('transfer-encoding')
@@ -131,16 +146,23 @@ class HTTPReader:
             if actual_enc in supported_encs:
                 http_body = CompressionHandler.decompress_payload(actual_enc, http_body)
             else:
-                raise DecompressError(f'content-encoding "{actual_enc}" is not supported', )
+                msg = f'content-encoding "{actual_enc}" is not supported'
+                raise DecompressError(msg)
         return http_body
 
     @classmethod
-    def read_response_body(cls, http_response, supported_encodings=None):
-        """ checks header for content-length, chunk-encoding and compression entries.
+    def read_response_body(
+        cls,
+        http_response: HTTPResponse,
+        supported_encodings: Sequence[str] | None = None,
+    ) -> bytes | None:
+        """Check header for content-length, chunk-encoding and compression entries.
+
         Handles incoming bytes correspondingly.
-        :http_response: a http response read from network
-        :supported_encodings: if given, only these encodings may be used.
-        :return: bytes
+
+        :param http_response: a http response read from network.
+        :param supported_encodings: if given, only these encodings may be used.
+        :return: the response body as bytes.
         """
         http_body = None
         cl_string = http_response.getheader('content-length')
@@ -172,5 +194,6 @@ class HTTPReader:
             if actual_enc in supported_encs:
                 http_body = CompressionHandler.decompress_payload(actual_enc, http_body)
             else:
-                raise DecompressError(f'content-encoding "{actual_enc}" is not supported')
+                msg = f'content-encoding "{actual_enc}" is not supported'
+                raise DecompressError(msg)
         return http_body

@@ -1,24 +1,53 @@
+"""Implementation of the SDC LocalizationService port type."""
+
 from __future__ import annotations
 
 import contextlib
+import typing
 from collections import defaultdict
-from typing import TYPE_CHECKING, List, Optional, Union
-from .porttypebase import DPWSPortTypeBase
-from .porttypebase import WSDLMessageDescription, WSDLOperationBinding
-from .porttypebase import mk_wsdl_two_way_operation, msg_prefix
+from typing import TYPE_CHECKING, Any
+
 from sdc11073.dispatch import DispatchKey
 from sdc11073.namespaces import PrefixesEnum
+from sdc11073.provider.porttypes.porttypebase import (
+    DPWSPortTypeBase,
+    WSDLMessageDescription,
+    WSDLOperationBinding,
+    mk_wsdl_two_way_operation,
+    msg_prefix,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping, Sequence
+
+    from sdc11073 import xml_utils
+    from sdc11073.dispatch.request import RequestData
+    from sdc11073.provider.dpwshostedservice import DPWSHostedService
+    from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.xml_types.pm_types import LocalizedText
 
-def _tw2i(text_width_string):
-    """ text width to int"""
-    lookup = {'xs': 0, 's': 1, 'm': 2, 'l': 3, 'xl': 4, 'xxl': 5, None: 999}
-    return lookup[text_width_string]
+
+TEXT_WIDTH_TO_INT: typing.Final[Mapping[str | None, int]] = {
+    'xs': 0,
+    's': 1,
+    'm': 2,
+    'l': 3,
+    'xl': 4,
+    'xxl': 5,
+    None: 999,
+}
 
 
-def _calc_number_of_lines(text):
+def _tw2i(text_width_string: str | None) -> int:
+    """Map a text width string to an integer.
+
+    :param text_width_string: a text width value (e.g. 'xs', 's', ...) or None
+    :return: the integer representation of the text width
+    """
+    return TEXT_WIDTH_TO_INT[text_width_string]
+
+
+def _calc_number_of_lines(text: str) -> int:
     # definition of a line in Participant Model:
     # ...a line is defined as the content of the text from either the beginning of the text or the beginning of
     # a previous line until the next occurrence of period mark, question mark, exclamation mark, or paragraph.
@@ -26,14 +55,14 @@ def _calc_number_of_lines(text):
     return len(text.split('\n'))
 
 
-def _text_width_filter(localized_texts, width: int):
+def _text_width_filter(localized_texts: Iterable[LocalizedText], width: int) -> Sequence[LocalizedText]:
     candidates = [v for v in localized_texts if _tw2i(v.TextWidth) <= width]
     if candidates:
         candidates.sort(key=lambda obj: _tw2i(obj.TextWidth) or -1)
     return candidates
 
 
-def _n_o_l_filter(localized_texts, n_o_l):
+def _n_o_l_filter(localized_texts: Iterable[LocalizedText], n_o_l: int) -> Sequence[LocalizedText]:
     candidates = [v for v in localized_texts if v.n_o_l <= n_o_l]
     if candidates:
         candidates.sort(key=lambda obj: obj.n_o_l or -1)
@@ -41,21 +70,30 @@ def _n_o_l_filter(localized_texts, n_o_l):
 
 
 class LocalizationStorage:
-    def __init__(self, localized_texts: Optional[List[LocalizedText]] = None):
+    """Store localized texts and provide filtered access to them."""
+
+    def __init__(self, localized_texts: Iterable[LocalizedText] | None = None):
         self._localized_texts = defaultdict(list)  # key = handle, value = list of LocalizedText objects
         if localized_texts:
             self.add(*localized_texts)
 
-    def add(self, *localized_texts: LocalizedText):
+    def add(self, *localized_texts: LocalizedText) -> None:
+        """Add localized texts to the storage, indexed by their Ref.
+
+        :param localized_texts: the localized texts to store
+        """
         for text in localized_texts:
             self._localized_texts[text.Ref].append(text)
 
-    def filter_localized_texts(self, requested_handles: Union[List[str], None],
-                               requested_version: Union[int, None],
-                               requested_langs: Union[List[str], None],
-                               text_widths: Union[List[str], None],
-                               number_of_lines: Union[List[int], None]):
-        """
+    def filter_localized_texts(  # noqa: C901, PLR0912
+        self,
+        requested_handles: Sequence[str] | None,
+        requested_version: int | None,
+        requested_langs: Sequence[str] | None,
+        text_widths: Sequence[str] | None,
+        number_of_lines: Sequence[int] | None,
+    ) -> Sequence[LocalizedText]:
+        """Filter the stored localized texts according to the requested criteria.
 
         :param requested_handles: list of handles
         :param requested_version: an integer or None
@@ -76,14 +114,11 @@ class LocalizationStorage:
             requested_handles = []
         i_nls = [int(line) for line in number_of_lines]
 
-        if len(requested_handles) == 0:
-            # If there is no Ref ELEMENT given in the request MESSAGE, then all texts are returned in
-            # msg:GetLocalizedTextResponse/msg:Text
-            handles = list(self._localized_texts.keys())
-        else:
-            # If there is at least one Ref ELEMENT given, then msg:GetLocalizedTextResponse/msg:Text contains all texts
-            # that match the Ref elements of the msg:GetLocalizedText request MESSAGE.
-            handles = requested_handles
+        # If there is no Ref ELEMENT given in the request MESSAGE, then all texts are returned in
+        # msg:GetLocalizedTextResponse/msg:Text.
+        # If there is at least one Ref ELEMENT given, then msg:GetLocalizedTextResponse/msg:Text contains all texts
+        # that match the Ref elements of the msg:GetLocalizedText request MESSAGE.
+        handles = list(self._localized_texts.keys()) if len(requested_handles) == 0 else requested_handles
 
         # create a flat list of all localized texts with the requested handles
         texts = []
@@ -108,7 +143,7 @@ class LocalizationStorage:
             for value in self._localized_texts.values():
                 all_versions.extend(value)
             if len(all_versions) == 0:
-                # ToDo: why return here?
+                # nothing stored, so there is nothing to return
                 return []  # there is nothing
             all_versions = [a.Version for a in all_versions if a.Version is not None]
             if len(all_versions) > 0:
@@ -116,7 +151,7 @@ class LocalizationStorage:
 
         # If the referenced text is not available in the specific version, then
         # msg:GetLocalizedTextResponse/msg:Text is empty
-        for _, value_list in tmp_dict.items():
+        for value_list in tmp_dict.values():
             texts.extend([v for v in value_list if v.Version == effective_requested_version])
 
         # - If there is no NumberOfLines ELEMENT given in the request MESSAGE, then all texts independent of the number
@@ -141,10 +176,10 @@ class LocalizationStorage:
             if len(i_text_widths) > 0 and len(number_of_lines) > 0:
                 # now find for each combination of (width, lines) list the best match
                 for value_list in tmp_dict.values():
-                    # candidates = []
                     for text_width in i_text_widths:
-                        candidates1 = _text_width_filter(value_list,
-                                                         text_width)  # returns sorted list of smaller elements
+                        candidates1 = _text_width_filter(
+                            value_list, text_width
+                        )  # returns sorted list of smaller elements
                         for lines_cnt in i_nls:
                             candidates2 = _n_o_l_filter(candidates1, lines_cnt)
                             if len(candidates2) > 0:
@@ -154,8 +189,9 @@ class LocalizationStorage:
                 # filter only text widths
                 for value_list in tmp_dict.values():
                     for text_width in i_text_widths:
-                        candidates = _text_width_filter(value_list,
-                                                        text_width)  # returns sorted list of smaller elements
+                        candidates = _text_width_filter(
+                            value_list, text_width
+                        )  # returns sorted list of smaller elements
                         if candidates:
                             tmp.append(candidates[-1])  # use the largest one
 
@@ -169,22 +205,23 @@ class LocalizationStorage:
             texts = list(tmp)
         return texts
 
-    def get_supported_languages(self):
+    def get_supported_languages(self) -> list[str]:
+        """Return the list of languages available in the storage.
+
+        :return: a list of language strings
+        """
         texts = self._flat_list()
         result = set()
         for text in texts:
             result.add(str(text.Lang))
         return list(result)
 
-    def _flat_list(self, ref_list=None):
-        if ref_list is None:
-            # If there is no Ref ELEMENT given in the request MESSAGE, then all texts are returned in
-            # msg:GetLocalizedTextResponse/msg:Text
-            handles = list(self._localized_texts.keys())
-        else:
-            # If there is at least one Ref ELEMENT given, then msg:GetLocalizedTextResponse/msg:Text contains all texts
-            # that match the Ref elements of the msg:GetLocalizedText request MESSAGE.
-            handles = ref_list
+    def _flat_list(self, ref_list: list[str] | None = None) -> list[LocalizedText]:
+        # If there is no Ref ELEMENT given in the request MESSAGE, then all texts are returned in
+        # msg:GetLocalizedTextResponse/msg:Text.
+        # If there is at least one Ref ELEMENT given, then msg:GetLocalizedTextResponse/msg:Text contains all texts
+        # that match the Ref elements of the msg:GetLocalizedText request MESSAGE.
+        handles = list(self._localized_texts.keys()) if ref_list is None else ref_list
 
         # create a flat list of all localized texts with the requested handles
         texts = []
@@ -195,60 +232,65 @@ class LocalizationStorage:
 
 
 class LocalizationService(DPWSPortTypeBase):
-    port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
-    WSDLMessageDescriptions = (WSDLMessageDescription('GetLocalizedText',
-                                                      (f'{msg_prefix}:GetLocalizedText',)),
-                               WSDLMessageDescription('GetLocalizedTextResponse',
-                                                      (f'{msg_prefix}:GetLocalizedTextResponse',)),
-                               WSDLMessageDescription('GetSupportedLanguages',
-                                                      (f'{msg_prefix}:GetSupportedLanguages',)),
-                               WSDLMessageDescription('GetSupportedLanguagesResponse',
-                                                      (f'{msg_prefix}:GetSupportedLanguagesResponse',)),
-                               )
-    WSDLOperationBindings = (WSDLOperationBinding('GetLocalizedText', 'literal', 'literal'),
-                             WSDLOperationBinding('GetSupportedLanguages', 'literal', 'literal'),)
+    """Provider implementation of the SDC LocalizationService port type."""
 
-    def __init__(self, *args, **kwargs):
+    port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
+    WSDLMessageDescriptions = (
+        WSDLMessageDescription('GetLocalizedText', (f'{msg_prefix}:GetLocalizedText',)),
+        WSDLMessageDescription('GetLocalizedTextResponse', (f'{msg_prefix}:GetLocalizedTextResponse',)),
+        WSDLMessageDescription('GetSupportedLanguages', (f'{msg_prefix}:GetSupportedLanguages',)),
+        WSDLMessageDescription('GetSupportedLanguagesResponse', (f'{msg_prefix}:GetSupportedLanguagesResponse',)),
+    )
+    WSDLOperationBindings = (
+        WSDLOperationBinding('GetLocalizedText', 'literal', 'literal'),
+        WSDLOperationBinding('GetSupportedLanguages', 'literal', 'literal'),
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.localization_storage = LocalizationStorage()
 
-    def register_hosting_service(self, hosting_service):
+    def register_hosting_service(self, hosting_service: DPWSHostedService) -> None:
+        """Register the post handlers in the hosting service."""
         super().register_hosting_service(hosting_service)
         actions = self._mdib.sdc_definitions.Actions
         msg_names = self._mdib.sdc_definitions.data_model.msg_names
-        hosting_service.register_post_handler(DispatchKey(actions.GetLocalizedText, msg_names.GetLocalizedText),
-                                              self._on_get_localized_text)
+        hosting_service.register_post_handler(
+            DispatchKey(actions.GetLocalizedText, msg_names.GetLocalizedText), self._on_get_localized_text
+        )
         hosting_service.register_post_handler(
             DispatchKey(actions.GetSupportedLanguages, msg_names.GetSupportedLanguages),
-            self._on_get_supported_languages)
+            self._on_get_supported_languages,
+        )
 
-    def _on_get_localized_text(self, request_data):
+    def _on_get_localized_text(self, request_data: RequestData) -> CreatedMessage:
         data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_get_localized_text')
         cls = data_model.msg_types.GetLocalizedText
         get_localized_text = cls.from_node(request_data.message_data.p_msg.msg_node)
-        texts = self.localization_storage.filter_localized_texts(get_localized_text.Ref,
-                                                                 get_localized_text.Version,
-                                                                 get_localized_text.Lang,
-                                                                 get_localized_text.TextWidth,
-                                                                 get_localized_text.NumberOfLines)
+        texts = self.localization_storage.filter_localized_texts(
+            get_localized_text.Ref,
+            get_localized_text.Version,
+            get_localized_text.Lang,
+            get_localized_text.TextWidth,
+            get_localized_text.NumberOfLines,
+        )
         response = data_model.msg_types.GetLocalizedTextResponse()
         response.Text.extend(texts)
         response.set_mdib_version_group(self._mdib.mdib_version_group)
-        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
-        return response_envelope
+        return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
 
-    def _on_get_supported_languages(self, request_data):
+    def _on_get_supported_languages(self, request_data: RequestData) -> CreatedMessage:
         data_model = self._sdc_definitions.data_model
         self._logger.debug('_on_get_supported_languages')
         languages = self.localization_storage.get_supported_languages()
         response = data_model.msg_types.GetSupportedLanguagesResponse()
         response.Lang.extend(languages)
         response.set_mdib_version_group(self._mdib.mdib_version_group)
-        response_envelope = self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
-        return response_envelope
+        return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
 
-    def add_wsdl_port_type(self, parent_node):
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> None:
+        """Add the wsdl port type node for this service to parent_node."""
         port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetLocalizedText')
         mk_wsdl_two_way_operation(port_type, operation_name='GetSupportedLanguages')

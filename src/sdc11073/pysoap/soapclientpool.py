@@ -1,13 +1,18 @@
+"""Implementation of a reference-counted pool of soap clients."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
 from threading import Lock
+from typing import TYPE_CHECKING, Any
+
 from sdc11073 import loghelper
 
 if TYPE_CHECKING:
-    from .soapclient import SoapClientProtocol
+    from collections.abc import Callable, Sequence
 
-    _SoapClientFactory = Callable[[str, list[str]], SoapClientProtocol]
+    from sdc11073.pysoap.soapclient import SoapClientProtocol
+
+    _SoapClientFactory = Callable[[str, Sequence[str]], SoapClientProtocol]
 
 
 class _SoapClientEntry:
@@ -26,9 +31,7 @@ class SoapClientPool:
         self.async_loop_subscr_mgr = None  # is set by async subscription manager
         self._lock = Lock()
 
-    def get_soap_client(self, netloc: str,
-                        accepted_encodings: list[str],
-                        usr_ident: Any) -> SoapClientProtocol:
+    def get_soap_client(self, netloc: str, accepted_encodings: Sequence[str], usr_ident: Any) -> SoapClientProtocol:
         """Return a soap client for netloc.
 
         Method creates a new soap client if it did not exist yet.
@@ -58,8 +61,11 @@ class SoapClientPool:
                 return
             if usr_ident in entry.usr_idents:
                 entry.usr_idents.remove(usr_ident)
-                self._logger.info('forget user ref for netloc {}, {} user refs remaining',  # noqa: PLE1205
-                                  netloc, len(entry.usr_idents))
+                self._logger.info(  # noqa: PLE1205
+                    'forget user ref for netloc {}, {} user refs remaining',
+                    netloc,
+                    len(entry.usr_idents),
+                )
             if len(entry.usr_idents) == 0:
                 if entry.soap_client is not None:
                     self._logger.info('close soap client for netloc {}', netloc)  # noqa: PLE1205

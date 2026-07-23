@@ -1,3 +1,5 @@
+"""Implementation of an asyncio-based SOAP client."""
+
 from __future__ import annotations
 
 import logging
@@ -10,9 +12,8 @@ from sdc11073 import commlog, observableproperties
 from sdc11073.httpserver.compression import CompressionHandler
 from sdc11073.httpserver.httpreader import mk_chunks
 from sdc11073.namespaces import default_ns_helper as ns_hlp
+from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapenvelope import Fault
-
-from .soapclient import HTTPReturnCodeError
 
 if TYPE_CHECKING:
     from ssl import SSLContext
@@ -31,16 +32,18 @@ class SoapClientAsync:
 
     roundtrip_time = observableproperties.ObservableProperty()
 
-    def __init__(self,
-                 netloc: str,
-                 socket_timeout: int | float,
-                 logger: LoggerAdapter,
-                 ssl_context: [SSLContext, None],
-                 sdc_definitions: BaseDefinitions,
-                 msg_reader: MessageReader,
-                 supported_encodings: list[str] | None = None,
-                 request_encodings: list[str] | None = None,
-                 chunk_size: int = 0):
+    def __init__(  # noqa: PLR0913
+        self,
+        netloc: str,
+        socket_timeout: float,
+        logger: LoggerAdapter,
+        ssl_context: SSLContext | None,
+        sdc_definitions: BaseDefinitions,
+        msg_reader: MessageReader,
+        supported_encodings: list[str] | None = None,
+        request_encodings: list[str] | None = None,
+        chunk_size: int = 0,
+    ):
         self._log = logger
         self._ssl_context = ssl_context
         self._sdc_definitions = sdc_definitions
@@ -51,8 +54,9 @@ class SoapClientAsync:
         self.__class__._used_soap_clients += 1  # noqa: SLF001
         self._client_number = self.__class__._used_soap_clients  # noqa: SLF001
         self._log.info('created soap client No. {} for {}', self._client_number, netloc)
-        self.supported_encodings = supported_encodings if supported_encodings is not None \
-            else CompressionHandler.available_encodings
+        self.supported_encodings = (
+            supported_encodings if supported_encodings is not None else CompressionHandler.available_encodings
+        )
         # these compression alg's does the other side accept ( set at runtime):
         self.request_encodings = request_encodings if request_encodings is not None else []
         self._get_headers = self._make_get_headers()
@@ -83,11 +87,6 @@ class SoapClientAsync:
         """Connect to netloc."""
         self._http_connection = await self._mk_http_connection()
 
-    def close(self):
-        """Close connection."""
-        # ToDo: run async_close in event loop
-        self._http_connection = None
-
     async def async_close(self):
         """Close connection."""
         if self._http_connection is not None:
@@ -95,10 +94,9 @@ class SoapClientAsync:
             await self._http_connection.close()
             self._http_connection = None
 
-    async def async_post_message_to(self, path: str,
-                                    created_message: CreatedMessage,
-                                    request_manipulator: RequestManipulatorProtocol | None = None) \
-            -> ReceivedMessage | None:
+    async def async_post_message_to(  # noqa: C901, PLR0912
+        self, path: str, created_message: CreatedMessage, request_manipulator: RequestManipulatorProtocol | None = None
+    ) -> ReceivedMessage | None:
         """Send the message and return None if the response is empty else the received response.
 
         :param path: url path component
@@ -138,7 +136,7 @@ class SoapClientAsync:
                         headers['Content-Encoding'] = compr
                         break
             if self._chunk_size > 0:
-                headers['transfer-encoding'] = "chunked"
+                headers['transfer-encoding'] = 'chunked'
                 xml_request = mk_chunks(xml_request, chunk_size=self._chunk_size)
             else:
                 headers['Content-Length'] = str(len(xml_request))

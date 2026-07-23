@@ -1,8 +1,11 @@
+"""Implementation of the dispatch keys and request dispatchers for routing SOAP messages."""
+
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from sdc11073 import loghelper
 from sdc11073.dispatch.request import RequestData
@@ -74,8 +77,8 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
     """
 
     def __init__(self, log_prefix: str | None = None):
-        self._post_handlers = {}
-        self._get_handlers = {}
+        self._post_handlers: dict[DispatchKey, OnPostHandler] = {}
+        self._get_handlers: dict[str, OnGetHandler] = {}
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
 
     def register_post_handler(self, dispatch_key: DispatchKey, on_post_handler: OnPostHandler):
@@ -100,7 +103,8 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         returned_message = func(request_data)
         duration = time.monotonic() - begin
         self._logger.debug(  # noqa: PLE1205
-            'incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration)
+            'incoming soap action "{}" to {}: duration={:.3f}sec.', action, request_data.path_elements, duration
+        )
         return returned_message
 
     def on_get(self, request_data: RequestData) -> str:
@@ -118,9 +122,9 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         self._logger.error(error_text)
         raise KeyError(error_text)
 
-    def _get_post_handler(self, request_data: RequestData) -> OnPostHandler:
+    def _get_post_handler(self, request_data: RequestData) -> OnPostHandler | None:
         key = DispatchKey(request_data.message_data.action, request_data.message_data.q_name)
         handler = self._post_handlers.get(key)
         if handler is None:
             self._logger.info('no handler for key={}', key)  # noqa: PLE1205
-        return self._post_handlers.get(key)
+        return handler
