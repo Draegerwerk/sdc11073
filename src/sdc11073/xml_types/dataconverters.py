@@ -89,7 +89,7 @@ class ClassCheckConverter(NullConverter):
         """
         self._klass = klass
 
-    def check_valid(self, py_value: Any) -> NoReturn:
+    def check_valid(self, py_value: Any) -> None:
         """Verify that the value is an instance of one of the configured classes.
 
         :param py_value: the Python value to check.
@@ -237,7 +237,7 @@ class TimestampConverter(NullConverter):
         return str(int(py_value * 1000))
 
     @staticmethod
-    def check_valid(py_value: float | Decimal) -> None:
+    def check_valid(py_value: Any) -> None:
         """Verify that the value is a non-negative number.
 
         :param py_value: the Python value to check.

@@ -79,7 +79,7 @@ class StateEventService(DPWSPortTypeBase):
         WSDLOperationBinding('EpisodicMetricReport', None, 'literal'),
     )
 
-    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> NoReturn:
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> None:
         """Add the wsdl:portType node for this service to parent_node."""
         port_type = self._mk_port_type_node(parent_node, True)
         mk_wsdl_one_way_operation(port_type, operation_name='EpisodicAlertReport')

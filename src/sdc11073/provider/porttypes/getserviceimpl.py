@@ -159,7 +159,7 @@ class GetService(DPWSPortTypeBase):
             response_node[0].extend(md_description_node[:])
         return response
 
-    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> NoReturn:
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> None:
         """Add a wsdl:portType node to parent_node.
 
         xml looks like this:

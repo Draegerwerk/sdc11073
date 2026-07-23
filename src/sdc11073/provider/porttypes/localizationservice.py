@@ -289,7 +289,7 @@ class LocalizationService(DPWSPortTypeBase):
         response.set_mdib_version_group(self._mdib.mdib_version_group)
         return self._sdc_device.msg_factory.mk_reply_soap_message(request_data, response)
 
-    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> NoReturn:
+    def add_wsdl_port_type(self, parent_node: xml_utils.LxmlElement) -> None:
         """Add the wsdl port type node for this service to parent_node."""
         port_type = self._mk_port_type_node(parent_node)
         mk_wsdl_two_way_operation(port_type, operation_name='GetLocalizedText')
