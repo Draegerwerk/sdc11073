@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, NoReturn, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from sdc11073.dispatch import DispatchKey, RequestData
 from sdc11073.namespaces import PrefixesEnum

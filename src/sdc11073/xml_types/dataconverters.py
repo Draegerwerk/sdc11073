@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Any, NoReturn, Protocol
+from typing import Any, Protocol
 
 from sdc11073.xml_types import isoduration
 

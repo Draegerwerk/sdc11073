@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import collections
-from typing import TYPE_CHECKING, NoReturn, TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from sdc11073.namespaces import PrefixesEnum
 from sdc11073.provider.porttypes.porttypebase import (

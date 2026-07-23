@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import typing
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any
 
 from sdc11073.dispatch import DispatchKey
 from sdc11073.namespaces import PrefixesEnum
