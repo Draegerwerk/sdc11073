@@ -1,3 +1,4 @@
+"""Implementation of the client for the LocalizationService."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

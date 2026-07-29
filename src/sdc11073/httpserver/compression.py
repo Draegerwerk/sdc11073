@@ -21,12 +21,20 @@ class AbstractDataCompressor(ABC):
     @staticmethod
     @abstractmethod
     def compress_payload(payload):
-        pass
+        """Compress the payload.
+
+        :param payload: bytes to compress
+        :return: compressed content
+        """
 
     @staticmethod
     @abstractmethod
     def decompress_payload(payload):
-        pass
+        """Decompress the payload.
+
+        :param payload: bytes to decompress
+        :return: decompressed content
+        """
 
 
 class CompressionHandler:
@@ -39,6 +47,11 @@ class CompressionHandler:
 
     @classmethod
     def register_handler(cls, handler: type[AbstractDataCompressor]):
+        """Add the algorithms of the handler to the supported encodings.
+
+        :param handler: the compressor to be registered
+        :raise ValueError: if one of the algorithms of the handler is already registered
+        """
         for alg in handler.algorithms:
             if alg.lower() in cls.available_encodings:
                 raise ValueError(f'Algorithm {alg} already registered, class = {cls.__name__} ')
@@ -109,6 +122,12 @@ class GzipCompressionHandler(AbstractDataCompressor):
 
     @staticmethod
     def compress_payload(payload: bytes):
+        """Compress the payload with gzip.
+
+        :param payload: bytes to compress
+        :return: compressed content
+        :raise TypeError: if payload is not a bytes-like object
+        """
         if not isinstance(payload, bytes):
             raise TypeError(f'a bytes-like object is required, not "{payload.__class__.__name__}", payload={payload}')
         gzip_compress = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
@@ -116,6 +135,11 @@ class GzipCompressionHandler(AbstractDataCompressor):
 
     @staticmethod
     def decompress_payload(payload: bytes):
+        """Decompress the gzip compressed payload.
+
+        :param payload: bytes to decompress
+        :return: decompressed content
+        """
         return zlib.decompress(payload, 16 + zlib.MAX_WBITS)
 
 
@@ -127,10 +151,20 @@ class Lz4CompressionHandler(AbstractDataCompressor):
 
     @staticmethod
     def compress_payload(payload: bytes):
+        """Compress the payload with lz4.
+
+        :param payload: bytes to compress
+        :return: compressed content
+        """
         return lz4.frame.compress(payload)
 
     @staticmethod
     def decompress_payload(payload: bytes):
+        """Decompress the lz4 compressed payload.
+
+        :param payload: bytes to decompress
+        :return: decompressed content
+        """
         return lz4.frame.decompress(payload)
 
 

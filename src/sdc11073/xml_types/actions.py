@@ -1,3 +1,4 @@
+"""Implementation of the definition of all BICEPS action strings."""
 from enum import Enum
 
 from sdc11073.namespaces import default_ns_helper as ns_hlp

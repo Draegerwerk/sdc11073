@@ -1,3 +1,4 @@
+"""Implementation of helpers that collect values of observable properties."""
 import threading
 
 from .observables import bind, unbind
@@ -48,6 +49,13 @@ class SingleValueCollector:
             self._cond.notify_all()
 
     def result(self, timeout=None):
+        """Return the collected value, wait for it if it is not available yet.
+
+        :param timeout: max. time to wait in seconds, None means wait forever
+        :return: the collected value
+        :raise RuntimeError: if the collector is already closed
+        :raise CollectTimeoutError: if no value was collected within timeout
+        """
         if self._state == self.CLOSED:
             raise RuntimeError('SingleValueCollector is already closed')
         with self._cond:

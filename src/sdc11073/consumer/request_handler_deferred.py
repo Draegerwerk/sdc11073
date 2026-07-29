@@ -1,3 +1,4 @@
+"""Implementation of a request dispatcher that handles incoming notifications in a separate thread."""
 from __future__ import annotations
 
 import queue

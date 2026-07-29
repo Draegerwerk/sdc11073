@@ -1,3 +1,4 @@
+"""Implementation of the base classes for protocol definitions and data models."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -19,6 +20,7 @@ class ProtocolsRegistry(type):
     protocols: ClassVar[list[type[BaseDefinitions]]] = []
 
     def __new__(cls, name: str, *arg, **kwarg):
+        """Create the class and register it, unless it is the base class itself."""
         new_cls: ProtocolsRegistry = super().__new__(cls, name, *arg, **kwarg)
         if name != 'BaseDefinitions':  # ignore the base class itself
             new_cls: type[BaseDefinitions]

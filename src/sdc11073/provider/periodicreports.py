@@ -1,3 +1,4 @@
+"""Implementation of the handlers that send periodic reports of a provider."""
 import threading
 import time
 from collections import namedtuple
@@ -53,6 +54,7 @@ class PeriodicReportsHandler:
         self._timer = None
 
     def start(self):
+        """Start the thread that sends the periodic reports."""
         self._run_periodic_reports_thread = True
         if self._periodic_reports_interval:
             # This setting activates the simple periodic send loop, retrievability settings are ignored
@@ -70,25 +72,31 @@ class PeriodicReportsHandler:
             self._periodic_reports_thread.start()
 
     def stop(self):
+        """Stop the thread that sends the periodic reports."""
         self._run_periodic_reports_thread = False
 
     def store_metric_states(self, mdib_version, state_updates):
+        """Add metric states to the next periodic metric report."""
         self._logger.debug('store %d metric states', len(state_updates))
         self._store_for_periodic_report(mdib_version, state_updates, self._periodic_metric_reports)
 
     def store_alert_states(self, mdib_version, state_updates):
+        """Add alert states to the next periodic alert report."""
         self._logger.debug('store %d alert states', len(state_updates))
         self._store_for_periodic_report(mdib_version, state_updates, self._periodic_alert_reports)
 
     def store_component_states(self, mdib_version, state_updates):
+        """Add component states to the next periodic component state report."""
         self._logger.debug('store %d component states', len(state_updates))
         self._store_for_periodic_report(mdib_version, state_updates, self._periodic_component_state_reports)
 
     def store_context_states(self, mdib_version, state_updates):
+        """Add context states to the next periodic context report."""
         self._logger.debug('store %d context states', len(state_updates))
         self._store_for_periodic_report(mdib_version, state_updates, self._periodic_context_state_reports)
 
     def store_operational_states(self, mdib_version, state_updates):
+        """Add operational states to the next periodic operational state report."""
         self._logger.debug('store %d operational states', len(state_updates))
         self._store_for_periodic_report(mdib_version, state_updates, self._periodic_operational_state_reports)
 
