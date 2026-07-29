@@ -1,4 +1,5 @@
 """Implementation of a timer that allows periodic actions without drift."""
+
 from time import perf_counter, sleep
 
 

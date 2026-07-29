@@ -1,4 +1,5 @@
 """Implementation of the protocol definitions and the data model for SDC."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

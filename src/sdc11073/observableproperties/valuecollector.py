@@ -1,5 +1,9 @@
 """Implementation of helpers that collect values of observable properties."""
+
+from __future__ import annotations
+
 import threading
+from typing import Any
 
 from .observables import bind, unbind
 
@@ -17,10 +21,13 @@ class CollectTimeoutError(Error):
 
 
 class SingleValueCollector:
-    """collects next data item from an observable.
+    """Collect the next data item from an observable.
+
     usage:
     assuming myObj has an ObservableProperty named 'myProperty':
-    collector = SingleValueCollector(myObj, 'myProperty') # collector will now retrieve and store the value of the next set value of observable property
+
+    # collector will now retrieve and store the value of the next set value of observable property
+    collector = SingleValueCollector(myObj, 'myProperty')
     result = collector.result(timeout=0.1) # wait until result is available (or timeout
         some other thread:     myObj.myProperty = 42
     => now call of  collector.result() returns, result = 42.
@@ -31,7 +38,7 @@ class SingleValueCollector:
     FINISHED = 'FINISHED'
     CLOSED = 'CLOSED'
 
-    def __init__(self, obj, propName):
+    def __init__(self, obj: object, propName: str):  # noqa: N803
         self._obj = obj
         self._prop_name = propName
         self._cond = threading.Condition()
@@ -39,7 +46,7 @@ class SingleValueCollector:
         self._state = self.PENDING
         self._result = None
 
-    def _on_data(self, data):
+    def _on_data(self, data: Any):
         if self._state == self.CLOSED:
             return
         with self._cond:
@@ -48,7 +55,7 @@ class SingleValueCollector:
             unbind(self._obj, **{self._prop_name: self._on_data})
             self._cond.notify_all()
 
-    def result(self, timeout=None):
+    def result(self, timeout: float | None = None) -> Any:
         """Return the collected value, wait for it if it is not available yet.
 
         :param timeout: max. time to wait in seconds, None means wait forever
@@ -82,22 +89,25 @@ class SingleValueCollector:
 
 
 class ValuesCollector(SingleValueCollector):
-    """collects multiple data from an observable.
+    """Collect multiple data items from an observable.
+
     usage:
     assuming myObj has an ObservableProperty named 'myProperty':
-    collector = ValuesCollector(myObj, 'myProperty', 2) # collector will now retrieve and store the value of the next 2 set value of observable property
+
+    # collector will now retrieve and store the value of the next 2 set values of observable property
+    collector = ValuesCollector(myObj, 'myProperty', 2)
     result = collector.result(timeout=0.1) # wait until result is available (or timeout
         some other thread:     myObj.myProperty = 42
                                myObj.myProperty = 43
     => now call of  collector.result() returns, result = [42, 43].
     """
 
-    def __init__(self, obj, propName, n):
+    def __init__(self, obj: object, propName: str, n: int):  # noqa: N803
         super().__init__(obj, propName)
         self._n = n
         self._result = []
 
-    def _on_data(self, data):
+    def _on_data(self, data: Any):
         if self._state == self.CLOSED:
             return
         with self._cond:
