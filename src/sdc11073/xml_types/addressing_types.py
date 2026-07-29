@@ -86,8 +86,8 @@ class HeaderInformationBlock(XMLTypeBase):
 
     _props = ('To', 'From', 'ReplyTo', 'FaultTo', 'Action', 'MessageID', 'RelatesTo')
 
-    def __init__(
-        self,  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913
+        self,
         action: str | None = None,
         message_id: str | None = None,
         addr_to: str | None = None,

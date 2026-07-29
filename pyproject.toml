@@ -59,7 +59,7 @@ test = [
 dev = [
     { include-group = "test" },
     "lxml-stubs>=0.5.1",
-    "ruff>=0.15.21",
+    "ruff>=0.15.21,<0.16.0",
 ]
 
 [tool.pytest]
