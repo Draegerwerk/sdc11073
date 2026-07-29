@@ -20,116 +20,125 @@ class TestClientMidb(TestCase):
         self.mdib._logger.error.assert_not_called()
         self.mdib._logger.warning.assert_not_called()
 
-    def _clear_logs(self):
-        self.mdib._logger.log.reset_mock()
-        self.mdib._logger.error.reset_mock()
-        self.mdib._logger.warning.reset_mock()
+    def test_negative_mdib_version_raises(self):
+        with self.assertRaises(ValueError):
+            self.mdib._canAcceptMdibVersion(self.logger_prefix, -1)
 
-    def test_can_accept_mdib_version_description_modification(self):
-        # initial state check
-        self.assertEqual(None, self.mdib._last_descr_modification_mdib_version)
+    def test_zero_mdib_version_raises(self):
+        with self.assertRaises(ValueError):
+            self.mdib._canAcceptMdibVersion(self.logger_prefix, 0)
+
+    def test_older_mdib_version_synchronized_raises(self):
+        self.mdib._synchronizedReports.set()
+        with self.assertRaises(ValueError):
+            self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion - 1)
+
+    def test_older_mdib_version_not_synchronized_returns_false(self):
         self.assertFalse(self.mdib._synchronizedReports.is_set())
 
-        # report with valid mdib version -> synchronized reports are activated
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=11))
-        self.mdib.mdibVersion = 11
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-        self.assertTrue(self.mdib._synchronizedReports.is_set())
+        result = self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion - 1)
 
-        # valid DescriptionModifiaction
-        self.assertTrue(self.mdib._canAcceptMdibVersion(
-                log_prefix=self.logger_prefix, newMdibVersion=12, is_description_modification=True))
-        self.mdib.mdibVersion = 12
-        self.assertEqual(12, self.mdib._last_descr_modification_mdib_version)
-        self._assert_logs_not_called()
-
-        # valid report (state modification) with same MdibVersion as previous DescriptionModification
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=12))
-        self.assertEqual(12, self.mdib._last_descr_modification_mdib_version)
-        self.assertEqual(12, self.mdib.mdibVersion)
-        self._assert_logs_not_called()
-
-        # again a valid report (state modification) with same MdibVersion as previous DescriptionModification
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=12))
-        self.assertEqual(12, self.mdib._last_descr_modification_mdib_version)
-        self.assertEqual(12, self.mdib.mdibVersion)
-        self._assert_logs_not_called()
-
-        # valid report (state modification)
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=13))
-        self.mdib.mdibVersion = 13
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-        self._assert_logs_not_called()
-
-        # invalid report (state modification) with same MdibVersion as previous report (state modification)
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=13))
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-        self.assertEqual(13, self.mdib.mdibVersion)
-        self.mdib._logger.error.assert_called_with(clientmdib.MDIB_VERSION_NOT_ALLOWED, mock.ANY, mock.ANY, mock.ANY)
-        self._clear_logs()
-        self._assert_logs_not_called()
-
-        # a valid report (state modification)
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=14))
-        self.mdib.mdibVersion = 14
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-        self._assert_logs_not_called()
-
-        # invalid DescriptionModifiaction with same MdibVersion as previous motofication
-        self.assertTrue(self.mdib._canAcceptMdibVersion(
-            log_prefix=self.logger_prefix, newMdibVersion=14, is_description_modification=True))
-        self.mdib._logger.error.assert_called_with(clientmdib.MDIB_VERSION_NOT_ALLOWED, mock.ANY, mock.ANY, mock.ANY)
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-
-    def test_can_accept_mdib_version_invalid_version(self):
-        # initial state check
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
+        self.assertFalse(result)
+        self.mdib._logger.debug.assert_called_once()
         self.assertFalse(self.mdib._synchronizedReports.is_set())
 
-        # report with old mdib version before synchronized reports are activated -> logger warning
-        self.assertFalse(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=9))
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
+    def test_equal_mdib_version_synchronized_raises(self):
+        self.mdib._synchronizedReports.set()
+        with self.assertRaises(ValueError):
+            self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion)
+
+    def test_equal_mdib_version_not_synchronized_sets_synchronized(self):
         self.assertFalse(self.mdib._synchronizedReports.is_set())
-        self.mdib._logger.log.assert_called_with(logging.WARNING, clientmdib.MDIB_VERSION_TOO_OLD,
-                                                 mock.ANY, mock.ANY, mock.ANY)
-        self._clear_logs()
-        self._assert_logs_not_called()
 
-        # report with valid mdib version -> synchronized reports are activated
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=11))
-        self.mdib.mdibVersion = 11
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
+        result = self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion)
+
+        self.assertFalse(result)
         self.assertTrue(self.mdib._synchronizedReports.is_set())
         self._assert_logs_not_called()
 
-        # report with old mdib version with synchronized reports are activated -> logger error
-        self.assertFalse(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=0))
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-        self.assertTrue(self.mdib._synchronizedReports.is_set())
-        self.mdib._logger.log.assert_called_with(logging.ERROR, clientmdib.MDIB_VERSION_TOO_OLD,
-                                                 mock.ANY, mock.ANY, mock.ANY)
-        self._clear_logs()
-        self._assert_logs_not_called()
-
-        # report with valid mdib version -> synchronized reports are activated
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=12))
-        self.mdib.mdibVersion = 12
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
-        self.assertTrue(self.mdib._synchronizedReports.is_set())
-        self._assert_logs_not_called()
-
-        # invalid report (state modification) with new MdibVersion incremented by more than 1
-        self.assertTrue(self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=30))
-        self.mdib._logger.error.assert_called_with(clientmdib.MDIB_VERSION_UNEXPECTED, mock.ANY, mock.ANY, mock.ANY)
-        self._clear_logs()
-        self._assert_logs_not_called()
-
-    def test_can_accept_mdib_version_initialization(self):
-        """same MdibVersion is allowed during initialization process -> no error/warnings shall be logged"""
+    def test_gap_mdib_version_not_all_subscribed_returns_true(self):
+        self.mdib._sdcClient.all_subscribed = False
         self.assertFalse(self.mdib._synchronizedReports.is_set())
-        # report with old mdib version before synchronized reports are activated -> logger warning
-        self.assertTrue(
-            self.mdib._canAcceptMdibVersion(log_prefix=self.logger_prefix, newMdibVersion=self.mdib.mdibVersion))
-        self.assertIsNone(self.mdib._last_descr_modification_mdib_version)
+
+        result = self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion + 2)
+
+        self.assertTrue(result)
+        self.assertTrue(self.mdib._synchronizedReports.is_set())
+        self.mdib._logger.error.assert_called_once()
+
+    def test_gap_mdib_version_all_subscribed_raises(self):
+        self.mdib._sdcClient.all_subscribed = True
+        with self.assertRaises(ValueError):
+            self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion + 2)
+        # error is logged before the exception is raised
+        self.mdib._logger.error.assert_called_once()
+
+    def test_next_mdib_version_returns_true(self):
+        self.assertFalse(self.mdib._synchronizedReports.is_set())
+
+        result = self.mdib._canAcceptMdibVersion(self.logger_prefix, self.mdib.mdibVersion + 1)
+
+        self.assertTrue(result)
         self.assertTrue(self.mdib._synchronizedReports.is_set())
         self._assert_logs_not_called()
+
+
+class TestHasNewStateUsableStateVersion(TestCase):
+    REPORT_NAME = "SomeReport"
+
+    def setUp(self) -> None:
+        sdc_client = mock.MagicMock()
+        sdc_client.all_subscribed = True
+        self.mdib = clientmdib.ClientMdibContainer(sdcClient=sdc_client)
+        self.mdib._logger = mock.MagicMock()
+
+    @staticmethod
+    def _mkState(state_version, diffs=None):
+        state = mock.MagicMock()
+        state.StateVersion = state_version
+        state.descriptorHandle = "my_handle"
+        return state
+
+    def _hasNewStateUsableStateVersion(self, old_version, new_version, is_buffered_report=False):
+        return self.mdib._hasNewStateUsableStateVersion(self._mkState(old_version),
+                                                        self._mkState(new_version),
+                                                        self.REPORT_NAME,
+                                                        is_buffered_report)
+
+    def test_incremented_state_version_returns_true(self):
+        self.assertTrue(self._hasNewStateUsableStateVersion(41, 42))
+
+    # a gap in @StateVersion means that data was missed => ValueError
+    def test_missed_state_versions_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._hasNewStateUsableStateVersion(41, 44)
+        msg = str(ctx.exception)
+        self.assertIn(self.REPORT_NAME, msg)
+        self.assertIn("missed 2 state version(s)", msg)
+        self.assertIn("my_handle", msg)
+        self.assertIn("expected 42", msg)
+
+    # a decremented @StateVersion is not allowed
+    def test_decremented_state_version_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._hasNewStateUsableStateVersion(42, 41)
+        msg = str(ctx.exception)
+        self.assertIn(self.REPORT_NAME, msg)
+        self.assertIn("unexpected @StateVersion 41", msg)
+        self.assertIn("current @StateVersion is 42", msg)
+
+    def test_repeated_state_version(self):
+        with self.assertRaises(ValueError) as ctx:
+            self._hasNewStateUsableStateVersion(42, 42)
+        msg = str(ctx.exception)
+        self.assertIn("unexpected @StateVersion 42", msg)
+        self.assertIn("current @StateVersion is 42", msg)
+
+    # buffered reports may contain states that are already part of the initially received mdib
+    def test_buffered_report_with_old_state_version_returns_false(self):
+        self.assertFalse(self._hasNewStateUsableStateVersion(42, 41, is_buffered_report=True))
+
+    # a gap is an error even for a buffered report
+    def test_buffered_report_with_missed_state_versions_raises(self):
+        with self.assertRaises(ValueError):
+            self._hasNewStateUsableStateVersion(41, 44, is_buffered_report=True)

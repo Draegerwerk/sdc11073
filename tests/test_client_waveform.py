@@ -18,76 +18,6 @@ SAMPLES = {"0x34F05506": (5.566406, 5.712891, 5.712891, 5.712891, 5.800781),
            "0x34F05501": (0.1, -0.1, 1.0, 2.0, 3.0),
            "0x34F05500": (3.198242, 3.198242, 3.198242, 3.198242, 3.163574, 1.1)}
 
-WfReport_draft6 = u"""<?xml version="1.0" encoding="utf-8"?>
-<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
-xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
-xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-xmlns:chan="http://schemas.microsoft.com/ws/2005/02/duplex"
-xmlns:wsa5="http://www.w3.org/2005/08/addressing"
-xmlns:ext="{ext}"
-xmlns:dom="{dom}"
-xmlns:dpws="http://docs.oasis-open.org/ws-dd/ns/dpws/2009/01"
-xmlns:si="http://safety-information-uri/15/08"
-xmlns:msg="{msg}"
-xmlns:wsd11="http://docs.oasis-open.org/ws-dd/ns/discovery/2009/01"
-xmlns:wse4="http://schemas.xmlsoap.org/ws/2004/08/eventing"
-xmlns:wst4="http://schemas.xmlsoap.org/ws/2004/09/transfer"
-xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
-  <SOAP-ENV:Header>
-    <wsa5:MessageID>
-    urn:uuid:904577a6-6012-4558-b772-59a9c90bacbb</wsa5:MessageID>
-    <wsa5:To SOAP-ENV:mustUnderstand="true">
-    http://169.254.0.99:62627</wsa5:To>
-    <wsa5:Action SOAP-ENV:mustUnderstand="true">
-    {msg}/15/04/Waveform/Waveform</wsa5:Action>
-    <wsa:Identifier xmlns:wsa="http://www.w3.org/2005/08/addressing">
-    urn:uuid:9f00ba10-3ffe-47e9-8238-88339a4a457d</wsa:Identifier>
-  </SOAP-ENV:Header>
-  <SOAP-ENV:Body>
-    <msg:WaveformStreamReport MdibVersion="2" SequenceId="">
-      <msg:State StateVersion="19716"
-      DescriptorHandle="0x34F05506" DescriptorVersion="2"
-      xsi:type="dom:RealTimeSampleArrayMetricState">
-        <dom:MetricValue xsi:type="dom:SampleArrayValue"
-        Samples="{array1}"
-        DeterminationTime="{obs_time}">
-          <dom:MetricQuality Validity="Vld"></dom:MetricQuality>
-        </dom:MetricValue>
-      </msg:State>
-      <msg:State StateVersion="19715"
-      DescriptorHandle="0x34F05501" DescriptorVersion="2"
-      xsi:type="dom:RealTimeSampleArrayMetricState">
-        <dom:MetricValue xsi:type="dom:SampleArrayValue"
-        Samples="{array2}"
-        DeterminationTime="{obs_time}">
-          <dom:MetricQuality Validity="Vld"></dom:MetricQuality>
-          <dom:Annotation><dom:Type Code="4711" CodingSystem="bla"/></dom:Annotation>
-          <dom:ApplyAnnotation AnnotationIndex="0" SampleIndex="2"></dom:ApplyAnnotation>
-        </dom:MetricValue>
-      </msg:State>
-      <msg:State StateVersion="19715"
-      DescriptorHandle="0x34F05500" DescriptorVersion="2"
-      xsi:type="dom:RealTimeSampleArrayMetricState">
-        <dom:MetricValue xsi:type="dom:SampleArrayValue"
-        Samples="{array3}"
-        DeterminationTime="{obs_time}">
-          <dom:MetricQuality Validity="Vld"></dom:MetricQuality>
-        </dom:MetricValue>
-      </msg:State>
-    </msg:WaveformStreamReport>
-  </SOAP-ENV:Body>
-</SOAP-ENV:Envelope>
-""".format(obs_time=observationTime_ms, 
-           array1=' '.join([str(n) for n in SAMPLES["0x34F05506"]]),
-           array2=' '.join([str(n) for n in SAMPLES["0x34F05501"]]),
-           array3=' '.join([str(n) for n in SAMPLES["0x34F05500"]]),
-           msg=namespaces.nsmap['msg'], 
-           ext=namespaces.nsmap['ext'], 
-           dom=namespaces.nsmap['dom'],
-          )
-
-
 WfReport_draft10 = u"""<?xml version="1.0" encoding="utf-8"?>
 <SOAP-ENV:Envelope xmlns:SOAP-ENV="http://www.w3.org/2003/05/soap-envelope"
 xmlns:SOAP-ENC="http://www.w3.org/2003/05/soap-encoding"
@@ -115,8 +45,8 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
     urn:uuid:9f00ba10-3ffe-47e9-8238-88339a4a457d</wsa:Identifier>
   </SOAP-ENV:Header>
   <SOAP-ENV:Body>
-    <msg:WaveformStream MdibVersion="2" SequenceId="">
-      <msg:State StateVersion="19716"
+    <msg:WaveformStream MdibVersion="nextMDIBversion" SequenceId="">
+      <msg:State StateVersion="nextStateVersion"
       DescriptorHandle="0x34F05506" DescriptorVersion="2"
       xsi:type="dom:RealTimeSampleArrayMetricState">
         <dom:MetricValue xsi:type="dom:SampleArrayValue"
@@ -125,7 +55,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
           <dom:MetricQuality Validity="Vld"></dom:MetricQuality>
         </dom:MetricValue>
       </msg:State>
-      <msg:State StateVersion="19715"
+      <msg:State StateVersion="nextStateVersion"
       DescriptorHandle="0x34F05501" DescriptorVersion="2"
       xsi:type="dom:RealTimeSampleArrayMetricState">
         <dom:MetricValue xsi:type="dom:SampleArrayValue"
@@ -136,7 +66,7 @@ xmlns:wsx4="http://schemas.xmlsoap.org/ws/2004/09/mex">
           <dom:ApplyAnnotation AnnotationIndex="0" SampleIndex="2"></dom:ApplyAnnotation>
         </dom:MetricValue>
       </msg:State>
-      <msg:State StateVersion="19715"
+      <msg:State StateVersion="nextStateVersion"
       DescriptorHandle="0x34F05500" DescriptorVersion="2"
       xsi:type="dom:RealTimeSampleArrayMetricState">
         <dom:MetricValue xsi:type="dom:SampleArrayValue"
@@ -183,20 +113,23 @@ class TestClientWaveform(unittest.TestCase):
     def test_stream_handling(self):
         """ Connect a mdib with client. Call _onWaveformReport method directly. Verify that observable is a WaveformStream Element"""
         my_handles = ('0x34F05506', '0x34F05501', '0x34F05500')
+        mdib_version = 1
+        state_version = 123
         for cl, wfReport in ((self.sdcClient_final, WfReport_draft10),):
             clientmdib = sdc11073.mdib.ClientMdibContainer(cl)
             clientmdib._bindToObservables()
             clientmdib._isInitialized = True # fake it, because we do not call initMdib()
-            clientmdib.MDIB_VERSION_CHECK_DISABLED = True # we have no mdib version incrementing in this test, therefore disable check
-            
+
             # create dummy descriptors
             for handle in my_handles:
                 attributes = {'SamplePeriod': 'P0Y0M0DT0H0M0.0157S',  # use a unique sample period
                               etree_.QName(sdc11073.namespaces.nsmap['xsi'], 'type'): 'dom:RealTimeSampleArrayMetricDescriptor',
                               'Handle':handle}
                 element = etree_.Element('Metric', attrib=attributes, nsmap=sdc11073.namespaces.nsmap)
-                clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.fromNode(clientmdib.nsmapper, element, None)) # None = no parent handle
-            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
+                clientmdib.descriptions.addObject(sdc11073.mdib.descriptorcontainers.RealTimeSampleArrayMetricDescriptorContainer.fromNode(clientmdib.nsmapper, element, None))  # None = no parent handle
+
+            report = wfReport.replace("nextMDIBversion", str(mdib_version)).replace("nextStateVersion", str(state_version))
+            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(report.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             
             # verify that all handles of reported RealTimeSampleArrays are present
@@ -227,7 +160,10 @@ class TestClientWaveform(unittest.TestCase):
                 self.assertEqual(len(rtBuffer.rt_data[i].annotations), 0)
     
             # add another Report (with identical data, but that is not relevant here)
-            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
+            mdib_version += 1
+            state_version += 1
+            report = wfReport.replace("nextMDIBversion", str(mdib_version)).replace("nextStateVersion", str(state_version))
+            soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(report.encode('utf-8'))
             cl._onWaveFormReport(soapenvelope)
             # verify only that array length is 2*bigger now
             for handle in my_handles:
@@ -238,7 +174,10 @@ class TestClientWaveform(unittest.TestCase):
             
             #add a lot more data, verify that length limitation is working
             for i in range(100):
-                soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(wfReport.encode('utf-8'))
+                mdib_version += 1
+                state_version += 1
+                report = wfReport.replace("nextMDIBversion", str(mdib_version)).replace("nextStateVersion", str(state_version))
+                soapenvelope = sdc11073.pysoap.soapenvelope.ReceivedSoap12Envelope.fromXMLString(report.encode('utf-8'))
                 cl._onWaveFormReport(soapenvelope)
             # verify only that array length is limited
             for handle in my_handles:

@@ -1,6 +1,5 @@
 import copy
 import inspect
-import math
 from lxml import etree as etree_
 from .. import observableproperties as properties, xmlparsing
 from ..namespaces import QN_TYPE
@@ -90,47 +89,5 @@ class ContainerBase(object):
                     ret.append((name, obj))
         return ret
 
-
-    def diff(self,
-             other,
-             ignore_property_names=None,
-             max_float_diff=1e-15):
-        """ compares all properties (except to be ignored ones).
-        :param other: the object to compare with
-        :param ignore_property_names: list of properties that shall be excluded from diff calculation
-        :param max_float_diff: parameter for math.isclose() if float values are incorporated.
-                                1e-15 corresponds to 15 digits max. accuracy (see sys.float_info.dig)
-        :return: returns a list of strings that describe differences
-        """
-        ret = []
-        ignore_list = ignore_property_names or []
-        my_properties = self._sortedContainerProperties()
-        for name, dummy in my_properties:
-            if name in ignore_list:
-                continue
-            my_value = getattr(self, name)
-            try:
-                other_value = getattr(other, name)
-            except AttributeError:
-                ret.append('{}={}, other does not have this attribute'.format(name, my_value))
-            else:
-                if isinstance(my_value, float) or isinstance(other_value, float):
-                    if not math.isclose(my_value, other_value,
-                                        rel_tol=max_float_diff, abs_tol=max_float_diff):
-                        ret.append('{}={}, other={}'.format(name, my_value, other_value))
-                elif my_value != other_value:
-                    ret.append('{}={}, other={}'.format(name, my_value, other_value))
-        # check also if other has a different list of properties
-        my_property_names = set([p[0] for p in my_properties])
-        other_property_names = set([p[0] for p in other._sortedContainerProperties()])
-        surplus_names = other_property_names - my_property_names
-        if surplus_names:
-            ret.append(f'other has more data elements:{surplus_names}')
-        return ret
-
-    def is_equal(self, other):
-        return len(self.diff(other)) == 0
-
     def __repr__(self):
         return '{} name="{}" type={}'.format(self.__class__.__name__, self.NODENAME, self.NODETYPE)
-
