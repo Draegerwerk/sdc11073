@@ -3,6 +3,7 @@ import unittest
 import dataclasses
 from lxml.etree import QName
 from sdc11073 import mdib
+from sdc11073 import namespaces
 from sdc11073 import pmtypes
 
 mdibFolder = os.path.dirname(__file__)
@@ -149,9 +150,74 @@ class TestMdib(unittest.TestCase):
             self.assertTrue(prefix in arg_node.nsmap)
 
 
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(TestMdib)
+class TestDeviceMdibTransaction(unittest.TestCase):
+    """Verify that a transaction with descriptor updates only accepts states of these descriptors.
+    Such states are sent within the description modification report, states of other descriptors would be lost."""
 
+    METRIC_HANDLE = '0x34F00100'
+    OTHER_METRIC_HANDLE = '0x34F00150'
+    CONTEXT_DESCRIPTOR_HANDLE = 'LC.mds0'
 
-if __name__ == '__main__':
-    unittest.TextTestRunner(verbosity=2).run(suite())
+    def setUp(self):
+        self.mdib = mdib.DeviceMdibContainer.fromMdibFile(os.path.join(mdibFolder, '70041_MDIB_Final.xml'))
+
+    def test_state_update_of_unrelated_descriptor_raises(self):
+        mdib_version = self.mdib.mdibVersion
+        with self.assertRaises(RuntimeError) as ctx:
+            with self.mdib.mdibUpdateTransaction() as mgr:
+                mgr.getDescriptor(self.METRIC_HANDLE).DeterminationPeriod = 42
+                mgr.getMetricState(self.OTHER_METRIC_HANDLE).ActivationState = 'On'
+        msg = str(ctx.exception)
+        self.assertIn("transaction contains state updates for descriptors that are not part of this transaction", msg)
+        self.assertIn(self.OTHER_METRIC_HANDLE, msg)
+        self.assertNotIn(self.METRIC_HANDLE, msg)
+        # the transaction was rejected before anything was applied to the mdib
+        self.assertEqual(self.mdib.mdibVersion, mdib_version)
+
+    def test_state_update_of_updated_descriptor_is_accepted(self):
+        descriptor_version = self.mdib.descriptions.handle.getOne(self.METRIC_HANDLE).DescriptorVersion
+        with self.mdib.mdibUpdateTransaction() as mgr:
+            mgr.getDescriptor(self.METRIC_HANDLE).DeterminationPeriod = 42
+            mgr.getMetricState(self.METRIC_HANDLE).ActivationState = 'On'
+        descriptor = self.mdib.descriptions.handle.getOne(self.METRIC_HANDLE)
+        state = self.mdib.states.descriptorHandle.getOne(self.METRIC_HANDLE)
+        self.assertEqual(descriptor.DescriptorVersion, descriptor_version + 1)
+        self.assertEqual(state.DescriptorVersion, descriptor.DescriptorVersion)
+        self.assertEqual(state.ActivationState, 'On')
+
+    def test_state_updates_without_descriptor_update_are_accepted(self):
+        handles = (self.METRIC_HANDLE, self.OTHER_METRIC_HANDLE)
+        state_versions = {h: self.mdib.states.descriptorHandle.getOne(h).StateVersion for h in handles}
+        with self.mdib.mdibUpdateTransaction() as mgr:
+            for handle in handles:
+                mgr.getMetricState(handle).ActivationState = 'On'
+        for handle in handles:
+            state = self.mdib.states.descriptorHandle.getOne(handle)
+            self.assertEqual(state.StateVersion, state_versions[handle] + 1)
+            self.assertEqual(state.ActivationState, 'On')
+
+    def test_context_descriptor_update_raises(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            with self.mdib.mdibUpdateTransaction() as mgr:
+                mgr.getDescriptor(self.CONTEXT_DESCRIPTOR_HANDLE).SafetyClassification = \
+                    pmtypes.SafetyClassification.MED_A
+        self.assertEqual('DescriptionModification for AbstractContextDescriptor is not supported.',
+                         str(ctx.exception))
+
+    def test_created_descriptor_without_state_raises(self):
+        # a descriptor modification report also contains the states of the modified descriptors
+        # => a created descriptor without a state cannot be handled
+        new_handle = 'a_generated_descriptor'
+        node_name = namespaces.domTag('NumericMetricDescriptor')
+        descriptor_cls = self.mdib.getDescriptorContainerClass(node_name)
+        new_descriptor = descriptor_cls(
+            nsmapper=self.mdib.nsmapper,
+            nodeName=node_name,
+            handle=new_handle,
+            parentHandle="parent_handle",
+        )
+        with self.assertRaises(RuntimeError) as ctx:
+            with self.mdib.mdibUpdateTransaction() as mgr:
+                mgr.addDescriptor(new_descriptor)
+        self.assertEqual(f'No state is provided during DescriptionModification for descriptor "{new_handle}".',
+                         str(ctx.exception))
