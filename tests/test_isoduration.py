@@ -324,7 +324,13 @@ def test_xsddatetime_end_of_day_excludes_time_components(  # noqa: PLR0913
         ),
     ):
         isoduration.XsdDateInformation(
-            year=year, month=month, day=day, hour=hour, minute=minute, second=second, end_of_day=True,
+            year=year,
+            month=month,
+            day=day,
+            hour=hour,
+            minute=minute,
+            second=second,
+            end_of_day=True,
         )
 
 

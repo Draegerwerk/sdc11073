@@ -35,10 +35,12 @@ class EndpointReferenceType(XMLTypeBase):
     """
 
     Address = struct.AnyUriTextElement(nsh.WSA.tag('Address'))
-    ReferenceParameters: list[xml_utils.LxmlElement] | None = (
-        struct.AnyEtreeNodeListProperty(nsh.WSA.tag('ReferenceParameters'), is_optional=True))
-    Metadata: list[xml_utils.LxmlElement] | None = (
-        struct.AnyEtreeNodeListProperty(nsh.WSA.tag('Metadata'), is_optional=True))
+    ReferenceParameters: list[xml_utils.LxmlElement] | None = struct.AnyEtreeNodeListProperty(
+        nsh.WSA.tag('ReferenceParameters'), is_optional=True
+    )
+    Metadata: list[xml_utils.LxmlElement] | None = struct.AnyEtreeNodeListProperty(
+        nsh.WSA.tag('Metadata'), is_optional=True
+    )
     _props = ('Address', 'ReferenceParameters', 'Metadata')
 
 
@@ -46,9 +48,8 @@ class RelatesTo(ElementWithText):
     """Contributes one abstract [relationship] property value."""
 
     RelationshipType: str | None = struct.AnyUriTextElement(
-        nsh.WSA.tag('RelationshipType'),
-        is_optional=True,
-        implied_py_value='http://www.w3.org/2005/08/addressing/reply')
+        nsh.WSA.tag('RelationshipType'), is_optional=True, implied_py_value='http://www.w3.org/2005/08/addressing/reply'
+    )
     _props = ('RelationshipType',)
 
 
@@ -68,33 +69,33 @@ class HeaderInformationBlock(XMLTypeBase):
     """
 
     To: str | None = struct.AnyUriTextElement(nsh.WSA.tag('To'), is_optional=True)
-    From: EndpointReferenceType | None = struct.SubElementProperty(nsh.WSA.tag('From'),
-                                                                   value_class=EndpointReferenceType,
-                                                                   is_optional=True)
-    ReplyTo: EndpointReferenceType | None = struct.SubElementProperty(nsh.WSA.tag('ReplyTo'),
-                                                                      value_class=EndpointReferenceType,
-                                                                      is_optional=True)
-    FaultTo: EndpointReferenceType | None = struct.SubElementProperty(nsh.WSA.tag('FaultTo'),
-                                                                      value_class=EndpointReferenceType,
-                                                                      is_optional=True)
+    From: EndpointReferenceType | None = struct.SubElementProperty(
+        nsh.WSA.tag('From'), value_class=EndpointReferenceType, is_optional=True
+    )
+    ReplyTo: EndpointReferenceType | None = struct.SubElementProperty(
+        nsh.WSA.tag('ReplyTo'), value_class=EndpointReferenceType, is_optional=True
+    )
+    FaultTo: EndpointReferenceType | None = struct.SubElementProperty(
+        nsh.WSA.tag('FaultTo'), value_class=EndpointReferenceType, is_optional=True
+    )
     Action: str = struct.AnyUriTextElement(nsh.WSA.tag('Action'))
     # note: ws-addressing declares MessageId as optional, but it is required for ws-discovery
     MessageID: str | None = struct.AnyUriTextElement(nsh.WSA.tag('MessageID'), is_optional=True)
     # note: following the standard would require RelatesTo to be a list, but ws-discovery requires it to be 0..1
-    RelatesTo = struct.SubElementProperty(nsh.WSA.tag('RelatesTo'),
-                                          value_class=RelatesTo,
-                                          is_optional=True)
+    RelatesTo = struct.SubElementProperty(nsh.WSA.tag('RelatesTo'), value_class=RelatesTo, is_optional=True)
 
     _props = ('To', 'From', 'ReplyTo', 'FaultTo', 'Action', 'MessageID', 'RelatesTo')
 
-    def __init__(self,  # noqa: PLR0913
-                 action: str | None = None,
-                 message_id: str | None = None,
-                 addr_to: str | None = None,
-                 relates_to: str | None = None,
-                 addr_from: str | None = None,
-                 reference_parameters: list[xml_utils.LxmlElement] | None = None,
-                 relationship_type: str | None = None):
+    def __init__(
+        self,  # noqa: PLR0913
+        action: str | None = None,
+        message_id: str | None = None,
+        addr_to: str | None = None,
+        relates_to: str | None = None,
+        addr_from: str | None = None,
+        reference_parameters: list[xml_utils.LxmlElement] | None = None,
+        relationship_type: str | None = None,
+    ):
         super().__init__()
         self.Action = action
         self.MessageID = message_id or uuid.uuid4().urn
@@ -110,10 +111,9 @@ class HeaderInformationBlock(XMLTypeBase):
             self.From.Address = addr_from
         self.reference_parameters: list[xml_utils.LxmlElement] = reference_parameters or []
 
-    def mk_reply_header_block(self,
-                              action: str | None = None,
-                              message_id: str | None = None,
-                              addr_to: str | None = None) -> HeaderInformationBlock:
+    def mk_reply_header_block(
+        self, action: str | None = None, message_id: str | None = None, addr_to: str | None = None
+    ) -> HeaderInformationBlock:
         """Create a HeaderInformationBlock with RelatesTo information of self."""
         reply_address = HeaderInformationBlock(action, message_id, addr_to)
         reply_address.RelatesTo = RelatesTo()
@@ -121,9 +121,9 @@ class HeaderInformationBlock(XMLTypeBase):
         reply_address.Action = action
         return reply_address
 
-    def as_etree_node(self,
-                      q_name: etree.QName, ns_map: dict[str, str],
-                      parent_node: xml_utils.LxmlElement | None = None) -> xml_utils.LxmlElement:
+    def as_etree_node(
+        self, q_name: etree.QName, ns_map: dict[str, str], parent_node: xml_utils.LxmlElement | None = None
+    ) -> xml_utils.LxmlElement:
         """Create etree Element form instance data."""
         node = super().as_etree_node(q_name, ns_map, parent_node)
         for param in self.reference_parameters:

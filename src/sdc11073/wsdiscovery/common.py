@@ -10,4 +10,4 @@ message_factory = MessageFactory(SdcV1Definitions, None, logger=logging.getLogge
 message_reader = MessageReader(SdcV1Definitions, None, logger=logging.getLogger('sdc.discover.msg'))
 
 MULTICAST_PORT = 3702
-MULTICAST_IPV4_ADDRESS = "239.255.255.250"
+MULTICAST_IPV4_ADDRESS = '239.255.255.250'

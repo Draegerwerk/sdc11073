@@ -1,4 +1,5 @@
 """Tests for consumer subscription and consumer subscription manager."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
