@@ -440,7 +440,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         statecontainers = self._msgReader.readEpisodicMetricReport(reportNode)
         try:
             with self.mdibLock:
-                self._update_mdib_version_group(reportNode)
                 for sc in statecontainers:
                     if sc.descriptorContainer is not None and sc.descriptorContainer.DescriptorVersion != sc.DescriptorVersion:
                         self._logger.warn(
@@ -477,6 +476,9 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 age = now - observationTime
                                 minAge = min(minAge, age)
                                 maxAge = max(maxAge, age)
+
+                self._update_mdib_version_group(reportNode)
+
             shall_log = self.metric_time_warner.getOutOfDeterminationTimeLogState(minAge, maxAge, self.DETERMINATIONTIME_WARN_LIMIT)
             if shall_log == A_OUT_OF_RANGE:
                 self._logger.warn(
@@ -508,7 +510,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger.debug('_onEpisodicAlertReport: received {} alerts', len(allAlertContainers))
         try:
             with self.mdibLock:
-                self._update_mdib_version_group(reportNode)
                 for sc in allAlertContainers:
                     if sc.descriptorContainer is not None and sc.descriptorContainer.DescriptorVersion != sc.DescriptorVersion:
                         self._logger.warn(
@@ -529,6 +530,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     else:
                         self.states.addObject(sc)
                         alertByHandle[sc.descriptorHandle] = sc
+                self._update_mdib_version_group(reportNode)
         finally:
             self._updateStateObservables(alertByHandle.values())
 
@@ -547,7 +549,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         allOperationStateContainers = self._msgReader.readOperationalStateReport(reportNode)
         try:
             with self.mdibLock:
-                self._update_mdib_version_group(reportNode)
                 for sc in allOperationStateContainers:
                     if sc.descriptorContainer is not None and sc.descriptorContainer.DescriptorVersion != sc.DescriptorVersion:
                         self._logger.warn('_onOperationalStateReport: OperationState "{}": descriptor version expect "{}", found "{}"',
@@ -567,6 +568,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     else:
                         self.states.addObject(sc)
                         operationByHandle[sc.descriptorHandle] = sc
+                self._update_mdib_version_group(reportNode)
         finally:
             self._updateStateObservables(operationByHandle.values())
 
@@ -603,7 +605,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         self._logger.debug('_onWaveformReport: {} waveforms received', len(allRtSampleArrayContainers))
         try:
             with self.mdibLock:
-                self._update_mdib_version_group(reportNode)
                 for new_sac in allRtSampleArrayContainers:
                     d_handle = new_sac.descriptorHandle
                     descriptorContainer = new_sac.descriptorContainer
@@ -643,6 +644,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                     if descriptorContainer.DescriptorVersion != new_sac.DescriptorVersion:
                         self._logger.error('_onWaveformReport: descriptor {}: expect version "{}", found "{}"',
                                           d_handle, new_sac.DescriptorVersion, descriptorContainer.DescriptorVersion)
+                self._update_mdib_version_group(reportNode)
 
             if len(waveformAge) > 0:
                 minAge = min(waveformAge.values())
@@ -684,7 +686,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         stateContainers = self._msgReader.readEpisodicContextReport(reportNode)
         try:
             with self.mdibLock:
-                self._update_mdib_version_group(reportNode)
                 for sc in stateContainers:
                     try:
                         oldStateContainer = self.contextStates.handle.getOne(sc.Handle, allowNone=True)
@@ -706,6 +707,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                             '_onEpisodicContextReport: new context state handle = {} Descriptor Handle={} Assoc={}, Validators={}',
                             sc.Handle, sc.descriptorHandle, sc.ContextAssociation, sc.Validator)
                         contextByHandle[sc.Handle] = sc
+                self._update_mdib_version_group(reportNode)
         finally:
             self._updateStateObservables(contextByHandle.values())
 
@@ -727,7 +729,6 @@ class ClientMdibContainer(mdibbase.MdibContainer):
         statecontainers = self._msgReader.readEpisodicComponentReport(reportNode)
         try:
             with self.mdibLock:
-                self._update_mdib_version_group(reportNode)
                 for sc in statecontainers:
                     desc_h = sc.descriptorHandle
                     if desc_h is None:
@@ -754,6 +755,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
                                 '_onEpisodicComponentReport: new component state handle = {} DescriptorVersion={}',
                                 desc_h, sc.DescriptorVersion)
                             componentByHandle[sc.descriptorHandle] = sc
+                self._update_mdib_version_group(reportNode)
         finally:
             self._updateStateObservables(componentByHandle.values())
 
