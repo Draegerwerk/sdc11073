@@ -46,8 +46,8 @@ if ENABLE_COMMLOG:
     commlog.defaultLogger = commLogger
 
 CLIENT_VALIDATE = True
-SET_TIMEOUT = 10  # longer timeout than usually needed, but jenkins jobs frequently failed with 3 seconds timeout
-NOTIFICATION_TIMEOUT = 5  # also jenkins related value
+SET_TIMEOUT = 10  # longer timeout than usually needed
+NOTIFICATION_TIMEOUT = 5
 
 
 def mklogger(logFolder=None):
@@ -71,20 +71,6 @@ def mklogger(logFolder=None):
             applog.addHandler(ch2)
 
     applog.setLevel(logging.INFO)
-
-    # change log level for some loggers
-    #        logging.getLogger('sdc.client').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.subscr').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.soap').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.dispatch').setLevel(logging.INFO)
-    #        logging.getLogger('sdc.client.subscrMgr').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.client.mdib').setLevel(logging.INFO)
-    #        logging.getLogger('sdc.client.wf').setLevel(logging.INFO)
-    #        logging.getLogger('sdc.client.Set').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device.soap').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device.mdib').setLevel(logging.DEBUG)
-    #        logging.getLogger('sdc.device.ContextService').setLevel(logging.DEBUG)
 
     logging.getLogger('sdc.discover').setLevel(logging.WARN)
 
@@ -601,7 +587,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             firstValue = 12
             myPhysicalConnector = pmtypes.PhysicalConnectorInfo([pmtypes.LocalizedText('ABC')], 1)
             now = time.time()
-            with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getMetricState(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
@@ -668,7 +654,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll.result(timeout=NOTIFICATION_TIMEOUT)
             # verify that client automatically got the state (via EpisodicComponentReport )
             cl_state1 = cl_mdib.states.descriptorHandle.getOne(descriptorHandle)
-            self.assertEqual(cl_state1.diff(st), [])
+            self.assertEqual(cl_state1.ActivationState, st.ActivationState)
+            self.assertEqual(cl_state1.CalibrationInfo, st.CalibrationInfo)
+            self.assertEqual(cl_state1.NextCalibration, st.NextCalibration)
+            self.assertEqual(cl_state1.PhysicalConnector, st.PhysicalConnector)
+            self.assertEqual(cl_state1.OperatingHours, st.OperatingHours)
+            self.assertEqual(cl_state1.OperatingCycles, st.OperatingCycles)
             # verify that client also got a PeriodicMetricReport
             periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
             state_nodes = periodic_report.xpath('//msg:ComponentState', namespaces=namespaces.nsmap)
@@ -691,11 +682,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertConditionState')][0]
             descriptorHandle = alertConditionDescr.descriptorHandle
 
-            # there are possible rounding problems in timestamps.
-            # calculate a max_float_diff for max. 1 millisecond difference.
-            now = time.time()
-            max_float_diff_1ms = (now+0.001)/now -1
-
             for _activationState, _actualPriority, _presence in product(('On', 'Off', 'Psd'),
                                                                         ('Lo', 'Hi', 'Me', 'None'), (True,
                                                                                                      False)):  # test every possible combination
@@ -706,15 +692,21 @@ class Test_Client_SomeDevice(unittest.TestCase):
                     st.ActivationState = _activationState
                     st.ActualPriority = _actualPriority
                     st.Presence = _presence
+                    st.DeterminationTime = time.time()
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = cl_mdib.states.descriptorHandle.getOne(
                     descriptorHandle)  # this shall be updated by notification
 
-                self.assertEqual(clientStateContainer.diff(st, max_float_diff=max_float_diff_1ms), [])
+                self.assertEqual(clientStateContainer.ActivationState, st.ActivationState)
+                self.assertEqual(clientStateContainer.ActualPriority, st.ActualPriority)
+                self.assertEqual(clientStateContainer.Presence, st.Presence)
+                self.assertEqual(clientStateContainer.ActualConditionGenerationDelay, st.ActualConditionGenerationDelay)
+                self.assertEqual(clientStateContainer.Rank, st.Rank)
+                self.assertAlmostEqual(clientStateContainer.DeterminationTime, st.DeterminationTime, delta=0.1)
 
             # pick an AlertSignal for testing
-            alertConditionDescr = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertSignalState')][0]
-            descriptorHandle = alertConditionDescr.descriptorHandle
+            alertSignalState = sdcDevice.mdib.states.NODETYPE[namespaces.domTag('AlertSignalState')][0]
+            descriptorHandle = alertSignalState.descriptorHandle
 
             for _activationState, _presence, _location, _slot in product(('On', 'Off', 'Psd'),
                                                                          ('On', 'Off', 'Latch', 'Ack'), ('Loc', 'Rem'),
@@ -730,7 +722,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = cl_mdib.states.descriptorHandle.getOne(
                     descriptorHandle)  # this shall be updated by notification
-                self.assertEqual(clientStateContainer.diff(st, max_float_diff=max_float_diff_1ms), [])
+                
+                self.assertEqual(clientStateContainer.ActivationState, st.ActivationState)
+                self.assertEqual(clientStateContainer.Presence, st.Presence)
+                self.assertEqual(clientStateContainer.Location, st.Location)
+                self.assertEqual(clientStateContainer.Slot, st.Slot)
+                self.assertAlmostEqual(clientStateContainer.ActualSignalGenerationDelay, st.ActualSignalGenerationDelay)
 
             # verify that client also got a PeriodicAlertReport
             periodic_report = coll2.result(timeout=NOTIFICATION_TIMEOUT)
@@ -742,15 +739,47 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(sdcDevice.mdib.sequenceId, cl_mdib.sequenceId)
 
     def test_mdibversion_consistency_checker(self):
-        """ verify that the client logs an error when received MdibVersion is not as expected"""
+        """ verify that the client rejects a report if the received MdibVersion is not as expected"""
         for sdcClient, sdcDevice in self._all_cl_dev:
+            # waveform notifications would increment the MdibVersion of the device continuously
+            sdcDevice.mdib._waveform_source._waveform_generators = {}
             clientMdib = ClientMdibContainer(sdcClient)
             clientMdib.initMdib()
 
             self.log_watcher.setPaused(True)
             clientMdib._logger.error = mock.MagicMock()
-            clientMdib._logger.log = mock.MagicMock()
 
+            # the client raises a ValueError if it cannot accept the MdibVersion of a report. Collect these errors
+            # here, otherwise the report would never be forwarded to the collectors used below.
+            rejected_reports = []
+            _canAcceptMdibVersion = clientMdib._canAcceptMdibVersion
+
+            def _canAcceptMdibVersionSpy(log_prefix, mdib_version):
+                try:
+                    return _canAcceptMdibVersion(log_prefix, mdib_version)
+                except ValueError as ex:
+                    rejected_reports.append(str(ex))
+                    return False
+
+            clientMdib._canAcceptMdibVersion = _canAcceptMdibVersionSpy
+
+            # a report with the expected MdibVersion is accepted; this also synchronizes the client with the device
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+                coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
+
+                st = mgr.getMetricState('0x34F00100')
+                if st.metricValue is None:
+                    st.mkMetricValue()
+                st.metricValue.Value = random.randint(0, 42000)
+
+            coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for the next episodicMetricReport
+            self.assertEqual(rejected_reports, [])
+            self.assertTrue(clientMdib._synchronizedReports.is_set())
+            self.assertEqual(clientMdib.mdibVersion, sdcDevice.mdib.mdibVersion)
+            synchronized_mdib_version = clientMdib.mdibVersion
+
+            # provoke a gap in the MdibVersion sequence: the client cannot determine whether it missed essential
+            # information => it logs an error and rejects the report
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
 
@@ -759,26 +788,51 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 st = mgr.getMetricState('0x34F00100')
                 if st.metricValue is None:
                     st.mkMetricValue()
-                st.metricValue.Value = random.randint(0, 42000)
+                st.metricValue.Value = random.randint(42001, 84000)
 
             coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for the next episodicMetricReport
             arg_list_unexpected_version = (clientmdib.MDIB_VERSION_UNEXPECTED, '_onEpisodicMetricReport',
                                            mdib_version + 1, mdib_version + 21)
             clientMdib._logger.error.assert_any_call(*arg_list_unexpected_version)
+            self.assertEqual(len(rejected_reports), 1)
+            self.assertIn(f'received MdibVersion {mdib_version + 21} skips one or more versions '
+                          f'(expected {mdib_version + 1})!',
+                          rejected_reports[-1])
+            # the report was not applied
+            self.assertEqual(clientMdib.mdibVersion, synchronized_mdib_version)
 
+            # provoke a decremented MdibVersion, this report is rejected as well
+            coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
             with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
-
-                mdib_version = sdcDevice.mdib.mdibVersion
-                sdcDevice.mdib.mdibVersion = mdib_version - 100
+                sdcDevice.mdib.mdibVersion = synchronized_mdib_version - 2
                 st = mgr.getMetricState('0x34F00100')
                 if st.metricValue is None:
                     st.mkMetricValue()
-                st.metricValue.Value = random.randint(42001, 84000)
+                st.metricValue.Value = random.randint(84001, 126000)
 
             coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for the next episodicMetricReport
-            clientMdib._logger.log.assert_any_call(logging.ERROR, clientmdib.MDIB_VERSION_TOO_OLD,
-                                                   '_onEpisodicMetricReport', mdib_version, mdib_version - 99)
+            self.assertEqual(len(rejected_reports), 2)
+            self.assertIn(f'received MdibVersion {synchronized_mdib_version - 1} is older than the current MdibVersion '
+                          f'{synchronized_mdib_version}',
+                          rejected_reports[-1])
+            # the report was not applied
+            self.assertEqual(clientMdib.mdibVersion, synchronized_mdib_version)
+
+            # provoke a negative MdibVersion, this report is rejected as well
+            coll = observableproperties.SingleValueCollector(sdcClient, 'episodicMetricReport')
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
+                sdcDevice.mdib.mdibVersion = -20
+                st = mgr.getMetricState('0x34F00100')
+                if st.metricValue is None:
+                    st.mkMetricValue()
+                st.metricValue.Value = random.randint(84001, 126000)
+
+            coll.result(timeout=NOTIFICATION_TIMEOUT)  # wait for the next episodicMetricReport
+            self.assertEqual(len(rejected_reports), 3)
+            self.assertIn(f'MdibVersion is -19, must be greater than 0!',
+                          rejected_reports[-1])
+            # the report was not applied
+            self.assertEqual(clientMdib.mdibVersion, synchronized_mdib_version)
 
     def test_setPatientContextOperation(self):
         """client calls corresponding operation. 
@@ -1379,11 +1433,10 @@ class Test_Client_SomeDevice(unittest.TestCase):
         metric_descriptor_handle = '0x34F00100'
         alert_descriptor_handle = '0xD3C00100'
         component_descriptor_handle = '2.1.1'
-        context_descriptor_handle = 'LC.mds0'
         operationalstate_descriptor_handle = 'SVO.42.2.1.1.2.0-6'
         waveform_descriptor_handle = '0x34F05505'
         list_of_handles = [metric_descriptor_handle, alert_descriptor_handle, component_descriptor_handle,
-                           context_descriptor_handle, operationalstate_descriptor_handle, waveform_descriptor_handle]
+                           operationalstate_descriptor_handle, waveform_descriptor_handle]
         self.sdcDevice_Final.mdib._waveform_source._waveform_generators = {}  # stop sending waveforms for this test
         for sdcClient, sdcDevice in self._all_cl_dev:
             # set value of a metric
@@ -1410,7 +1463,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             metric_coll = observableproperties.SingleValueCollector(sdcClient.mdib, 'metricsByHandle')
             alert_coll = observableproperties.SingleValueCollector(sdcClient.mdib, 'alertByHandle')
             component_coll = observableproperties.SingleValueCollector(sdcClient.mdib, 'componentByHandle')
-            context_coll = observableproperties.SingleValueCollector(sdcClient.mdib, 'contextByHandle')
             operation_coll = observableproperties.SingleValueCollector(sdcClient.mdib, 'operationByHandle')
             waveform_coll = observableproperties.SingleValueCollector(sdcClient.mdib, 'waveformByHandle')
 
@@ -1431,7 +1483,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             metrics_dict = metric_coll.result(timeout=NOTIFICATION_TIMEOUT)
             alert_dict = alert_coll.result(timeout=NOTIFICATION_TIMEOUT)
             component_dict = component_coll.result(timeout=NOTIFICATION_TIMEOUT)
-            context_dict = context_coll.result(timeout=NOTIFICATION_TIMEOUT)
             operation_dict = operation_coll.result(timeout=NOTIFICATION_TIMEOUT)
             waveform_dict = waveform_coll.result(timeout=NOTIFICATION_TIMEOUT)
 
@@ -1457,12 +1508,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(len(values_dict), 1)
                 self.assertTrue(handle in values_dict)
                 self.assertEqual(descriptor_versions[handle] + 1, values_dict[handle].DescriptorVersion)
-
-            # verify context state update (they are different from others because they use Handle as key
-            # instead of DescriptorHandle
-            for handle, state in context_dict.items():
-                self.assertEqual(handle, state.Handle)  # verify that context states dict has Handle as key
-                self.assertEqual(context_descriptor_handle, state.descriptorHandle)
 
             # verify that client got updates
             descriptorContainer = clientMdib.descriptions.handle.getOne(metric_descriptor_handle)
@@ -1501,10 +1546,11 @@ class Test_Client_SomeDevice(unittest.TestCase):
             cl_descriptorContainer = clientMdib.descriptions.handle.getOne(new_handle, allowNone=True)
             self.assertIsNone(cl_descriptorContainer)
 
-    def test_AlertConditionModification_Final(self):
-        self._test_AlertConditionModification(self.sdcClient_Final, self.sdcDevice_Final)
+    def test_AlertConditionModification(self):
 
-    def _test_AlertConditionModification(self, sdcClient, sdcDevice):
+        sdcClient = self.sdcClient_Final
+        sdcDevice = self.sdcDevice_Final
+        
         alertDescriptorHandle = '0xD3C00100'
         limitAlertDescriptorHandle = '0xD3C00108'
 
@@ -1580,78 +1626,6 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(cl_mdsDescriptor.ModelNumber, '1.09')
             self.assertEqual(cl_mdsDescriptor.Manufacturer[-1].text, u'Draeger GmbH')
 
-    def test_remove_add_mds(self):
-        for sdcClient, sdcDevice in self._all_cl_dev:
-            full_mdib, mdib_version_group = copy.deepcopy(sdcDevice.mdib.reconstructMdibWithContextStates())
-            sdcDevice._runRtSampleThread = False
-            time.sleep(0.1)
-            clientMdib = ClientMdibContainer(sdcClient)
-            clientMdib.initMdib()
-            dev_descriptor_count1 = len(sdcDevice.mdib.descriptions.objects)
-            dev_state_count1 = len(sdcDevice.mdib.states.objects)
-            dev_state_count1_handles = set([s.descriptorHandle for s in sdcDevice.mdib.states.objects])
-            descr_handles = list(sdcDevice.mdib.descriptions.handle.keys())
-            state_descriptorHandles = list(sdcDevice.mdib.states.descriptorHandle.keys())
-            contextState_handles = list(sdcDevice.mdib.contextStates.handle.keys())
-            coll = observableproperties.SingleValueCollector(sdcClient, 'descriptionModificationReport')
-            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                mdsDescriptor = sdcDevice.mdib.descriptions.NODETYPE.getOne(namespaces.domTag('MdsDescriptor'))
-                mgr.removeDescriptor(mdsDescriptor.handle)
-            coll.result(timeout=NOTIFICATION_TIMEOUT)
-            # verify that all state versions were saved
-            descr_handles_lookup1 = copy.copy(sdcDevice.mdib.descriptions.handle_version_lookup)
-            state_descriptorHandles_lookup1 = copy.copy(sdcDevice.mdib.states.handle_version_lookup)
-            contextState_descriptorHandles_lookup1 = copy.copy(sdcDevice.mdib.contextStates.handle_version_lookup)
-            for h in descr_handles:
-                self.assertTrue(h in descr_handles_lookup1)
-            for h in state_descriptorHandles:
-                self.assertTrue(h in state_descriptorHandles_lookup1)
-            for h in contextState_handles:
-                self.assertTrue(h in contextState_descriptorHandles_lookup1)
-
-            # verify that client mdib has same number of objects as device mdib
-            dev_descriptor_count2 = len(sdcDevice.mdib.descriptions.objects)
-            dev_state_count2 = len(sdcDevice.mdib.states.objects)
-            dev_state_count2_handles = set([s.descriptorHandle for s in sdcDevice.mdib.states.objects])
-            cl_descriptor_count2 = len(clientMdib.descriptions.objects)
-            cl_state_count2 = len(clientMdib.states.objects)
-            self.assertTrue(dev_descriptor_count2 < dev_descriptor_count1)
-            self.assertEqual(dev_descriptor_count2, 0)
-            self.assertEqual(dev_descriptor_count2, cl_descriptor_count2)
-            self.assertEqual(dev_state_count2, cl_state_count2)
-
-            # now add mds again:
-            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
-                sdcDevice.mdib.addMdsNode(full_mdib)
-            time.sleep(5)  # difficult to say which observable is updated as the last one, therefore sleep
-            # verify that all objects have a state version at least incremented by one
-            for handle, version in descr_handles_lookup1.items():
-                obj = sdcDevice.mdib.descriptions.handle.getOne(handle)
-                self.assertGreater(obj.DescriptorVersion, version)
-            for handle, version in state_descriptorHandles_lookup1.items():
-                obj = sdcDevice.mdib.states.descriptorHandle.getOne(handle, allowNone=True)
-                if obj:
-                    self.assertGreater(obj.StateVersion, version,
-                                       msg='state {}: {} not greater than {}'.format(obj, obj.StateVersion, version))
-            for handle, version in contextState_descriptorHandles_lookup1.items():
-                obj = sdcDevice.mdib.contextStates.handle.getOne(handle)
-                print('checking object {} state={} expected={}'.format(obj, obj.StateVersion, version + 1))
-                self.assertGreater(obj.StateVersion, version,
-                                   msg='state {}: {} not greater than {}'.format(obj, obj.StateVersion, version + 1))
-
-            dev_descriptor_count3 = len(sdcDevice.mdib.descriptions.objects)
-            dev_state_count3 = len(sdcDevice.mdib.states.objects)
-            dev_state_count3_handles = set([s.descriptorHandle for s in sdcDevice.mdib.states.objects])
-            cl_descriptor_count3 = len(clientMdib.descriptions.objects)
-            cl_state_count3 = len(clientMdib.states.objects)
-            self.assertEqual(dev_descriptor_count3, dev_descriptor_count1)
-            self.assertEqual(dev_descriptor_count3, cl_descriptor_count3)
-            if sdcDevice is self.sdcDevice_Final:
-                self.assertEqual(dev_state_count3, dev_state_count1)
-            else:
-                self.assertEqual(dev_state_count3, dev_state_count1 - 1)  # scostate is not sent in draft6
-            self.assertEqual(dev_state_count3, cl_state_count3)
-
     def test_clientmdib_observables(self):
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient)
@@ -1661,7 +1635,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                                                              'metricsByHandle')  # wait for the next EpisodicMetricReport
             descriptorHandle = '0x34F00100'
             firstValue = 12
-            with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getMetricState(descriptorHandle)
                 if st.metricValue is None:
                     st.mkMetricValue()
@@ -1676,7 +1650,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             coll = observableproperties.SingleValueCollector(clientMdib,
                                                              'alertByHandle')  # wait for the next EpisodicAlertReport
             descriptorHandle = '0xD3C00108'  # an AlertConditionDescriptorHandle
-            with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 st = mgr.getAlertState(descriptorHandle)
                 st.Presence = True
                 st.Rank = 3
@@ -1687,7 +1661,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
             coll = observableproperties.SingleValueCollector(clientMdib, 'updatedDescriptorByHandle')
             descriptorHandle = '0x34F00100'
-            with sdcDevice.mdib.mdibUpdateTransaction(setDeterminationTime=False) as mgr:
+            with sdcDevice.mdib.mdibUpdateTransaction() as mgr:
                 descr = mgr.getDescriptor(descriptorHandle)
                 descr.DeterminationPeriod = 42
             data = coll.result(timeout=NOTIFICATION_TIMEOUT)

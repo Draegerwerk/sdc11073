@@ -4,6 +4,21 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- raise exception when StateVersion is increased by exactly one when processing notifications in SDC Client Mdib [#501](https://github.com/Draegerwerk/sdc11073/issues/501)
+- raise exception when MidbVersion is increased by exactly one when processing notifications in SDC Client Mdib [#502](https://github.com/Draegerwerk/sdc11073/issues/502)
+
+### Changed
+- remove ContainerBase.diff() method
+- only allow one type of report (e.g. DescriptionModificationReport, EpisodicAlertReport ...) per `mdibUpdateTransaction` context
+- `setDeterminationTime` is not provided anymore by the `mdibUpdateTransaction`
+- remove `addMdsNode` from `DeviceMdibContainer`
+- raise exception when SDC Client Mdib receives ContextDescriptor modification via notification
+- raise exception when a ContextDescriptor modification is performed within `mdibUpdateTransaction` (SDC Provider side)
+- when a DescriptionModificationReport is sent by the SDC Provider, no follow-up episodic report is sent for the related state change, resulting in strictly increasing StateVersion and MdibVersion values
+
 ## [1.3.3] - 2026-01-06
 
 ### Fixed

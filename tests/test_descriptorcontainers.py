@@ -208,10 +208,14 @@ class TestDescriptorContainers(unittest.TestCase):
 
     def test_ActivateOperationDescriptorContainer(self):
         def _cmp_ActivateOperationDescriptorContainer(_dc, _dc2):
-            self.assertEqual(_dc.diff(_dc2), [])
             self.assertEqual(_dc.Argument, _dc2.Argument)
-#            self.assertEqual(_dc.ActivationDuration, _dc2.ActivationDuration)
+            self.assertEqual(_dc.ModifiableData, _dc2.ModifiableData)
+            self.assertEqual(_dc.OperationTarget, _dc2.OperationTarget)
+            self.assertEqual(_dc.SafetyReq, _dc2.SafetyReq)
+            self.assertEqual(_dc.InvocationEffectiveTimeout, _dc2.InvocationEffectiveTimeout)
+            self.assertEqual(_dc.MaxTimeToFinish, _dc2.MaxTimeToFinish)
             self.assertEqual(_dc.Retriggerable, _dc2.Retriggerable)
+            self.assertEqual(_dc.AccessLevel, _dc2.AccessLevel)
 
         dc = descriptorcontainers.ActivateOperationDescriptorContainer(nsmapper=self.nsmapper,
                                                                               nodeName=namespaces.domTag(
