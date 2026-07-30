@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
-- raise exception when StateVersion is not correct when processing notifications in SDC Client Mdib [#501](https://github.com/Draegerwerk/sdc11073/issues/501)
-- raise exception when MidbVersion is not correct when processing notifications in SDC Client Mdib [#502](https://github.com/Draegerwerk/sdc11073/issues/502)
+- raise exception when StateVersion is increased by exactly one when processing notifications in SDC Client Mdib [#501](https://github.com/Draegerwerk/sdc11073/issues/501)
+- raise exception when MidbVersion is increased by exactly one when processing notifications in SDC Client Mdib [#502](https://github.com/Draegerwerk/sdc11073/issues/502)
 
 ### Changed
 - remove ContainerBase.diff() method
@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `setDeterminationTime` is not provided anymore by the `mdibUpdateTransaction`
 - remove `addMdsNode` from `DeviceMdibContainer`
 - raise exception when SDC Client Mdib receives ContextDescriptor modification via notification
-- when DescriptionModificationReport is sent by the SDC Provider no follow up episodic report is sent for the related state change, this results in strictly increasing StateVersion and MdibVersion values
+- raise exception when a ContextDescriptor modification is performed within `mdibUpdateTransaction` (SDC Provider side)
+- when a DescriptionModificationReport is sent by the SDC Provider, no follow-up episodic report is sent for the related state change, resulting in strictly increasing StateVersion and MdibVersion values
 
 ## [1.3.3] - 2026-01-06
 
