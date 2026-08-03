@@ -1,3 +1,5 @@
+"""Implementation of the client for the LocalizationService."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -8,6 +10,8 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .serviceclientbase import GetRequestResult, HostedServiceClient
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.xml_types.pm_types import LocalizedTextWidth
 
@@ -17,12 +21,15 @@ class LocalizationServiceClient(HostedServiceClient):
 
     port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
 
-    def get_localized_texts(self, refs: list[str] | None = None,  # noqa: PLR0913
-                            version: int | None = None,
-                            langs: list[str] | None = None,
-                            text_widths: list[LocalizedTextWidth] | None = None,
-                            number_of_lines: list[int] | None = None,
-                            request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
+    def get_localized_texts(  # noqa: PLR0913
+        self,
+        refs: Iterable[str] | None = None,
+        version: int | None = None,
+        langs: Iterable[str] | None = None,
+        text_widths: Iterable[LocalizedTextWidth] | None = None,
+        number_of_lines: Iterable[int] | None = None,
+        request_manipulator: RequestManipulatorProtocol | None = None,
+    ) -> GetRequestResult:
         """Send a GetLocalizedText request.
 
         :param refs: optional list of reference names of the texts that are requested.
@@ -52,8 +59,9 @@ class LocalizationServiceClient(HostedServiceClient):
 
         return GetRequestResult(received_message_data, result)
 
-    def get_supported_languages(self,
-                                request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
+    def get_supported_languages(
+        self, request_manipulator: RequestManipulatorProtocol | None = None
+    ) -> GetRequestResult:
         """Send a GetSupportedLanguages request."""
         data_model = self._sdc_definitions.data_model
         request = data_model.msg_types.GetSupportedLanguages()

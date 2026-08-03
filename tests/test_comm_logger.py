@@ -13,7 +13,6 @@ from sdc11073 import commlog
 
 
 class TestCommLogger(unittest.TestCase):
-
     def _verify_files_in_directory(self, directory: pathlib.Path, expected_nbr_files: int):
         files = list(pathlib.Path.iterdir(directory))
         nbr_files = len(files)
@@ -22,9 +21,11 @@ class TestCommLogger(unittest.TestCase):
                 with Path.open(file, encoding='utf-8') as f:
                     sys.stderr.write(f'\nDATA OF {nbr} - {file.name}:\n{f.read()}\n')
 
-        self.assertEqual(expected_nbr_files,
-                         nbr_files,
-                         f'Expected number of files {expected_nbr_files} , found {nbr_files} , files: {files}')
+        self.assertEqual(
+            expected_nbr_files,
+            nbr_files,
+            f'Expected number of files {expected_nbr_files} , found {nbr_files} , files: {files}',
+        )
 
     def test_stream(self):
         """Test the comm stream logger."""
@@ -75,22 +76,34 @@ class TestCommLogger(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir, commlog.DirectoryLogger(log_folder=tmp_dir, log_in=True):
             directory = pathlib.Path(tmp_dir)
             self._verify_files_in_directory(directory, 0)
-            for i, name in enumerate((commlog.DISCOVERY_IN,
-                                      commlog.SOAP_REQUEST_IN,
-                                      commlog.SOAP_RESPONSE_IN,
-                                      commlog.SOAP_SUBSCRIPTION_IN,
-                                      commlog.WSDL), start=1):
+            for i, name in enumerate(
+                (
+                    commlog.DISCOVERY_IN,
+                    commlog.SOAP_REQUEST_IN,
+                    commlog.SOAP_RESPONSE_IN,
+                    commlog.SOAP_SUBSCRIPTION_IN,
+                    commlog.WSDL,
+                ),
+                start=1,
+            ):
                 ip_address = uuid.uuid4().hex
                 http_method = uuid.uuid4().hex
-                logging.getLogger(name).debug(str(uuid.uuid4()),
-                                              extra={'ip_address': ip_address, 'http_method': http_method})
+                logging.getLogger(name).debug(
+                    str(uuid.uuid4()), extra={'ip_address': ip_address, 'http_method': http_method}
+                )
                 self._verify_files_in_directory(directory, i)
-                self.assertEqual(1, len([file for file in pathlib.Path.iterdir(directory)
-                                         if ip_address in file.name and http_method in file.name]))
+                self.assertEqual(
+                    1,
+                    len(
+                        [
+                            file
+                            for file in pathlib.Path.iterdir(directory)
+                            if ip_address in file.name and http_method in file.name
+                        ]
+                    ),
+                )
 
-            for name in (commlog.DISCOVERY_OUT,
-                         commlog.SOAP_REQUEST_OUT,
-                         commlog.SOAP_RESPONSE_OUT):
+            for name in (commlog.DISCOVERY_OUT, commlog.SOAP_REQUEST_OUT, commlog.SOAP_RESPONSE_OUT):
                 logging.getLogger(name).debug(str(uuid.uuid4()))
                 self._verify_files_in_directory(directory, i)
 
@@ -99,34 +112,45 @@ class TestCommLogger(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir, commlog.DirectoryLogger(log_folder=tmp_dir, log_out=True):
             directory = pathlib.Path(tmp_dir)
             self._verify_files_in_directory(directory, 0)
-            for i, name in enumerate((commlog.DISCOVERY_OUT,
-                                      commlog.SOAP_REQUEST_OUT,
-                                      commlog.SOAP_RESPONSE_OUT),
-                                     start=1):
+            for i, name in enumerate(
+                (commlog.DISCOVERY_OUT, commlog.SOAP_REQUEST_OUT, commlog.SOAP_RESPONSE_OUT), start=1
+            ):
                 ip_address = uuid.uuid4().hex
                 http_method = uuid.uuid4().hex
-                logging.getLogger(name).debug(str(uuid.uuid4()),
-                                              extra={'ip_address': ip_address, 'http_method': http_method})
+                logging.getLogger(name).debug(
+                    str(uuid.uuid4()), extra={'ip_address': ip_address, 'http_method': http_method}
+                )
                 self._verify_files_in_directory(directory, i)
-                self.assertEqual(1, len([file for file in pathlib.Path.iterdir(directory)
-                                         if ip_address in file.name and http_method in file.name]))
+                self.assertEqual(
+                    1,
+                    len(
+                        [
+                            file
+                            for file in pathlib.Path.iterdir(directory)
+                            if ip_address in file.name and http_method in file.name
+                        ]
+                    ),
+                )
 
-            for name in (commlog.DISCOVERY_IN,
-                         commlog.SOAP_REQUEST_IN,
-                         commlog.SOAP_RESPONSE_IN,
-                         commlog.SOAP_SUBSCRIPTION_IN,
-                         commlog.WSDL):
+            for name in (
+                commlog.DISCOVERY_IN,
+                commlog.SOAP_REQUEST_IN,
+                commlog.SOAP_RESPONSE_IN,
+                commlog.SOAP_SUBSCRIPTION_IN,
+                commlog.WSDL,
+            ):
                 logging.getLogger(name).debug(str(uuid.uuid4()))
                 self._verify_files_in_directory(directory, i)
 
     def test_broadcast_filter_directory_logger(self):
         """Test the comm directory logger broadcast filter."""
         broadcast_ip_filter = uuid.uuid4().hex
-        with (tempfile.TemporaryDirectory() as tmp_dir,
-              commlog.DirectoryLogger(log_folder=tmp_dir,
-                                      log_out=True,
-                                      log_in=True,
-                                      broadcast_ip_filter=broadcast_ip_filter)):
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            commlog.DirectoryLogger(
+                log_folder=tmp_dir, log_out=True, log_in=True, broadcast_ip_filter=broadcast_ip_filter
+            ),
+        ):
             directory = pathlib.Path(tmp_dir)
             self._verify_files_in_directory(directory, 0)
 
@@ -137,9 +161,9 @@ class TestCommLogger(unittest.TestCase):
                 self.assertIsInstance(logger.handlers[0].filters[0], commlog.IpFilter)
                 message = str(uuid.uuid4())
                 logger.debug(message, extra={'ip_address': str(uuid.uuid4())})
-                self._verify_files_in_directory(directory, i-1)
+                self._verify_files_in_directory(directory, i - 1)
                 logger.debug(message)
-                self._verify_files_in_directory(directory, i-1)
+                self._verify_files_in_directory(directory, i - 1)
                 logger.debug(message, extra={'ip_address': broadcast_ip_filter})
                 self._verify_files_in_directory(directory, i)
 

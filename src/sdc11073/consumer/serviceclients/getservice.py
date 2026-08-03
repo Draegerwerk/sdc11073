@@ -1,3 +1,5 @@
+"""Implementation of the client for the GetService."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -8,6 +10,8 @@ from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from .serviceclientbase import GetRequestResult, HostedServiceClient
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from sdc11073.consumer.manipulator import RequestManipulatorProtocol
 
 
@@ -26,8 +30,11 @@ class GetServiceClient(HostedServiceClient):
         result = received_message_data.msg_reader.read_get_mdib_response(received_message_data)
         return GetRequestResult(received_message_data, result)
 
-    def get_md_description(self, requested_handles: list[str] | None = None,
-                           request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
+    def get_md_description(
+        self,
+        requested_handles: Iterable[str] | None = None,
+        request_manipulator: RequestManipulatorProtocol | None = None,
+    ) -> GetRequestResult:
         """Send a GetMdDescription request.
 
         :param requested_handles: None if all states shall be requested, otherwise a list of handles
@@ -45,8 +52,11 @@ class GetServiceClient(HostedServiceClient):
 
         return GetRequestResult(received_message_data, report)
 
-    def get_md_state(self, requested_handles: list[str] | None = None,
-                     request_manipulator: RequestManipulatorProtocol | None = None) -> GetRequestResult:
+    def get_md_state(
+        self,
+        requested_handles: Iterable[str] | None = None,
+        request_manipulator: RequestManipulatorProtocol | None = None,
+    ) -> GetRequestResult:
         """Send a GetMdState request.
 
         :param requested_handles: None if all states shall be requested, otherwise a list of handles

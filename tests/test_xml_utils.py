@@ -10,7 +10,8 @@ from tests import utils
 
 
 class TestXmlParsing(unittest.TestCase):
-    xml_to_be_parsed = (b"""<?xml version='1.0' encoding='UTF-8'?>
+    xml_to_be_parsed = (
+        b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
               xmlns:wsa="http://www.w3.org/2005/08/addressing"
               xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
@@ -40,7 +41,7 @@ class TestXmlParsing(unittest.TestCase):
         </msg:EpisodicAlertReport>
     </s12:Body>
 </s12:Envelope>""",
-                        b"""<?xml version='1.0' encoding='UTF-8'?>
+        b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
               xmlns:wsa="http://www.w3.org/2005/08/addressing"
               xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
@@ -92,7 +93,7 @@ class TestXmlParsing(unittest.TestCase):
         </msg:EpisodicMetricReport>
     </s12:Body>
 </s12:Envelope>""",
-                        b"""<?xml version='1.0' encoding='UTF-8'?>
+        b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
               xmlns:wsa="http://www.w3.org/2005/08/addressing"
               xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
@@ -122,7 +123,7 @@ class TestXmlParsing(unittest.TestCase):
         </msg:EpisodicAlertReport>
     </s12:Body>
 </s12:Envelope>""",
-                        b"""<?xml version='1.0' encoding='UTF-8'?>
+        b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
               xmlns:wsa="http://www.w3.org/2005/08/addressing"
               xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
@@ -166,7 +167,7 @@ class TestXmlParsing(unittest.TestCase):
         </msg:EpisodicMetricReport>
     </s12:Body>
 </s12:Envelope>""",
-                        b"""<?xml version="1.0" encoding="utf-8"?>
+        b"""<?xml version="1.0" encoding="utf-8"?>
 <ns0:Envelope xmlns:ns0="http://www.w3.org/2003/05/soap-envelope">
     <ns0:Header>
         <ns1:To xmlns:ns1="http://www.w3.org/2005/08/addressing">https://127.0.0.1:43165/</ns1:To>
@@ -208,7 +209,7 @@ class TestXmlParsing(unittest.TestCase):
         </ns0:WaveformStream>
     </ns0:Body>
 </ns0:Envelope>""",
-                        b"""<?xml version='1.0' encoding='UTF-8'?>
+        b"""<?xml version='1.0' encoding='UTF-8'?>
 <s12:Envelope xmlns:wse="http://schemas.xmlsoap.org/ws/2004/08/eventing"
     xmlns:wsa="http://www.w3.org/2005/08/addressing"
     xmlns:s12="http://www.w3.org/2003/05/soap-envelope"
@@ -243,7 +244,8 @@ class TestXmlParsing(unittest.TestCase):
             </ReportPart>
         </EpisodicAlertReport>
     </s12:Body>
-</s12:Envelope>""")
+</s12:Envelope>""",
+    )
 
     def setUp(self) -> None:
         self.xml_to_be_tested = [etree.fromstring(raw_xml)[1] for raw_xml in self.xml_to_be_parsed]

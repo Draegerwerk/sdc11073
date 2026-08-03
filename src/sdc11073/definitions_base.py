@@ -1,3 +1,5 @@
+"""Implementation of the base classes for protocol definitions and data models."""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -18,7 +20,8 @@ class ProtocolsRegistry(type):
 
     protocols: ClassVar[list[type[BaseDefinitions]]] = []
 
-    def __new__(cls, name: str, *arg, **kwarg):
+    def __new__(cls, name: str, *arg: Any, **kwarg: Any):
+        """Create the class and register it, unless it is the base class itself."""
         new_cls: ProtocolsRegistry = super().__new__(cls, name, *arg, **kwarg)
         if name != 'BaseDefinitions':  # ignore the base class itself
             new_cls: type[BaseDefinitions]
@@ -48,20 +51,24 @@ class AbstractDataModel(ABC):
         """Get the class that represents a BICEPS state entity with given QName."""
 
     def get_state_class_for_descriptor(
-            self, descriptor_container: AbstractDescriptorProtocol) -> type[AbstractStateProtocol]:
+        self, descriptor_container: AbstractDescriptorProtocol
+    ) -> type[AbstractStateProtocol]:
         """Get the corresponding state class for a descriptor."""
         state_class_qtype = descriptor_container.STATE_QNAME
         if state_class_qtype is None:
-            raise TypeError(f'No state association for {descriptor_container.__class__.__name__}')
+            msg = f'No state association for {descriptor_container.__class__.__name__}'
+            raise TypeError(msg)
         return self.get_state_container_class(state_class_qtype)
 
     def mk_state_container(self, descriptor_container: AbstractDescriptorProtocol) -> AbstractStateProtocol:
         """Create an instance that represents a BICEPS entity with given QName."""
         cls = self.get_state_class_for_descriptor(descriptor_container)
         if cls is None:
-            raise TypeError(
+            msg = (
                 f'No state container class for descr={descriptor_container.__class__.__name__}, '
-                f'name={descriptor_container.NODETYPE}')
+                f'name={descriptor_container.NODETYPE}'
+            )
+            raise TypeError(msg)
         return cls(descriptor_container)
 
     @property
@@ -101,7 +108,8 @@ class BaseDefinitions(metaclass=ProtocolsRegistry):
     MedicalDeviceType: etree.QName = None  # a QName, needed for types_match method
     ActionsNamespace: str = None  # needed for wsdl generation
     PortTypeNamespace: str = None  # needed for wsdl generation
-    MedicalDeviceTypesFilter: tuple[etree.QName] | None = None  # QNames that are used / expected in "types" of wsdiscovery
+    # QNames that are used / expected in "types" of wsdiscovery:
+    MedicalDeviceTypesFilter: tuple[etree.QName] | None = None
     Actions = None
     data_model: AbstractDataModel = None
 

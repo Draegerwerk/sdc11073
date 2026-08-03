@@ -1,3 +1,5 @@
+"""Implementation of the client for the WaveformService."""
+
 from sdc11073.dispatch import DispatchKey
 from sdc11073.namespaces import PrefixesEnum
 from sdc11073.xml_types import msg_qnames

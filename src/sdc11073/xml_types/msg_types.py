@@ -315,7 +315,9 @@ class InvocationInfo(PropertyBasedPMType):
 
 class OperationInvokedReportPart(AbstractReportPart):
     InvocationInfo = cp.SubElementProperty(
-        msg.InvocationInfo, value_class=InvocationInfo, default_py_value=InvocationInfo(),
+        msg.InvocationInfo,
+        value_class=InvocationInfo,
+        default_py_value=InvocationInfo(),
     )
     InvocationSource = cp.SubElementProperty(msg.InvocationSource, value_class=InstanceIdentifier)
     OperationHandleRef = cp.HandleRefAttributeProperty('OperationHandleRef', is_optional=False)
@@ -337,7 +339,9 @@ class OperationInvokedReport(AbstractReport):
 class AbstractSetResponse(MessageType):
     Extension = cp.ExtensionNodeProperty(ext.Extension)
     InvocationInfo = cp.SubElementProperty(
-        msg.InvocationInfo, value_class=InvocationInfo, default_py_value=InvocationInfo(),
+        msg.InvocationInfo,
+        value_class=InvocationInfo,
+        default_py_value=InvocationInfo(),
     )
     MdibVersion = cp.VersionCounterAttributeProperty('MdibVersion', implied_py_value=0)
     SequenceId = cp.AnyURIAttributeProperty('SequenceId', is_optional=False)
@@ -410,7 +414,9 @@ class DescriptionModificationReportPart(AbstractReportPart):
     )
     ParentDescriptor = cp.HandleRefAttributeProperty('ParentDescriptor')
     ModificationType = cp.EnumAttributeProperty(
-        'ModificationType', enum_cls=DescriptionModificationType, implied_py_value=DescriptionModificationType.UPDATE,
+        'ModificationType',
+        enum_cls=DescriptionModificationType,
+        implied_py_value=DescriptionModificationType.UPDATE,
     )
     _props = ('Descriptor', 'State', 'ParentDescriptor', 'ModificationType')
 
@@ -518,10 +524,12 @@ class MdDescription(PropertyBasedPMType):
 
 class MdState(PropertyBasedPMType):
     State = cp.ContainerListProperty(
-        pm.State, value_class=AbstractStateContainer, cls_getter=get_state_container_class, ns_helper=default_ns_helper,
+        pm.State,
+        value_class=AbstractStateContainer,
+        cls_getter=get_state_container_class,
+        ns_helper=default_ns_helper,
     )
     _props = ('State',)
-
 
 
 class GetMdib(AbstractGet):
@@ -547,7 +555,9 @@ class GetMdDescriptionResponse(AbstractGetResponse):
     NODETYPE = msg.GetMdDescriptionResponse
     action = Actions.GetMdDescriptionResponse
     MdDescription = cp.SubElementProperty(
-        msg.MdDescription, value_class=MdDescription, default_py_value=MdDescription(),
+        msg.MdDescription,
+        value_class=MdDescription,
+        default_py_value=MdDescription(),
     )
     _props = ('MdDescription',)
 
