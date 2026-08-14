@@ -384,7 +384,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
         super(DeviceMdibContainer, self).__init__(sdc_definitions)
         self._logger = loghelper.getLoggerAdapter('sdc.device.mdib', log_prefix)
         self._sdcDevice = None
-        self._trLock = Lock()  # transaction lock
+        self._trLock = Lock()  # transaction lock, ensures that no more than one transaction is executed at a time
 
         self.sequenceId = uuid.uuid4().urn  # this uuid identifies this mdib instance
 
@@ -399,7 +399,7 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
     @contextmanager
     def mdibUpdateTransaction(self):
         # pylint: disable=protected-access
-        with self._trLock:
+        with self._trLock, self.mdibLock:
             try:
                 self._current_transaction = _MdibUpdateTransaction(self)
                 yield self._current_transaction
@@ -416,21 +416,20 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
 
     @contextmanager
     def _rt_sample_transaction(self):
-        with self._trLock:
-            with self.mdibLock:
-                try:
-                    self._current_transaction = _RtDataMdibUpdateTransaction(self)
-                    yield self._current_transaction
-                    if callable(self.preCommitHandler):
-                        self.preCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
-                    if self._current_transaction._error:
-                        self._logger.info('_rtsampleTransaction: transaction without updates!')
-                    else:
-                        self._process_internal_rt_transaction()
-                        if callable(self.postCommitHandler):
-                            self.postCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
-                finally:
-                    self._current_transaction = None
+        with self._trLock, self.mdibLock:
+            try:
+                self._current_transaction = _RtDataMdibUpdateTransaction(self)
+                yield self._current_transaction
+                if callable(self.preCommitHandler):
+                    self.preCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
+                if self._current_transaction._error:
+                    self._logger.info('_rtsampleTransaction: transaction without updates!')
+                else:
+                    self._process_internal_rt_transaction()
+                    if callable(self.postCommitHandler):
+                        self.postCommitHandler(self, self._current_transaction)  # pylint: disable=not-callable
+            finally:
+                self._current_transaction = None
 
     def _process_transaction(self):
         mgr = self._current_transaction

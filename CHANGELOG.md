@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - raise exception when StateVersion is increased by exactly one when processing notifications in SDC Client Mdib [#501](https://github.com/Draegerwerk/sdc11073/issues/501)
 - raise exception when MidbVersion is increased by exactly one when processing notifications in SDC Client Mdib [#502](https://github.com/Draegerwerk/sdc11073/issues/502)
+- fix possible missmatch of MdibVersion and mdib data within GetMdibResponse - acquire MdibLock during MDIB transaction [#505](https://github.com/Draegerwerk/sdc11073/issues/505)
 
 ### Changed
 - remove ContainerBase.diff() method
