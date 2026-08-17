@@ -142,11 +142,7 @@ def _on_waveform_updates(
             event.set()
 
 
-def runtest_realtime_samples(
-    unit_test: unittest.TestCase,
-    sdc_device: SomeDevice,
-    sdc_client: SdcConsumer,
-) -> None:
+def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevice, sdc_client: SdcConsumer) -> None:
     # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long.
     # But wait long enough to have at least one full waveform period in buffer for annotations.
     client_mdib = ConsumerMdib(sdc_client, max_realtime_samples=297)
@@ -159,7 +155,13 @@ def runtest_realtime_samples(
     def collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
         for handle, evt in d_handles.items():
             if handle in waveform_by_handle:
-                evt.set()
+                waveform_state = waveform_by_handle[handle]
+                if (
+                    waveform_state.MetricValue
+                    and waveform_state.MetricValue.Annotation
+                    and waveform_state.MetricValue.ApplyAnnotation
+                ):
+                    evt.set()
 
         if all(ev.is_set() for ev in d_handles.values()):
             global_event.set()
