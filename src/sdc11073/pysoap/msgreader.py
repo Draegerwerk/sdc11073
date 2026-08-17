@@ -1,4 +1,5 @@
 """Message Reader implementation."""
+
 from __future__ import annotations
 
 import copy
@@ -52,9 +53,9 @@ def _get_text(node: xml_utils.LxmlElement, q_name: etree.QName) -> str | None:
     return tmp.text
 
 
-OperationRequest = namedtuple('OperationRequest', 'operation_handle argument') # noqa: PYI024
+OperationRequest = namedtuple('OperationRequest', 'operation_handle argument')  # noqa: PYI024
 
-SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list') # noqa: PYI024
+SubscriptionEndResult = namedtuple('SubscriptionEndResult', 'status_list reason_list reference_parameter_list')  # noqa: PYI024
 
 
 @dataclass
@@ -92,10 +93,13 @@ class ReceivedMessage:
 class MessageReader:
     """MessageReader does all the conversions from DOM trees (body of SOAP messages) to MDIB objects."""
 
-    def __init__(self, sdc_definitions: type[BaseDefinitions],
-                 additional_schema_specs: list[PrefixNamespace] | None,
-                 logger: LoggerAdapter,
-                 validate: bool = True):
+    def __init__(
+        self,
+        sdc_definitions: type[BaseDefinitions],
+        additional_schema_specs: list[PrefixNamespace] | None,
+        logger: LoggerAdapter,
+        validate: bool = True,
+    ):
         self.schema_specs = [entry.value for entry in sdc_definitions.data_model.ns_helper.prefix_enum]
         if additional_schema_specs is not None:
             self.schema_specs.extend(additional_schema_specs)
@@ -155,17 +159,18 @@ class MessageReader:
                 mdib_version_group = MdibVersionGroupReader.from_node(message.msg_node)
             except ValueError:
                 mdib_version_group = None
-        return ReceivedMessage(self, message, message.header_info_block.Action,
-                               message.msg_name, mdib_version_group)
+        return ReceivedMessage(self, message, message.header_info_block.Action, message.msg_name, mdib_version_group)
 
-    def read_get_mdib_response(self, received_message_data: ReceivedMessage) -> tuple[
-        list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
+    def read_get_mdib_response(
+        self, received_message_data: ReceivedMessage
+    ) -> tuple[list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib of received message."""
         mdib_node = received_message_data.p_msg.msg_node[0]
         return self.read_get_mdib_payload(mdib_node)
 
-    def read_get_mdib_payload(self, mdib_node: xml_utils.LxmlElement) -> tuple[
-        list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
+    def read_get_mdib_payload(
+        self, mdib_node: xml_utils.LxmlElement
+    ) -> tuple[list[AbstractDescriptorProtocol], list[AbstractStateProtocol]]:
         """Return list of all descriptors and states in mdib."""
         descriptors = []
         states = []
@@ -220,18 +225,20 @@ class MessageReader:
         state_containers = []
         all_state_nodes = md_state_node.findall(self.pm_names.State)
         for state_node in all_state_nodes:
-            state_containers.append(self._mk_state_container_from_node(state_node)) # noqa: PERF401
+            state_containers.append(self._mk_state_container_from_node(state_node))  # noqa: PERF401
         return state_containers
 
-    def _mk_descriptor_container_from_node(self, node: xml_utils.LxmlElement,
-                                           parent_handle: str | None) -> AbstractDescriptorProtocol:
+    def _mk_descriptor_container_from_node(
+        self, node: xml_utils.LxmlElement, parent_handle: str | None
+    ) -> AbstractDescriptorProtocol:
         node_type = node.get(QN_TYPE)
         node_type = text_to_qname(node_type, node.nsmap) if node_type is not None else etree.QName(node.tag)
         descr_cls = self.get_descriptor_container_class(node_type)
         return descr_cls.from_node(node, parent_handle)
 
-    def _mk_state_container_from_node(self, node: xml_utils.LxmlElement,
-                                      forced_type: etree.QName | None = None) -> AbstractStateProtocol:
+    def _mk_state_container_from_node(
+        self, node: xml_utils.LxmlElement, forced_type: etree.QName | None = None
+    ) -> AbstractStateProtocol:
         """Create a state container from a node.
 
         :param node: an etree node

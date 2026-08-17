@@ -1,4 +1,5 @@
 """Compression module for http."""
+
 import contextlib
 import zlib
 from abc import ABC, abstractmethod
@@ -12,25 +13,36 @@ except ImportError:
 
 
 class CompressionError(Exception):
-    pass
+    """A compression algorithm is not supported or the payload cannot be handled."""
 
 
 class AbstractDataCompressor(ABC):
-    algorithms = ()
+    """Abstract base class for all compression handlers."""
+
+    algorithms: ClassVar[tuple[str, ...]] = ()
 
     @staticmethod
     @abstractmethod
-    def compress_payload(payload):
-        pass
+    def compress_payload(payload: bytes) -> bytes:
+        """Compress the payload.
+
+        :param payload: bytes to compress
+        :return: compressed content
+        """
 
     @staticmethod
     @abstractmethod
-    def decompress_payload(payload):
-        pass
+    def decompress_payload(payload: bytes) -> bytes:
+        """Decompress the payload.
+
+        :param payload: bytes to decompress
+        :return: decompressed content
+        """
 
 
 class CompressionHandler:
     """Compression handler.
+
     Should be used by servers and clients that are supposed to handle compression.
     """
 
@@ -39,49 +51,60 @@ class CompressionHandler:
 
     @classmethod
     def register_handler(cls, handler: type[AbstractDataCompressor]):
+        """Add the algorithms of the handler to the supported encodings.
+
+        :param handler: the compressor to be registered
+        :raise ValueError: if one of the algorithms of the handler is already registered
+        """
         for alg in handler.algorithms:
             if alg.lower() in cls.available_encodings:
-                raise ValueError(f'Algorithm {alg} already registered, class = {cls.__name__} ')
+                msg = f'Algorithm {alg} already registered, class = {cls.__name__} '
+                raise ValueError(msg)
         for alg in handler.algorithms:
             cls.available_encodings.append(alg.lower())
             cls.handlers[alg] = handler
 
     @classmethod
-    def compress_payload(cls, algorithm: str, payload: bytes):
-        """Compresses payload based on required algorithm.
-        Raises CompressionException if algorithm is not supported.
+    def compress_payload(cls, algorithm: str, payload: bytes) -> bytes:
+        """Compress payload based on required algorithm.
 
         :param algorithm: one of strings provided by registered compression handlers
         :param payload: text to compress
-        @return: compressed content
+        :return: compressed content
+        :raise CompressionError: if algorithm is not supported
         """
         return cls.get_handler(algorithm).compress_payload(payload)
 
     @classmethod
-    def decompress_payload(cls, algorithm: str, payload: bytes):
-        """Decompresses payload based on required algorithm.
-        Raises CompressionException if algorithm is not supported.
+    def decompress_payload(cls, algorithm: str, payload: bytes) -> bytes:
+        """Decompress payload based on required algorithm.
 
         :param algorithm: one of strings provided by registered compression handlers
         :param payload: text to decompress
-        @return: decompressed content
+        :return: decompressed content
+        :raise CompressionError: if algorithm is not supported
         """
         return cls.get_handler(algorithm).decompress_payload(payload)
 
     @classmethod
-    def get_handler(cls, algorithm: str):
-        """:param algorithm: one of strings provided by registered compression handlers
+    def get_handler(cls, algorithm: str) -> type[AbstractDataCompressor]:
+        """Get the handler that implements the given algorithm.
+
+        :param algorithm: one of strings provided by registered compression handlers
         :return: AbstractDataCompressor implementation
+        :raise CompressionError: if algorithm is not supported
         """
         handler = cls.handlers.get(algorithm.lower())
         if not handler:
-            txt = f"{algorithm} compression is not supported. Only {cls.available_encodings} are supported."
+            txt = f'{algorithm} compression is not supported. Only {cls.available_encodings} are supported.'
             raise CompressionError(txt)
         return handler
 
     @staticmethod
-    def parse_header(header):
-        """Examples of headers are:  Examples of its use are:
+    def parse_header(header: str | None) -> list[str]:
+        """Parse an Accept-Encoding header.
+
+        Examples of headers are:
 
         Accept-Encoding: compress, gzip
         Accept-Encoding:
@@ -89,33 +112,48 @@ class CompressionHandler:
         Accept-Encoding: compress;q=0.5, gzip;q=1.0
         Accept-Encoding: gzip;q=1.0, identity; q=0.5, *;q=0
 
-        returns sorted list of compression algorithms by priority
+        :param header: value of the Accept-Encoding header
+        :return: sorted list of compression algorithms by priority
         """
         # for now work with standard python containers
         # if performance becomes an issue could be done within one loop
         parsed_headers = OrderedDict()
         if header:
-            for alg in (x.split(";") for x in header.split(",")):
+            for alg in (x.split(';') for x in header.split(',')):
                 alg_name = alg[0].strip()
                 parsed_headers[alg_name] = 1  # default
                 with contextlib.suppress(ValueError, IndexError):
-                    parsed_headers[alg_name] = float(alg[1].split("=")[1])
+                    parsed_headers[alg_name] = float(alg[1].split('=')[1])
 
         return [pair[0] for pair in sorted(parsed_headers.items(), key=lambda kv: kv[1], reverse=True)]
 
 
 class GzipCompressionHandler(AbstractDataCompressor):
-    algorithms = ('gzip',)
+    """Compression handler that implements the gzip algorithm."""
+
+    algorithms: ClassVar[tuple[str, ...]] = ('gzip',)
 
     @staticmethod
-    def compress_payload(payload: bytes):
+    def compress_payload(payload: bytes) -> bytes:
+        """Compress the payload with gzip.
+
+        :param payload: bytes to compress
+        :return: compressed content
+        :raise TypeError: if payload is not a bytes-like object
+        """
         if not isinstance(payload, bytes):
-            raise TypeError(f'a bytes-like object is required, not "{payload.__class__.__name__}", payload={payload}')
+            msg = f'a bytes-like object is required, not "{payload.__class__.__name__}", payload={payload}'
+            raise TypeError(msg)
         gzip_compress = zlib.compressobj(zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, 16 + zlib.MAX_WBITS)
         return gzip_compress.compress(payload) + gzip_compress.flush()
 
     @staticmethod
-    def decompress_payload(payload: bytes):
+    def decompress_payload(payload: bytes) -> bytes:
+        """Decompress the gzip compressed payload.
+
+        :param payload: bytes to decompress
+        :return: decompressed content
+        """
         return zlib.decompress(payload, 16 + zlib.MAX_WBITS)
 
 
@@ -123,14 +161,26 @@ CompressionHandler.register_handler(GzipCompressionHandler)
 
 
 class Lz4CompressionHandler(AbstractDataCompressor):
-    algorithms = ('x-lz4', 'lz4')
+    """Compression handler that implements the lz4 algorithm."""
+
+    algorithms: ClassVar[tuple[str, ...]] = ('x-lz4', 'lz4')
 
     @staticmethod
-    def compress_payload(payload: bytes):
+    def compress_payload(payload: bytes) -> bytes:
+        """Compress the payload with lz4.
+
+        :param payload: bytes to compress
+        :return: compressed content
+        """
         return lz4.frame.compress(payload)
 
     @staticmethod
-    def decompress_payload(payload: bytes):
+    def decompress_payload(payload: bytes) -> bytes:
+        """Decompress the lz4 compressed payload.
+
+        :param payload: bytes to decompress
+        :return: decompressed content
+        """
         return lz4.frame.decompress(payload)
 
 

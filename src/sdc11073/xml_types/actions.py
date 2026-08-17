@@ -1,3 +1,5 @@
+"""Implementation of the definition of all BICEPS action strings."""
+
 from enum import Enum
 
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -31,7 +33,9 @@ class Actions(str, Enum):
     GetContextStates = _ActionsNamespace + '/ContextService/GetContextStates'
     GetContextStatesResponse = _ActionsNamespace + '/ContextService/GetContextStatesResponse'
     GetContextStatesByIdentification = _ActionsNamespace + '/ContextService/GetContextStatesByIdentification'
-    GetContextStatesByIdentificationResponse = _ActionsNamespace + '/ContextService/GetContextStatesByIdentificationResponse'
+    GetContextStatesByIdentificationResponse = (
+        _ActionsNamespace + '/ContextService/GetContextStatesByIdentificationResponse'
+    )
     GetContextStatesByFilter = _ActionsNamespace + '/ContextService/GetContextStatesByFilter'
     GetContextStatesByFilterResponse = _ActionsNamespace + '/ContextService/GetContextStatesByFilterResponse'
     SetContextState = _ActionsNamespace + '/ContextService/SetContextState'
@@ -60,11 +64,12 @@ class Actions(str, Enum):
 
 # some sets of actions, useful when user wants to exclude some actions from subscriptions.
 # these are the typical sets:
-periodic_actions = {Actions.PeriodicContextReport,
-                    Actions.PeriodicMetricReport,
-                    Actions.PeriodicOperationalStateReport,
-                    Actions.PeriodicAlertReport,
-                    Actions.PeriodicComponentReport,
-                    }
+periodic_actions = {
+    Actions.PeriodicContextReport,
+    Actions.PeriodicMetricReport,
+    Actions.PeriodicOperationalStateReport,
+    Actions.PeriodicAlertReport,
+    Actions.PeriodicComponentReport,
+}
 
 periodic_actions_and_system_error_report = set(periodic_actions).add(Actions.SystemErrorReport)

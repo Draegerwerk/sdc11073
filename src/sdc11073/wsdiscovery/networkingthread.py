@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from sdc11073.pysoap.msgfactory import CreatedMessage
     from sdc11073.wsdiscovery.wsdimpl import WSDiscovery
 
-BUFFER_SIZE = 0xffff
+BUFFER_SIZE = 0xFFFF
 
 
 @dataclasses.dataclass(frozen=True)
@@ -60,8 +60,10 @@ class OutgoingMessage:
     port: int
 
     def __repr__(self):
-        return (f"{self.__class__.__name__}(addr={self.addr}, port={self.port}, "
-                f"created_message={self.created_message.serialize()})")
+        return (
+            f'{self.__class__.__name__}(addr={self.addr}, port={self.port}, '
+            f'created_message={self.created_message.serialize()})'
+        )
 
 
 class NetworkingThread:
@@ -73,12 +75,7 @@ class NetworkingThread:
         msg: OutgoingMessage = dataclasses.field(compare=False)
         repeat: int
 
-    def __init__(self,
-                 my_ip_address: str,
-                 wsd: WSDiscovery,
-                 logger: Logger,
-                 multicast_port: int,
-                 multicast_ttl: int):
+    def __init__(self, my_ip_address: str, wsd: WSDiscovery, logger: Logger, multicast_port: int, multicast_ttl: int):
         self._my_ip_address = my_ip_address
         self._wsd = wsd
         self._logger = logger
@@ -123,22 +120,24 @@ class NetworkingThread:
         else:
             sock.bind((addr, port))
         sock.setblocking(False)
-        _addr = struct.pack("4s4s", socket.inet_aton(MULTICAST_IPV4_ADDRESS), socket.inet_aton(addr))
+        _addr = struct.pack('4s4s', socket.inet_aton(MULTICAST_IPV4_ADDRESS), socket.inet_aton(addr))
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, _addr)
         self._register_inbound_socket(sock)
         return sock
 
     def add_outbound_message(self, msg: CreatedMessage, addr: str, port: int, repeat_params: _UdpRepeatParams):
         """Add a message to the sending queue."""
-        self._logger.debug('adding outbound message with Id "%s" to sending queue',
-                           msg.p_msg.header_info_block.MessageID)
+        self._logger.debug(
+            'adding outbound message with Id "%s" to sending queue', msg.p_msg.header_info_block.MessageID
+        )
         self._known_message_ids.appendleft(msg.p_msg.header_info_block.MessageID)
         self._repeated_enqueue_msg(OutgoingMessage(msg, addr, port), repeat_params)
 
     def _repeated_enqueue_msg(self, msg: OutgoingMessage, delay_params: _UdpRepeatParams):
         if self._quit_send_event.is_set():
-            self._logger.warning('_repeated_enqueue_msg: sending thread not running - message will be dropped - %s',
-                                 msg)
+            self._logger.warning(
+                '_repeated_enqueue_msg: sending thread not running - message will be dropped - %s', msg
+            )
             return
         initial_delay_ms = random.randint(0, delay_params.max_initial_delay_ms)
         next_send = time.time() + initial_delay_ms / 1000.0
@@ -196,23 +195,29 @@ class NetworkingThread:
                 pass
             else:
                 addr, data = incoming
-                if b"http://schemas.xmlsoap.org/ws/2005/04/discovery" in data:
+                if b'http://schemas.xmlsoap.org/ws/2005/04/discovery' in data:
                     continue  # older version of discovery standard, ignore completely.
                 logging.getLogger(commlog.DISCOVERY_IN).debug(data, extra={'ip_address': addr[0]})
                 try:
                     try:
                         received_message = message_reader.read_received_message(data, validate=True)
                     except (etree.XMLSyntaxError, ValidationError) as ex:
-                        self._logger.info('_run_q_read: received invalid message from %r, ignoring it (error=%s)', addr,
-                                          ex)
+                        self._logger.info(
+                            '_run_q_read: received invalid message from %r, ignoring it (error=%s)', addr, ex
+                        )
                     else:
                         mid = received_message.p_msg.header_info_block.MessageID
                         if mid in self._known_message_ids:
-                            self._logger.debug('incoming message already known: %s (from %r, Id %s).',
-                                               received_message.action, addr, mid)
+                            self._logger.debug(
+                                'incoming message already known: %s (from %r, Id %s).',
+                                received_message.action,
+                                addr,
+                                mid,
+                            )
                             continue
-                        self._logger.debug('new incoming message: %s (from %r, Id %s).',
-                                           received_message.action, addr, mid)
+                        self._logger.debug(
+                            'new incoming message: %s (from %r, Id %s).', received_message.action, addr, mid
+                        )
                         self._known_message_ids.appendleft(mid)
                         self._wsd.handle_received_message(received_message, addr)
                 except Exception:  # noqa: BLE001
@@ -221,12 +226,15 @@ class NetworkingThread:
     def _send_msg(self, q_msg: _EnqueuedMessage, s: socket.socket):
         msg = q_msg.msg
         data = msg.created_message.serialize()
-        self._logger.debug('send message %d bytes (%d) action=%s: to=%s:%r id=%s',
-                           len(data),
-                           q_msg.repeat,
-                           msg.created_message.p_msg.header_info_block.Action,
-                           msg.addr, msg.port,
-                           msg.created_message.p_msg.header_info_block.MessageID)
+        self._logger.debug(
+            'send message %d bytes (%d) action=%s: to=%s:%r id=%s',
+            len(data),
+            q_msg.repeat,
+            msg.created_message.p_msg.header_info_block.Action,
+            msg.addr,
+            msg.port,
+            msg.created_message.p_msg.header_info_block.MessageID,
+        )
         try:
             s.sendto(data, (msg.addr, msg.port))
         except:  # noqa: E722 use bare except here, this is a catch-all that keeps thread running.

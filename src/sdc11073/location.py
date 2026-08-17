@@ -131,7 +131,7 @@ class SdcLocation:
         if src.scheme.lower() != cls.scheme:
             msg = f'scheme "{src.scheme}" not excepted, must be "{cls.scheme}"'
             raise UrlSchemeError(msg)
-        dummy, root, _ = src.path.split('/')
+        _, root, __ = src.path.split('/')
         root = unquote(root)
         query_dict = dict(parse_qsl(src.query))
         # make a new argumentsDict with well known keys.

@@ -1,8 +1,9 @@
+"""Implementation of a request dispatcher that handles incoming notifications in a separate thread."""
+
 from __future__ import annotations
 
 import queue
 import threading
-import traceback
 from typing import TYPE_CHECKING
 
 from sdc11073.dispatch import RequestData, RequestDispatcher
@@ -20,9 +21,12 @@ class EmptyResponse(CreatedMessage):
     def __init__(self):
         super().__init__(None, None)
 
-    def serialize(self, pretty: bool = False,  # noqa: ARG002
-                  request_manipulator: RequestManipulatorProtocol | None = None,  # noqa: ARG002
-                  validate: bool = True) -> bytes:  # noqa: ARG002
+    def serialize(
+        self,
+        pretty: bool = False,  # noqa: ARG002
+        request_manipulator: RequestManipulatorProtocol | None = None,  # noqa: ARG002
+        validate: bool = True,  # noqa: ARG002
+    ) -> bytes:
         """Return bytes of len 0."""
         return b''
 
@@ -59,7 +63,6 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
             func, request, action = self._queue.get()
             try:
                 func(request)
-            except Exception:  # noqa: BLE001
+            except Exception:
                 # catch all to keep thread alive
-                self._logger.error('method {} for action "{}" failed:{}',  # noqa: PLE1205
-                                   func.__name__, action, traceback.format_exc())
+                self._logger.exception('method {} for action "{}" failed', func.__name__, action)  # noqa: PLE1205

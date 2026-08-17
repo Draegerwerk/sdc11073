@@ -91,8 +91,10 @@ def _get_device_component_based_scopes(mdib: ProviderMdibProtocol) -> set[str]:
     for entity in entities:
         if entity.descriptor.Type is not None:
             if not entity.descriptor.Type.Code:
-                msg = (f'MdsDescriptor with the Handle "{entity.handle}" has a zero-length pm:Type/@Code specified - '
-                       f'see IEEE Std 11073-20701-2018 chapter 9.2.')
+                msg = (
+                    f'MdsDescriptor with the Handle "{entity.handle}" has a zero-length pm:Type/@Code specified - '
+                    f'see IEEE Std 11073-20701-2018 chapter 9.2.'
+                )
                 raise ValueError(msg)
             cs = urllib.parse.quote(entity.descriptor.Type.CodingSystem or '', safe='')
             csv = urllib.parse.quote(entity.descriptor.Type.CodingSystemVersion or '', safe='')

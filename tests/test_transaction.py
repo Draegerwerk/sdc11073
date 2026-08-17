@@ -2,6 +2,7 @@
 
 It tests classic transactions and entity transactions.
 """
+
 import pathlib
 import unittest
 
@@ -14,12 +15,12 @@ from sdc11073.xml_types import pm_qnames, pm_types
 
 mdib_file = str(pathlib.Path(__file__).parent.joinpath('mdib_tns.xml'))
 
+
 class TestTransactions(unittest.TestCase):
     """Test all kinds of transactions."""
 
     def setUp(self):
-        self._mdib = ProviderMdib.from_mdib_file(mdib_file,
-                                                 protocol_definition=SdcV1Definitions)
+        self._mdib = ProviderMdib.from_mdib_file(mdib_file, protocol_definition=SdcV1Definitions)
         self._mdib._transaction_factory = mk_transaction
 
     def test_alert_state_update(self):
@@ -94,8 +95,9 @@ class TestTransactions(unittest.TestCase):
         - ApiUsageError is thrown if state of wrong kind is added,
         """
         mdib_version = self._mdib.mdib_version
-        op_descriptor_handle = self._mdib.descriptions.NODETYPE.get(
-            pm_qnames.SetAlertStateOperationDescriptor)[0].Handle
+        op_descriptor_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.SetAlertStateOperationDescriptor)[
+            0
+        ].Handle
         metric_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)[0].Handle
         old_state = self._mdib.states.descriptor_handle.get_one(op_descriptor_handle).mk_copy()
         state_version = old_state.StateVersion
@@ -168,12 +170,12 @@ class TestTransactions(unittest.TestCase):
         mdib_version = self._mdib.mdib_version
         alert_condition_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.AlertConditionDescriptor)[0].Handle
         metric_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.NumericMetricDescriptor)[0].Handle
-        operational_descr_handle = self._mdib.descriptions.NODETYPE.get(
-            pm_qnames.SetAlertStateOperationDescriptor)[0].Handle
+        operational_descr_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.SetAlertStateOperationDescriptor)[
+            0
+        ].Handle
         component_descr_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.ChannelDescriptor)[0].Handle
         rt_descr_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.RealTimeSampleArrayMetricDescriptor)[0].Handle
         context_descr_handle = self._mdib.descriptions.NODETYPE.get(pm_qnames.PatientContextDescriptor)[0].Handle
-
 
         with self._mdib.descriptor_transaction() as mgr:
             # verify that updating descriptors of different kinds and accessing corresponding states works
@@ -205,7 +207,6 @@ class TestTransactions(unittest.TestCase):
         self.assertTrue(component_descr_handle in self._mdib.updated_descriptors_by_handle)
         self.assertTrue(component_descr_handle in self._mdib.component_by_handle)
         self.assertTrue(rt_descr_handle in self._mdib.updated_descriptors_by_handle)
-
 
         # verify that accessing a state for that the descriptor is not part of transaction is not allowed
         with self._mdib.descriptor_transaction() as mgr:
@@ -267,13 +268,11 @@ class TestTransactions(unittest.TestCase):
             self.assertEqual(state.DescriptorVersion, current_descriptors[state.DescriptorHandle].DescriptorVersion)
 
 
-
 class TestEntityTransactions(unittest.TestCase):
     """Test all kinds of transactions for entity interface of ProviderMdib."""
 
     def setUp(self):
-        self._mdib = ProviderMdib.from_mdib_file(mdib_file,
-                                                 protocol_definition=SdcV1Definitions)
+        self._mdib = ProviderMdib.from_mdib_file(mdib_file, protocol_definition=SdcV1Definitions)
 
     def test_alert_state_update(self):
         """Verify that alert_state_transaction works as expected.
@@ -375,18 +374,18 @@ class TestEntityTransactions(unittest.TestCase):
         self.assertEqual(len(self._mdib.transaction.ctxt_updates), 1)
 
         new_pat_entity = self._mdib.entities.by_handle(old_pat_entity.handle)
-        self.assertEqual(new_pat_entity.states[context_handle].StateVersion,0)
-        self.assertEqual(new_pat_entity.states[context_handle].CoreData.Givenname,'foo')
-        self.assertEqual(new_pat_entity.states[context_handle].CoreData.Familyname,'bar')
+        self.assertEqual(new_pat_entity.states[context_handle].StateVersion, 0)
+        self.assertEqual(new_pat_entity.states[context_handle].CoreData.Givenname, 'foo')
+        self.assertEqual(new_pat_entity.states[context_handle].CoreData.Familyname, 'bar')
 
         new_pat_entity.states[context_handle].CoreData.Familyname = 'foobar'
 
         with self._mdib.context_state_transaction() as mgr:
             mgr.write_entity(new_pat_entity, [context_handle])
 
-        newest_pat_entity =  self._mdib.entities.by_handle(old_pat_entity.handle)
-        self.assertEqual(newest_pat_entity.states[context_handle].StateVersion,1)
-        self.assertEqual(newest_pat_entity.states[context_handle].CoreData.Familyname,'foobar')
+        newest_pat_entity = self._mdib.entities.by_handle(old_pat_entity.handle)
+        self.assertEqual(newest_pat_entity.states[context_handle].StateVersion, 1)
+        self.assertEqual(newest_pat_entity.states[context_handle].CoreData.Familyname, 'foobar')
 
         metric_entities = self._mdib.entities.by_node_type(pm_qnames.NumericMetricDescriptor)
         with self._mdib.alert_state_transaction() as mgr:
@@ -441,8 +440,8 @@ class TestEntityTransactions(unittest.TestCase):
         """Verify that removing descriptors / states and adding them later again results in correct versions."""
         # remove all root descriptors
         all_entities = {}
-        for descr in  self._mdib.descriptions.objects:
-            all_entities[descr.Handle] = self._mdib.entities.by_handle(descr.Handle) # get external representation
+        for descr in self._mdib.descriptions.objects:
+            all_entities[descr.Handle] = self._mdib.entities.by_handle(descr.Handle)  # get external representation
 
         root_entities = self._mdib.entities.by_parent_handle(None)
         with self._mdib.descriptor_transaction() as mgr:

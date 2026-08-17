@@ -2,18 +2,19 @@
 
 Only these protocols shall be used, the old way of transactions in mdib.transactions should no longer be used.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol, Union
+from typing import TYPE_CHECKING, Protocol
 
 from .statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
 
 if TYPE_CHECKING:
-
     from .descriptorcontainers import AbstractDescriptorProtocol
     from .entityprotocol import EntityProtocol, EntityTypeProtocol, MultiStateEntityProtocol
+
 
 class TransactionType(Enum):
     """The different kinds of transactions.
@@ -30,7 +31,7 @@ class TransactionType(Enum):
     rt_sample = 7
 
 
-class TransactionResultProtocol(Protocol): # pragma: no cover
+class TransactionResultProtocol(Protocol):  # pragma: no cover
     """TransactionResult contains all state and descriptors that were modified in the transaction.
 
     The states and descriptors are used to create the notification(s) that keep the consumers up to date.
@@ -52,7 +53,8 @@ class TransactionResultProtocol(Protocol): # pragma: no cover
     def all_states(self) -> list[AbstractStateProtocol]:
         """Return all states in this transaction."""
 
-class TransactionItemProtocol(Protocol): # pragma: no cover
+
+class TransactionItemProtocol(Protocol):  # pragma: no cover
     """A container for the old and the new version of a state or descriptor.
 
     If old is None, this is an object that is added to mdib.
@@ -72,9 +74,7 @@ class TransactionItem:
     new: AbstractStateProtocol | AbstractDescriptorProtocol | None
 
 
-
-
-class AbstractTransactionManagerProtocol(Protocol): # pragma: no cover
+class AbstractTransactionManagerProtocol(Protocol):  # pragma: no cover
     """Interface of a TransactionManager."""
 
     new_mdib_version: int
@@ -93,7 +93,7 @@ class AbstractTransactionManagerProtocol(Protocol): # pragma: no cover
     error: bool
 
 
-class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol): # pragma: no cover
+class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProtocol):  # pragma: no cover
     """Entity based transaction manager for modification of descriptors (and associated states).
 
     The entity based transaction manager protocol can only be used with EntityGetter methods!
@@ -114,21 +114,17 @@ class EntityDescriptorTransactionManagerProtocol(AbstractTransactionManagerProto
         it can be necessary to have access to it.
         """
 
-    def write_entity(self,
-                     entity: EntityTypeProtocol,
-                     adjust_version_counter: bool = True):
+    def write_entity(self, entity: EntityTypeProtocol, adjust_version_counter: bool = True):
         """Insert or update an entity (state and descriptor)."""
 
-    def write_entities(self,
-                       entities: list[EntityTypeProtocol],
-                       adjust_version_counter: bool = True):
+    def write_entities(self, entities: list[EntityTypeProtocol], adjust_version_counter: bool = True):
         """Insert or update list of entities."""
 
     def remove_entity(self, entity: EntityTypeProtocol):
         """Remove existing descriptor from mdib."""
 
 
-class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol): # pragma: no cover
+class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):  # pragma: no cover
     """Entity based transaction manager for modification of states.
 
     The entity based transaction manager protocol can only be used with EntityGetter methods!
@@ -142,18 +138,14 @@ class EntityStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):
     def has_state(self, descriptor_handle: str) -> bool:
         """Check if transaction has a state with given handle."""
 
-    def write_entity(self,
-                     entity: EntityProtocol,
-                     adjust_version_counter: bool = True):
+    def write_entity(self, entity: EntityProtocol, adjust_version_counter: bool = True):
         """Update the state of the entity."""
 
-    def write_entities(self,
-                       entities: list[EntityProtocol],
-                       adjust_version_counter: bool = True):
+    def write_entities(self, entities: list[EntityProtocol], adjust_version_counter: bool = True):
         """Update the states of entities."""
 
 
-class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerProtocol): # pragma: no cover
+class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerProtocol):  # pragma: no cover
     """Entity based transaction manager for modification of context states.
 
     The entity based transaction manager protocol can only be used with EntityGetter methods!
@@ -164,13 +156,13 @@ class EntityContextStateTransactionManagerProtocol(AbstractTransactionManagerPro
         3. Create a descriptor transaction context and write entity data back to mdib with write_entity method
     """
 
-    def write_entity(self, entity: MultiStateEntityProtocol,
-                  modified_handles: list[str],
-                  adjust_version_counter: bool = True):
+    def write_entity(
+        self, entity: MultiStateEntityProtocol, modified_handles: list[str], adjust_version_counter: bool = True
+    ):
         """Insert or update a context state in mdib."""
 
 
-class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerProtocol): # pragma: no cover
+class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerProtocol):  # pragma: no cover
     """The classic Interface of a TransactionManager that modifies descriptors.
 
     The classic transaction manager protocol can not be used with EntityGetter methods!
@@ -198,10 +190,12 @@ class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerPro
     def actual_descriptor(self, descriptor_handle: str) -> AbstractDescriptorProtocol:
         """Look for new or updated descriptor in current transaction and in mdib."""
 
-    def add_descriptor(self,
-                       descriptor_container: AbstractDescriptorProtocol,
-                       adjust_descriptor_version: bool = True,
-                       state_container: AbstractStateProtocol | None = None):
+    def add_descriptor(
+        self,
+        descriptor_container: AbstractDescriptorProtocol,
+        adjust_descriptor_version: bool = True,
+        state_container: AbstractStateProtocol | None = None,
+    ):
         """Add a new descriptor to mdib."""
 
     def remove_descriptor(self, descriptor_handle: str):
@@ -225,14 +219,17 @@ class DescriptorTransactionManagerProtocol(EntityDescriptorTransactionManagerPro
     def get_context_state(self, context_state_handle: str) -> AbstractMultiStateProtocol:
         """Read a ContextState from mdib with given state handle."""
 
-    def mk_context_state(self, descriptor_handle: str,
-                         context_state_handle: str | None = None,
-                         adjust_state_version: bool = True,
-                         set_associated: bool = False) -> AbstractMultiStateProtocol:
+    def mk_context_state(
+        self,
+        descriptor_handle: str,
+        context_state_handle: str | None = None,
+        adjust_state_version: bool = True,
+        set_associated: bool = False,
+    ) -> AbstractMultiStateProtocol:
         """Create a new ContextStateContainer."""
 
 
-class StateTransactionManagerProtocol(EntityStateTransactionManagerProtocol): # pragma: no cover
+class StateTransactionManagerProtocol(EntityStateTransactionManagerProtocol):  # pragma: no cover
     """The classic Interface of a TransactionManager that modifies states (except context states).
 
     The classic transaction manager protocol can not be used with EntityGetter methods!
@@ -257,7 +254,7 @@ class StateTransactionManagerProtocol(EntityStateTransactionManagerProtocol): # 
         """Read a state from mdib and add it to the transaction."""
 
 
-class ContextStateTransactionManagerProtocol(EntityContextStateTransactionManagerProtocol): # pragma: no cover
+class ContextStateTransactionManagerProtocol(EntityContextStateTransactionManagerProtocol):  # pragma: no cover
     """The classic Interface of a TransactionManager that modifies context states.
 
     The classic transaction manager protocol can not be used with EntityGetter methods!
@@ -274,23 +271,26 @@ class ContextStateTransactionManagerProtocol(EntityContextStateTransactionManage
     def get_context_state(self, context_state_handle: str) -> AbstractMultiStateProtocol:
         """Read a ContextState from mdib with given state handle."""
 
-    def mk_context_state(self, descriptor_handle: str,
-                         context_state_handle: str | None = None,
-                         adjust_state_version: bool = True,
-                         set_associated: bool = False) -> AbstractMultiStateProtocol:
+    def mk_context_state(
+        self,
+        descriptor_handle: str,
+        context_state_handle: str | None = None,
+        adjust_state_version: bool = True,
+        set_associated: bool = False,
+    ) -> AbstractMultiStateProtocol:
         """Create a new ContextStateContainer."""
 
-    def disassociate_all(self,
-                         context_descriptor_handle: str,
-                         ignored_handle: str | None = None) -> list[str]:
+    def disassociate_all(self, context_descriptor_handle: str, ignored_handle: str | None = None) -> list[str]:
         """Disassociate all associated states in mdib for context_descriptor_handle."""
 
-AnyEntityTransactionManagerProtocol = Union[EntityContextStateTransactionManagerProtocol,
-                                            EntityStateTransactionManagerProtocol,
-                                            EntityDescriptorTransactionManagerProtocol]
+
+AnyEntityTransactionManagerProtocol = (
+    EntityContextStateTransactionManagerProtocol
+    | EntityStateTransactionManagerProtocol
+    | EntityDescriptorTransactionManagerProtocol
+)
 
 
-AnyTransactionManagerProtocol = Union[ContextStateTransactionManagerProtocol,
-                                      StateTransactionManagerProtocol,
-                                      DescriptorTransactionManagerProtocol]
-
+AnyTransactionManagerProtocol = (
+    ContextStateTransactionManagerProtocol | StateTransactionManagerProtocol | DescriptorTransactionManagerProtocol
+)

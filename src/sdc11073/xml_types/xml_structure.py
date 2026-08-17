@@ -1575,7 +1575,9 @@ class DateOfBirthProperty(_ElementBase):
         )
 
     def get_py_value_from_node(
-        self, instance: Any, node: xml_utils.LxmlElement,  # noqa: ARG002
+        self,
+        instance: Any,  # noqa: ARG002
+        node: xml_utils.LxmlElement,
     ) -> isoduration.XsdDateInformation | None:
         """Read value from node."""
         try:
