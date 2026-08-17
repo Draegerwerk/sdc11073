@@ -147,7 +147,7 @@ class TestDevSubscription(BicepsSubscription):
 class SomeDevice(SdcProvider):
     """A device used for unit tests. Some values are predefined."""
 
-    def __init__(  # noqa: PLR0913, PLR0917
+    def __init__(  # noqa: PLR0913
         self,
         wsdiscovery: WsDiscoveryProtocol,
         mdib_xml_data: bytes,
@@ -201,7 +201,7 @@ class SomeDevice(SdcProvider):
         )
 
     @classmethod
-    def from_mdib_file(  # noqa: PLR0913, PLR0917
+    def from_mdib_file(  # noqa: PLR0913
         cls,
         wsdiscovery: WsDiscoveryProtocol,
         epr: str | uuid.UUID | None,
