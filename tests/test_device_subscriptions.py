@@ -2,7 +2,6 @@
 
 import pathlib
 import re
-import time
 import unittest
 from decimal import Decimal
 
@@ -90,6 +89,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             [self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
             self.sdc_device._soap_client_pool,
             self.sdc_device.msg_factory,
+            test_nbr_reports=21,
         )
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
 
@@ -105,7 +105,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
         waveform_provider.register_waveform_generator(HANDLES[1], st)
         waveform_provider.register_waveform_generator(HANDLES[2], si)
 
-        time.sleep(3)
+        self.assertTrue(test_subscription.reports_event.wait(timeout=10))
         self.assertGreater(len(test_subscription.reports), 20)
         report = test_subscription.reports[-1]
         self._verify_proper_namespaces(report)

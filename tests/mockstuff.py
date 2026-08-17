@@ -76,7 +76,13 @@ class TestDevSubscription(BicepsSubscription):
     expires = 60
     notify_ref = 'a ref string'
 
-    def __init__(self, filter_: list[str], soap_client_pool: SoapClientPool, msg_factory: MessageFactory):
+    def __init__(
+        self,
+        filter_: list[str],
+        soap_client_pool: SoapClientPool,
+        msg_factory: MessageFactory,
+        test_nbr_reports: int = 1,
+    ):
         notify_ref_node = etree.Element(ns_hlp.WSE.tag('References'))
         ident_node = etree.SubElement(notify_ref_node, ns_hlp.WSE.tag('Identifier'))
         ident_node.text = self.notify_ref
@@ -100,6 +106,8 @@ class TestDevSubscription(BicepsSubscription):
             log_prefix='test',
         )
         self.reports = []
+        self._test_nbr_reports = test_nbr_reports
+        self.reports_event = threading.Event()
 
     def send_notification_report(self, body_node: LxmlElement, action: str):
         """Send notification to subscriber."""
@@ -110,6 +118,8 @@ class TestDevSubscription(BicepsSubscription):
         )
         message = self._mk_notification_message(info_block, body_node)
         self.reports.append(message)
+        if len(self.reports) >= self._test_nbr_reports:
+            self.reports_event.set()
 
     async def async_send_notification_report(self, body_node: LxmlElement, action: str):
         """Send notification to subscriber."""
@@ -120,6 +130,8 @@ class TestDevSubscription(BicepsSubscription):
         )
         message = self._mk_notification_message(info_block, body_node)
         self.reports.append(message)
+        if len(self.reports) >= self._test_nbr_reports:
+            self.reports_event.set()
 
     async def async_send_notification_end_message(
         self,
@@ -135,7 +147,7 @@ class TestDevSubscription(BicepsSubscription):
 class SomeDevice(SdcProvider):
     """A device used for unit tests. Some values are predefined."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         wsdiscovery: WsDiscoveryProtocol,
         mdib_xml_data: bytes,
@@ -189,7 +201,7 @@ class SomeDevice(SdcProvider):
         )
 
     @classmethod
-    def from_mdib_file(  # noqa: PLR0913
+    def from_mdib_file(  # noqa: PLR0913, PLR0917
         cls,
         wsdiscovery: WsDiscoveryProtocol,
         epr: str | uuid.UUID | None,
