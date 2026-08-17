@@ -490,208 +490,201 @@ class DeviceMdibContainer(mdibbase.MdibContainer):
             to_be_created = [new for old, new in mgr.descriptorUpdates.values() if old is None]
             to_be_deleted_handles = [d.handle for d in to_be_deleted]
             to_be_created_handles = [d.handle for d in to_be_created]
-            with self.mdibLock:
 
-                def _updateCorrespondingState(descriptorContainer):
-                    # add state to updated_states list and to corresponding notifications input
-                    # => the state is only sent in the description modification report
-                    # (No specific followup state update notification is sent.)
-                    if descriptorContainer.isAlertDescriptor:
-                        update_dict = mgr.alertStateUpdates
-                    elif descriptorContainer.isComponentDescriptor:
-                        update_dict = mgr.componentStateUpdates
-                    elif descriptorContainer.isContextDescriptor:
-                        update_dict = mgr.contextStateUpdates
-                    elif descriptorContainer.isRealtimeSampleArrayMetricDescriptor:
-                        update_dict = mgr.rtSampleStateUpdates
-                    elif descriptorContainer.isMetricDescriptor:
-                        update_dict = mgr.metricStateUpdates
-                    elif descriptorContainer.isOperationalDescriptor:
-                        update_dict = mgr.operationalStateUpdates
+            def _updateCorrespondingState(descriptorContainer):
+                # add state to updated_states list and to corresponding notifications input
+                # => the state is only sent in the description modification report
+                # (No specific followup state update notification is sent.)
+                if descriptorContainer.isAlertDescriptor:
+                    update_dict = mgr.alertStateUpdates
+                elif descriptorContainer.isComponentDescriptor:
+                    update_dict = mgr.componentStateUpdates
+                elif descriptorContainer.isContextDescriptor:
+                    update_dict = mgr.contextStateUpdates
+                elif descriptorContainer.isRealtimeSampleArrayMetricDescriptor:
+                    update_dict = mgr.rtSampleStateUpdates
+                elif descriptorContainer.isMetricDescriptor:
+                    update_dict = mgr.metricStateUpdates
+                elif descriptorContainer.isOperationalDescriptor:
+                    update_dict = mgr.operationalStateUpdates
+                else:
+                    raise RuntimeError(f'do not know how to handle {descriptorContainer.__class__.__name__}')
+                if descriptorContainer.isContextDescriptor:
+                    raise RuntimeError('DescriptionModification for AbstractContextDescriptor is not supported.')
+                else:
+                    # check if state is already present in this transaction
+                    state_update = update_dict.get(descriptorContainer.handle)
+                    if state_update is not None:
+                        # the state has also been updated directly in transaction.
+                        # update descriptor version
+                        old_state, new_state = state_update
+                        if new_state is None:
+                            raise ValueError(f'state deleted? that should not be possible! handle = '
+                                             f'{descriptorContainer.handle}')
+                        new_state.descriptorContainer = descriptorContainer
+                        new_state.updateDescriptorVersion()
                     else:
-                        raise RuntimeError(f'do not know how to handle {descriptorContainer.__class__.__name__}')
-                    if descriptorContainer.isContextDescriptor:
-                        raise RuntimeError('DescriptionModification for AbstractContextDescriptor is not supported.')
-                    else:
-                        # check if state is already present in this transaction
-                        state_update = update_dict.get(descriptorContainer.handle)
-                        if state_update is not None:
-                            # the state has also been updated directly in transaction.
-                            # update descriptor version
-                            old_state, new_state = state_update
-                            if new_state is None:
-                                raise ValueError(f'state deleted? that should not be possible! handle = '
-                                                 f'{descriptorContainer.handle}')
+                        old_state = self.states.descriptorHandle.getOne(descriptorContainer.handle, allowNone=True)
+                        if old_state is not None:
+                            new_state = old_state.mkCopy()
                             new_state.descriptorContainer = descriptorContainer
+                            new_state.incrementState()
                             new_state.updateDescriptorVersion()
+                            update_dict[descriptorContainer.handle] = _TrItem(old_state, new_state)
                         else:
-                            old_state = self.states.descriptorHandle.getOne(descriptorContainer.handle, allowNone=True)
-                            if old_state is not None:
-                                new_state = old_state.mkCopy()
-                                new_state.descriptorContainer = descriptorContainer
-                                new_state.incrementState()
-                                new_state.updateDescriptorVersion()
-                                update_dict[descriptorContainer.handle] = _TrItem(old_state, new_state)
-                            else:
-                                msg = f'No state is provided during DescriptionModification for descriptor "{descriptorContainer.handle}".'
-                                raise RuntimeError(msg)
-                        descr_updated_states.append(new_state)
+                            msg = f'No state is provided during DescriptionModification for descriptor "{descriptorContainer.handle}".'
+                            raise RuntimeError(msg)
+                    descr_updated_states.append(new_state)
 
-                def _incrementParentDescriptorVersion(descriptorContainer):
-                    parentDescriptorContainer = self.descriptions.handle.getOne(descriptorContainer.parentHandle)
-                    parentDescriptorContainer.incrementDescriptorVersion()
-                    descr_updated.append(parentDescriptorContainer)
-                    _updateCorrespondingState(parentDescriptorContainer)
+            def _incrementParentDescriptorVersion(descriptorContainer):
+                parentDescriptorContainer = self.descriptions.handle.getOne(descriptorContainer.parentHandle)
+                parentDescriptorContainer.incrementDescriptorVersion()
+                descr_updated.append(parentDescriptorContainer)
+                _updateCorrespondingState(parentDescriptorContainer)
 
-                # handling only updated states here: If a descriptor is created, I assume that the application also creates the state in a transaction.
-                # The state will then be transported via that notification report.
-                # Maybe this needs to be reworked, but at the time of this writing it seems fine.
-                for tr_item in mgr.descriptorUpdates.values():
-                    origDescriptor, newDescriptor = tr_item.old, tr_item.new
-                    if newDescriptor is not None:
-                        newDescriptor.updateNode(setXsiType=True)
-                        # DescriptionModificationReport also contains the states that are related to the descriptors.
-                        # => if there is one, update its DescriptorVersion and add it to list of states that shall be sent
-                        # (Assuming that context descriptors (patient, location) are never changed,
-                        #  additional check for states in self.contextStates is not needed.
-                        #  If this assumption is wrong, that functionality must be added!)
-                        _updateCorrespondingState(newDescriptor)
-                    if origDescriptor is None:
-                        # this is a create operation
-                        self._logger.debug('mdibUpdateTransaction: new descriptor Handle={}, DescriptorVersion={}',
-                                           newDescriptor.handle, newDescriptor.DescriptorVersion)
-                        descr_created.append(newDescriptor.mkCopy())
-                        self.descriptions.addObjectNoLock(newDescriptor)
-                        # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
-                        if newDescriptor.parentHandle is not None and \
-                                newDescriptor.parentHandle not in to_be_created_handles:
-                            # only update parent if it is not also created in this transaction
-                            _incrementParentDescriptorVersion(newDescriptor)
-                    elif newDescriptor is None:
-                        # this is a delete operation
-                        self._logger.debug('mdibUpdateTransaction: rm descriptor Handle={}, DescriptorVersion={}',
-                                           origDescriptor.handle, origDescriptor.DescriptorVersion)
-                        all_descriptors = self.getAllDescriptorsInSubTree(origDescriptor)
-                        self._rmDescriptorsAndStates(all_descriptors)
-                        descr_deleted.extend(all_descriptors)
-                        # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
-                        if origDescriptor.parentHandle is not None and \
-                                origDescriptor.parentHandle not in to_be_deleted_handles:
-                            # only update parent if it is not also deleted in this transaction
-                            _incrementParentDescriptorVersion(origDescriptor)
-                    else:
-                        # this is an update operation
-                        descr_updated.append(newDescriptor)
-                        self._logger.debug('mdibUpdateTransaction: update descriptor Handle={}, DescriptorVersion={}',
-                                           newDescriptor.handle, newDescriptor.DescriptorVersion)
-                        self.descriptions.replaceObjectNoLock(newDescriptor)
+            # handling only updated states here: If a descriptor is created, I assume that the application also creates the state in a transaction.
+            # The state will then be transported via that notification report.
+            # Maybe this needs to be reworked, but at the time of this writing it seems fine.
+            for tr_item in mgr.descriptorUpdates.values():
+                origDescriptor, newDescriptor = tr_item.old, tr_item.new
+                if newDescriptor is not None:
+                    newDescriptor.updateNode(setXsiType=True)
+                    # DescriptionModificationReport also contains the states that are related to the descriptors.
+                    # => if there is one, update its DescriptorVersion and add it to list of states that shall be sent
+                    # (Assuming that context descriptors (patient, location) are never changed,
+                    #  additional check for states in self.contextStates is not needed.
+                    #  If this assumption is wrong, that functionality must be added!)
+                    _updateCorrespondingState(newDescriptor)
+                if origDescriptor is None:
+                    # this is a create operation
+                    self._logger.debug('mdibUpdateTransaction: new descriptor Handle={}, DescriptorVersion={}',
+                                       newDescriptor.handle, newDescriptor.DescriptorVersion)
+                    descr_created.append(newDescriptor.mkCopy())
+                    self.descriptions.addObjectNoLock(newDescriptor)
+                    # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
+                    if newDescriptor.parentHandle is not None and \
+                            newDescriptor.parentHandle not in to_be_created_handles:
+                        # only update parent if it is not also created in this transaction
+                        _incrementParentDescriptorVersion(newDescriptor)
+                elif newDescriptor is None:
+                    # this is a delete operation
+                    self._logger.debug('mdibUpdateTransaction: rm descriptor Handle={}, DescriptorVersion={}',
+                                       origDescriptor.handle, origDescriptor.DescriptorVersion)
+                    all_descriptors = self.getAllDescriptorsInSubTree(origDescriptor)
+                    self._rmDescriptorsAndStates(all_descriptors)
+                    descr_deleted.extend(all_descriptors)
+                    # R0033: A SERVICE PROVIDER SHALL increment pm:AbstractDescriptor/@DescriptorVersion by one if a direct child descriptor is added or deleted.
+                    if origDescriptor.parentHandle is not None and \
+                            origDescriptor.parentHandle not in to_be_deleted_handles:
+                        # only update parent if it is not also deleted in this transaction
+                        _incrementParentDescriptorVersion(origDescriptor)
+                else:
+                    # this is an update operation
+                    descr_updated.append(newDescriptor)
+                    self._logger.debug('mdibUpdateTransaction: update descriptor Handle={}, DescriptorVersion={}',
+                                       newDescriptor.handle, newDescriptor.DescriptorVersion)
+                    self.descriptions.replaceObjectNoLock(newDescriptor)
 
         # handle metric states
         if len(mgr.metricStateUpdates) > 0:
-            with self.mdibLock:
-                self._logger.debug('mdibUpdateTransaction: mdib version={}, metric updates = {}',
-                                   self.mdibVersion,
-                                   mgr.metricStateUpdates)
-                for value in mgr.metricStateUpdates.values():
-                    oldstate, newstate = value.old, value.new
-                    try:
-                        # replace the old container with the new one
-                        self.states.removeObjectNoLock(oldstate)
-                        self.states.addObjectNoLock(newstate)
-                        if not is_descriptor_update:
-                            metric_updates.append(newstate)
-                    except RuntimeError:
-                        self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
-                        raise
+            self._logger.debug('mdibUpdateTransaction: mdib version={}, metric updates = {}',
+                               self.mdibVersion,
+                               mgr.metricStateUpdates)
+            for value in mgr.metricStateUpdates.values():
+                oldstate, newstate = value.old, value.new
+                try:
+                    # replace the old container with the new one
+                    self.states.removeObjectNoLock(oldstate)
+                    self.states.addObjectNoLock(newstate)
+                    if not is_descriptor_update:
+                        metric_updates.append(newstate)
+                except RuntimeError:
+                    self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
+                    raise
 
         # handle alert states
         if len(mgr.alertStateUpdates) > 0:
-            with self.mdibLock:
-                self._logger.debug('mdibUpdateTransaction: alert State updates = {}', mgr.alertStateUpdates)
-                for value in mgr.alertStateUpdates.values():
-                    oldstate, newstate = value.old, value.new
-                    try:
-                        newstate.updateNode()
-                        # replace the old container with the new one
-                        self.states.removeObjectNoLock(oldstate)
-                        self.states.addObjectNoLock(newstate)
-                        if not is_descriptor_update:
-                            alert_updates.append(newstate)
-                    except RuntimeError:
-                        self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
-                        raise
+            self._logger.debug('mdibUpdateTransaction: alert State updates = {}', mgr.alertStateUpdates)
+            for value in mgr.alertStateUpdates.values():
+                oldstate, newstate = value.old, value.new
+                try:
+                    newstate.updateNode()
+                    # replace the old container with the new one
+                    self.states.removeObjectNoLock(oldstate)
+                    self.states.addObjectNoLock(newstate)
+                    if not is_descriptor_update:
+                        alert_updates.append(newstate)
+                except RuntimeError:
+                    self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
+                    raise
 
             # handle component state states
         if len(mgr.componentStateUpdates) > 0:
-            with self.mdibLock:
-                self._logger.debug('mdibUpdateTransaction: component State updates = {}', mgr.componentStateUpdates)
-                for value in mgr.componentStateUpdates.values():
-                    oldstate, newstate = value.old, value.new
-                    try:
-                        newstate.updateNode()
-                        # replace the old container with the new one
-                        self.states.removeObjectNoLock(oldstate)
-                        self.states.addObjectNoLock(newstate)
-                        if not is_descriptor_update:
-                            comp_updates.append(newstate)
-                    except RuntimeError:
-                        self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
-                        raise
+            self._logger.debug('mdibUpdateTransaction: component State updates = {}', mgr.componentStateUpdates)
+            for value in mgr.componentStateUpdates.values():
+                oldstate, newstate = value.old, value.new
+                try:
+                    newstate.updateNode()
+                    # replace the old container with the new one
+                    self.states.removeObjectNoLock(oldstate)
+                    self.states.addObjectNoLock(newstate)
+                    if not is_descriptor_update:
+                        comp_updates.append(newstate)
+                except RuntimeError:
+                    self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
+                    raise
 
         # handle context states
         if len(mgr.contextStateUpdates) > 0:
-            with self.mdibLock:
-                self._logger.debug('mdibUpdateTransaction: contextState updates = {}', mgr.contextStateUpdates)
-                for value in mgr.contextStateUpdates.values():
-                    oldstate, newstate = value.old, value.new
-                    try:
-                        newstate.updateNode()
-                        # replace the old container with the new one
-                        self.contextStates.removeObjectNoLock(oldstate)
-                        self.contextStates.addObjectNoLock(newstate)
-                        if not is_descriptor_update:
-                            ctxt_updates.append(newstate)
-                    except RuntimeError:
-                        self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
-                        raise
+            self._logger.debug('mdibUpdateTransaction: contextState updates = {}', mgr.contextStateUpdates)
+            for value in mgr.contextStateUpdates.values():
+                oldstate, newstate = value.old, value.new
+                try:
+                    newstate.updateNode()
+                    # replace the old container with the new one
+                    self.contextStates.removeObjectNoLock(oldstate)
+                    self.contextStates.addObjectNoLock(newstate)
+                    if not is_descriptor_update:
+                        ctxt_updates.append(newstate)
+                except RuntimeError:
+                    self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
+                    raise
 
         # handle operational states
         if len(mgr.operationalStateUpdates) > 0:
-            with self.mdibLock:
-                self._logger.debug('mdibUpdateTransaction: operationalState updates = {}', mgr.operationalStateUpdates)
-                for value in mgr.operationalStateUpdates.values():
-                    oldstate, newstate = value.old, value.new
-                    try:
-                        newstate.updateNode()
-                        # replace the old container with the new one
-                        self.states.removeObjectNoLock(oldstate)
-                        self.states.addObjectNoLock(newstate)
-                        if not is_descriptor_update:
-                            op_updates.append(newstate)
-                    except RuntimeError:
-                        self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
-                        raise
+            self._logger.debug('mdibUpdateTransaction: operationalState updates = {}', mgr.operationalStateUpdates)
+            for value in mgr.operationalStateUpdates.values():
+                oldstate, newstate = value.old, value.new
+                try:
+                    newstate.updateNode()
+                    # replace the old container with the new one
+                    self.states.removeObjectNoLock(oldstate)
+                    self.states.addObjectNoLock(newstate)
+                    if not is_descriptor_update:
+                        op_updates.append(newstate)
+                except RuntimeError:
+                    self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
+                    raise
 
         # handle real time samples
         # important note: this transaction does not pull values from registered waveform providers!
         # Application is responsible for providing data.
         if len(mgr.rtSampleStateUpdates) > 0:
-            with self.mdibLock:
-                self._logger.debug('mdibUpdateTransaction: rtSample updates = {}', mgr.rtSampleStateUpdates)
-                for value in mgr.rtSampleStateUpdates.values():
-                    oldstate, newstate = value.old, value.new
-                    try:
-                        newstate.updateNode()
-                        # replace the old container with the new one
-                        self.states.removeObjectNoLock(oldstate)
-                        self.states.addObjectNoLock(newstate)
-                        if not is_descriptor_update:
-                            rt_updates.append(newstate)
-                    except RuntimeError:
-                        self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
-                        raise
-                    except:
-                        raise
+            self._logger.debug('mdibUpdateTransaction: rtSample updates = {}', mgr.rtSampleStateUpdates)
+            for value in mgr.rtSampleStateUpdates.values():
+                oldstate, newstate = value.old, value.new
+                try:
+                    newstate.updateNode()
+                    # replace the old container with the new one
+                    self.states.removeObjectNoLock(oldstate)
+                    self.states.addObjectNoLock(newstate)
+                    if not is_descriptor_update:
+                        rt_updates.append(newstate)
+                except RuntimeError:
+                    self._logger.warn('mdibUpdateTransaction: {} did not exist before!! really??', newstate)
+                    raise
+                except:
+                    raise
 
         mdib_version_grp = self.mdib_version_group
         if self._sdcDevice is not None:
