@@ -55,7 +55,7 @@ class TestDevSubscription(_DevSubscription):
     expires = 60
     notifyRef = 'a ref string'
 
-    def __init__(self, filter_):
+    def __init__(self, filter_, nbr_reports_flag=1):
         notifyRefNode = etree_.Element(namespaces.wseTag('References'))
         identNode = etree_.SubElement(notifyRefNode, self.IDENT_TAG)
         identNode.text = self.notifyRef
@@ -73,12 +73,16 @@ class TestDevSubscription(_DevSubscription):
                          acceptedEncodings=None,
                          base_urls=base_urls)
         self.reports = []
+        self._nbr_reports_flag = nbr_reports_flag
+        self.reports_event = threading.Event()
 
     def sendNotificationReport(self, bodyNode, action, doc_nsmap):
         soapEnvelope = Soap12Envelope(doc_nsmap)
         soapEnvelope.addBodyElement(bodyNode)
         rep = self._mkNotificationReport(soapEnvelope, action)
         self.reports.append(rep)
+        if len(self.reports) >= self._nbr_reports_flag:
+            self.reports_event.set()
 
     @property
     def isValid(self):

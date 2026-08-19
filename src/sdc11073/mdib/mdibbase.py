@@ -1,6 +1,6 @@
 import traceback
 import time
-from threading import Lock
+from threading import RLock
 from dataclasses import dataclass
 from lxml import etree as etree_
 from .. import observableproperties as properties
@@ -216,8 +216,7 @@ class MdibContainer(object):
         self.contextStates.addIndex('descriptorHandle', multikey.IndexDefinition(lambda obj: obj.descriptorHandle))
         self.contextStates.addIndex('handle', multikey.UIndexDefinition(lambda obj: obj.Handle, indexNoneValues=False))
         self.contextStates.addIndex('NODETYPE', multikey.IndexDefinition(lambda obj: obj.NODETYPE, indexNoneValues=False))
-        self.mdibLock = Lock()
-        
+        self.mdibLock = RLock()  # lock for all access to the mdib data
 
         self.mdStateVersion = 0
         self.mdDescriptionVersion = 0
@@ -228,7 +227,8 @@ class MdibContainer(object):
 
     @property
     def mdib_version_group(self):
-        return MdibVersionGroup(self.mdibVersion, self.sequenceId, self.instanceId)
+        with self.mdibLock:
+            return MdibVersionGroup(self.mdibVersion, self.sequenceId, self.instanceId)
 
     def addDescriptionContainers(self, descriptionContainers):
         """ init self.descriptions with provided descriptors
