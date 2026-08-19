@@ -94,11 +94,12 @@ class TestDeviceWaveform(unittest.TestCase):
             [self.sdc_device.mdib.sdc_definitions.Actions.Waveform],
             self._soap_client_pool,
             self.sdc_device.msg_factory,
+            test_nbr_reports=11,
         )
         mgr = self.sdc_device.hosted_services.state_event_service.hosting_service.subscriptions_manager
         mgr._subscriptions.add_object(test_subscription)
 
-        time.sleep(3)
+        self.assertTrue(test_subscription.reports_event.wait(timeout=10))
         self.assertGreater(len(test_subscription.reports), 10)
 
     def _mk_device(self):
