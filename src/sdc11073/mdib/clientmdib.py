@@ -230,7 +230,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
         # retrieve context states only if there were none in mdibNode
         if len(self.contextStates.objects) == 0:
-            self._getContextStates()
+            self._retrieve_context_states()
         else:
             self._logger.info('found context states in GetMdib Result, will not call getContextStates')
 
@@ -285,49 +285,32 @@ class ClientMdibContainer(mdibbase.MdibContainer):
             self._logger.error(traceback.format_exc())
 
 
-    def _getContextStates(self, handles = None):
-        try:
-            self._logger.debug('new Query, handles={}', handles)
-            time.sleep(0.001)
-            contextService = self._sdcClient.client('Context')
-            self._logger.info('requesting context states...')
-            responseNode = contextService.getContextStatesNode(handles)
-            self._logger.info('creating context state containers...')
-            contextStateContainers = self._msgReader.readContextState(responseNode)
+    def _retrieve_context_states(self, handles = None):
+        """Only called when context states are not included in GetMdib result."""
+        self._logger.debug('new Query, handles={}', handles)
+        contextService = self._sdcClient.client('Context')
+        self._logger.info('requesting context states...')
+        responseNode = contextService.getContextStatesNode(handles)
+        self._logger.info('creating context state containers...')
+        context_state_containers = self._msgReader.readContextState(responseNode)
 
-            self._contextMdibVersion = int(responseNode.get('MdibVersion', '0'))
-            self._logger.debug('_getContextStates: setting _contextMdibVersion to {}', self._contextMdibVersion)
-            
-            self._logger.debug('got {} context states', len(contextStateContainers))
-            with self.contextStates._lock: #pylint: disable=protected-access
-                for stateContainer in contextStateContainers:
-                    oldStateContainers = self.contextStates.handle.get(stateContainer.Handle, [])
-                    if len(oldStateContainers) == 0:
-                        self.contextStates.addObjectNoLock(stateContainer)
-                        self._logger.debug('new ContextState {}', stateContainer)
-                    elif len(oldStateContainers) == 1:
-                        oldStateContainer = oldStateContainers[0]
-                        if oldStateContainer.StateVersion != stateContainer.StateVersion:
-                            self._logger.debug('update {} ==> {}', oldStateContainer, stateContainer)
-                            oldStateContainer.updateFromNode(stateContainer.node)
-                            self.contextStates.updateObjectNoLock(oldStateContainer)
-                        else:
-                            old = etree_.tostring(oldStateContainer.node)
-                            new = etree_.tostring(stateContainer.node)
-                            if old == new:
-                                self._logger.debug('no update {}', oldStateContainer.node)
-                            else:
-                                self._logger.error('no update but different!\n{ \n{}',
-                                    lambda:etree_.tostring(oldStateContainer.node), lambda:etree_.tostring(stateContainer.node)) #pylint: disable=cell-var-from-loop 
-                    else:
-                        txt = ', '.join([str(x) for x in oldStateContainers])
-                        self._logger.error('found {} objects: {}', len(oldStateContainers), txt)
-                    
-        except:
-            self._logger.error(traceback.format_exc())
-        finally:
-            self._logger.info('_getContextStates done')
+        self._contextMdibVersion = int(responseNode.get('MdibVersion', '0'))
+        self._logger.debug('_getContextStates: setting _contextMdibVersion to {}', self._contextMdibVersion)
 
+        self._logger.debug('got {} context states', len(context_state_containers))
+        with self.contextStates._lock: #pylint: disable=protected-access
+            for stateContainer in context_state_containers:
+                old_state_containers = self.contextStates.handle.get(stateContainer.Handle, [])
+                if not len(old_state_containers):
+                    self.contextStates.addObjectNoLock(stateContainer)
+                    self._logger.debug('new ContextState {}', stateContainer)
+                else:
+                    txt = ', '.join([str(x) for x in old_state_containers])
+                    msg = (
+                        f'Unexpected behavior. ContextState(s) are already included in the MDIB. '
+                        f'Found {len(old_state_containers)} objects: {txt}'
+                    )
+                    raise RuntimeError(msg)
 
     def _bindToObservables(self):
         # observe properties of sdcClient
