@@ -31,7 +31,7 @@ keywords = [
     "IEEE11073",
 ]
 dependencies = [
-    'lxml>=2.3',
+    'lxml>=2.3,<7',
     'ifaddr',
 ]
 

@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - raise exception when SDC Client Mdib receives ContextDescriptor modification via notification
 - raise exception when a ContextDescriptor modification is performed within `mdibUpdateTransaction` (SDC Provider side)
 - when a DescriptionModificationReport is sent by the SDC Provider, no follow-up episodic report is sent for the related state change, resulting in strictly increasing StateVersion and MdibVersion values
+- remove broken error logging and now raise exception during SDC Consumer MDIB initialization, when ContextStates unexpectedly already exist in the received MDIB
 
 ## [1.3.3] - 2026-01-06
 
