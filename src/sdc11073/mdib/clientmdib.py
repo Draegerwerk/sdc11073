@@ -286,7 +286,7 @@ class ClientMdibContainer(mdibbase.MdibContainer):
 
 
     def _retrieve_context_states(self, handles = None):
-        """Only called when context states are not included in GetMdib result."""
+        """Only called when context states are not included in GetMdib response."""
         self._logger.debug('new Query, handles={}', handles)
         contextService = self._sdcClient.client('Context')
         self._logger.info('requesting context states...')
