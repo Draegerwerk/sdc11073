@@ -76,7 +76,6 @@ class ProviderMdib(mdibbase.MdibBase):
     """
 
     transaction: TransactionResultProtocol | None = ObservableProperty(fire_only_on_changed_value=False)
-    rt_updates = ObservableProperty(fire_only_on_changed_value=False)  # different observable for performance
 
     def __init__(
         self,

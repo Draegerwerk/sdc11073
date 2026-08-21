@@ -324,7 +324,6 @@ class SdcProvider:
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
         properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
-        properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
 
     def generate_transaction_id(self) -> int:
         """Return a new transaction id."""
@@ -705,11 +704,6 @@ class SdcProvider:
         if len(states) > 0:
             port_type_impl = self.hosted_services.waveform_service
             port_type_impl.send_realtime_samples_report(states, mdib_version_group)
-
-    def _send_rt_notifications(self, rt_states: list[AbstractStateProtocol]):
-        if len(rt_states) > 0:
-            port_type_impl = self.hosted_services.waveform_service
-            port_type_impl.send_realtime_samples_report(rt_states, self._mdib.mdib_version_group)
 
     def set_used_compression(self, *compression_methods: str):
         """Set supported compression methods, e.g. 'gzip'."""
