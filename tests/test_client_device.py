@@ -42,8 +42,9 @@ from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import ConsumerMdib, statecontainers
-from sdc11073.mdib.transactions import TransactionResult
+from sdc11073.mdib.consumermdib import ConsumerMdibState
 from sdc11073.namespaces import default_ns_helper
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.observableproperties import observables
 from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
@@ -65,6 +66,7 @@ from tests.utils import container_diff
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.mdib.statecontainers import PatientContextStateContainer
 
 FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
@@ -534,12 +536,32 @@ class TestClientSomeDevice(unittest.TestCase):
         self.logger.info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
+
+        self.request_manipulator: RequestManipulatorProtocol | None = None
+        test_case = self
+
+        class ManipulatingSoapClientAsync(SoapClientAsync):
+            async def async_post_message_to(
+                self,
+                path: str,
+                created_message: CreatedMessage,
+                request_manipulator: RequestManipulatorProtocol | None = None,
+            ) -> ReceivedMessage | None:
+                """Send the message, using the manipulator of the test case if the caller provided none."""
+                if request_manipulator is None:
+                    request_manipulator = test_case.request_manipulator
+                return await super().async_post_message_to(path, created_message, request_manipulator)
+
+        provider_components = provider_components_async_factory()
+        provider_components.soap_client_class = ManipulatingSoapClientAsync
+
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
             MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             log_prefix=f'{self._testMethodName}: ',
+            components=provider_components,
         )
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
@@ -1006,17 +1028,39 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertGreater(patient_context_state_container.BindingMdibVersion, tr_mdib_version)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
+        def _on_event_report(
+            received_msg: ReceivedMessage,
+            received_event: threading.Event,
+            descr_handle: str,
+            mod_type: msg_types.DescriptionModificationType,
+            state_handle: str | None = None,
+        ):
+            xpath_expr = './msg:ReportPart[@ModificationType=$mod_type][msg:Descriptor/@Handle=$descr_handle]'
+            if state_handle is not None:
+                xpath_expr += '[msg:State/@Handle=$state_handle]'
+            hits = received_msg.p_msg.msg_node.xpath(
+                xpath_expr,
+                namespaces=ns_hlp.ns_map,
+                mod_type=str(mod_type),
+                descr_handle=descr_handle,
+                state_handle=state_handle,
+            )
+            if len(hits) == 1:
+                received_event.set()
+
         # trigger context descriptor update
         received = threading.Event()
         new_patient_handle = str(uuid.uuid4())
-
-        def _on_event_report(received_msg: ReceivedMessage):
-            raw_msg = received_msg.p_msg.raw_data.decode(encoding='utf-8')
-            if patient_descr_container.Handle in raw_msg and new_patient_handle in raw_msg:
-                received.set()
+        observ_func = functools.partial(
+            _on_event_report,
+            received_event=received,
+            descr_handle=patient_descr_container.Handle,
+            state_handle=patient_context_state_container.Handle,
+            mod_type=msg_types.DescriptionModificationType.UPDATE,
+        )
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
-        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+        with observables.bound_context(self.sdc_client, description_modification_report=observ_func):
             with self.sdc_device.mdib.descriptor_transaction() as mgr:
                 mgr.get_descriptor(patient_descr_container.Handle)
                 patient_state: PatientContextStateContainer = self.sdc_device.mdib.context_states.NODETYPE.get_one(
@@ -1038,7 +1082,16 @@ class TestClientSomeDevice(unittest.TestCase):
         # trigger context descriptor deletion
         received.clear()
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
-        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+
+        observ_func = functools.partial(
+            _on_event_report,
+            received_event=received,
+            descr_handle=patient_descr_container.Handle,
+            state_handle=None,
+            mod_type=msg_types.DescriptionModificationType.DELETE,
+        )
+
+        with observables.bound_context(self.sdc_client, description_modification_report=observ_func):
             with self.sdc_device.mdib.descriptor_transaction() as mgr:
                 mgr.remove_descriptor(patient_descr_container.Handle)
 
@@ -1275,29 +1328,31 @@ class TestClientSomeDevice(unittest.TestCase):
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
-        received = threading.Event()
-
         descr_handle = str(uuid.uuid4())
 
-        def _on_event_report(received_msg: ReceivedMessage):
-            if descr_handle in received_msg.p_msg.raw_data.decode(encoding='utf-8'):
-                received.set()
-
-        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
-            with self.sdc_device.mdib._tr_lock:
-                orig_descriptor_container = self.sdc_device.mdib.descriptions.handle.get_one(
-                    self.alert_descriptor_handle
+        class Manipulator:
+            @staticmethod
+            def manipulate_string(data: bytes) -> bytes | None:
+                if b'DescriptionModificationReport' not in data:
+                    return None
+                return data.replace(
+                    self.alert_descriptor_handle.encode('utf-8'),
+                    descr_handle.encode('utf-8'),
                 )
-                descriptor_container = orig_descriptor_container.mk_copy()
-                descriptor_container.Handle = descr_handle
-                tr = TransactionResult()
-                tr.descr_updated = [descriptor_container]
-                self.sdc_device.mdib.transaction = tr
 
-            self.assertTrue(
-                received.wait(timeout=NOTIFICATION_TIMEOUT),
-                msg='Did not receive notification with unknown descriptor handle',
-            )
+        status_collector = observableproperties.SingleValueCollector(client_mdib, 'status')
+        self.request_manipulator = Manipulator()
+        try:
+            with self.sdc_device.mdib.descriptor_transaction() as mgr:
+                mgr.get_descriptor(self.alert_descriptor_handle)
+
+            try:
+                status = status_collector.result(timeout=NOTIFICATION_TIMEOUT)
+            except observableproperties.CollectTimeoutError:
+                self.fail('mdib did not become invalid after report with unknown descriptor handle')
+            self.assertEqual(ConsumerMdibState.invalid, status)
+        finally:
+            self.request_manipulator = None
 
         watcher_logs = self.log_watcher.getAllRecords()
 
@@ -1861,7 +1916,6 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         subscriptions_manager_class_copy = dict(provider_components.subscriptions_manager_class)
         subscriptions_manager_class_copy.update({'StateEvent': SubscriptionsManagerReferenceParamAsync})
         provider_components.subscriptions_manager_class = subscriptions_manager_class_copy
-        provider_components.soap_client_class = SoapClientAsync
 
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,

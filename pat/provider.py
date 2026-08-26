@@ -21,7 +21,6 @@ from sdc11073.mdib import ProviderMdib, descriptorcontainers
 from sdc11073.provider import SdcProvider
 from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
-from sdc11073.pysoap.soapclient_async import SoapClientAsync
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import pm_qnames, pm_types
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
@@ -205,7 +204,6 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                 },
             )
             provider_components.subscriptions_manager_class = subscriptions_manager_class_copy
-            provider_components.soap_client_class = SoapClientAsync
 
         sdc_provider = SdcProvider(
             wsd,

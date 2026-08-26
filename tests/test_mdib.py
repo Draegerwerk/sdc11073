@@ -41,7 +41,7 @@ class TestMdibTransaction(unittest.TestCase):
             )
             state = self.mdib.data_model.mk_state_container(descriptor_container)
             mgr.add_descriptor(descriptor_container, state_container=state)
-        tr = self.mdib.transaction
+        tr = self.mdib._transaction
         self.assertEqual(1, len(tr.descr_created))
         self.assertEqual(1, len(tr.descr_updated))
         self.assertEqual(2, len(tr.all_states()))
@@ -52,7 +52,7 @@ class TestMdibTransaction(unittest.TestCase):
 
         with self.mdib.descriptor_transaction() as mgr:
             mgr.remove_descriptor('testHandle')
-        tr = self.mdib.transaction
+        tr = self.mdib._transaction
         self.assertEqual(0, len(tr.descr_created))
         self.assertEqual(1, len(tr.descr_updated))
         self.assertEqual(1, len(tr.all_states()))
@@ -71,7 +71,7 @@ class TestMdibTransaction(unittest.TestCase):
                 parent_descriptor=parent_descriptor,
             )
             mgr.add_descriptor(descriptor_container)
-        tr = self.mdib.transaction
+        tr = self.mdib._transaction
         self.assertEqual(1, len(tr.descr_created))
         self.assertEqual(1, len(tr.descr_updated))
         self.assertEqual(1, len(tr.all_states()))

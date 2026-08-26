@@ -63,7 +63,6 @@ if TYPE_CHECKING:
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
-    from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.namespaces import PrefixNamespace
     from sdc11073.provider.operations import OperationDefinitionBase
@@ -323,7 +322,7 @@ class SdcProvider:
         self.waveform_provider: WaveformProviderProtocol | None = None
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
-        properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
+        properties.bind(device_mdib_container, _transaction=self._send_episodic_reports)
 
     def generate_transaction_id(self) -> int:
         """Return a new transaction id."""
@@ -666,6 +665,9 @@ class SdcProvider:
             deleted = transaction_result.descr_deleted
             states = transaction_result.all_states()
             port_type_impl.send_descriptor_updates(updated, created, deleted, states, mdib_version_group)
+
+            # further reporting of states is not needed, they must DescriptionModificationReport
+            return
 
         states = transaction_result.metric_updates
         if len(states) > 0:

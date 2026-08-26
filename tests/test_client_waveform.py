@@ -146,7 +146,7 @@ class TestClientWaveform(unittest.TestCase):
 
         client_mdib = ConsumerMdib(cl)
         client_mdib._xtra.bind_to_client_observables()
-        client_mdib._state = ConsumerMdibState.initialized  # fake it, because we do not call init_mdib()
+        client_mdib.status = ConsumerMdibState.initialized  # fake it, because we do not call init_mdib()
         client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test
         # create dummy descriptors
         for handle in HANDLES:

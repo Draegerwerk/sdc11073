@@ -75,7 +75,7 @@ class ProviderMdib(mdibbase.MdibBase):
     Transactions keep track of changes and initiate sending of update notifications to clients.
     """
 
-    transaction: TransactionResultProtocol | None = ObservableProperty(fire_only_on_changed_value=False)
+    _transaction: TransactionResultProtocol | None = ObservableProperty(fire_only_on_changed_value=False)
 
     def __init__(
         self,
@@ -141,7 +141,7 @@ class ProviderMdib(mdibbase.MdibBase):
                 else:
                     # update observables
                     transaction_result = self.current_transaction.process_transaction(set_determination_time)
-                    self.transaction = transaction_result
+                    self._transaction = transaction_result
 
                     if transaction_result.alert_updates:
                         self.alert_by_handle = {st.DescriptorHandle: st for st in transaction_result.alert_updates}
