@@ -63,7 +63,8 @@ body:
   - type: input
     attributes:
       label: 'Sdc11073 Version'
-      description: 'Get the sdc11073 version with `python -c "import importlib.metadata;print(importlib.metadata.version('sdc11073'))"`'
+      description: >-
+        Get the sdc11073 version with `python -c "import importlib.metadata;print(importlib.metadata.version('sdc11073'))"`
     validations:
       required: true
   - type: input
