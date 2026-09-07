@@ -666,7 +666,8 @@ class SdcProvider:
             states = transaction_result.all_states()
             port_type_impl.send_descriptor_updates(updated, created, deleted, states, mdib_version_group)
 
-            # further reporting of states is not needed, they must DescriptionModificationReport
+            # this is a DescriptionModificationReport, no further reports are sent,
+            # all states have to be included in the DescriptionModificationReport
             return
 
         states = transaction_result.metric_updates
