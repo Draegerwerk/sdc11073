@@ -1745,6 +1745,110 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertEqual(1, len(descriptors))
         self.assertEqual('alert_condition_0.vmd_0.mds_1', descriptors[0].Handle)
 
+    def _make_fake_version_group(self, cl_mdib: ConsumerMdib, mdib_version: int) -> MdibVersionGroupReader:
+        return MdibVersionGroupReader(
+            mdib_version=mdib_version,
+            sequence_id=cl_mdib.sequence_id,
+            instance_id=cl_mdib.instance_id,
+        )
+
+    def test_mdibversion_gap(self):
+        """Verify that the consumer rejects a report with a gap in MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        # _synchronizedReports is set by reload_all() when processing buffered waveform notifications;
+        # set explicitly here to guarantee the pre-condition independent of timing.
+        cl_mdib._synchronizedReports.set()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version + 2)
+            report = msg_types.EpisodicMetricReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_metric_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, '
+                          f'received {cl_mdib.mdib_version + 2}',
+                          str(exc.exception))
+
+    def test_mdibversion_repeated(self):
+        """Verify that the consumer rejects a report with a repeated MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        cl_mdib._synchronizedReports.set()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version)
+            report = msg_types.EpisodicMetricReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_metric_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version}',
+                          str(exc.exception))
+
+    def test_mdibversion_decrement(self):
+        """Verify that the consumer rejects a report with a decremented MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        cl_mdib._synchronizedReports.set()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version - 1)
+            report = msg_types.OperationInvokedReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_operational_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, '
+                          f'received {cl_mdib.mdib_version - 1}',
+                          str(exc.exception))
+
+    def test_mdibversion_negative(self):
+        """Verify that the consumer rejects a report with a negative MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, -1)
+            report = msg_types.EpisodicAlertReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_alert_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received -1', str(exc.exception))
+
 
 class TestDeviceCommonHttpServer(unittest.TestCase):
     def setUp(self):

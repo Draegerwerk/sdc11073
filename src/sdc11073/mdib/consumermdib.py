@@ -332,7 +332,6 @@ class ConsumerMdib(mdibbase.MdibBase):
                     raise RuntimeError(msg)
 
     def _can_accept_mdib_version(self, new_mdib_version: int, log_prefix: str) -> bool:  # noqa: C901
-        """TODO WRITE UNITTEST"""
         if self.MDIB_VERSION_CHECK_DISABLED:
             return True
 
