@@ -595,7 +595,6 @@ class SdcConsumer:
         self._subscription_mgr.start()
 
         # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
-        # => log warnings for missing versions
         self.all_subscribed = True
         not_subscribed_actions_set = set() if not_subscribed_actions is None else set(not_subscribed_actions)
         if not_subscribed_actions:
@@ -626,15 +625,7 @@ class SdcConsumer:
                     filter_type = eventing_types.FilterType()
                     filter_type.text = ' '.join(x.action for x in subscribe_actions)
                     filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
-                    try:
-                        self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
-                    except Exception:
-                        self.all_subscribed = False  # => don't log errors when mdib versions are missing
-                        self._logger.exception(  # noqa: PLE1205
-                            'start_all: could not subscribe: error = {}, actions= {}',
-                            traceback.format_exc(),
-                            subscribe_actions,
-                        )
+                    self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
 
         def _update_is_connected(subscription_status: dict[str, bool]):
             self.is_connected = all(subscription_status.values()) and any(subscription_status)
