@@ -1055,6 +1055,38 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertTrue(patient_context_descr_container is None)
         self.assertTrue(patient_context_state_container is None)
 
+    def test_context_by_handle_multiple_context_states(self):
+        """Device updates several context states of the same context descriptor in one transaction.
+
+        Verify that every context state of the resulting report is provided on the context_by_handle observable,
+        keyed by the handle of the context state. See https://github.com/Draegerwerk/sdc11073/issues/515.
+        """
+        client_mdib = ConsumerMdib(self.sdc_client)
+        client_mdib.init_mdib()
+
+        patient_descr_container = self.sdc_device.mdib.descriptions.NODETYPE.get_one(pm.PatientContextDescriptor)
+
+        # add two context states of the same context descriptor
+        coll = observableproperties.SingleValueCollector(client_mdib, 'context_by_handle')
+        with self.sdc_device.mdib.context_state_transaction() as mgr:
+            first_state = mgr.mk_context_state(patient_descr_container.Handle, set_associated=True)
+            second_state = mgr.mk_context_state(patient_descr_container.Handle)
+        expected_handles = {first_state.Handle, second_state.Handle}
+        data = coll.result(timeout=NOTIFICATION_TIMEOUT)
+        self.assertEqual(expected_handles, set(data))
+
+        # update both context states in a single transaction => one report contains both states
+        coll = observableproperties.SingleValueCollector(client_mdib, 'context_by_handle')
+        with self.sdc_device.mdib.context_state_transaction() as mgr:
+            st = mgr.get_context_state(first_state.Handle)
+            st.ContextAssociation = pm_types.ContextAssociation.DISASSOCIATED
+            st = mgr.get_context_state(second_state.Handle)
+            st.ContextAssociation = pm_types.ContextAssociation.ASSOCIATED
+        data = coll.result(timeout=NOTIFICATION_TIMEOUT)
+        self.assertEqual(expected_handles, set(data))
+        self.assertEqual(pm_types.ContextAssociation.DISASSOCIATED, data[first_state.Handle].ContextAssociation)
+        self.assertEqual(pm_types.ContextAssociation.ASSOCIATED, data[second_state.Handle].ContextAssociation)
+
     def test_get_containment_tree(self):
         self.log_watcher.setPaused(True)  # this will create an error log, but that shall be ignored
         self.assertRaises(
@@ -1448,11 +1480,19 @@ class TestClientSomeDevice(unittest.TestCase):
         state_descriptor_handles = list(self.sdc_device.mdib.states.descriptor_handle.keys())
         context_state_handles = list(self.sdc_device.mdib.context_states.handle.keys())
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
+        deleted_descriptors_coll = observableproperties.SingleValueCollector(
+            client_mdib,
+            'deleted_descriptors_by_handle',
+        )
         with self.sdc_device.mdib.descriptor_transaction() as mgr:
             mds_descriptors = self.sdc_device.mdib.descriptions.NODETYPE.get(pm.MdsDescriptor)
             for descr in mds_descriptors:
                 mgr.remove_descriptor(descr.Handle)
         coll.result(timeout=NOTIFICATION_TIMEOUT)
+        # verify that deleted descriptors are provided on the observable of the consumer mdib
+        deleted_descriptors = deleted_descriptors_coll.result(timeout=NOTIFICATION_TIMEOUT)
+        self.assertTrue(deleted_descriptors)
+        self.assertTrue(set(deleted_descriptors).issubset(set(descr_handles)))
         # verify that all state versions were saved
         descr_handles_lookup1 = copy.copy(self.sdc_device.mdib.descriptions.handle_version_lookup)
         state_descriptor_handles_lookup1 = copy.copy(self.sdc_device.mdib.states.handle_version_lookup)

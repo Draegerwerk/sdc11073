@@ -348,6 +348,8 @@ class MdibBase:
     # these observables can be used to watch any change of data in the mdib.
     # They contain lists of containers that were changed.
     # every transaction (device mdib) or notification (client mdib) will report their changes here.
+    # the keys are the handles of the changed descriptors, except for context_by_handle, where the keys are the
+    # handles of the context states (multiple context states can belong to the same context descriptor).
     metrics_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     waveform_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
     alert_by_handle = properties.ObservableProperty(fire_only_on_changed_value=False)
