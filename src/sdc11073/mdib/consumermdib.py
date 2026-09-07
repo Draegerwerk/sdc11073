@@ -390,7 +390,11 @@ class ConsumerMdib(mdibbase.MdibBase):
         self,
         report: EpisodicContextReport,
     ) -> dict[str, AbstractContextStateContainer]:
-        """Update mdib with incoming states."""
+        """Update mdib with incoming states.
+
+        :return: the updated and added context states, keyed by the handle of the context state.
+                 Multiple context states of the same context descriptor are all contained in the returned dict.
+        """
         states_by_handle = {}
         for report_part in report.ReportPart:
             for state_container in report_part.values_list:
@@ -407,7 +411,7 @@ class ConsumerMdib(mdibbase.MdibBase):
                         )
                         old_state_container.update_from_other_container(state_container)
                         src.update_object(old_state_container)
-                        states_by_handle[old_state_container.DescriptorHandle] = old_state_container
+                        states_by_handle[old_state_container.Handle] = old_state_container
                 else:
                     self._logger.info(  # noqa: PLE1205
                         'new context state: handle = {} Descriptor Handle={} Assoc={}, Validators={}',
@@ -798,7 +802,7 @@ class ConsumerMdib(mdibbase.MdibBase):
         if updated_descriptor_by_handle:
             self.updated_descriptors_by_handle = updated_descriptor_by_handle
         if deleted_descriptor_by_handle:
-            self.deleted_descriptor_by_handle = deleted_descriptor_by_handle
+            self.deleted_descriptors_by_handle = deleted_descriptor_by_handle
 
     def _has_new_state_usable_state_version(
         self,
