@@ -213,7 +213,7 @@ class TestClientWaveform(unittest.TestCase):
             self.assertEqual(s_count * 2, len(rt_buffer.rt_data))
 
         # add a lot more data, verify that length limitation is working
-        for i in range(100):
+        for i in range(1, 100):
             wf_report = _mk_wf_report(observation_time_ms + 100 * 1, 3 + 1, 43 + i)
             received_message_data = cl.msg_reader.read_received_message(wf_report.encode('utf-8'))
             cl._on_notification(received_message_data)

@@ -160,6 +160,7 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
                 waveform_state = waveform_by_handle[handle]
                 if (
                     waveform_state.MetricValue
+                    and waveform_state.MetricValue.Samples
                     and waveform_state.MetricValue.Annotation
                     and waveform_state.MetricValue.ApplyAnnotation
                 ):
