@@ -146,7 +146,7 @@ class TestClientWaveform(unittest.TestCase):
 
         client_mdib = ConsumerMdib(cl)
         client_mdib._xtra.bind_to_client_observables()
-        client_mdib._state = ConsumerMdibState.initialized  # fake it, because we do not call init_mdib()
+        client_mdib.status = ConsumerMdibState.initialized  # fake it, because we do not call init_mdib()
         client_mdib.MDIB_VERSION_CHECK_DISABLED = True  # we have no mdib version incrementing in this test
         # create dummy descriptors
         for handle in HANDLES:
@@ -213,7 +213,7 @@ class TestClientWaveform(unittest.TestCase):
             self.assertEqual(s_count * 2, len(rt_buffer.rt_data))
 
         # add a lot more data, verify that length limitation is working
-        for i in range(100):
+        for i in range(1, 100):
             wf_report = _mk_wf_report(observation_time_ms + 100 * 1, 3 + 1, 43 + i)
             received_message_data = cl.msg_reader.read_received_message(wf_report.encode('utf-8'))
             cl._on_notification(received_message_data)

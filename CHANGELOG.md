@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- the state of a `ConsumerMdib` is now available as the observable property `ConsumerMdib.status` (formerly the private `_state`, exposed read only via `ConsumerMdib.state`). It is set to `ConsumerMdibState.invalid` whenever an error occurs while processing a received report, so an application can observe it to be notified about an mdib that is no longer a correct mirror of the provider mdib
+- during `start_all` in `SdcConsumer`, if any subscription fails an exception is raised
+
 ### Added
 
 - the `http.client.NotConnected` raised by `SoapClient` now carries the reason of the underlying connection/SSL error, and the consumer now logs the SSL error when it falls back from an encrypted to an unencrypted connection [#427](https://github.com/Draegerwerk/sdc11073/issues/427)
@@ -15,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `SubscriptionEnd` messages now use the full WS-Eventing status URI (e.g. `http://schemas.xmlsoap.org/ws/2004/08/eventing/SourceShuttingDown`) instead of the bare local name, and are sent to the `EndTo` endpoint reference of the subscribe request. If no `EndTo` was provided, no `SubscriptionEnd` message is sent [#404](https://github.com/Draegerwerk/sdc11073/issues/404)
 - the parameter and return type in `RequestManipulatorProtocol.manipulate_string` from `str` to `bytes`
+- when processing notifications the `ConsumerMdib` now evaluates `MdibVersion` to be strictly increasing, incremented by exactly one [#502](https://github.com/Draegerwerk/sdc11073/issues/502)
+- when processing notifications the `ConsumerMdib` now evaluates `StateVersion` to be strictly increasing, incremented by exactly one [#501](https://github.com/Draegerwerk/sdc11073/issues/501)
 
 ## [v3.0.0] - 2026-06-24
 

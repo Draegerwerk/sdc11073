@@ -42,8 +42,9 @@ from sdc11073.httpserver import compression
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from sdc11073.location import SdcLocation
 from sdc11073.mdib import ConsumerMdib, statecontainers
-from sdc11073.mdib.transactions import TransactionResult
+from sdc11073.mdib.consumermdib import ConsumerMdibState
 from sdc11073.namespaces import default_ns_helper
+from sdc11073.namespaces import default_ns_helper as ns_hlp
 from sdc11073.observableproperties import observables
 from sdc11073.provider.providerimpl import provider_components_async_factory
 from sdc11073.provider.subscriptionmgr_async import SubscriptionsManagerReferenceParamAsync
@@ -65,6 +66,7 @@ from tests.utils import container_diff
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from sdc11073.consumer.manipulator import RequestManipulatorProtocol
     from sdc11073.mdib.statecontainers import PatientContextStateContainer
 
 FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
@@ -152,58 +154,52 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
     d_handles = {'0x34F05500': threading.Event(), '0x34F05501': threading.Event(), '0x34F05506': threading.Event()}
     global_event = threading.Event()
 
-    def collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
-        for handle, evt in d_handles.items():
-            if handle in waveform_by_handle:
-                waveform_state = waveform_by_handle[handle]
-                if (
-                    waveform_state.MetricValue
-                    and waveform_state.MetricValue.Annotation
-                    and waveform_state.MetricValue.ApplyAnnotation
-                ):
-                    evt.set()
-
-        if all(ev.is_set() for ev in d_handles.values()):
-            global_event.set()
-
-    with observables.bound_context(client_mdib, waveform_by_handle=collect):
-        unit_test.assertTrue(global_event.wait(SET_TIMEOUT))
-
-    # now verify that we have real time samples
-    for d_handle in d_handles:
-        # check content of state container
-        container = client_mdib.states.descriptor_handle.get_one(d_handle)
-        unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.ON)
-        unit_test.assertIsNotNone(container.MetricValue)
-        unit_test.assertAlmostEqual(container.MetricValue.DeterminationTime, time.time(), delta=0.5)
-        unit_test.assertGreater(len(container.MetricValue.Samples), 1)
-
-    for d_handle in d_handles:
+    def _verify_buffer(this_handle: str):
         # check content of rt_buffer
-        rt_buffer = client_mdib.rt_buffers.get(d_handle)
-        unit_test.assertTrue(rt_buffer is not None, msg=f'no rtBuffer for handle {d_handle}')
-        rt_data = copy.copy(rt_buffer.rt_data)  # we need a copy that not change during test
-        unit_test.assertEqual(len(rt_data), client_mdib._max_realtime_samples)
-        unit_test.assertAlmostEqual(rt_data[-1].determination_time, time.time(), delta=0.5)
-        with_annotation = [x for x in rt_data if len(x.annotations) > 0]
+        this_rt_buffer = client_mdib.rt_buffers.get(this_handle)
+        unit_test.assertTrue(this_rt_buffer is not None, msg=f'no rtBuffer for handle {this_handle}')
+        this_rt_data = copy.copy(this_rt_buffer.rt_data)  # we need a copy that not change during test
+        unit_test.assertEqual(len(this_rt_data), client_mdib._max_realtime_samples)
+        unit_test.assertAlmostEqual(this_rt_data[-1].determination_time, time.time(), delta=0.5)
+        with_annotation = [x for x in this_rt_data if len(x.annotations) > 0]
         # verify that we have annotations
         unit_test.assertGreater(len(with_annotation), 0)
         for w_a in with_annotation:
             unit_test.assertEqual(len(w_a.annotations), 1)
             unit_test.assertTrue(
                 _coded_value_comparator(w_a.annotations[0].Type, pm_types.CodedValue('a', 'b')),
-            )  # like in provide_realtime_data
+            )
+
+    def _collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
+        for handle, evt in d_handles.items():
+            if handle in waveform_by_handle:
+                waveform_state = waveform_by_handle[handle]
+                if (
+                    waveform_state.MetricValue
+                    and waveform_state.MetricValue.Samples
+                    and waveform_state.MetricValue.Annotation
+                    and waveform_state.MetricValue.ApplyAnnotation
+                ):
+                    unit_test.assertEqual(waveform_state.ActivationState, pm_types.ComponentActivation.ON)
+                    unit_test.assertIsNotNone(waveform_state.MetricValue)
+                    unit_test.assertAlmostEqual(waveform_state.MetricValue.DeterminationTime, time.time(), delta=0.5)
+                    unit_test.assertGreater(len(waveform_state.MetricValue.Samples), 1)
+                    _verify_buffer(handle)
+                    evt.set()
+
+        if all(ev.is_set() for ev in d_handles.values()):
+            global_event.set()
+
+    with observables.bound_context(client_mdib, waveform_by_handle=_collect):
+        unit_test.assertTrue(global_event.wait(SET_TIMEOUT))
 
     waveform_handes = list(d_handles.keys())
     d_handle = waveform_handes[0]
     waveform_event = Event()
 
-    # now disable one waveform
-    waveform_provider = sdc_device.waveform_provider
-
     observ = functools.partial(_on_waveform_updates, handle=d_handle, event=waveform_event)
     with observables.bound_context(client_mdib, waveform_by_handle=observ):
-        waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
+        sdc_device.waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
         unit_test.assertTrue(waveform_event.wait(NOTIFICATION_TIMEOUT))
         assumed_time_of_deactivation = time.time()
 
@@ -534,12 +530,32 @@ class TestClientSomeDevice(unittest.TestCase):
         self.logger.info('############### setUp %s ... ##############', self._testMethodName)
         self.wsd = WSDiscovery('127.0.0.1')
         self.wsd.start()
+
+        self.request_manipulator: RequestManipulatorProtocol | None = None
+        test_case = self
+
+        class ManipulatingSoapClientAsync(SoapClientAsync):
+            async def async_post_message_to(
+                self,
+                path: str,
+                created_message: CreatedMessage,
+                request_manipulator: RequestManipulatorProtocol | None = None,
+            ) -> ReceivedMessage | None:
+                """Send the message, using the manipulator of the test case if the caller provided none."""
+                if request_manipulator is None:
+                    request_manipulator = test_case.request_manipulator
+                return await super().async_post_message_to(path, created_message, request_manipulator)
+
+        provider_components = provider_components_async_factory()
+        provider_components.soap_client_class = ManipulatingSoapClientAsync
+
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
             None,
             MDIB_NAME,
             max_subscription_duration=10,  # shorter duration for faster tests
             log_prefix=f'{self._testMethodName}: ',
+            components=provider_components,
         )
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
@@ -1006,17 +1022,39 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertGreater(patient_context_state_container.BindingMdibVersion, tr_mdib_version)
         self.assertEqual(patient_context_state_container.UnbindingMdibVersion, None)
 
+        def _on_event_report(
+            received_msg: ReceivedMessage,
+            received_event: threading.Event,
+            descr_handle: str,
+            mod_type: msg_types.DescriptionModificationType,
+            state_handle: str | None = None,
+        ):
+            xpath_expr = './msg:ReportPart[@ModificationType=$mod_type][msg:Descriptor/@Handle=$descr_handle]'
+            if state_handle is not None:
+                xpath_expr += '[msg:State/@Handle=$state_handle]'
+            hits = received_msg.p_msg.msg_node.xpath(
+                xpath_expr,
+                namespaces=ns_hlp.ns_map,
+                mod_type=str(mod_type),
+                descr_handle=descr_handle,
+                state_handle=state_handle,
+            )
+            if len(hits) == 1:
+                received_event.set()
+
         # trigger context descriptor update
         received = threading.Event()
         new_patient_handle = str(uuid.uuid4())
-
-        def _on_event_report(received_msg: ReceivedMessage):
-            raw_msg = received_msg.p_msg.raw_data.decode(encoding='utf-8')
-            if patient_descr_container.Handle in raw_msg and new_patient_handle in raw_msg:
-                received.set()
+        observ_func = functools.partial(
+            _on_event_report,
+            received_event=received,
+            descr_handle=patient_descr_container.Handle,
+            state_handle=patient_context_state_container.Handle,
+            mod_type=msg_types.DescriptionModificationType.UPDATE,
+        )
 
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
-        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+        with observables.bound_context(self.sdc_client, description_modification_report=observ_func):
             with self.sdc_device.mdib.descriptor_transaction() as mgr:
                 mgr.get_descriptor(patient_descr_container.Handle)
                 patient_state: PatientContextStateContainer = self.sdc_device.mdib.context_states.NODETYPE.get_one(
@@ -1038,7 +1076,16 @@ class TestClientSomeDevice(unittest.TestCase):
         # trigger context descriptor deletion
         received.clear()
         coll = observableproperties.SingleValueCollector(self.sdc_client, 'description_modification_report')
-        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
+
+        observ_func = functools.partial(
+            _on_event_report,
+            received_event=received,
+            descr_handle=patient_descr_container.Handle,
+            state_handle=None,
+            mod_type=msg_types.DescriptionModificationType.DELETE,
+        )
+
+        with observables.bound_context(self.sdc_client, description_modification_report=observ_func):
             with self.sdc_device.mdib.descriptor_transaction() as mgr:
                 mgr.remove_descriptor(patient_descr_container.Handle)
 
@@ -1275,29 +1322,31 @@ class TestClientSomeDevice(unittest.TestCase):
         client_mdib = ConsumerMdib(self.sdc_client)
         client_mdib.init_mdib()
 
-        received = threading.Event()
-
         descr_handle = str(uuid.uuid4())
 
-        def _on_event_report(received_msg: ReceivedMessage):
-            if descr_handle in received_msg.p_msg.raw_data.decode(encoding='utf-8'):
-                received.set()
-
-        with observables.bound_context(self.sdc_client, state_event_report=_on_event_report):
-            with self.sdc_device.mdib._tr_lock:
-                orig_descriptor_container = self.sdc_device.mdib.descriptions.handle.get_one(
-                    self.alert_descriptor_handle
+        class Manipulator:
+            @staticmethod
+            def manipulate_string(data: bytes) -> bytes | None:
+                if b'DescriptionModificationReport' not in data:
+                    return None
+                return data.replace(
+                    self.alert_descriptor_handle.encode('utf-8'),
+                    descr_handle.encode('utf-8'),
                 )
-                descriptor_container = orig_descriptor_container.mk_copy()
-                descriptor_container.Handle = descr_handle
-                tr = TransactionResult()
-                tr.descr_updated = [descriptor_container]
-                self.sdc_device.mdib.transaction = tr
 
-            self.assertTrue(
-                received.wait(timeout=NOTIFICATION_TIMEOUT),
-                msg='Did not receive notification with unknown descriptor handle',
-            )
+        status_collector = observableproperties.SingleValueCollector(client_mdib, 'status')
+        self.request_manipulator = Manipulator()
+        try:
+            with self.sdc_device.mdib.descriptor_transaction() as mgr:
+                mgr.get_descriptor(self.alert_descriptor_handle)
+
+            try:
+                status = status_collector.result(timeout=NOTIFICATION_TIMEOUT)
+            except observableproperties.CollectTimeoutError:
+                self.fail('mdib did not become invalid after report with unknown descriptor handle')
+            self.assertEqual(ConsumerMdibState.invalid, status)
+        finally:
+            self.request_manipulator = None
 
         watcher_logs = self.log_watcher.getAllRecords()
 
@@ -1690,6 +1739,152 @@ class TestClientSomeDevice(unittest.TestCase):
         self.assertEqual(1, len(descriptors))
         self.assertEqual('alert_condition_0.vmd_0.mds_1', descriptors[0].Handle)
 
+    def _make_fake_version_group(self, cl_mdib: ConsumerMdib, mdib_version: int) -> MdibVersionGroupReader:
+        return MdibVersionGroupReader(
+            mdib_version=mdib_version,
+            sequence_id=cl_mdib.sequence_id,
+            instance_id=cl_mdib.instance_id,
+        )
+
+    def test_mdibversion_gap(self):
+        """Verify that the consumer rejects a report with a gap in MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        # _synchronizedReports is set by reload_all() when processing buffered waveform notifications;
+        # set explicitly here to guarantee the pre-condition independent of timing.
+        cl_mdib._synchronizedReports.set()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version + 2)
+            report = msg_types.EpisodicMetricReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_metric_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(
+                f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version + 2}',
+                str(exc.exception),
+            )
+
+    def test_mdibversion_repeated(self):
+        """Verify that the consumer rejects a report with a repeated MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        cl_mdib._synchronizedReports.set()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version)
+            report = msg_types.EpisodicMetricReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_metric_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(
+                f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version}',
+                str(exc.exception),
+            )
+
+    def test_mdibversion_decrement(self):
+        """Verify that the consumer rejects a report with a decremented MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+        cl_mdib._synchronizedReports.set()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version - 1)
+            report = msg_types.OperationInvokedReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_operational_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(
+                f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version - 1}',
+                str(exc.exception),
+            )
+
+    def test_mdibversion_negative(self):
+        """Verify that the consumer rejects a report with a negative MdibVersion and sets status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            fake_version_group = self._make_fake_version_group(cl_mdib, -1)
+            report = msg_types.EpisodicAlertReport()
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_alert_states_report(fake_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received -1', str(exc.exception))
+
+    def test_state_version_error_sets_status_invalid(self):
+        """Verify that a StateVersion error during report processing sets ConsumerMdib.status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            some_handle = next(iter(cl_mdib.states.descriptor_handle))
+            old_state = cl_mdib.states.descriptor_handle.get_one(some_handle)
+
+            fake_state = unittest.mock.MagicMock()
+            fake_state.DescriptorHandle = some_handle
+            fake_state.StateVersion = old_state.StateVersion + 42
+
+            fake_report_part = unittest.mock.MagicMock()
+            fake_report_part.values_list = [fake_state]
+            report = unittest.mock.MagicMock()
+            report.ReportPart = [fake_report_part]
+
+            valid_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version + 1)
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_metric_states_report(valid_version_group, report)
+            self.log_watcher.setPaused(False)
+
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            exception_msg = str(exc.exception)
+            self.assertIn(
+                f'missed {fake_state.StateVersion - old_state.StateVersion - 1} states for state', exception_msg
+            )
+            self.assertIn(some_handle, exception_msg)
+            self.assertIn(f'({old_state.StateVersion}->{fake_state.StateVersion})', exception_msg)
+
 
 class TestDeviceCommonHttpServer(unittest.TestCase):
     def setUp(self):
@@ -1861,7 +2056,6 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         subscriptions_manager_class_copy = dict(provider_components.subscriptions_manager_class)
         subscriptions_manager_class_copy.update({'StateEvent': SubscriptionsManagerReferenceParamAsync})
         provider_components.subscriptions_manager_class = subscriptions_manager_class_copy
-        provider_components.soap_client_class = SoapClientAsync
 
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
