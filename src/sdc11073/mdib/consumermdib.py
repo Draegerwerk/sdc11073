@@ -892,12 +892,16 @@ class ConsumerMdib(mdibbase.MdibBase):
         if diff == 1:  # this is the perfect version
             return True
         if diff > 1:
-            msg = (f'{report_name}: missed {diff - 1} states for state '
-                   f'DescriptorHandle={old_state_container.DescriptorHandle} '
-                   f'({old_state_container.StateVersion}->{new_state_container.StateVersion})')
+            msg = (
+                f'{report_name}: missed {diff - 1} states for state '
+                f'DescriptorHandle={old_state_container.DescriptorHandle} '
+                f'({old_state_container.StateVersion}->{new_state_container.StateVersion})'
+            )
         else:
-            msg = (f'{report_name}: received older state for state '
-                   f'DescriptorHandle={old_state_container.DescriptorHandle} '
-                   f'({old_state_container.StateVersion}->{new_state_container.StateVersion})')
+            msg = (
+                f'{report_name}: received older state for state '
+                f'DescriptorHandle={old_state_container.DescriptorHandle} '
+                f'({old_state_container.StateVersion}->{new_state_container.StateVersion})'
+            )
         self._logger.error(msg)
         raise ValueError(msg)
