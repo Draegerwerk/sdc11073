@@ -1775,9 +1775,10 @@ class TestClientSomeDevice(unittest.TestCase):
             new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertEqual(new_status, ConsumerMdibState.invalid)
             self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
-            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, '
-                          f'received {cl_mdib.mdib_version + 2}',
-                          str(exc.exception))
+            self.assertIn(
+                f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version + 2}',
+                str(exc.exception),
+            )
 
     def test_mdibversion_repeated(self):
         """Verify that the consumer rejects a report with a repeated MdibVersion and sets status to invalid."""
@@ -1800,8 +1801,10 @@ class TestClientSomeDevice(unittest.TestCase):
             new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertEqual(new_status, ConsumerMdibState.invalid)
             self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
-            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version}',
-                          str(exc.exception))
+            self.assertIn(
+                f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version}',
+                str(exc.exception),
+            )
 
     def test_mdibversion_decrement(self):
         """Verify that the consumer rejects a report with a decremented MdibVersion and sets status to invalid."""
@@ -1823,9 +1826,10 @@ class TestClientSomeDevice(unittest.TestCase):
             new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
             self.assertEqual(new_status, ConsumerMdibState.invalid)
             self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
-            self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, '
-                          f'received {cl_mdib.mdib_version - 1}',
-                          str(exc.exception))
+            self.assertIn(
+                f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received {cl_mdib.mdib_version - 1}',
+                str(exc.exception),
+            )
 
     def test_mdibversion_negative(self):
         """Verify that the consumer rejects a report with a negative MdibVersion and sets status to invalid."""
@@ -1848,6 +1852,42 @@ class TestClientSomeDevice(unittest.TestCase):
             self.assertEqual(new_status, ConsumerMdibState.invalid)
             self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
             self.assertIn(f'unexpect MdibVersion, expected {cl_mdib.mdib_version + 1}, received -1', str(exc.exception))
+
+    def test_state_version_error_sets_status_invalid(self):
+        """Verify that a StateVersion error during report processing sets ConsumerMdib.status to invalid."""
+        cl_mdib = ConsumerMdib(self.sdc_client)
+        cl_mdib.init_mdib()
+
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
+        status_coll = observableproperties.SingleValueCollector(cl_mdib, 'status')
+
+        with cl_mdib.mdib_lock:
+            some_handle = next(iter(cl_mdib.states.descriptor_handle))
+            old_state = cl_mdib.states.descriptor_handle.get_one(some_handle)
+
+            fake_state = unittest.mock.MagicMock()
+            fake_state.DescriptorHandle = some_handle
+            fake_state.StateVersion = old_state.StateVersion + 42
+
+            fake_report_part = unittest.mock.MagicMock()
+            fake_report_part.values_list = [fake_state]
+            report = unittest.mock.MagicMock()
+            report.ReportPart = [fake_report_part]
+
+            valid_version_group = self._make_fake_version_group(cl_mdib, cl_mdib.mdib_version + 1)
+
+            self.log_watcher.setPaused(True)
+            with self.assertRaises(ValueError) as exc:
+                cl_mdib.process_incoming_metric_states_report(valid_version_group, report)
+            self.log_watcher.setPaused(False)
+
+        new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+        self.assertEqual(new_status, ConsumerMdibState.invalid)
+        self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+        exception_msg = str(exc.exception)
+        self.assertIn(f'missed {fake_state.StateVersion - old_state.StateVersion - 1} states for state', exception_msg)
+        self.assertIn(some_handle, exception_msg)
+        self.assertIn(f'({old_state.StateVersion}->{fake_state.StateVersion})', exception_msg)
 
 
 class TestDeviceCommonHttpServer(unittest.TestCase):
