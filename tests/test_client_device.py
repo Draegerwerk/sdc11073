@@ -154,7 +154,23 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
     d_handles = {'0x34F05500': threading.Event(), '0x34F05501': threading.Event(), '0x34F05506': threading.Event()}
     global_event = threading.Event()
 
-    def collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
+    def _verify_buffer(this_handle: str):
+        # check content of rt_buffer
+        this_rt_buffer = client_mdib.rt_buffers.get(this_handle)
+        unit_test.assertTrue(this_rt_buffer is not None, msg=f'no rtBuffer for handle {this_handle}')
+        this_rt_data = copy.copy(this_rt_buffer.rt_data)  # we need a copy that not change during test
+        unit_test.assertEqual(len(this_rt_data), client_mdib._max_realtime_samples)
+        unit_test.assertAlmostEqual(this_rt_data[-1].determination_time, time.time(), delta=0.5)
+        with_annotation = [x for x in this_rt_data if len(x.annotations) > 0]
+        # verify that we have annotations
+        unit_test.assertGreater(len(with_annotation), 0)
+        for w_a in with_annotation:
+            unit_test.assertEqual(len(w_a.annotations), 1)
+            unit_test.assertTrue(
+                _coded_value_comparator(w_a.annotations[0].Type, pm_types.CodedValue('a', 'b')),
+            )
+
+    def _collect(waveform_by_handle: dict[str, statecontainers.RealTimeSampleArrayMetricStateContainer]):
         for handle, evt in d_handles.items():
             if handle in waveform_by_handle:
                 waveform_state = waveform_by_handle[handle]
@@ -164,49 +180,26 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
                     and waveform_state.MetricValue.Annotation
                     and waveform_state.MetricValue.ApplyAnnotation
                 ):
+                    unit_test.assertEqual(waveform_state.ActivationState, pm_types.ComponentActivation.ON)
+                    unit_test.assertIsNotNone(waveform_state.MetricValue)
+                    unit_test.assertAlmostEqual(waveform_state.MetricValue.DeterminationTime, time.time(), delta=0.5)
+                    unit_test.assertGreater(len(waveform_state.MetricValue.Samples), 1)
+                    _verify_buffer(handle)
                     evt.set()
 
         if all(ev.is_set() for ev in d_handles.values()):
             global_event.set()
 
-    with observables.bound_context(client_mdib, waveform_by_handle=collect):
+    with observables.bound_context(client_mdib, waveform_by_handle=_collect):
         unit_test.assertTrue(global_event.wait(SET_TIMEOUT))
-
-    # now verify that we have real time samples
-    for d_handle in d_handles:
-        # check content of state container
-        container = client_mdib.states.descriptor_handle.get_one(d_handle)
-        unit_test.assertEqual(container.ActivationState, pm_types.ComponentActivation.ON)
-        unit_test.assertIsNotNone(container.MetricValue)
-        unit_test.assertAlmostEqual(container.MetricValue.DeterminationTime, time.time(), delta=0.5)
-        unit_test.assertGreater(len(container.MetricValue.Samples), 1)
-
-    for d_handle in d_handles:
-        # check content of rt_buffer
-        rt_buffer = client_mdib.rt_buffers.get(d_handle)
-        unit_test.assertTrue(rt_buffer is not None, msg=f'no rtBuffer for handle {d_handle}')
-        rt_data = copy.copy(rt_buffer.rt_data)  # we need a copy that not change during test
-        unit_test.assertEqual(len(rt_data), client_mdib._max_realtime_samples)
-        unit_test.assertAlmostEqual(rt_data[-1].determination_time, time.time(), delta=0.5)
-        with_annotation = [x for x in rt_data if len(x.annotations) > 0]
-        # verify that we have annotations
-        unit_test.assertGreater(len(with_annotation), 0)
-        for w_a in with_annotation:
-            unit_test.assertEqual(len(w_a.annotations), 1)
-            unit_test.assertTrue(
-                _coded_value_comparator(w_a.annotations[0].Type, pm_types.CodedValue('a', 'b')),
-            )  # like in provide_realtime_data
 
     waveform_handes = list(d_handles.keys())
     d_handle = waveform_handes[0]
     waveform_event = Event()
 
-    # now disable one waveform
-    waveform_provider = sdc_device.waveform_provider
-
     observ = functools.partial(_on_waveform_updates, handle=d_handle, event=waveform_event)
     with observables.bound_context(client_mdib, waveform_by_handle=observ):
-        waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
+        sdc_device.waveform_provider.set_activation_state(d_handle, pm_types.ComponentActivation.OFF)
         unit_test.assertTrue(waveform_event.wait(NOTIFICATION_TIMEOUT))
         assumed_time_of_deactivation = time.time()
 
@@ -1882,13 +1875,13 @@ class TestClientSomeDevice(unittest.TestCase):
                 cl_mdib.process_incoming_metric_states_report(valid_version_group, report)
             self.log_watcher.setPaused(False)
 
-        new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
-        self.assertEqual(new_status, ConsumerMdibState.invalid)
-        self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
-        exception_msg = str(exc.exception)
-        self.assertIn(f'missed {fake_state.StateVersion - old_state.StateVersion - 1} states for state', exception_msg)
-        self.assertIn(some_handle, exception_msg)
-        self.assertIn(f'({old_state.StateVersion}->{fake_state.StateVersion})', exception_msg)
+            new_status = status_coll.result(timeout=NOTIFICATION_TIMEOUT)
+            self.assertEqual(new_status, ConsumerMdibState.invalid)
+            self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
+            exception_msg = str(exc.exception)
+            self.assertIn(f'missed {fake_state.StateVersion - old_state.StateVersion - 1} states for state', exception_msg)
+            self.assertIn(some_handle, exception_msg)
+            self.assertIn(f'({old_state.StateVersion}->{fake_state.StateVersion})', exception_msg)
 
 
 class TestDeviceCommonHttpServer(unittest.TestCase):
