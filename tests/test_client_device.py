@@ -1879,7 +1879,9 @@ class TestClientSomeDevice(unittest.TestCase):
             self.assertEqual(new_status, ConsumerMdibState.invalid)
             self.assertEqual(cl_mdib.status, ConsumerMdibState.invalid)
             exception_msg = str(exc.exception)
-            self.assertIn(f'missed {fake_state.StateVersion - old_state.StateVersion - 1} states for state', exception_msg)
+            self.assertIn(
+                f'missed {fake_state.StateVersion - old_state.StateVersion - 1} states for state', exception_msg
+            )
             self.assertIn(some_handle, exception_msg)
             self.assertIn(f'({old_state.StateVersion}->{fake_state.StateVersion})', exception_msg)
 
