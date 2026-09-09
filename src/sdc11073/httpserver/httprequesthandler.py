@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ssl
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
@@ -47,6 +48,19 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
     def log_request(self, code: int | str = '-', size: int | str = '-') -> None:
         """Suppress printing of every request to stderr."""
 
+    def _get_peer_certificate(self) -> dict | None:
+        """Return the decoded x.509 client certificate of the peer, or None.
+
+        None is returned for plain http connections and for tls connections without (verified) client
+        authentication. The decoded form is the dict returned by :meth:`ssl.SSLSocket.getpeercert`.
+        """
+        if not isinstance(self.connection, ssl.SSLSocket):
+            return None
+        try:
+            return self.connection.getpeercert() or None
+        except (ValueError, OSError):
+            return None
+
     def get_first_path_element(self) -> str:
         """Return the first non-empty element of the request path."""
         parsed_path = urlparse(self.path)
@@ -85,8 +99,9 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
             return
 
         peer_name = self.connection.getpeername()
+        peer_certificate = self._get_peer_certificate()
         try:
-            result = component.do_post(self.headers, self.path, peer_name, request_bytes)
+            result = component.do_post(self.headers, self.path, peer_name, request_bytes, peer_certificate)
             http_status, http_reason, response_xml_string = result
         except Exception as ex:  # noqa: BLE001  # request handler must catch all errors to return HTTP 500
             self.server.logger.error(  # noqa: PLE1205, TRY400  # LoggerAdapter str.format style; concise error log without traceback
