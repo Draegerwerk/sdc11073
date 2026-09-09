@@ -11,6 +11,7 @@ import logging
 import pathlib
 import time
 import unittest
+from unittest import mock
 
 from tutorial.codedvaluecomparator import _coded_value_comparator
 
@@ -19,6 +20,7 @@ from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_facto
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
+from sdc11073.provider.operations import ExecuteParameters, ExecuteResult, SetStringOperation
 from sdc11073.provider.porttypes import invocationsource
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
@@ -123,6 +125,37 @@ class TestOperationInvocationSource(unittest.TestCase):
         self.assertIsNotNone(result.InvocationSource)
         self.assertEqual(result.InvocationSource.Root, invocationsource.ANONYMOUS_PARTICIPANT_ROOT)
         self.assertEqual(result.InvocationSource.Extension, invocationsource.ANONYMOUS_PARTICIPANT_EXTENSION)
+
+
+class TestExecuteParametersInvocationSource(unittest.TestCase):
+    """The operation handler receives the invocation source via ExecuteParameters."""
+
+    def test_execute_operation_forwards_invocation_source_to_handler(self):
+        captured: list[pm_types.InstanceIdentifier | None] = []
+
+        def handler(params: ExecuteParameters) -> ExecuteResult:
+            captured.append(params.invocation_source)
+            return ExecuteResult(msg_types.InvocationState.FINISHED, mock.MagicMock())
+
+        operation = SetStringOperation(handle='h', operation_target_handle='t', operation_handler=handler)
+        invocation_source = pm_types.InstanceIdentifier('root', extension_string='CName')
+
+        operation.execute_operation(mock.MagicMock(), mock.MagicMock(), invocation_source)
+
+        self.assertEqual(captured, [invocation_source])
+
+    def test_invocation_source_defaults_to_none(self):
+        captured: list[pm_types.InstanceIdentifier | None] = []
+
+        def handler(params: ExecuteParameters) -> ExecuteResult:
+            captured.append(params.invocation_source)
+            return ExecuteResult(msg_types.InvocationState.FINISHED, mock.MagicMock())
+
+        operation = SetStringOperation(handle='h', operation_target_handle='t', operation_handler=handler)
+
+        operation.execute_operation(mock.MagicMock(), mock.MagicMock())
+
+        self.assertEqual(captured, [None])
 
 
 if __name__ == '__main__':
