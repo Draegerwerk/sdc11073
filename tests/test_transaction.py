@@ -43,7 +43,7 @@ class TestTransactions(unittest.TestCase):
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
         updated_state = self._mdib.states.descriptor_handle.get_one(alert_condition_handle)
         self.assertEqual(state_version + 1, updated_state.StateVersion)
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.alert_updates), 1)  # this causes an EpisodicAlertReport
         self.assertEqual(state_version + 1, transaction_result.alert_updates[0].StateVersion)
 
@@ -75,7 +75,7 @@ class TestTransactions(unittest.TestCase):
         updated_state = self._mdib.states.descriptor_handle.get_one(metric_handle)
         self.assertEqual(state_version + 1, updated_state.StateVersion)
 
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.metric_updates), 1)
         self.assertEqual(state_version + 1, transaction_result.metric_updates[0].StateVersion)
 
@@ -109,7 +109,7 @@ class TestTransactions(unittest.TestCase):
         updated_state = self._mdib.states.descriptor_handle.get_one(op_descriptor_handle)
         self.assertEqual(state_version + 1, updated_state.StateVersion)
 
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.op_updates), 1)
         self.assertEqual(state_version + 1, transaction_result.op_updates[0].StateVersion)
 
@@ -139,7 +139,7 @@ class TestTransactions(unittest.TestCase):
         self.assertIsNotNone(state.Handle)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
 
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.ctxt_updates), 1)
         self.assertEqual(transaction_result.ctxt_updates[0].StateVersion, 0)
         self.assertEqual(transaction_result.ctxt_updates[0].Givenname, 'foo')
@@ -149,7 +149,7 @@ class TestTransactions(unittest.TestCase):
         with self._mdib.context_state_transaction() as mgr:
             state = mgr.get_context_state(ctxt_handle)
         self.assertEqual(mdib_version + 2, self._mdib.mdib_version)
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.ctxt_updates), 1)
 
         self.assertTrue(ctxt_handle in self._mdib.context_by_handle)
@@ -190,7 +190,7 @@ class TestTransactions(unittest.TestCase):
             mgr.get_descriptor(rt_descr_handle)
             mgr.get_state(rt_descr_handle)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.metric_updates), 1)
         self.assertEqual(len(transaction_result.alert_updates), 1)
         self.assertEqual(len(transaction_result.op_updates), 1)
@@ -260,7 +260,7 @@ class TestTransactions(unittest.TestCase):
             self.assertEqual(state.StateVersion, context_states[state.Handle].StateVersion + 1)
 
         # verify transaction content is als correct
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         for descr in transaction_result.descr_created:
             self.assertEqual(descr.DescriptorVersion, current_descriptors[descr.Handle].DescriptorVersion)
 
@@ -289,7 +289,7 @@ class TestEntityTransactions(unittest.TestCase):
         with self._mdib.alert_state_transaction() as mgr:
             mgr.write_entity(old_ac_entity)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        self.assertEqual(len(self._mdib.transaction.alert_updates), 1)  # this causes an EpisodicAlertReport
+        self.assertEqual(len(self._mdib._transaction.alert_updates), 1)  # this causes an EpisodicAlertReport
 
         new_ac_entity = self._mdib.entities.by_handle(old_ac_entity.handle)
         self.assertEqual(new_ac_entity.state.StateVersion, old_ac_entity.state.StateVersion + 1)
@@ -314,7 +314,7 @@ class TestEntityTransactions(unittest.TestCase):
         with self._mdib.metric_state_transaction() as mgr:
             mgr.write_entity(old_metric_entity)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        self.assertEqual(len(self._mdib.transaction.metric_updates), 1)
+        self.assertEqual(len(self._mdib._transaction.metric_updates), 1)
 
         new_metric_entity = self._mdib.entities.by_handle(old_metric_entity.handle)
         self.assertEqual(new_metric_entity.state.StateVersion, old_metric_entity.state.StateVersion + 1)
@@ -339,7 +339,7 @@ class TestEntityTransactions(unittest.TestCase):
         with self._mdib.operational_state_transaction() as mgr:
             mgr.write_entity(old_op_entity)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        self.assertEqual(len(self._mdib.transaction.op_updates), 1)
+        self.assertEqual(len(self._mdib._transaction.op_updates), 1)
         self.assertTrue(old_op_entity.handle in self._mdib.operation_by_handle)
 
         new_op_entity = self._mdib.entities.by_handle(old_op_entity.handle)
@@ -371,7 +371,7 @@ class TestEntityTransactions(unittest.TestCase):
         with self._mdib.context_state_transaction() as mgr:
             mgr.write_entity(old_pat_entity, [context_handle])
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        self.assertEqual(len(self._mdib.transaction.ctxt_updates), 1)
+        self.assertEqual(len(self._mdib._transaction.ctxt_updates), 1)
 
         new_pat_entity = self._mdib.entities.by_handle(old_pat_entity.handle)
         self.assertEqual(new_pat_entity.states[context_handle].StateVersion, 0)
@@ -417,7 +417,7 @@ class TestEntityTransactions(unittest.TestCase):
             mgr.write_entity(old_rt_entity)
             mgr.write_entity(old_ctx_entity)
         self.assertEqual(mdib_version + 1, self._mdib.mdib_version)
-        transaction_result = self._mdib.transaction
+        transaction_result = self._mdib._transaction
         self.assertEqual(len(transaction_result.metric_updates), 1)
         self.assertEqual(len(transaction_result.alert_updates), 1)
         self.assertEqual(len(transaction_result.op_updates), 1)

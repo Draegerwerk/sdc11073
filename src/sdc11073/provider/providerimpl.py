@@ -63,7 +63,6 @@ if TYPE_CHECKING:
     from sdc11073.location import SdcLocation
     from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.mdib.providermdibprotocol import ProviderMdibProtocol
-    from sdc11073.mdib.statecontainers import AbstractStateProtocol
     from sdc11073.mdib.transactionsprotocol import TransactionResultProtocol
     from sdc11073.namespaces import PrefixNamespace
     from sdc11073.provider.operations import OperationDefinitionBase
@@ -323,8 +322,7 @@ class SdcProvider:
         self.waveform_provider: WaveformProviderProtocol | None = None
         self._setup_components()
         self.base_urls = []  # will be set after httpserver is started
-        properties.bind(device_mdib_container, transaction=self._send_episodic_reports)
-        properties.bind(device_mdib_container, rt_updates=self._send_rt_notifications)
+        properties.bind(device_mdib_container, _transaction=self._send_episodic_reports)
 
     def generate_transaction_id(self) -> int:
         """Return a new transaction id."""
@@ -668,6 +666,10 @@ class SdcProvider:
             states = transaction_result.all_states()
             port_type_impl.send_descriptor_updates(updated, created, deleted, states, mdib_version_group)
 
+            # this is a DescriptionModificationReport, no further reports are sent,
+            # all states have to be included in the DescriptionModificationReport
+            return
+
         states = transaction_result.metric_updates
         if len(states) > 0:
             port_type_impl = self.hosted_services.state_event_service
@@ -705,11 +707,6 @@ class SdcProvider:
         if len(states) > 0:
             port_type_impl = self.hosted_services.waveform_service
             port_type_impl.send_realtime_samples_report(states, mdib_version_group)
-
-    def _send_rt_notifications(self, rt_states: list[AbstractStateProtocol]):
-        if len(rt_states) > 0:
-            port_type_impl = self.hosted_services.waveform_service
-            port_type_impl.send_realtime_samples_report(rt_states, self._mdib.mdib_version_group)
 
     def set_used_compression(self, *compression_methods: str):
         """Set supported compression methods, e.g. 'gzip'."""

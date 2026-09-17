@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 import traceback
 from decimal import Context
@@ -103,6 +104,7 @@ class GenericWaveformProvider:
         self._annotators: dict[str, AnnotatorProtocol] = {}
         self._last_log_time = 0
         self._last_logged_delay = 0
+        self._generator_lock = threading.Lock()
 
     def register_waveform_generator(self, descriptor_handle: str, wf_generator: WaveformGeneratorProtocol):
         """Add wf_generator to waveform sources.
@@ -118,14 +120,15 @@ class GenericWaveformProvider:
             with self._mdib.descriptor_transaction() as mgr:
                 mgr.write_entity(entity)
 
-        if descriptor_handle in self._waveform_generators:
-            self._waveform_generators[descriptor_handle].set_waveform_generator(wf_generator)
-        else:
-            self._waveform_generators[descriptor_handle] = _SampleArrayGenerator(
-                self._mdib.data_model,
-                descriptor_handle,
-                wf_generator,
-            )
+        with self._generator_lock:
+            if descriptor_handle in self._waveform_generators:
+                self._waveform_generators[descriptor_handle].set_waveform_generator(wf_generator)
+            else:
+                self._waveform_generators[descriptor_handle] = _SampleArrayGenerator(
+                    self._mdib.data_model,
+                    descriptor_handle,
+                    wf_generator,
+                )
 
     def add_annotation_generator(
         self,
@@ -136,7 +139,8 @@ class GenericWaveformProvider:
         """Add annotator to list of annotators."""
         annotation = self._mdib.data_model.pm_types.AnnotationType(coded_value)
         annotator = Annotator(annotation, trigger_handle, annotated_handles)
-        self._annotators[annotator.trigger_handle] = annotator
+        with self._generator_lock:
+            self._annotators[annotator.trigger_handle] = annotator
         return annotator
 
     def start(self):
@@ -173,14 +177,15 @@ class GenericWaveformProvider:
 
         On transaction commit the mdib will call the appropriate send method of the sdc device.
         """
-        updated_entities = []
-        for descriptor_handle, wf_generator in self._waveform_generators.items():
-            if wf_generator.is_active:
-                entity = self._mdib.entities.by_handle(descriptor_handle)
-                self._update_rt_samples(entity.state)
-                updated_entities.append(entity)
-        self._add_all_annotations()
-        return updated_entities
+        with self._generator_lock:
+            updated_entities = []
+            for descriptor_handle, wf_generator in self._waveform_generators.items():
+                if wf_generator.is_active:
+                    entity = self._mdib.entities.by_handle(descriptor_handle)
+                    self._update_rt_samples(entity.state)
+                    updated_entities.append(entity)
+            self._add_all_annotations()
+            return updated_entities
 
     def provide_waveforms(
         self,

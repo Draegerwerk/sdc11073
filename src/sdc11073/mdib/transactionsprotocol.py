@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Protocol
 from .statecontainers import AbstractMultiStateProtocol, AbstractStateProtocol
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from .descriptorcontainers import AbstractDescriptorProtocol
     from .entityprotocol import EntityProtocol, EntityTypeProtocol, MultiStateEntityProtocol
 
@@ -83,13 +85,13 @@ class AbstractTransactionManagerProtocol(Protocol):  # pragma: no cover
         """Process the transaction."""
 
     # member variables that are available during a running transaction
-    descriptor_updates: dict[str, TransactionItem]
-    metric_state_updates: dict[str, TransactionItem]
-    alert_state_updates: dict[str, TransactionItem]
-    component_state_updates: dict[str, TransactionItem]
-    context_state_updates: dict[str, TransactionItem]
-    operational_state_updates: dict[str, TransactionItem]
-    rt_sample_state_updates: dict[str, TransactionItem]
+    descriptor_updates: Mapping[str, TransactionItem]
+    metric_state_updates: Mapping[str, TransactionItem]
+    alert_state_updates: Mapping[str, TransactionItem]
+    component_state_updates: Mapping[str, TransactionItem]
+    context_state_updates: Mapping[str, TransactionItem]
+    operational_state_updates: Mapping[str, TransactionItem]
+    rt_sample_state_updates: Mapping[str, TransactionItem]
     error: bool
 
 
