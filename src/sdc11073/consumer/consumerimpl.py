@@ -831,11 +831,11 @@ class SdcConsumer:
             return  # _start_event_sink was never called
         try:
             dispatcher = self._http_server.dispatcher
-        except RuntimeError:
-            # the http server is not running, so there is nothing registered
-            dispatcher = None
-        if dispatcher is not None:
-            dispatcher.unregister_instance(self.path_prefix)
+        except (RuntimeError, AttributeError):
+            pass
+        else:
+            if dispatcher is not None:
+                dispatcher.unregister_instance(self.path_prefix)
         if self._is_internal_http_server:
             self._http_server.stop()
 
