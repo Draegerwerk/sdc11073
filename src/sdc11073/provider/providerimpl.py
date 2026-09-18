@@ -602,7 +602,11 @@ class SdcProvider:
                 msg = f'Http server could not be started within {http_server_start_timeout} seconds.'
                 raise RuntimeError(msg)
 
-        self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
+        dispatcher = self._http_server.dispatcher
+        if dispatcher is None:
+            msg = 'http server is shutting down, dispatcher not available'
+            raise RuntimeError(msg)
+        dispatcher.register_instance(self.path_prefix, self._msg_converter)
         host_ip = self._wsdiscovery.active_address
         if host_ip is None:
             self._logger.error('Cannot start device, there is no IP address to bind it to.')

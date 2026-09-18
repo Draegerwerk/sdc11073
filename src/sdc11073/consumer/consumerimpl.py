@@ -824,15 +824,24 @@ class SdcConsumer:
         else:
             self._http_server = shared_http_server
         # register own epr in http server
-        self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
+        dispatcher = self._http_server.dispatcher
+        if dispatcher is None:
+            msg = 'http server is shutting down, dispatcher not available'
+            raise RuntimeError(msg)
+        dispatcher.register_instance(self.path_prefix, self._msg_converter)
 
     def _stop_event_sink(self):
         if self._http_server is None:
             return  # _start_event_sink was never called
         try:
             dispatcher = self._http_server.dispatcher
-        except (RuntimeError, AttributeError):
-            pass
+        except (RuntimeError, AttributeError) as ex:
+            # the http server is not (or no longer) started, so there is no registration that could be removed
+            self._logger.debug(  # noqa: PLE1205
+                'could not unregister "{}", no dispatcher available: {}',
+                self.path_prefix,
+                ex,
+            )
         else:
             if dispatcher is not None:
                 dispatcher.unregister_instance(self.path_prefix)
