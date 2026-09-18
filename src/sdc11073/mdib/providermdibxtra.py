@@ -213,9 +213,8 @@ class ProviderMdibMethods:
         tmp = container
         if tmp.is_state_container:
             tmp = self._mdib.descriptions.handle.get_one(tmp.DescriptorHandle)
-        mds_descr = None
         expected_type = self._mdib.data_model.pm_names.MdsDescriptor
-        while mds_descr is None:
+        while True:
             if tmp.NODETYPE == expected_type:  # noqa: SIM300
                 return tmp
             parent_handle = tmp.parent_handle
@@ -226,7 +225,6 @@ class ProviderMdibMethods:
             if tmp is None:
                 msg = f'could not find mds descriptor for handle {container.Handle}'
                 raise KeyError(msg)
-        return None
 
     def set_source_mds(self, descriptor_container: AbstractDescriptorProtocol):
         """Find the parent mds for descriptor_container and set source mds of descriptor_container."""

@@ -1,5 +1,7 @@
 """Implementation of the definition of all BICEPS action strings."""
 
+import typing
+from collections.abc import Collection
 from enum import Enum
 
 from sdc11073.namespaces import default_ns_helper as ns_hlp
@@ -64,7 +66,7 @@ class Actions(str, Enum):
 
 # some sets of actions, useful when user wants to exclude some actions from subscriptions.
 # these are the typical sets:
-periodic_actions = {
+periodic_actions: typing.Final[Collection[Actions]] = {
     Actions.PeriodicContextReport,
     Actions.PeriodicMetricReport,
     Actions.PeriodicOperationalStateReport,
@@ -72,4 +74,12 @@ periodic_actions = {
     Actions.PeriodicComponentReport,
 }
 
-periodic_actions_and_system_error_report = set(periodic_actions).add(Actions.SystemErrorReport)
+periodic_actions_and_system_error_report: typing.Final[Collection[Actions]] = {
+    *periodic_actions,
+    Actions.SystemErrorReport,
+}
+
+REPORTS_NOT_AFFECTING_MDIB_VERSION: typing.Final[Collection[Actions]] = {
+    *periodic_actions_and_system_error_report,
+    Actions.OperationInvokedReport,
+}

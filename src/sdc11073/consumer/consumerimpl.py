@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import dataclasses
 import functools
 import logging
 import ssl
-import traceback
 import uuid
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
@@ -39,7 +39,7 @@ from sdc11073.namespaces import EventingActions
 from sdc11073.pysoap.msgfactory import MessageFactory
 from sdc11073.pysoap.msgreader import MessageReader
 from sdc11073.pysoap.soapclient import SoapClient
-from sdc11073.xml_types import eventing_types, mex_types
+from sdc11073.xml_types import actions, eventing_types, mex_types
 from sdc11073.xml_types.addressing_types import HeaderInformationBlock
 from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeType
@@ -336,7 +336,7 @@ class SdcConsumer:
         self._soap_clients = {}  # all http connections that this client holds
         self.peer_certificate = None
         self.binary_peer_certificate = None
-        self.all_subscribed = False
+        self.all_subscribed = False  # when True, state version gaps are not expected within received notifications
         # look for schemas added by services and components spec
         for handler_cls in self._components.service_handlers:
             self._components.additional_schema_specs.update(handler_cls.additional_namespaces)
@@ -365,7 +365,7 @@ class SdcConsumer:
         )
 
         # parameters of start_all call, will be set later in start_all
-        self._not_subscribed_actions_param: Iterable[str] | None = None
+        self._not_subscribed_actions_param: Iterable[str] = []
         self._fixed_renew_interval_param: float | None = None
         self._shared_http_server_param: Any | None = None
         self._check_get_service_param: bool | None = None
@@ -535,7 +535,34 @@ class SdcConsumer:
         """Return the subscription manager."""
         return self._subscription_mgr
 
-    def start_all(  # noqa: C901
+    def _subscribe_to_hosted_service(self, dpws_hosted: HostedServiceType) -> bool:
+        """Set up subscriptions for a single hosted service."""
+        available_actions: list[DispatchKey] = []
+        if dpws_hosted.Types is not None:
+            for port_type_qname in dpws_hosted.Types:
+                client = self.client(port_type_qname.localname)
+                if client is not None:
+                    available_actions.extend(client.get_available_subscriptions())
+        if not available_actions:
+            return True
+
+        subscribe_actions = set()
+        strict_mdib_version_count = True
+        for action in available_actions:
+            if action.action in self._not_subscribed_actions_param:
+                self._logger.info('not subscribing to %s', action.action)
+                if action.action not in actions.REPORTS_NOT_AFFECTING_MDIB_VERSION:
+                    strict_mdib_version_count = False
+            else:
+                subscribe_actions.add(action)
+        if subscribe_actions:
+            filter_type = eventing_types.FilterType()
+            filter_type.text = ' '.join(x.action for x in subscribe_actions)
+            filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
+            self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
+        return strict_mdib_version_count
+
+    def start_all(
         self,
         not_subscribed_actions: Iterable[str] | None = None,
         fixed_renew_interval: float | None = None,
@@ -555,7 +582,7 @@ class SdcConsumer:
         :param http_server_start_timeout: timeout to start the internal http server, if created.
         :return: None
         """
-        self._not_subscribed_actions_param = not_subscribed_actions
+        self._not_subscribed_actions_param = not_subscribed_actions or []
         self._fixed_renew_interval_param = fixed_renew_interval
         self._shared_http_server_param = shared_http_server
         self._check_get_service_param = check_get_service
@@ -595,53 +622,11 @@ class SdcConsumer:
         )
         self._subscription_mgr.start()
 
-        # flag 'self.all_subscribed' tells mdib that mdib state versions shall not have any gaps
-        # => log warnings for missing versions
-        self.all_subscribed = True
-        not_subscribed_actions_set = set() if not_subscribed_actions is None else set(not_subscribed_actions)
-        if not_subscribed_actions:
-            not_subscribed_episodic_actions = [
-                a for a in not_subscribed_actions if ('Episodic' in a or 'DescriptionModificationReport' in a)
-            ]
-            if not_subscribed_episodic_actions:
-                self.all_subscribed = False
-
         # start operationInvoked subscription and tell all
         self.operations_manager = self._components.operations_manager_class(self.msg_reader, self.log_prefix)
         properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
         for client in self._service_clients.values():
             client.set_operations_manager(self.operations_manager)
-
-        # start all subscriptions
-        # group subscriptions per hosted service
-        for dpws_hosted in self.host_description.relationship.Hosted:
-            available_actions: list[DispatchKey] = []
-            if dpws_hosted.Types is not None:
-                for port_type_qname in dpws_hosted.Types:
-                    client = self.client(port_type_qname.localname)
-                    if client is not None:
-                        available_actions.extend(client.get_available_subscriptions())
-            if len(available_actions) > 0:
-                subscribe_actions = {a for a in available_actions if a.action not in not_subscribed_actions_set}
-                if len(subscribe_actions) > 0:
-                    filter_type = eventing_types.FilterType()
-                    filter_type.text = ' '.join(x.action for x in subscribe_actions)
-                    filter_type.Dialect = DeviceEventingFilterDialectURI.ACTION
-                    try:
-                        self.do_subscribe(dpws_hosted, filter_type, subscribe_actions)
-                    except Exception:
-                        self.all_subscribed = False  # => don't log errors when mdib versions are missing
-                        self._logger.exception(  # noqa: PLE1205
-                            'start_all: could not subscribe: error = {}, actions= {}',
-                            traceback.format_exc(),
-                            subscribe_actions,
-                        )
-
-        def _update_is_connected(subscription_status: dict[str, bool]):
-            self.is_connected = all(subscription_status.values()) and any(subscription_status)
-
-        properties.strongbind(self, subscription_status=_update_is_connected)
-        _update_is_connected(self.subscription_status)
 
         # register callback for end of subscription
         self._services_dispatcher.register_post_handler(
@@ -651,6 +636,24 @@ class SdcConsumer:
             ),
             self._on_subscription_end,
         )
+
+        # start all subscriptions - group subscriptions per hosted service
+        try:
+            all_subscribed_results = [
+                self._subscribe_to_hosted_service(dpws_hosted)
+                for dpws_hosted in self.host_description.relationship.Hosted
+            ]
+            self.all_subscribed = all(all_subscribed_results) and any(all_subscribed_results)
+        except Exception:
+            with contextlib.suppress(Exception):
+                self.stop_all()
+            raise
+
+        def _update_is_connected(subscription_status: dict[str, bool]):
+            self.is_connected = all(subscription_status.values()) and any(subscription_status)
+
+        properties.strongbind(self, subscription_status=_update_is_connected)
+        _update_is_connected(self.subscription_status)
 
     def stop_all(self, unsubscribe: bool = True):
         """Stop all threads, optionally unsubscribe."""
