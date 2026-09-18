@@ -11,8 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - a custom `action_dispatcher_class` for `SdcConsumerComponents` must provide `start` and `stop`; classes derived from `RequestDispatcher` inherit no-op implementations. `DispatchKeyRegistryDeferred` no longer starts its worker thread when it is constructed, so it must be started explicitly if it is used outside of `SdcConsumer`
 - `SdcConsumer.stop_all` stops receiving notifications and lets the deferred request handler finish the queued requests before the mdib is detached and the soap clients are closed
-- the state of a `ConsumerMdib` is now available as the observable property `ConsumerMdib.status` (formerly the private `_state`, exposed read only via `ConsumerMdib.state`). It is set to `ConsumerMdibState.invalid` whenever an error occurs while processing a received report, so an application can observe it to be notified about an mdib that is no longer a correct mirror of the provider mdib
-- during `start_all` in `SdcConsumer`, if any subscription fails an exception is raised
 
 ### Added
 
@@ -22,8 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `SdcConsumer` no longer leaks the worker thread of the deferred request handler. The thread is now created in `start_all` and ended in `stop_all`; requests that are already queued are still handled before it ends. Formerly the thread was created when the consumer was constructed, was never ended and kept the whole consumer alive
-- the deferred request handler of `SdcConsumer` no longer blocks the receiving http thread forever if its queue is full, and it discards incoming requests while no worker thread is running
+- `SdcConsumer` no longer leaks the worker thread of the deferred request handler. The thread is now created in `start_all` and ended in `stop_all`; requests that are already queued are still handled before it ends. If the worker thread cannot be joined, because a handler blocks for longer than `DispatchKeyRegistryDeferred.STOP_TIMEOUT` or because `stop` was called from a handler, the queued requests are discarded instead, so that stopping stays bounded and the worker of a stopped handler cannot handle requests while a restarted one is already running. Formerly the thread was created when the consumer was constructed, was never ended and kept the whole consumer alive
+- the deferred request handler of `SdcConsumer` no longer delays the receiving http thread. Formerly the worker thread held the queue lock while it waited for the next request, which could block an incoming notification for seconds, and a full queue blocked it forever
+- the deferred request handler of `SdcConsumer` rejects a request with a `RuntimeError` while no worker thread is running or if its queue is full. Formerly such a request was answered with an empty response and dropped without any log entry
 - `SdcConsumer.stop_all` unregisters the consumer from its http server. A shared http server no longer dispatches notifications into a stopped consumer, and `SdcConsumer.restart` no longer raises an `ApiUsageError` if a shared http server is used
 - `ConsumerMdib` provides every context state of an `EpisodicContextReport` on the `context_by_handle` observable, keyed by the handle of the context state. Formerly, updated context states were keyed by their descriptor handle, so context states sharing a context descriptor overwrote each other and only one of them was provided. Note that this changes the keys of the observable for updated context states [#515](https://github.com/Draegerwerk/sdc11073/issues/515)
 - `SubscriptionEnd` messages now use the full WS-Eventing status URI (e.g. `http://schemas.xmlsoap.org/ws/2004/08/eventing/SourceShuttingDown`) instead of the bare local name, and are sent to the `EndTo` endpoint reference of the subscribe request. If no `EndTo` was provided, no `SubscriptionEnd` message is sent [#404](https://github.com/Draegerwerk/sdc11073/issues/404)
