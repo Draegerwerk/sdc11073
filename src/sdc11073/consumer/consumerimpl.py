@@ -607,6 +607,7 @@ class SdcConsumer:
             msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
             raise RuntimeError(msg)
 
+        self._services_dispatcher.start()
         self._start_event_sink(shared_http_server, http_server_start_timeout)
 
         # start subscription manager
@@ -660,12 +661,13 @@ class SdcConsumer:
             if unsubscribe:
                 self._subscription_mgr.unsubscribe_all()
             self._subscription_mgr.stop()
+        # first stop receiving notifications, then let the dispatcher handle what is already queued
+        self._stop_event_sink()
+        self._services_dispatcher.stop()
         self.set_mdib(None)
-
         for client in self._soap_clients.values():
             client.close()
         self._soap_clients = {}
-        self._stop_event_sink()
 
     def restart(self):
         """Forget existing data and restart from the beginning."""
@@ -825,10 +827,28 @@ class SdcConsumer:
         else:
             self._http_server = shared_http_server
         # register own epr in http server
-        self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
+        dispatcher = self._http_server.dispatcher
+        if dispatcher is None:
+            msg = 'http server is shutting down, dispatcher not available'
+            raise RuntimeError(msg)
+        dispatcher.register_instance(self.path_prefix, self._msg_converter)
 
     def _stop_event_sink(self):
-        if self._is_internal_http_server and self._http_server is not None:
+        if self._http_server is None:
+            return  # _start_event_sink was never called
+        try:
+            dispatcher = self._http_server.dispatcher
+        except (RuntimeError, AttributeError) as ex:
+            # the http server is not (or no longer) started, so there is no registration that could be removed
+            self._logger.debug(  # noqa: PLE1205
+                'could not unregister "{}", no dispatcher available: {}',
+                self.path_prefix,
+                ex,
+            )
+        else:
+            if dispatcher is not None:
+                dispatcher.unregister_instance(self.path_prefix)
+        if self._is_internal_http_server:
             self._http_server.stop()
 
     def _on_notification(self, message_data: ReceivedMessage):

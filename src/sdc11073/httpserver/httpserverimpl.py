@@ -40,7 +40,7 @@ class _ThreadingHTTPServer(socketserver.TCPServer):
         self.daemon_threads = True
         self.threads = []
         self.logger = logger
-        self.dispatcher = PathElementRegistry()
+        self.dispatcher: PathElementRegistry | None = PathElementRegistry()
         self.chunk_size = chunk_size
         self.supported_encodings = supported_encodings
         super().__init__(server_address, DispatchingRequestHandler)
@@ -167,7 +167,7 @@ class HttpServerThreadBase(threading.Thread):
             self.logger.info('http server stopped.')
 
     @property
-    def dispatcher(self) -> PathElementRegistry:
+    def dispatcher(self) -> PathElementRegistry | None:
         """Return the dispatcher responsible for handling requests."""
         if not self.started_evt.is_set():
             raise RuntimeError('http server not started yet, dispatcher not available')

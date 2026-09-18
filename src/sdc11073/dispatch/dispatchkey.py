@@ -55,6 +55,21 @@ class RequestDispatcherProtocol(RequestHandlerProtocol):
     def __init__(self, log_prefix: str):
         """Construct an instance."""
 
+    def start(self):
+        """Start the dispatcher.
+
+        An implementation that handles requests in a separate thread starts this thread here.
+        The method must be idempotent; calling it on an already started dispatcher does nothing.
+        """
+
+    def stop(self):
+        """Stop the dispatcher.
+
+        An implementation that handles requests in a separate thread ends this thread here. Requests that were
+        already accepted are handled before the thread ends.
+        The method must be idempotent, and it must also be callable if start() was never called.
+        """
+
     def register_post_handler(self, dispatch_key: DispatchKey, on_post_handler: OnPostHandler):
         """Register a POST handler for a DispatchKey.
 
@@ -80,6 +95,18 @@ class RequestDispatcher(RequestDispatcherProtocol):  # derive from protocol to h
         self._post_handlers: dict[DispatchKey, OnPostHandler] = {}
         self._get_handlers: dict[str, OnGetHandler] = {}
         self._logger = loghelper.get_logger_adapter(f'sdc.device.{self.__class__.__name__}', log_prefix)
+
+    def start(self):
+        """See documentation in RequestDispatcherProtocol.
+
+        This implementation handles requests in the calling thread, there is nothing to start.
+        """
+
+    def stop(self):
+        """See documentation in RequestDispatcherProtocol.
+
+        This implementation handles requests in the calling thread, there is nothing to stop.
+        """
 
     def register_post_handler(self, dispatch_key: DispatchKey, on_post_handler: OnPostHandler):
         """See documentation in RequestDispatcherProtocol."""
