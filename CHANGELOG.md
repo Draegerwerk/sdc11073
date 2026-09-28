@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-28
+
 ### Fixed
 - raise exception when StateVersion is not increased by exactly one when processing notifications in SDC Client Mdib [#501](https://github.com/Draegerwerk/sdc11073/issues/501)
 - raise exception when MidbVersion is not increased by exactly one when processing notifications in SDC Client Mdib [#502](https://github.com/Draegerwerk/sdc11073/issues/502)
