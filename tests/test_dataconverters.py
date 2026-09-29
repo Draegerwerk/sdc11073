@@ -35,12 +35,26 @@ class TestDataConverters(unittest.TestCase):
 
     def test_boolean_converter(self):
         self.assertEqual(dataconverters.BooleanConverter.toPy('true'), True)
-        self.assertEqual(dataconverters.BooleanConverter.toPy('foo'), False)
         self.assertEqual(dataconverters.BooleanConverter.toPy('false'), False)
-        self.assertEqual(dataconverters.BooleanConverter.toPy(''), False)
-        self.assertEqual(dataconverters.BooleanConverter.toPy(None), False)
-        self.assertEqual(dataconverters.BooleanConverter.toXML(False), 'false')
-        self.assertEqual(dataconverters.BooleanConverter.toXML(None), 'false')
-        self.assertEqual(dataconverters.BooleanConverter.toXML(0), 'false')
+        self.assertEqual(dataconverters.BooleanConverter.toPy('1'), True)
+        self.assertEqual(dataconverters.BooleanConverter.toPy('0'), False)
+        self.assertEqual(dataconverters.BooleanConverter.toPy(' true '), True)
+        self.assertEqual(dataconverters.BooleanConverter.toPy('\rfalse'), False)
+        self.assertEqual(dataconverters.BooleanConverter.toPy('1 \n'), True)
+        self.assertEqual(dataconverters.BooleanConverter.toPy('\t0'), False)
         self.assertEqual(dataconverters.BooleanConverter.toXML(True), 'true')
         self.assertEqual(dataconverters.BooleanConverter.toXML(42), 'true')
+        self.assertEqual(dataconverters.BooleanConverter.toXML(0), 'false')
+        self.assertEqual(dataconverters.BooleanConverter.toXML(False), 'false')
+        self.assertEqual(dataconverters.BooleanConverter.toXML(None), 'false')
+
+        for invalid in ['foo', " ", "2", " 42 ", "tr ue"]:
+            with self.assertRaises(ValueError):
+                dataconverters.BooleanConverter.toPy(invalid)
+
+        for invalid in [1, 0, None]:
+            with self.assertRaises(AttributeError):
+                dataconverters.BooleanConverter.toPy(invalid)
+            
+
+            
