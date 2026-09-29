@@ -229,7 +229,7 @@ class NodeAttributeProperty(_PropertyBase):
 
 
 class NodeAttributeListProperty(_ListPropertyBase):
-    """ XML Representation is a string which is a space separated list"""
+    """XML Representation is a string which is a space separated list"""
 
     def __init__(self, attrname, subElementNames=None, valueConverter=None):
         super(NodeAttributeListProperty, self).__init__(attrname, subElementNames)
@@ -241,7 +241,7 @@ class NodeAttributeListProperty(_ListPropertyBase):
             subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=False)
             xmlValue = subNode.attrib.get(self._attrname)
             if xmlValue is not None:
-                value = [h for h in self._converter.toPy(xmlValue).split(' ') if h]
+                value = [h for h in self._converter.toPy(xmlValue).split() if h]
         except ElementNotFoundException:
             pass
         return value

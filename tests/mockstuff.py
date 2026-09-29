@@ -99,7 +99,8 @@ class SomeDevice(SdcDevice):
     def __init__(self, wsdiscovery, my_uuid, mdib_xml_string,
                  validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='',
                  chunked_messages=False,
-                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None):
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None,
+                 handler_cls=None):
         model = DPWSThisModel(manufacturer='Draeger CoC Systems',
                               manufacturerUrl='www.draeger.com',
                               modelName='SomeDevice',
@@ -122,12 +123,13 @@ class SomeDevice(SdcDevice):
                                          # registerDefaultOperations=True,
                                          sslContext=sslContext, logLevel=logLevel, log_prefix=log_prefix,
                                          chunked_messages=chunked_messages,
-                                         ssl_context_container=ssl_context_container)
+                                         ssl_context_container=ssl_context_container,
+                                         handler_cls=handler_cls)
 
     @classmethod
     def fromMdibFile(cls, wsdiscovery, my_uuid, mdib_xml_path,
                      validate=True, sslContext=None, logLevel=logging.INFO, log_prefix='', chunked_messages=False,
-                     ssl_context_container: sdc11073.certloader.SSLContextContainer = None):
+                     ssl_context_container: sdc11073.certloader.SSLContextContainer = None, handler_cls=None):
         """
         An alternative constructor for the class
         """
@@ -138,4 +140,5 @@ class SomeDevice(SdcDevice):
         with open(mdib_xml_path, 'rb') as f:
             mdib_xml_string = f.read()
         return cls(wsdiscovery, my_uuid, mdib_xml_string, validate, sslContext, logLevel, log_prefix=log_prefix,
-                   chunked_messages=chunked_messages, ssl_context_container=ssl_context_container)
+                   chunked_messages=chunked_messages, ssl_context_container=ssl_context_container,
+                   handler_cls=handler_cls)

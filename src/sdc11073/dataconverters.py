@@ -73,7 +73,14 @@ class IntegerConverter(object):
 class BooleanConverter(object):
     @staticmethod
     def toPy(xmlValue):
-        return xmlValue == 'true'
+        snip = xmlValue.strip()
+        if snip in ('true', '1'):
+            return True
+        elif snip in ('false', '0'):
+            return False
+        else:
+            raise ValueError(f'Invalid boolean value: {xmlValue}')
+
     @staticmethod
     def toXML(pyValue):
         if pyValue:

@@ -6,6 +6,7 @@ import random
 import socket
 import ssl
 import sys
+import threading
 import time
 import typing
 import unittest
@@ -31,8 +32,10 @@ from sdc11073.pysoap.soapclient import HTTPReturnCodeError
 from sdc11073.pysoap.soapclient import SoapClient
 from sdc11073.pysoap.soapenvelope import ReceivedSoapFault
 from sdc11073.sdcclient import SdcClient
+from sdc11073.sdcclient.manipulator import RequestManipulator
 from sdc11073.sdcdevice import waveforms
 from sdc11073.sdcdevice.httpserver import HttpServerThread
+from sdc11073.sdcdevice.sdc_handlers import SdcHandler_Full
 from sdc11073.wsdiscovery import WSDiscoveryWhitelist
 from tests import utils
 from tests.mockstuff import SomeDevice
@@ -371,15 +374,58 @@ class Test_Client_SomeDevice(unittest.TestCase):
     def setUp(self):
         sys.stderr.write('\n############### start setUp {} ##############\n'.format(self._testMethodName))
         logging.getLogger('sdc').info('############### start setUp {} ##############'.format(self._testMethodName))
+
         self.wsd = WSDiscoveryWhitelist(['127.0.0.1'])
         self.wsd.start()
-        location = utils.random_location()
-        self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd, None, '70041_MDIB_Final.xml', logLevel=logging.INFO)
+
+        self.is_replaced = threading.Event()
+        self.zero_replace = threading.Event()
+                
+        class AlertRequestManipulator(RequestManipulator):
+            _HANDLE1 = b'0xD3C00109'
+            _HANDLE2 = b'0xD3C00108'
+
+            false_presences = [b' &#xA;0 ', b' false &#xD;', b'0']
+            true_presences = [b" &#xA;1 ", b" true &#xD;", b"1"]
+
+            def manipulate_string(this, xml_string):
+                for h1, h2 in ((this._HANDLE1, this._HANDLE2), (this._HANDLE2, this._HANDLE1)):
+                    original = (b'PresentPhysiologicalAlarmConditions="'
+                                + h1 + b' ' + h2 + b'"')
+                    replacement = (b'PresentPhysiologicalAlarmConditions="'
+                                   b' &#xA; &#9;' + h1 + b'&#9; &#xD;' + h2 + b' &#9; "')
+                    xml_string = xml_string.replace(original, replacement)
+                    if replacement in xml_string:
+                        self.is_replaced.set()
+
+                    while b'Presence="false"' in xml_string:
+                        false_replace = random.choice(this.false_presences)
+                        xml_string = xml_string.replace(b'Presence="false"', b'Presence="' + false_replace + b'"', 1)
+                        self.zero_replace.set()
+
+                    while b'Presence="true"' in xml_string:
+                        true_replace = random.choice(this.true_presences)
+                        xml_string = xml_string.replace(b'Presence="true"', b'Presence="' + true_replace + b'"', 1)
+                        self.zero_replace.set()
+
+                return xml_string
+
+        class HandlerWithRequestManipulator(SdcHandler_Full):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs, request_manipulator = AlertRequestManipulator())
+
+        self.sdcDevice_Final = SomeDevice.fromMdibFile(self.wsd,
+                                                       None,
+                                                       '70041_MDIB_Final.xml',
+                                                       logLevel=logging.INFO,
+                                                       handler_cls=HandlerWithRequestManipulator
+                                                       )
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         nsmapper = self.sdcDevice_Final.mdib.nsmapper
         nsmapper._prefixmap['__BICEPS_ParticipantModel__'] = None  # make this the default namespace
         self.sdcDevice_Final.startAll(periodic_reports_interval=1.0)
         self._locValidators = [pmtypes.InstanceIdentifier('Validator', extensionString='System')]
+        location = utils.random_location()
         self.sdcDevice_Final.setLocation(location, self._locValidators)
         self.provideRealtimeData(self.sdcDevice_Final)
 
@@ -536,7 +582,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self._all_cl_dev = []
 
     def test_getMdStateParameters(self):
-        """ verify that getMdState correctly handles call parameters 
+        """ verify that getMdState correctly handles call parameters
         """
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
@@ -550,7 +596,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(len(states), 1)
 
     def test_getMdDescriptionParameters(self):
-        """ verify that getMdDescription correctly handles call parameters 
+        """ verify that getMdDescription correctly handles call parameters
         """
         for sdcClient, _ in self._all_cl_dev:
             cl_getService = sdcClient.client('Get')
@@ -722,7 +768,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 coll.result(timeout=NOTIFICATION_TIMEOUT)
                 clientStateContainer = cl_mdib.states.descriptorHandle.getOne(
                     descriptorHandle)  # this shall be updated by notification
-                
+
                 self.assertEqual(clientStateContainer.ActivationState, st.ActivationState)
                 self.assertEqual(clientStateContainer.Presence, st.Presence)
                 self.assertEqual(clientStateContainer.Location, st.Location)
@@ -835,7 +881,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(clientMdib.mdibVersion, synchronized_mdib_version)
 
     def test_setPatientContextOperation(self):
-        """client calls corresponding operation. 
+        """client calls corresponding operation.
         - verify that operation is successful.
          verify that a notification device->client also updates the client mdib."""
         for sdcClient, sdcDevice in self._all_cl_dev:
@@ -976,7 +1022,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
             self.assertEqual(myPatient2.Givenname, 'Karl123')
 
     def test_setPatientContextOnDevice(self):
-        """device updates patient. 
+        """device updates patient.
          verify that a notification device->client updates the client mdib."""
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient)
@@ -1356,12 +1402,12 @@ class Test_Client_SomeDevice(unittest.TestCase):
                 self.assertEqual(stateContainer.OperatingMode, 'En')
 
     def test_realtimeSamples(self):
-        # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long. 
+        # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long.
         # But wait long enough to have at least one full waveform period in buffer for annotations.
         for sdcClient, sdcDevice in self._all_cl_dev:
             clientMdib = ClientMdibContainer(sdcClient, maxRealtimeSamples=297)
             clientMdib.initMdib()
-            time.sleep(3.5)  # Wait long enough to make the rtBuffers full. 
+            time.sleep(3.5)  # Wait long enough to make the rtBuffers full.
             d_handles = ('0x34F05500', '0x34F05501', '0x34F05506')
 
             # now verify that we have real time samples
@@ -1550,7 +1596,7 @@ class Test_Client_SomeDevice(unittest.TestCase):
 
         sdcClient = self.sdcClient_Final
         sdcDevice = self.sdcDevice_Final
-        
+
         alertDescriptorHandle = '0xD3C00100'
         limitAlertDescriptorHandle = '0xD3C00108'
 
@@ -1606,6 +1652,71 @@ class Test_Client_SomeDevice(unittest.TestCase):
         self.assertEqual(clientLimitAlertState.Presence, False)
         self.assertEqual(clientLimitAlertState.MonitoredAlertLimits,
                          pmtypes.AlertConditionMonitoredLimits.ALL_OFF)  # default
+
+    def test_AlertSystemListHandlingTest(self):
+
+        sdc_client = self.sdcClient_Final
+        sdc_device = self.sdcDevice_Final
+
+        alert_state1_handle = '0xD3C00109'
+        alert_state2_handle = '0xD3C00108'
+
+        client_mdib = ClientMdibContainer(sdc_client)
+        client_mdib.initMdib()
+        alert_system_handle = client_mdib.descriptions.handle.getOne(alert_state1_handle).parentHandle
+        
+        both_handles_present = threading.Event()
+
+        def observe_alert_system_list(alert_update):
+            if alert_system_handle in alert_update:
+                alert_system_state = alert_update[alert_system_handle]
+                if (alert_state1_handle in alert_system_state.PresentPhysiologicalAlarmConditions
+                        and alert_state2_handle in alert_system_state.PresentPhysiologicalAlarmConditions):
+                    both_handles_present.set()
+
+        with sdc_device.mdib.mdibUpdateTransaction() as mgr:
+            alert_state1 = mgr.getAlertState(alert_state1_handle)
+            alert_state2 = mgr.getAlertState(alert_state2_handle)
+
+            alert_state1.Presence = False
+            alert_state2.Presence = False
+
+        self.is_replaced.clear()
+        with observableproperties.boundContext(client_mdib, alertByHandle=observe_alert_system_list):
+            with sdc_device.mdib.mdibUpdateTransaction() as mgr:
+                alert_state1 = mgr.getAlertState(alert_state1_handle)
+                alert_state2 = mgr.getAlertState(alert_state2_handle)
+
+                alert_state1.Presence = True
+                alert_state2.Presence = True
+
+            if not both_handles_present.wait(timeout=NOTIFICATION_TIMEOUT):
+                self.fail('Timed out waiting for episodicAlertReport with both alert handles '
+                          'in PresentPhysiologicalAlarmConditions')
+        self.assertTrue(self.is_replaced.is_set())
+
+        alert1_event = threading.Event()
+        alert2_event = threading.Event()
+
+        def observe_alert_state_presence(alert_update):
+            if alert_state1_handle in alert_update and not alert_update[alert_state1_handle].Presence:
+                alert1_event.set()
+            if alert_state2_handle in alert_update and not alert_update[alert_state2_handle].Presence:
+                alert2_event.set()
+
+        self.zero_replace.clear()
+        with observableproperties.boundContext(client_mdib, alertByHandle=observe_alert_state_presence):
+            with sdc_device.mdib.mdibUpdateTransaction() as mgr:
+                alert_state1 = mgr.getAlertState(alert_state1_handle)
+                alert_state2 = mgr.getAlertState(alert_state2_handle)
+
+                alert_state1.Presence = False
+                alert_state2.Presence = False
+
+            if (not alert1_event.wait(timeout=NOTIFICATION_TIMEOUT)
+                    or not alert2_event.wait(timeout=NOTIFICATION_TIMEOUT)):
+                self.fail('Timed out waiting for episodicAlertReport with Alerts having Presence=false')
+        self.assertTrue(self.zero_replace.is_set())
 
     def test_metadata_modification(self):
         for sdcClient, sdcDevice in self._all_cl_dev:

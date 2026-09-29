@@ -63,7 +63,8 @@ class SdcHandler_Base(object):
     def __init__(self, my_uuid, ws_discovery, model, device, deviceMdibContainer, validate=True,
                  roleProvider=None, sslContext=None,
                  logLevel=None, max_subscription_duration=7200, log_prefix='', chunked_messages=False,
-                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None):  # pylint:disable=too-many-arguments
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None,
+                 request_manipulator = None):  # pylint:disable=too-many-arguments
         """
         :param uuid: a string that becomes part of the devices url (no spaces, no special characters please. This could cause an invalid url!).
                      Parameter can be None, in this case a random uuid string is generated.
@@ -77,6 +78,7 @@ class SdcHandler_Base(object):
         :param max_subscription_duration: max. possible duration of a subscription, default is 7200 seconds
         :param ident: names a device, used for logging
         :param ssl_context_container: container containing a client and a server context
+        :param request_manipulator: inspect or manipulate output created by the sdc device
         """
         self._my_uuid = my_uuid or uuid.uuid4()
         self._wsdiscovery = ws_discovery
@@ -124,7 +126,7 @@ class SdcHandler_Base(object):
             self._urlschema = 'http'
 
         self.dpwsHost = None
-        self._subscriptionsManager = self._mkSubscriptionManager(max_subscription_duration)
+        self._subscriptionsManager = self._mkSubscriptionManager(max_subscription_duration, request_manipulator)
         self._scoOperationsRegistry = self._mkScoOperationsRegistry(handle='_sco')
 
         deviceMdibContainer.setSdcDevice(self)
@@ -143,7 +145,6 @@ class SdcHandler_Base(object):
         self._periodic_component_state_reports = []
         self._periodic_context_state_reports = []
         self._periodic_operational_state_reports = []
-
         self.xml_validator = self._mdib.sdc_definitions.xml_validator
 
     def mkScopes(self):
@@ -201,13 +202,14 @@ class SdcHandler_Base(object):
         hostDispatcher.epr = '/' + str(self._my_uuid.hex)
         return hostDispatcher
 
-    def _mkSubscriptionManager(self, max_subscription_duration):
+    def _mkSubscriptionManager(self, max_subscription_duration, request_manipulator=None):
         return subscriptionmgr.SubscriptionsManager(self._ssl_context_container,
                                                     self._mdib.sdc_definitions,
                                                     self._compression_methods,
                                                     max_subscription_duration,
                                                     log_prefix=self._log_prefix,
-                                                    chunked_messages=self.chunked_messages)
+                                                    chunked_messages=self.chunked_messages,
+                                                    request_manipulator=request_manipulator)
 
     def _mkScoOperationsRegistry(self, handle):
         return sco.ScoOperationsRegistry(self._subscriptionsManager, self._mdib, handle, log_prefix=self._log_prefix)
