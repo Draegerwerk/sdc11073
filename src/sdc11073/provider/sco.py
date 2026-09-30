@@ -265,9 +265,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
             self._worker.enqueue_operation(operation, request, operation_request, transaction_id, invocation_source)
             return InvocationState.WAIT, self._mdib.mdib_version_group
         try:
-            execute_result: ExecuteResult = operation.execute_operation(
-                request, operation_request, invocation_source
-            )
+            execute_result: ExecuteResult = operation.execute_operation(request, operation_request, invocation_source)
             self._logger.info(
                 '%s: successfully finished operation "%s"', operation.__class__.__name__, operation.handle
             )

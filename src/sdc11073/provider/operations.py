@@ -142,9 +142,7 @@ class OperationDefinitionBase:
                                   (IEEE Std 11073-20701-2018, 7.2.2), forwarded to the operation handler.
         """
         try:
-            return self._operation_handler(
-                ExecuteParameters(self, operation_request, soap_request, invocation_source)
-            )
+            return self._operation_handler(ExecuteParameters(self, operation_request, soap_request, invocation_source))
         finally:
             self.current_request = soap_request
             self.current_argument = operation_request.argument
