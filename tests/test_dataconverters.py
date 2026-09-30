@@ -68,8 +68,12 @@ class TestNodeAttributeListProperty(unittest.TestCase):
                                     ('  a   b  ', ['a', 'b']),
                                     ('\ta\r\nb\n\n\tc\r', ['a', 'b', 'c']),
                                     ('', []),
+                                    ('\n', []),
+                                    ('\r', []),
+                                    ('\t', []),
                                     (' \t\r\n ', []),
                                     ('a b', ['a b']),  # non-breaking space is no xml whitespace
+                                    (' \u00a0true \u00a0false\n none', ['\u00a0true', '\u00a0false', 'none']),
                                     ]:
             node = etree_.Element('Node')
             node.set('Foo', xml_value)

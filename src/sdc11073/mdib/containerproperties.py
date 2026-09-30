@@ -237,16 +237,17 @@ class NodeAttributeListProperty(_ListPropertyBase):
         self._converter = valueConverter if valueConverter is not None else NullConverter
 
     def getPyValueFromNode(self, node):
-        value = self._defaultPyValue
+        values = self._defaultPyValue
         try:
             subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=False)
             xmlValue = subNode.attrib.get(self._attrname)
             if xmlValue is not None:
-                xmlValue = self._converter.toPy(xmlValue).strip(" \t\r\n")
-                value = re.split("[ \t\r\n]+", xmlValue) if xmlValue else []
+                xmlValue = xmlValue.strip(" \t\r\n")
+                values = re.split("[ \t\r\n]+", xmlValue) if xmlValue else []
+                values = [self._converter.toPy(i) for i in values]
         except ElementNotFoundException:
             pass
-        return value
+        return values
 
     def updateXMLValue(self, instance, node):
         try:
