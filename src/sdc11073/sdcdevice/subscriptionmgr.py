@@ -318,7 +318,8 @@ class SubscriptionsManager(object):
     _ssl_context_container: typing.Optional[sdc11073.certloader.SSLContextContainer]
 
     def __init__(self, ssl_context_container, sdc_definitions, supportedEncodings,
-                 max_subscription_duration=None, log_prefix=None, chunked_messages=False):
+                 max_subscription_duration=None, log_prefix=None, chunked_messages=False,
+                 request_manipulator=None):
         self._ssl_context_container = ssl_context_container
         self.sdc_definitions = sdc_definitions
         self.log_prefix = log_prefix
@@ -332,6 +333,7 @@ class SubscriptionsManager(object):
         self._subscriptions.addIndex('netloc', multikey.IndexDefinition(
             lambda obj: obj._url.netloc))  # pylint:disable=protected-access
         self.base_urls = None
+        self._request_manipulator = request_manipulator
 
     def setBaseUrls(self, base_urls):
         self.base_urls = base_urls
@@ -355,7 +357,9 @@ class SubscriptionsManager(object):
                 sdc_definitions=self.sdc_definitions,
                 supportedEncodings=self._supportedEncodings,
                 requestEncodings=acceptedEncodings,
-                chunked_requests=self._chunked_messages)
+                chunked_requests=self._chunked_messages,
+                request_manipulator=self._request_manipulator,
+            )
             self.soapClients[key] = soapClient
         s.setSoapClient(soapClient)
         with self._subscriptions.lock:

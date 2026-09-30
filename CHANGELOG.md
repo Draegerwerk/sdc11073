@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- handling of XML boolean attribute and attributes containing lists - fixes [#511](https://github.com/Draegerwerk/sdc11073/issues/511) for boolean and list attributes
+
+### Added
+- the `SdcClient` and the `SdcHandler_Base` (used in `SdcDevice`) now accept an optional `request_manipulator` to manipulated SOAP requests before they are sent.
+
 ## [1.4.0] - 2026-09-28
 
 ### Fixed

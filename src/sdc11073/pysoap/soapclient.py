@@ -60,7 +60,7 @@ class SoapClient(CompressionHandler):
     """SOAP Client"""
     roundtrip_time = observableproperties.ObservableProperty()
     def __init__(self, netloc, logger, sslContext, sdc_definitions, supportedEncodings=None,
-                 requestEncodings=None, chunked_requests=False, xml_validator=None):
+                 requestEncodings=None, chunked_requests=False, xml_validator=None, request_manipulator=None):
         """ Connects to one url
         :param netloc: the location of the service (domainname:port) ###url of the service
         :param sslContext: an optional sll.SSLContext instance
@@ -71,6 +71,7 @@ class SoapClient(CompressionHandler):
                                 If not set, requests will not be commpressed.
                                 If set, then the http request will be compressed using this method
         :param xml_validator: optional etree.XMLSchema instance
+        :param request_manipulator: inspect or manipulate output created by the sdc client
         """
         self._log = logger
         self._sslContext = sslContext
@@ -88,6 +89,7 @@ class SoapClient(CompressionHandler):
         self._is_closed = True
         self._chunked_requests = chunked_requests
         self.connect()
+        self._request_manipulator = request_manipulator
 
     @property
     def netloc(self):
@@ -142,6 +144,7 @@ class SoapClient(CompressionHandler):
         """
         if self.isClosed():
             raise httplib.NotConnected('call connect before posting!')
+        request_manipulator = request_manipulator or self._request_manipulator
         return self.__postSoapEnvelope(soapEnvelopeRequest, responseFactory, path, msg, request_manipulator)
 
     def __postSoapEnvelope(self, soapEnvelopeRequest, responseFactory, path, msg, request_manipulator):

@@ -177,7 +177,8 @@ class SdcClient(object):
                  my_ipaddress=None, logLevel=None, ident='',
                  soap_notifications_handler_class=None,
                  chunked_requests=False,
-                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None, ):  # pylint:disable=too-many-arguments
+                 ssl_context_container: sdc11073.certloader.SSLContextContainer = None,
+                 request_manipulator=None):  # pylint:disable=too-many-arguments
         """
         :param devicelocation: the XAddr location for meta data, e.g. http://10.52.219.67:62616/72c08f50-74cc-11e0-8092-027599143341
         :param deviceType: a QName that defines the device type, e.g. '{http://standards.ieee.org/downloads/11073/11073-20702-2016}MedicalDevice'
@@ -189,6 +190,7 @@ class SdcClient(object):
         :param my_ipaddress: This address is used for the http server that receives notifications.
              If value is None, best own address is determined automatically (recommended).
         :param ssl_context_container container containing a client and a server context
+        :param request_manipulator : manipulate inspect or manipulate output created by the sdc client
         """
         self._devicelocation = devicelocation
         self._soap_notifications_handler_class = soap_notifications_handler_class
@@ -250,6 +252,7 @@ class SdcClient(object):
         self.peerCertificate = None
         self.binary_peer_cert = None
         self.all_subscribed = False
+        self._request_manipulator = request_manipulator
 
     def _register_mdib(self, mdib):
         """ SdcClient sometimes must know the mdib data (e.g. Set service, activate method)."""
@@ -503,7 +506,9 @@ class SdcClient(object):
                 supportedEncodings=self._compression_methods,
                 requestEncodings=None,
                 chunked_requests=self.chunked_requests,
-                xml_validator=self._xml_validator if self._validate else None)
+                xml_validator=self._xml_validator if self._validate else None,
+                request_manipulator=self._request_manipulator,
+            )
 
             self._soapClients[key] = soap_client
         return soap_client

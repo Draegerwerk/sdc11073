@@ -5,6 +5,7 @@ The properties completely hide the XML nature of data. To serve this purpose, th
 """
 import copy
 import datetime
+import re
 import time
 
 from lxml import etree as etree_
@@ -229,22 +230,24 @@ class NodeAttributeProperty(_PropertyBase):
 
 
 class NodeAttributeListProperty(_ListPropertyBase):
-    """ XML Representation is a string which is a space separated list"""
+    """XML Representation is a string which is a space separated list"""
 
     def __init__(self, attrname, subElementNames=None, valueConverter=None):
         super(NodeAttributeListProperty, self).__init__(attrname, subElementNames)
         self._converter = valueConverter if valueConverter is not None else NullConverter
 
     def getPyValueFromNode(self, node):
-        value = self._defaultPyValue
+        values = self._defaultPyValue
         try:
             subNode = self._getElementbyChildNamesList(node, self._subElementNames, createMissingNodes=False)
             xmlValue = subNode.attrib.get(self._attrname)
             if xmlValue is not None:
-                value = [h for h in self._converter.toPy(xmlValue).split(' ') if h]
+                xmlValue = xmlValue.strip(" \t\r\n")
+                values = re.split("[ \t\r\n]+", xmlValue) if xmlValue else []
+                values = [self._converter.toPy(i) for i in values]
         except ElementNotFoundException:
             pass
-        return value
+        return values
 
     def updateXMLValue(self, instance, node):
         try:
