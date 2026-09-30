@@ -4,7 +4,7 @@ All notable changes to the sdc11073 module will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-09-30
 
 ### Fixed
 - handling of XML boolean attribute and attributes containing lists - fixes [#511](https://github.com/Draegerwerk/sdc11073/issues/511) for boolean and list attributes
