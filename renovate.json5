@@ -1,0 +1,58 @@
+{
+  // https://docs.renovatebot.com/json-schema/
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    // https://docs.renovatebot.com/presets-config/#configrecommended
+    "config:recommended"
+  ],
+  lockFileMaintenance: {
+    // https://docs.astral.sh/uv/guides/integration/renovate/#uvlock-output
+    enabled: true,
+  },
+  // https://docs.astral.sh/uv/guides/integration/renovate/#dependency-cooldown
+  minimumReleaseAge: "1 week",
+  // Only propose versions that already satisfy minimumReleaseAge, instead of always jumping to the newest release
+  // (which resets the age check whenever a dependency releases more often than once a week).
+  // https://docs.renovatebot.com/configuration-options/#internalchecksfilter
+  internalChecksFilter: "strict",
+  // Don't open a PR while its checks (e.g. renovate/stability-days) are still pending.
+  // https://docs.renovatebot.com/configuration-options/#prcreation
+  prCreation: "not-pending",
+  // Every pull request needs a release label (see "Branch naming" in CONTRIBUTING.md). Everything Renovate updates is
+  // maintenance by default: dependency-groups, build-system, GitHub Actions, uv.lock maintenance and any manager added
+  // later. Only changes to the ranges users install with are listed as dependencies, see packageRules.
+  // Labels are not mergeable: the last matching packageRule wins.
+  // https://docs.renovatebot.com/configuration-options/#labels
+  labels: ["chore"],
+  packageRules: [
+    {
+      // Runtime dependencies: in-range updates are a no-op under "widen" and only reach uv.lock via lockFileMaintenance.
+      // A release outside the range raises the upper bound and keeps the lower bound (e.g. `>=6.0.2,<7` becomes
+      // `>=6.0.2,<8`), so users are not forced to upgrade. Raising a lower bound is left to a maintainer.
+      // https://docs.renovatebot.com/configuration-options/#rangestrategy
+      matchManagers: ["pep621"],
+      matchDepTypes: ["project.dependencies", "project.optional-dependencies"],
+      rangeStrategy: "widen",
+      labels: ["dependencies"],
+    },
+    {
+      // Development tools are not published, so their lower bounds follow the latest release.
+      matchManagers: ["pep621"],
+      matchDepTypes: ["dependency-groups"],
+      rangeStrategy: "bump",
+    },
+    {
+      // The test group installs the package itself (`sdc11073[lz4]`), which must never be updated.
+      matchPackageNames: ["sdc11073"],
+      enabled: false,
+    },
+  ],
+  // https://docs.renovatebot.com/presets-default/#assigneearg0
+  "assignees": [
+    "leon1995"
+  ],
+  // https://docs.renovatebot.com/presets-default/#reviewerarg0
+  "reviewers": [
+    "leon1995"
+  ]
+}
