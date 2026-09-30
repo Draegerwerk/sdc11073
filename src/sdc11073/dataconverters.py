@@ -73,7 +73,7 @@ class IntegerConverter(object):
 class BooleanConverter(object):
     @staticmethod
     def toPy(xmlValue):
-        snip = xmlValue.strip()
+        snip = xmlValue.strip(" \t\r\n")
         if snip in ('true', '1'):
             return True
         elif snip in ('false', '0'):

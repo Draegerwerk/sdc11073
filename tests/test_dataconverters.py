@@ -1,6 +1,8 @@
 import unittest
 from decimal import Decimal
+from lxml import etree as etree_
 from sdc11073 import dataconverters
+from sdc11073.mdib.containerproperties import NodeAttributeListProperty
 
 class TestDataConverters(unittest.TestCase):
 
@@ -40,7 +42,7 @@ class TestDataConverters(unittest.TestCase):
         self.assertEqual(dataconverters.BooleanConverter.toPy('0'), False)
         self.assertEqual(dataconverters.BooleanConverter.toPy(' true '), True)
         self.assertEqual(dataconverters.BooleanConverter.toPy('\rfalse'), False)
-        self.assertEqual(dataconverters.BooleanConverter.toPy('1 \n'), True)
+        self.assertEqual(dataconverters.BooleanConverter.toPy(' \r  1 \n'), True)
         self.assertEqual(dataconverters.BooleanConverter.toPy('\t0'), False)
         self.assertEqual(dataconverters.BooleanConverter.toXML(True), 'true')
         self.assertEqual(dataconverters.BooleanConverter.toXML(42), 'true')
@@ -48,13 +50,41 @@ class TestDataConverters(unittest.TestCase):
         self.assertEqual(dataconverters.BooleanConverter.toXML(False), 'false')
         self.assertEqual(dataconverters.BooleanConverter.toXML(None), 'false')
 
-        for invalid in ['foo', " ", "2", " 42 ", "tr ue"]:
+        for invalid in ['foo', " ", "2", " 42 ", "tr ue", '\u00a0true']:
             with self.assertRaises(ValueError):
                 dataconverters.BooleanConverter.toPy(invalid)
 
         for invalid in [1, 0, None]:
             with self.assertRaises(AttributeError):
                 dataconverters.BooleanConverter.toPy(invalid)
-            
 
-            
+
+class TestNodeAttributeListProperty(unittest.TestCase):
+
+    def test_get_py_value_from_node(self):
+        prop = NodeAttributeListProperty('Foo')
+        for xml_value, expected in [('a', ['a']),
+                                    ('a b c', ['a', 'b', 'c']),
+                                    ('  a   b  ', ['a', 'b']),
+                                    ('\ta\r\nb\n\n\tc\r', ['a', 'b', 'c']),
+                                    ('', []),
+                                    (' \t\r\n ', []),
+                                    ('a b', ['a b']),  # non-breaking space is no xml whitespace
+                                    ]:
+            node = etree_.Element('Node')
+            node.set('Foo', xml_value)
+            self.assertEqual(prop.getPyValueFromNode(node), expected, msg=repr(xml_value))
+
+        # missing attribute returns default value
+        self.assertIsNone(prop.getPyValueFromNode(etree_.Element('Node')))
+
+    def test_get_py_value_from_sub_node(self):
+        sub_name = etree_.QName('Sub')
+        prop = NodeAttributeListProperty('Foo', subElementNames=[sub_name])
+        node = etree_.Element('Node')
+        sub_node = etree_.SubElement(node, sub_name)
+        sub_node.set('Foo', ' a\tb ')
+        self.assertEqual(prop.getPyValueFromNode(node), ['a', 'b'])
+
+        # missing sub element returns default value
+        self.assertIsNone(prop.getPyValueFromNode(etree_.Element('Node')))
