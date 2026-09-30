@@ -2,12 +2,16 @@ name: Build package
 
 on:
   workflow_call:
+    inputs:
+      version:
+        description: "Version to stamp into the package."
+        required: true
+        type: string
   pull_request:
     types: [ opened, synchronize, reopened, ready_for_review ]
   push:
     branches:
       - master
-      - v*
 
 jobs:
   lint:
@@ -50,9 +54,11 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Set new version
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: inputs.version != ''
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          uv version ${GITHUB_REF/refs\/tags\/v/}
+          uv version "$VERSION"
 
       - name: Build package
         run: uv build
@@ -142,8 +148,6 @@ jobs:
           name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}
           path: pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
           retention-days: 5
-
-
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5

@@ -1,0 +1,28 @@
+name: Release Drafter
+
+on:
+  # Triggered manually via the GitHub UI or API.
+  workflow_dispatch:
+
+  push:
+    # Update the draft release whenever commits land on master.
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  update_release_draft:
+    name: Update release draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # create/update the draft release
+      pull-requests: read    # read merged PRs (titles, authors, labels) to build the changelog
+    steps:
+      - name: Update the draft release
+        uses: release-drafter/release-drafter@v7
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
