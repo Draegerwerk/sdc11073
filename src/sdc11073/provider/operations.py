@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from sdc11073.mdib.providermdib import ProviderMdib
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet, InvocationState
-    from sdc11073.xml_types.pm_types import CodedValue, OperatingMode
+    from sdc11073.xml_types.pm_types import CodedValue, InstanceIdentifier, OperatingMode
 
 
 class OperationDefinitionProtocol(Protocol):
@@ -44,6 +44,10 @@ class ExecuteParameters:
     operation_instance: OperationDefinitionProtocol
     operation_request: AbstractSet
     soap_message: ReceivedSoapMessage
+    #: identifies the SDC PARTICIPANT that invoked the operation (IEEE Std 11073-20701-2018, 7.2.2).
+    #: A known participant carries the Common Name of its x.509 certificate (R0078); an unknown
+    #: participant the anonymous instance identifier (R0077). None if the invocation source is unknown.
+    invocation_source: InstanceIdentifier | None = None
 
 
 @dataclass
@@ -124,13 +128,21 @@ class OperationDefinitionBase:
     def descriptor_container(self) -> AbstractDescriptorProtocol:  # noqa: D102
         return self._operation_entity.descriptor
 
-    def execute_operation(self, soap_request: ReceivedSoapMessage, operation_request: AbstractSet) -> ExecuteResult:
+    def execute_operation(
+        self,
+        soap_request: ReceivedSoapMessage,
+        operation_request: AbstractSet,
+        invocation_source: InstanceIdentifier | None = None,
+    ) -> ExecuteResult:
         """Execute the operation itself.
 
         This method calls the provided operation_handler.
+
+        :param invocation_source: identifies the SDC PARTICIPANT that invoked the operation
+                                  (IEEE Std 11073-20701-2018, 7.2.2), forwarded to the operation handler.
         """
         try:
-            return self._operation_handler(ExecuteParameters(self, operation_request, soap_request))
+            return self._operation_handler(ExecuteParameters(self, operation_request, soap_request, invocation_source))
         finally:
             self.current_request = soap_request
             self.current_argument = operation_request.argument

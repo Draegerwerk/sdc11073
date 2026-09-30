@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - the `http.client.NotConnected` raised by `SoapClient` now carries the reason of the underlying connection/SSL error, and the consumer now logs the SSL error when it falls back from an encrypted to an unencrypted connection [#427](https://github.com/Draegerwerk/sdc11073/issues/427)
 - the state of a `ConsumerMdib` is now available as the observable property `ConsumerMdib.status`. It is set to `ConsumerMdibState.invalid` whenever an exception occurs while processing a received report, so an application can observe it to be notified about a mdib that is no longer a correct mirror of the provider's mdib
+- a provider now identifies a known SDC PARTICIPANT that invoked a service operation by the Common Name of its x.509 client certificate in `msg:OperationInvokedReportPart/msg:InvocationSource` (IEEE 11073-20701 R0078); unauthenticated consumers keep the anonymous instance identifier (R0077). The peer certificate is available as `RequestData.peer_certificate`, and operation handlers receive the resolved identifier as `ExecuteParameters.invocation_source` [#490](https://github.com/Draegerwerk/sdc11073/issues/490)
 
 ### Fixed
 

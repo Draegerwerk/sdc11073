@@ -774,6 +774,7 @@ class TestBuiltinOperations(unittest.TestCase):
                 mdib_version_group,
                 error=mdib.data_model.msg_types.InvocationError.OTHER,
                 error_message=mock.ANY,
+                invocation_source=None,
             )
         finally:
             self.log_watcher.setPaused(False)
