@@ -1,5 +1,9 @@
 # Changelog
 
+> [!IMPORTANT]
+> This file is no longer maintained. From the next release on, all changes are documented in the
+> [GitHub Releases](https://github.com/Draegerwerk/sdc11073/releases).
+
 All notable changes to the sdc11073 module will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

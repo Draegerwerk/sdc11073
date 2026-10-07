@@ -136,8 +136,8 @@ you for contributing to our tests!
 
 Creating a pull request is a critical step in contributing to our project. Here's how to do it effectively:
 
-1. **Ensure Your Branch is Up-to-Date**: Before starting, make sure your branch is up-to-date with the branch you're
-   planning to merge into.
+1. **Ensure Your Branch is Up-to-Date and Named Correctly**: Before starting, make sure your branch is up-to-date with
+   the branch you're planning to merge into, and that it follows the [branch naming](#branch-naming) convention.
 
 2. **Check Your Changes**:
     - Run tests with `pytest` to ensure all tests pass.
@@ -152,7 +152,9 @@ Creating a pull request is a critical step in contributing to our project. Here'
     - Click on the "Pull requests" tab and then the "New pull request" button.
     - Choose your fork and the branch with your changes as the "compare" branch and the branch of our repository you
       want to merge into as the "base" branch.
-    - Fill in the pull request form with a clear title and a detailed description of your changes.
+    - Fill in the pull request form with a clear title and a detailed description of your changes. The title is what
+      appears in the release notes. If users need to know more (migration steps, changed behavior, removed API),
+      describe it in the pull request.
     - If your pull request is related to an issue or discussion thread, reference it in the description or/and under
       the "Development" section.
 
@@ -164,6 +166,59 @@ Creating a pull request is a critical step in contributing to our project. Here'
 7. **Acceptance and Merge**:
     - Once your pull request is approved by a project maintainer and all CI checks pass, it will be merged.
     - Congratulations! You've successfully contributed to the project.
+
+### Branch naming
+
+The branch name decides which label your pull request gets, which in turn decides the section of the release notes
+it is listed in and the part of the version it increments. Name your branch `<type>/<description>`, optionally with
+the issue number, e.g. `fix/123-mdib-version`:
+
+| Prefix                                          | Label           | Release notes section | Version increment |
+|-------------------------------------------------|-----------------|-----------------------|-------------------|
+| `feat/`                                         | `feature`       | 🚀 Features            | minor             |
+| `fix/`                                          | `fix`           | 🐛 Bug Fixes           | patch             |
+| `docs/`                                         | `documentation` | 📚 Documentation       | patch             |
+| `chore/`, `refactor/`, `test/`, `ci/`, `build/` | `chore`         | 🔧 Maintenance         | patch             |
+
+A required check fails if the branch name matches none of the prefixes and the pull request has no release label.
+Renaming a branch closes its pull request, so instead ask a maintainer to add the matching label by hand.
+
+Maintainers additionally add labels by hand where needed:
+
+- `breaking` for a change that breaks existing functionality. It increments the major version and lists the pull
+  request in the 💥 Breaking Changes section only.
+- A second label (e.g. `fix` on a `feat/` branch) if the pull request belongs to more than one section.
+
+Pull requests opened by [Renovate](renovate.json5) label themselves. A change to the version range of a runtime
+dependency (`[project.dependencies]` or `[project.optional-dependencies]` in `pyproject.toml`) gets `dependencies` and
+is listed in the ⬆️ Dependencies section; Renovate only widens the upper bound of these ranges when a release falls
+outside of them. Everything else Renovate updates (dependency groups, build system, GitHub Actions, `uv.lock`) gets
+`chore`. Raising the lower bound of a runtime dependency is done by a maintainer, in a pull request labeled
+`dependencies` by hand.
+
+## How to release (maintainers only)
+
+Release notes are no longer written in `CHANGELOG.md`. With every push to `master`, the
+[Release Drafter](.github/workflows/release-drafter.yml) workflow rebuilds a draft release from the titles and labels of
+the merged pull requests and resolves the next version from the labels.
+
+To publish a release:
+
+1. Check the draft release: are all pull requests in the right section, and is the resolved version correct? Fix
+   wrong labels on the merged pull requests and re-run the Release Drafter workflow.
+2. Add migration notes and other information users need (see the descriptions of the merged pull requests) to the
+   draft. Do this last: every run of the Release Drafter workflow overwrites the draft.
+3. Run the [Publish package](.github/workflows/publish.yml) workflow on `master` with the draft's version (without the
+   leading `v`, e.g. `3.1.0`). It builds and tests the package, uploads it to PyPI, attaches the artifacts to the draft
+   and publishes it, which creates the tag on the dispatched commit.
+
+For a dev release, run the same workflow with a dev version, e.g. `3.1.0.dev1`. Its base version has to match the
+current draft. It is only uploaded to PyPI and tagged; the draft is left untouched.
+
+If the workflow fails after the PyPI upload, use **Re-run failed jobs**. A full re-run rebuilds the package, which PyPI
+refuses because the version already exists.
+
+Maintenance branches (e.g. `v1.x.y`) are still released by pushing a tag on that branch.
 
 ## Acknowledgment
 

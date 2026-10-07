@@ -1,0 +1,68 @@
+name: Autolabeler
+
+on:
+  # pull_request_target (instead of pull_request) is required so the autolabeler
+  # also works for pull requests opened from forks. It reads this workflow and
+  # the config from the PR's base branch, so both must be on master to take effect.
+  # No job checks out or runs code of the pull request.
+  pull_request_target:
+    types: [ opened, reopened, synchronize, labeled, unlabeled ]
+
+permissions:
+  contents: read
+
+jobs:
+  autolabel:
+    name: Autolabel the pull request
+    # Label changes cannot change the result, only re-run the check below.
+    if: github.event.action != 'labeled' && github.event.action != 'unlabeled'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write   # apply labels via the autolabeler
+    steps:
+      - name: Autolabel the pull request
+        uses: release-drafter/release-drafter/autolabeler@v7
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Required status check: every pull request needs a release label, so that it lands in
+  # the right section of the release notes and bumps the right version part. The branch
+  # prefix provides it automatically; otherwise a maintainer adds a label by hand.
+  check-release-label:
+    name: Check branch name or release label
+    needs: autolabel
+    if: ${{ !cancelled() && needs.autolabel.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read    # read the labels of the pull request
+      issues: read
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      # Passed via env, never interpolated into the script: fork branch names are untrusted.
+      HEAD_REF: ${{ github.head_ref }}
+      # Keep in sync with the autolabeler and categories in .github/release-drafter.yml.
+      BRANCH_PATTERN: '^(feat|fix|docs|chore|refactor|test|ci|build)/.+'
+      RELEASE_LABELS: 'breaking feature enhancement fix bug dependencies documentation chore refactor'
+    steps:
+      - name: Check branch name or release label
+        run: |
+          if [[ "$HEAD_REF" =~ $BRANCH_PATTERN ]]; then
+            echo "Branch '$HEAD_REF' matches the naming convention"
+            exit 0
+          fi
+
+          # Read the labels fresh: labels added by the autolabeler job are not part of the event payload.
+          LABELS=$(gh api "repos/$GH_REPO/issues/$PR_NUMBER/labels" --jq '.[].name')
+          for label in $RELEASE_LABELS; do
+            if grep -qxF "$label" <<< "$LABELS"; then
+              echo "Branch '$HEAD_REF' does not match the naming convention, but the pull request has the release label '$label'"
+              exit 0
+            fi
+          done
+
+          echo "::error::Branch '$HEAD_REF' does not match '$BRANCH_PATTERN' and the pull request has none of the release labels ($RELEASE_LABELS). Either open the pull request from a branch named e.g. fix/<description>, or ask a maintainer to add a release label. See 'Branch naming' in CONTRIBUTING.md."
+          exit 1
