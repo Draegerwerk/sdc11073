@@ -63,6 +63,11 @@ dev = [
     "ruff>=0.15.21,<0.16.0",
 ]
 
+[tool.uv]
+# Dependency cooldown, keep in sync with minimumReleaseAge in renovate.json5 so Renovate and uv resolve the same version.
+# https://docs.astral.sh/uv/guides/integration/renovate/#dependency-cooldown
+exclude-newer = "1 week"
+
 [tool.pytest]
 testpaths = [
     "tests",
