@@ -7,6 +7,10 @@ on:
         description: "Version to stamp into the package."
         required: true
         type: string
+    secrets:
+      CODECOV_TOKEN:
+        description: "Codecov upload token. Empty for fork pull requests, which upload tokenless."
+        required: false
   pull_request:
     types: [ opened, synchronize, reopened, ready_for_review ]
   push:
@@ -166,3 +170,4 @@ jobs:
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

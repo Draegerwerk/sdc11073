@@ -152,6 +152,8 @@ jobs:
       contents: read         # the called workflow cannot request more than this job grants
     with:
       version: ${{ inputs.version }}
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   upload:
     name: Upload
