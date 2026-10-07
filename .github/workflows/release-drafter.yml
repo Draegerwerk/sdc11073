@@ -12,6 +12,14 @@ on:
 permissions:
   contents: read
 
+# Shared with publish.yml: while a release is being published, draft updates wait until
+# it has finished, so the draft (tag, notes) selected by the publish run cannot change
+# underneath it. GitHub keeps only the newest pending run per group, which is fine here:
+# every run rebuilds the whole draft, so a superseded update loses nothing.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   update_release_draft:
     name: Update release draft

@@ -16,9 +16,13 @@ on:
 
 permissions: { }
 
-# Serialize publish runs: two overlapping runs would race on the same draft release.
+# Serialize publish runs with each other and with release-drafter.yml, which shares
+# this group: otherwise a pull request merged during the build could make release-drafter
+# rename or rewrite the draft while it is being published. Note that GitHub keeps only the
+# newest pending run per group, so a publish run that is still waiting for a running draft
+# update is canceled if yet another push arrives in that window - just dispatch it again.
 concurrency:
-  group: publish
+  group: release
   cancel-in-progress: false
 
 jobs:
@@ -29,6 +33,7 @@ jobs:
       contents: write        # reading a draft release requires push access
     outputs:
       IS_DEV: ${{ steps.detect-dev.outputs.IS_DEV }}
+      RELEASE_ID: ${{ steps.validate-draft.outputs.RELEASE_ID }}
     env:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,12 +77,13 @@ jobs:
       # A dev version has to be a pre-release of the next planned release, so its base
       # (1.2.0 for 1.2.0.dev1) has to match the draft's tag just like a final version.
       - name: Validate draft release
+        id: validate-draft
         env:
           IS_DEV: ${{ steps.detect-dev.outputs.IS_DEV }}
         run: |
           DRAFT_TAG="v${VERSION%%.dev*}"
 
-          RELEASE_JSON=$(gh release view "$DRAFT_TAG" --json isDraft,targetCommitish 2>&1) || {
+          RELEASE_JSON=$(gh release view "$DRAFT_TAG" --json databaseId,isDraft,targetCommitish,body 2>&1) || {
             DRAFTS=$(gh api "repos/$GH_REPO/releases" --jq '[.[] | select(.draft) | .tag_name] | join(", ")')
             echo "::error::No release found for $DRAFT_TAG (current drafts: ${DRAFTS:-none}). The Release Drafter workflow ($DRAFTER_URL) has to have run for this commit; it resolves the version from the pull request labels, so either fix the labels and re-run it, or adjust the tag on the draft."
             exit 1
@@ -103,6 +109,23 @@ jobs:
             echo "::error::Draft release target $TARGET ($TARGET_SHA) does not match the dispatched commit ($GITHUB_SHA). Either the draft is out of date - run the Release Drafter workflow first ($DRAFTER_URL) - or this workflow was dispatched from a commit other than the head of $TARGET."
             exit 1
           fi
+
+          # Snapshot the validated draft for the release job. The id stays the same when
+          # release-drafter updates the draft in place, and the notes are the ones that were
+          # just validated against the dispatched commit. The concurrency group keeps the
+          # draft stable during this run, but once a failed run has ended release-drafter
+          # may update it before "Re-run failed jobs" - the snapshot makes that re-run
+          # independent of whatever the draft looks like by then.
+          echo "RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.databaseId')" >> "$GITHUB_OUTPUT"
+          echo "$RELEASE_JSON" | jq -r '.body' > release-notes.md
+
+      - name: Upload release notes snapshot
+        if: steps.detect-dev.outputs.IS_DEV == 'false'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
 
   build:
     needs: validate
@@ -144,7 +167,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: v${{ inputs.version }}
-      DRAFTER_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/release-drafter.yml
+      RELEASE_ID: ${{ needs.validate.outputs.RELEASE_ID }}
 
     steps:
       - name: Download Build
@@ -165,35 +188,34 @@ jobs:
           files: pytest_reports/
           dest: pytest_reports/test_reports.zip
 
-      # Re-check: the build and the tests ran in between, so the draft may have changed.
-      # The package is already on PyPI at this point, so only conditions that make
-      # publishing impossible fail the job. A moved target branch only warns: the tag
-      # is pinned to the dispatched commit below, so it cannot drift.
-      - name: Re-validate draft release
+      - name: Download release notes snapshot
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+
+      # Addresses the draft by id, not by tag: if release-drafter updated it since the
+      # validate job (only possible before "Re-run failed jobs", see the snapshot step),
+      # its tag, name and notes may have changed. Restore the validated state, still as
+      # a draft. The package is already on PyPI at this point, so only conditions that
+      # make publishing impossible fail the job.
+      - name: Restore the validated draft release
         run: |
-          RELEASE_JSON=$(gh release view "$TAG" --json isDraft,targetCommitish 2>&1) || {
-            echo "::error::No release found for $TAG. The draft was still there when the run started - has it been deleted in the meantime? Re-run the Release Drafter workflow to recreate it: $DRAFTER_URL"
+          RELEASE_JSON=$(gh api "repos/$GH_REPO/releases/$RELEASE_ID" 2>&1) || {
+            echo "::error::Draft release $RELEASE_ID ($TAG) not found - has it been deleted in the meantime? A re-run cannot recover from this (it looks the draft up by id); publish $TAG by hand on $GITHUB_SHA, using the release-notes artifact of this run as notes."
             exit 1
           }
 
-          IS_DRAFT=$(echo "$RELEASE_JSON" | jq -r '.isDraft')
-          TARGET=$(echo "$RELEASE_JSON" | jq -r '.targetCommitish')
-
-          if [[ "$IS_DRAFT" != "true" ]]; then
-            echo "::error::Release $TAG already exists and is not a draft"
+          if [[ "$(echo "$RELEASE_JSON" | jq -r '.draft')" != "true" ]]; then
+            echo "::error::Release $RELEASE_ID ($(echo "$RELEASE_JSON" | jq -r '.tag_name')) is not a draft anymore"
             exit 1
           fi
 
-          TARGET_SHA=$(gh api "repos/$GH_REPO/commits/$TARGET" --jq '.sha')
-
-          if [[ "$TARGET_SHA" != "$GITHUB_SHA" ]]; then
-            echo "::warning::$TARGET moved from $GITHUB_SHA to $TARGET_SHA during the run. $TAG is still created on $GITHUB_SHA, but the draft notes may already list pull requests merged after it - review the published notes."
-          fi
+          gh api -X PATCH "repos/$GH_REPO/releases/$RELEASE_ID" -f tag_name="$TAG" -f name="$TAG" -F body=@release-notes.md --silent
 
       - name: Attach artifacts to the draft release
         run: gh release upload "$TAG" dist/* pytest_reports/test_reports.zip --clobber
 
-      # Publishes the notes accumulated by release-drafter verbatim - they are never
+      # Publishes the notes snapshotted in the validate job verbatim - they are never
       # regenerated here. Publishing creates the git tag; --target pins it to the
       # dispatched (built and tested) commit instead of the draft's target branch, whose
       # head may have moved in the meantime. Since GITHUB_TOKEN is used, that tag does
