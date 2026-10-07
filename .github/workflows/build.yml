@@ -171,3 +171,21 @@ jobs:
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  # Single required status check for the whole test matrix, so the branch ruleset does not have to list every
+  # combination. It must run even when tests fail or are skipped: a skipped required check counts as passed.
+  tests-passed:
+    name: tests passed
+    needs: tests
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check test matrix result
+        env:
+          RESULT: ${{ needs.tests.result }}
+        run: |
+          if [ "$RESULT" != success ]; then
+            echo "::error::Test matrix result: $RESULT"
+            exit 1
+          fi

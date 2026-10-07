@@ -1,9 +1,9 @@
 name: Lint workflows
 
 on:
+  # No paths filter on pull requests: this job is a required status check, and a filtered-out workflow never
+  # reports, which would leave every pull request that does not touch the workflows waiting for it.
   pull_request:
-    paths:
-      - ".github/workflows/**"
   push:
     branches:
       - master
