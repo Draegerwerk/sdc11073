@@ -13,45 +13,46 @@ on:
     branches:
       - master
 
+permissions:
+  contents: read
+
+# A new push to a pull request supersedes its running build. Pushes to master and calls from
+# publish.yml are grouped per commit and never canceled, so every commit on master gets a full run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - name: Get changed files
-        id: changed-files
-        uses: step-security/changed-files@v47
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          files: '**.py'
+          persist-credentials: false
 
       - name: ruff check
-        if: steps.changed-files.outputs.any_changed == 'true'
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
         with:
           version-file: pyproject.toml
-          src: ${{ steps.changed-files.outputs.all_changed_files }}
 
       - name: ruff format check
-        if: steps.changed-files.outputs.any_changed == 'true'
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
         with:
           version-file: pyproject.toml
           args: "format --check --diff"
-          src: ${{ steps.changed-files.outputs.all_changed_files }}
 
   build:
     needs: lint
     runs-on: ubuntu-latest
-    outputs:
-      WHL: ${{ steps.filenames.outputs.WHL }}
-      TARGZ: ${{ steps.filenames.outputs.TARGZ }}
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
 
       - name: Set new version
         if: inputs.version != ''
@@ -63,13 +64,8 @@ jobs:
       - name: Build package
         run: uv build
 
-      - name: Set filenames in output
-        id: filenames
-        run: |
-          echo WHL=$(echo dist/*.whl) >> $GITHUB_OUTPUT
-          echo TARGZ=$(echo dist/*.tar.gz) >> $GITHUB_OUTPUT
       - name: Archive package
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: distributions
           path: dist
@@ -77,81 +73,96 @@ jobs:
 
   tests:
     needs: build
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         os: [ ubuntu-latest, windows-latest ]
-        distribution: [ "${{ needs.build.outputs.WHL }}",
-                        "${{ needs.build.outputs.TARGZ }}" ]
+        distribution: [ whl, tar_gz ]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      DISTRIBUTION: ${{ matrix.distribution }}
+      REPORT_NAME: ${{ matrix.os }}_py${{ matrix.python-version }}_${{ matrix.distribution }}
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           python-version: ${{ matrix.python-version }}
-          cache-suffix: ${{ matrix.distribution }}
 
       - name: Download Artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: distributions
           path: dist
 
+      # The test group depends on the package itself, so this installs it in editable mode first.
+      # --locked fails instead of relocking if uv.lock is out of date, so the tests always run against the
+      # committed uv.lock, which then documents the test environment.
       - name: Install dependencies
-        run: uv sync --group test
+        run: uv sync --locked --group test
 
       - name: Install package
-        run: uv pip install ${{ matrix.distribution }}
-
-      - name: Detect suffix on ubuntu
-        if: ${{ matrix.os == 'ubuntu-latest' }}
         run: |
-          echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") >> $GITHUB_ENV
+          case "$DISTRIBUTION" in
+            whl) uv pip install dist/*.whl ;;
+            tar_gz) uv pip install dist/*.tar.gz ;;
+          esac
 
-      - name: Detect suffix on windows
-        if: ${{ matrix.os == 'windows-latest' }}
-        # https://github.com/actions/runner-images/issues/5251#issuecomment-1071030822
+      # Guards against silently testing the editable source checkout instead of the built distribution.
+      - name: Verify the built distribution is installed
         run: |
-          echo SUFFIX=$(python -c "import pathlib;p=pathlib.Path('${{ matrix.distribution }}');print('whl') if p.suffix=='.whl' else print('tar_gz')") | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          uv run --no-sync python - <<'EOF'
+          import json
+          import pathlib
+          from importlib.metadata import distribution
+
+          import sdc11073
+
+          direct_url = json.loads(distribution('sdc11073').read_text('direct_url.json') or '{}')
+          print(f'sdc11073 imported from {pathlib.Path(sdc11073.__file__).parent}')
+          print(f'direct_url.json: {direct_url}')
+          if direct_url.get('dir_info', {}).get('editable'):
+              raise SystemExit('sdc11073 is still installed in editable mode, not from the built distribution')
+          EOF
 
       - name: Run pytest
         run: >-
           uv run --no-sync pytest
           -x
-          --html=pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.html
+          --html=pytest_reports/unittest_report_${REPORT_NAME}.html
           --self-contained-html
-          --cov=$(uv run --no-sync python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")
+          --cov="$(uv run --no-sync python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")"
           --cov-report=xml
-          --log-file pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
-
-      - name: Save venv setup
-        run: uv export > pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}_requirements.txt
+          --log-file "pytest_${REPORT_NAME}.log"
 
       - name: Archive test result
-        uses: actions/upload-artifact@v7
-        if: success() || failure()  # upload artifacts also if test stage failed
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}  # upload artifacts also if test stage failed
         with:
-          name: unittest_reports-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}
-          path: pytest_reports/unittest_report_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}*
+          name: unittest_reports-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}
+          path: pytest_reports/unittest_report_${{ env.REPORT_NAME }}*
           retention-days: 5
 
       - name: Archive test log
-        uses: actions/upload-artifact@v7
-        if: success() || failure()  # upload artifacts also if test stage failed
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ !cancelled() }}  # upload artifacts also if test stage failed
         with:
-          name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ env.SUFFIX }}
-          path: pytest_${{ matrix.os }}_py${{ matrix.python-version }}_${{ env.SUFFIX }}.log
+          name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}
+          path: pytest_${{ env.REPORT_NAME }}.log
           retention-days: 5
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true

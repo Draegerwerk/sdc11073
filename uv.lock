@@ -1226,30 +1226,30 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.13.3" },
-    { name = "ifaddr", specifier = ">=0.2.0" },
-    { name = "lxml", specifier = ">=6.0.2" },
-    { name = "lz4", marker = "extra == 'lz4'", specifier = ">=4.4.5" },
+    { name = "aiohttp", specifier = ">=3.13.3,<4" },
+    { name = "ifaddr", specifier = ">=0.2.0,<1" },
+    { name = "lxml", specifier = ">=6.0.2,<7" },
+    { name = "lz4", marker = "extra == 'lz4'", specifier = ">=4.4.5,<5" },
 ]
 provides-extras = ["lz4"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "hypothesis", marker = "sys_platform != 'win32'", specifier = ">=6.148.2" },
-    { name = "hypothesis", extras = ["zoneinfo"], marker = "sys_platform == 'win32'", specifier = ">=6.148.2" },
-    { name = "lxml-stubs", specifier = ">=0.5.1" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "pytest-html", specifier = ">=4.2.0" },
+    { name = "hypothesis", marker = "sys_platform != 'win32'", specifier = ">=6.148.2,<7" },
+    { name = "hypothesis", extras = ["zoneinfo"], marker = "sys_platform == 'win32'", specifier = ">=6.148.2,<7" },
+    { name = "lxml-stubs", specifier = ">=0.5.1,<1" },
+    { name = "pytest", specifier = ">=9.0.2,<10" },
+    { name = "pytest-cov", specifier = ">=7.1.0,<8" },
+    { name = "pytest-html", specifier = ">=4.2.0,<5" },
     { name = "ruff", specifier = ">=0.15.21,<0.16.0" },
     { name = "sdc11073", extras = ["lz4"] },
 ]
 test = [
-    { name = "hypothesis", marker = "sys_platform != 'win32'", specifier = ">=6.148.2" },
-    { name = "hypothesis", extras = ["zoneinfo"], marker = "sys_platform == 'win32'", specifier = ">=6.148.2" },
-    { name = "pytest", specifier = ">=9.0.2" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "pytest-html", specifier = ">=4.2.0" },
+    { name = "hypothesis", marker = "sys_platform != 'win32'", specifier = ">=6.148.2,<7" },
+    { name = "hypothesis", extras = ["zoneinfo"], marker = "sys_platform == 'win32'", specifier = ">=6.148.2,<7" },
+    { name = "pytest", specifier = ">=9.0.2,<10" },
+    { name = "pytest-cov", specifier = ">=7.1.0,<8" },
+    { name = "pytest-html", specifier = ">=4.2.0,<5" },
     { name = "sdc11073", extras = ["lz4"] },
 ]
 
