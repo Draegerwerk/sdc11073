@@ -146,7 +146,7 @@ class NetworkingThread:
         for i in range(delay_params.repeat):
             next_send += delta_t
             self._send_queue.put(self._EnqueuedMessage(next_send, msg, i + 2))
-            delta_t = min(delta_t * 2, delay_params.upper_delay_ms)
+            delta_t = min(delta_t * 2, delay_params.upper_delay_ms / 1000.0)
 
     def _run_send(self):
         """send-loop."""

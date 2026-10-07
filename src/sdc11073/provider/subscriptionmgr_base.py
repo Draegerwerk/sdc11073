@@ -7,7 +7,7 @@ import time
 import urllib.parse
 import uuid
 from collections import deque
-from threading import Thread
+from threading import Event, Thread
 from typing import TYPE_CHECKING, Any, Protocol
 
 from lxml import etree
@@ -377,7 +377,7 @@ class SubscriptionsManagerBase(SubscriptionManagerProtocol):
         self._subscriptions.add_index('netloc', multikey.IndexDefinition(lambda obj: obj.notify_to_url.netloc))
         self.base_urls: Sequence[urllib.parse.SplitResult] | None = None
         self._housekeeping_thread = Thread(target=self._do_housekeeping, name='housekeeping', daemon=True)
-        self._run_housekeeping_thread = False
+        self._stop_housekeeping_event = Event()
         self._housekeeping_thread.start()
 
     def set_base_urls(self, base_urls: Sequence[urllib.parse.SplitResult]):
@@ -474,7 +474,7 @@ class SubscriptionsManagerBase(SubscriptionManagerProtocol):
         self._logger.info('stop_all called')
         # stop housekeeping thread first to get it out of the way
         self._logger.debug('stop housekeeping thread')
-        self._run_housekeeping_thread = False
+        self._stop_housekeeping_event.set()
         self._housekeeping_thread.join()
         self._logger.debug('housekeeping thread stopped')
         self._logger.debug('end all subscriptions')
@@ -561,9 +561,7 @@ class SubscriptionsManagerBase(SubscriptionManagerProtocol):
 
     def _do_housekeeping(self):
         """Remove expired or invalid subscriptions. Method is executed in a thread."""
-        self._run_housekeeping_thread = True
-        while self._run_housekeeping_thread:
-            time.sleep(1)
+        while not self._stop_housekeeping_event.wait(1):
             now = time.time()
             with self._subscriptions.lock:
                 obsolete_subscriptions = [
@@ -573,7 +571,7 @@ class SubscriptionsManagerBase(SubscriptionManagerProtocol):
                 ]
 
                 for obsolete_subscription in obsolete_subscriptions:
+                    # remove before closing, so that is_closed() implies the subscription is no longer managed
+                    self._subscriptions.remove_object(obsolete_subscription)
                     if not obsolete_subscription.is_closed():
                         obsolete_subscription.close_by_subscription_manager()
-
-                        self._subscriptions.remove_object(obsolete_subscription)
