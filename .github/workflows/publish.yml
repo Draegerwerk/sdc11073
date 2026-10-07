@@ -62,7 +62,7 @@ jobs:
         id: detect-dev
         run: |
           is_dev=$([[ "$VERSION" == *.dev* ]] && echo true || echo false)
-          echo "IS_DEV=$is_dev" >> $GITHUB_OUTPUT
+          echo "IS_DEV=$is_dev" >> "$GITHUB_OUTPUT"
           echo "IS_DEV=$is_dev"
 
       # Fail fast: for a dev release creating the tag would otherwise fail after the

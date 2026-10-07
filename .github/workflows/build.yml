@@ -140,7 +140,7 @@ jobs:
         run: >-
           uv run --no-sync pytest
           -x
-          --html=pytest_reports/unittest_report_${REPORT_NAME}.html
+          --html="pytest_reports/unittest_report_${REPORT_NAME}.html"
           --self-contained-html
           --cov="$(uv run --no-sync python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")"
           --cov-report=xml
