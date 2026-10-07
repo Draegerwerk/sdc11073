@@ -25,7 +25,7 @@ class TestDeviceServices(unittest.TestCase):
         basic_logging_setup()
         """ validate test data"""
         print(f'############### setUp {self._testMethodName}... ##############')
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         my_uuid = None  # let device create one
         self.sdc_device = mockstuff.SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_single_mds.xml')

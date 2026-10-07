@@ -61,26 +61,33 @@ def setUpModule():
 
 class TestDiscovery(unittest.TestCase):
     SEARCH_TIMEOUT = 2
-    MY_MULTICAST_PORT = 37020  # change port, otherwise windows steals unicast messages
+    # for searches where the services are already known from Hello messages and only the filtering is checked
+    FILTER_SEARCH_TIMEOUT = 0.5
 
     def setUp(self):
         test_log.debug(f'setUp {self._testMethodName}')
+        # not the default port, otherwise windows steals unicast messages
+        self.multicast_port = utils.wsd_port()
 
         # give them different logger names so that output can be distinguished
         self.wsd_client = wsdiscovery.WSDiscovery(
             '127.0.0.1',
             logger=loghelper.get_logger_adapter('wsd_client'),
-            multicast_port=self.MY_MULTICAST_PORT,
+            multicast_port=self.multicast_port,
         )
         self.wsd_service = wsdiscovery.WSDiscovery(
             '127.0.0.1',
             logger=loghelper.get_logger_adapter('wsd_service'),
-            multicast_port=self.MY_MULTICAST_PORT,
+            multicast_port=self.multicast_port,
         )
         self.log_watcher_client = loghelper.LogWatcher(logging.getLogger('wsd_client'), level=logging.ERROR)
         self.log_watcher_service = loghelper.LogWatcher(logging.getLogger('wsd_service'), level=logging.ERROR)
 
         test_log.debug(f'setUp done{self._testMethodName}')
+
+    def _wait_until_all_sent(self, wsd: wsdiscovery.WSDiscovery):
+        """Wait until all (repeated) messages of wsd are sent, e.g. Hello messages before a client is started."""
+        self.assertTrue(utils.wait_for(wsd._networking_thread._send_queue.empty, 5))
 
     def tearDown(self):
         test_log.debug(f'tearDown {self._testMethodName}')
@@ -119,7 +126,7 @@ class TestDiscovery(unittest.TestCase):
         addresses = [f'http://localhost:8080/{uuid.uuid4()}', 'http://{ip}/' + str(uuid.uuid4())]
         epr = uuid.uuid4().hex
         self.wsd_service.publish_service(epr, types=ttype1, scopes=scopes1, x_addrs=addresses)
-        time.sleep(1)
+        self.assertTrue(utils.wait_for(lambda: epr in self.wsd_client._remote_services, 2))  # Hello received
 
         # test that unfiltered search delivers at least my service
         test_log.info('starting search no filter...')
@@ -128,70 +135,75 @@ class TestDiscovery(unittest.TestCase):
 
         # test that filtered search (types) delivers only my service
         test_log.info('starting search types filter...')
-        services = self.wsd_client.search_services(types=ttype1, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype1, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
         self.assertTrue(all(s for s in services if s.epr == epr))
 
         # test that filtered search (scopes) delivers only my service
         test_log.info('starting search scopes filter...')
-        services = self.wsd_client.search_services(scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(scopes=scopes1, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
         self.assertTrue(all(s for s in services if s.epr == epr))
 
         # test that filtered search (scopes+types) delivers only my service
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_services(types=ttype1, scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype1, scopes=scopes1, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 1)
         self.assertTrue(all(s for s in services if s.epr == epr))
 
         # test that filtered search (wrong type) finds no service
         test_log.info('starting search types filter...')
-        services = self.wsd_client.search_services(types=ttype2, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype2, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (wrong scope) finds no service
         test_log.info('starting search wrong scopes filter...')
-        services = self.wsd_client.search_services(scopes=scopes2, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(scopes=scopes2, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (correct scopes+ wrong types) finds no service
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_services(types=ttype2, scopes=scopes1, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype2, scopes=scopes1, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test that filtered search (wrong scopes + wrong types) finds no service
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_services(types=ttype1, scopes=scopes2, timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_services(types=ttype1, scopes=scopes2, timeout=self.FILTER_SEARCH_TIMEOUT)
         self.assertEqual(len(services), 0)
 
         # test search_multiple_types
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_multiple_types(
+            types_list=[ttype1, ttype2], timeout=self.FILTER_SEARCH_TIMEOUT
+        )
         self.assertEqual(len(services), 1)
 
         addresses2 = [f'http://localhost:8080/{uuid.uuid4()}']
-        self.wsd_service.publish_service(uuid.uuid4().hex, types=ttype2, scopes=scopes2, x_addrs=addresses2)
-        time.sleep(1)
+        epr2 = uuid.uuid4().hex
+        self.wsd_service.publish_service(epr2, types=ttype2, scopes=scopes2, x_addrs=addresses2)
 
         ttype3 = [utils.random_qname()]
+        epr3 = uuid.uuid4().hex
         self.wsd_service.publish_service(
-            uuid.uuid4().hex,
+            epr3,
             types=ttype3,
             scopes=utils.random_scope(),
             x_addrs=[f'http://localhost:8080/{uuid.uuid4()}'],
         )
-        time.sleep(1)
+        self.assertTrue(utils.wait_for(lambda: {epr2, epr3} <= self.wsd_client._remote_services.keys(), 2))
 
         # test search_multiple_types
         test_log.info('starting search scopes+types filter...')
-        services = self.wsd_client.search_multiple_types(types_list=[ttype1, ttype2], timeout=self.SEARCH_TIMEOUT)
+        services = self.wsd_client.search_multiple_types(
+            types_list=[ttype1, ttype2], timeout=self.FILTER_SEARCH_TIMEOUT
+        )
         self.assertEqual(len(services), 2)
 
         # test search_multiple_types
         test_log.info('starting search scopes+types filter...')
         services = self.wsd_client.search_multiple_types(
             types_list=[ttype1, ttype2, ttype3],
-            timeout=self.SEARCH_TIMEOUT,
+            timeout=self.FILTER_SEARCH_TIMEOUT,
         )
         self.assertEqual(len(services), 3)
 
@@ -209,7 +221,7 @@ class TestDiscovery(unittest.TestCase):
             scopes=utils.random_scope(),
             x_addrs=[uuid.uuid4().hex],
         )
-        time.sleep(2)
+        self._wait_until_all_sent(self.wsd_service)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -234,7 +246,7 @@ class TestDiscovery(unittest.TestCase):
         addresses = [f'localhost:8080/{uuid.uuid4()}']
         epr = uuid.uuid4().hex
         self.wsd_service.publish_service(epr, types=ttypes, scopes=scopes, x_addrs=addresses)
-        time.sleep(5)  # make sure hello messages are all sent before client discovery starts
+        self._wait_until_all_sent(self.wsd_service)  # hello messages must not reach the client
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -257,7 +269,7 @@ class TestDiscovery(unittest.TestCase):
         epr = uuid.uuid4().hex
         test_log.info('publish_service...')
         self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
-        time.sleep(2)
+        self._wait_until_all_sent(self.wsd_service)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -283,7 +295,7 @@ class TestDiscovery(unittest.TestCase):
         epr = uuid.uuid4().hex
         addresses = [f'localhost:8080/{uuid.uuid4()}']
         self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
-        time.sleep(2)
+        self._wait_until_all_sent(self.wsd_service)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -310,7 +322,7 @@ class TestDiscovery(unittest.TestCase):
         epr = uuid.uuid4().hex
         test_log.info('publish_service...')
         self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=[f'localhost:8080/{uuid.uuid4()}'])
-        time.sleep(2)
+        self._wait_until_all_sent(self.wsd_service)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -391,7 +403,7 @@ class TestDiscovery(unittest.TestCase):
                 x_addrs=[f'localhost:{8080 + i}/{uuid.uuid4()}'],
             )
 
-        time.sleep(10)
+        self._wait_until_all_sent(self.wsd_service)
         test_log.info('starting client...')
         self.wsd_client.start()
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
@@ -421,7 +433,7 @@ class TestDiscovery(unittest.TestCase):
                 x_addrs=addresses,
             )
 
-        time.sleep(2.02)
+        self.assertTrue(utils.wait_for(lambda: set(eprs) <= self.wsd_client._remote_services.keys(), 5))
         self.assertEqual(len([epr for epr in self.wsd_client._remote_services if epr in eprs]), device_count)
         test_log.info('stopping service...')
         test_log.info('clear_local_services...')
@@ -442,7 +454,7 @@ class TestDiscovery(unittest.TestCase):
         unicast_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
         def send_and_assert_running(data: str):
-            unicast_sock.sendto(data.encode('utf-8'), (address, self.MY_MULTICAST_PORT))
+            unicast_sock.sendto(data.encode('utf-8'), (address, self.multicast_port))
             time.sleep(0.1)
             self.assertTrue(self.wsd_service._networking_thread._recv_thread.is_alive())
             self.assertTrue(self.wsd_service._networking_thread._qread_thread.is_alive())
@@ -505,7 +517,7 @@ class TestDiscovery(unittest.TestCase):
         with wsdiscovery.WSDiscovery(
             '127.0.0.1',
             logger=loghelper.get_logger_adapter('wsd_client'),
-            multicast_port=self.MY_MULTICAST_PORT,
+            multicast_port=self.multicast_port,
             multicast_ttl=ttl,
         ) as wsd_client:
             self.assertEqual(
@@ -525,7 +537,7 @@ class TestNetworkingThread(unittest.TestCase):
         self.wsd_client = wsdiscovery.WSDiscovery(
             '127.0.0.1',
             logger=loghelper.get_logger_adapter('wsd_client'),
-            multicast_port=37020,
+            multicast_port=utils.wsd_port(),
         )
 
     def tearDown(self):

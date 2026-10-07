@@ -21,7 +21,7 @@ class TestDevice(unittest.TestCase):
     def setUp(self):
         loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
-        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
+        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         self.sdc_device.start_all()
@@ -50,7 +50,7 @@ class TestDevice2Mds(unittest.TestCase):
     def setUp(self):
         loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
-        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
+        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_two_mds.xml')
         self.sdc_device.start_all()
@@ -120,6 +120,8 @@ class TestHelloAndBye(unittest.TestCase):
         """Tests whether the device does not send hello on initialization but on start and send bye on stop."""
         loghelper.basic_logging_setup()
         wait_for_callback = 3
+        # messages are sent after a random initial delay of max. 0.5 seconds, so this is long enough to see none
+        wait_for_no_callback = 1
         recv_hello = threading.Event()
         recv_bye = threading.Event()
 
@@ -133,8 +135,8 @@ class TestHelloAndBye(unittest.TestCase):
             if epr == device_uuid.urn:
                 recv_bye.set()
 
-        wsd_device = wsdiscovery.WSDiscovery('127.0.0.1')
-        wsd_obj = wsdiscovery.WSDiscovery('127.0.0.1')
+        wsd_device = wsdiscovery.WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
+        wsd_obj = wsdiscovery.WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         try:
             wsd_device.start()
             sdc_device = SomeDevice.from_mdib_file(
@@ -148,15 +150,15 @@ class TestHelloAndBye(unittest.TestCase):
 
             wsd_obj.start()
 
-            self.assertFalse(recv_hello.wait(timeout=wait_for_callback))
-            self.assertFalse(recv_bye.wait(timeout=wait_for_callback))
+            self.assertFalse(recv_hello.wait(timeout=wait_for_no_callback))
+            self.assertFalse(recv_bye.is_set())
 
             sdc_device.start_all()
             _loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
             sdc_device.set_location(location=loc, validators=_loc_validators)
 
             self.assertTrue(recv_hello.wait(timeout=wait_for_callback))
-            self.assertFalse(recv_bye.wait(timeout=wait_for_callback))
+            self.assertFalse(recv_bye.wait(timeout=wait_for_no_callback))
 
             sdc_device.stop_all()
         finally:

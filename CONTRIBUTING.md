@@ -111,6 +111,15 @@ testing:
 
 - To run the existing test suite, execute `pytest` at the root of the project. This will run all tests and display a
   report.
+- The suite mostly waits on sockets and timers, so running it in parallel saves a lot of time:
+  `pytest -n auto --dist worksteal` (via [pytest-xdist](https://pytest-xdist.readthedocs.io), part of the `test`
+  dependency group). `-n auto` uses one worker per physical CPU core, `-n logical` one per logical core (CI uses
+  `logical`); set the environment variable `PYTEST_XDIST_AUTO_NUM_WORKERS` to override the `auto` number.
+  Run without `-n` (or with `-n 0`) when you need a debugger, `-s` or live log output, these do not work with xdist.
+- Debug logs are written to `pytest_logs/`, one file per process: `main.log` for a run without xdist, `controller.log`
+  and `gw0.log`, `gw1.log`, ... for the xdist workers.
+- Tests that use WS-Discovery must pass `multicast_port=utils.wsd_port()`, which gives each xdist worker its own port.
+  Prefer waiting for a condition (`utils.wait_for`) over fixed `time.sleep` calls, slow tests add up quickly.
 - Ensure that all tests pass before submitting a pull request.
 
 ### Writing Tests
