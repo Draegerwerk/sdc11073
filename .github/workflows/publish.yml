@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write        # reading a draft release requires push access
+      actions: read          # look up the release-drafter runs for the dispatched commit
     outputs:
       IS_DEV: ${{ steps.detect-dev.outputs.IS_DEV }}
       RELEASE_ID: ${{ steps.validate-draft.outputs.RELEASE_ID }}
@@ -71,6 +72,23 @@ jobs:
         run: |
           if gh api "repos/$GH_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
             echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+      # The target check below only proves that the dispatched commit is the head of master,
+      # not that the draft was built from it: if the release-drafter run for this commit
+      # failed, or was canceled while queued (GitHub keeps only the newest pending run per
+      # concurrency group), the draft still holds the notes and version of an earlier commit.
+      # Thanks to the shared concurrency group no release-drafter run can be in progress
+      # while this job runs, so a successful run for this commit means the draft is current.
+      - name: Ensure release-drafter succeeded for the dispatched commit
+        if: steps.detect-dev.outputs.IS_DEV == 'false'
+        run: |
+          RUNS=$(gh api "repos/$GH_REPO/actions/workflows/release-drafter.yml/runs?head_sha=$GITHUB_SHA&branch=master" --jq '.workflow_runs')
+
+          if [[ "$(echo "$RUNS" | jq 'any(.[]; .conclusion == "success")')" != "true" ]]; then
+            LATEST=$(echo "$RUNS" | jq -r 'max_by(.created_at) // empty | "\(.status)/\(.conclusion // "none"): \(.html_url)"')
+            echo "::error::No successful Release Drafter run for $GITHUB_SHA (latest run: ${LATEST:-none}), so the draft may not include the latest changes or the right version. Run the Release Drafter workflow ($DRAFTER_URL) on master, then dispatch this workflow again."
             exit 1
           fi
 
