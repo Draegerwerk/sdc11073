@@ -3,7 +3,10 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     // https://docs.renovatebot.com/presets-config/#configrecommended
-    "config:recommended"
+    "config:recommended",
+    // Pin GitHub Actions to commit SHAs (with the version as a comment) and keep them updated.
+    // https://docs.renovatebot.com/presets-helpers/#helperspingithubactiondigests
+    "helpers:pinGitHubActionDigests"
   ],
   lockFileMaintenance: {
     // https://docs.astral.sh/uv/guides/integration/renovate/#uvlock-output

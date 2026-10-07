@@ -29,7 +29,7 @@ jobs:
       pull-requests: read    # read merged PRs (titles, authors, labels) to build the changelog
     steps:
       - name: Update the draft release
-        uses: release-drafter/release-drafter@v7
+        uses: release-drafter/release-drafter@72967cdc98ddd3160f1fc3dff619de365e137dd0 # v7.9.0
         with:
           config-name: release-drafter.yml
         env:

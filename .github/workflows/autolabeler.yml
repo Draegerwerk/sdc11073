@@ -5,7 +5,7 @@ on:
   # also works for pull requests opened from forks. It reads this workflow and
   # the config from the PR's base branch, so both must be on master to take effect.
   # No job checks out or runs code of the pull request.
-  pull_request_target:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] -- no job checks out or runs pull request code
     types: [ opened, reopened, synchronize, labeled, unlabeled ]
 
 permissions:
@@ -21,7 +21,7 @@ jobs:
       pull-requests: write   # apply labels via the autolabeler
     steps:
       - name: Autolabel the pull request
-        uses: release-drafter/release-drafter/autolabeler@v7
+        uses: release-drafter/release-drafter/autolabeler@72967cdc98ddd3160f1fc3dff619de365e137dd0 # v7.9.0
         with:
           config-name: release-drafter.yml
         env:
