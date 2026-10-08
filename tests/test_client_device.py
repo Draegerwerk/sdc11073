@@ -75,6 +75,8 @@ FULLY_QUALIFIED_HOST_NAME = socket.getfqdn()
 CLIENT_VALIDATE = True
 SET_TIMEOUT = 10
 NOTIFICATION_TIMEOUT = 5
+# max. age of received waveform data, generous because notifications are delayed on loaded (parallel) CI runners
+WAVEFORM_MAX_AGE = 2.0
 
 MDIB_NAME = 'mdib_multi_mds.xml'
 
@@ -166,7 +168,7 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
         unit_test.assertTrue(this_rt_buffer is not None, msg=f'no rtBuffer for handle {this_handle}')
         this_rt_data = copy.copy(this_rt_buffer.rt_data)  # we need a copy that not change during test
         unit_test.assertEqual(len(this_rt_data), client_mdib._max_realtime_samples)
-        unit_test.assertAlmostEqual(this_rt_data[-1].determination_time, time.time(), delta=0.5)
+        unit_test.assertAlmostEqual(this_rt_data[-1].determination_time, time.time(), delta=WAVEFORM_MAX_AGE)
         with_annotation = [x for x in this_rt_data if len(x.annotations) > 0]
         # verify that we have annotations
         unit_test.assertGreater(len(with_annotation), 0)
@@ -188,7 +190,9 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
                 ):
                     unit_test.assertEqual(waveform_state.ActivationState, pm_types.ComponentActivation.ON)
                     unit_test.assertIsNotNone(waveform_state.MetricValue)
-                    unit_test.assertAlmostEqual(waveform_state.MetricValue.DeterminationTime, time.time(), delta=0.5)
+                    unit_test.assertAlmostEqual(
+                        waveform_state.MetricValue.DeterminationTime, time.time(), delta=WAVEFORM_MAX_AGE
+                    )
                     unit_test.assertGreater(len(waveform_state.MetricValue.Samples), 1)
                     _verify_buffer(handle)
                     evt.set()
