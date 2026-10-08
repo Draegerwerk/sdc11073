@@ -1322,7 +1322,7 @@ dev = [
     { name = "hypothesis", marker = "sys_platform != 'win32'", specifier = ">=6.168.3,<7" },
     { name = "hypothesis", extras = ["zoneinfo"], marker = "sys_platform == 'win32'", specifier = ">=6.168.3,<7" },
     { name = "lxml-stubs", specifier = ">=0.5.1,<1" },
-    { name = "pytest", specifier = ">=9.0.2,<10" },
+    { name = "pytest", specifier = ">=9.1.1,<10" },
     { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "pytest-html", specifier = ">=4.2.0,<5" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.8.0,<4" },
@@ -1332,7 +1332,7 @@ dev = [
 test = [
     { name = "hypothesis", marker = "sys_platform != 'win32'", specifier = ">=6.168.3,<7" },
     { name = "hypothesis", extras = ["zoneinfo"], marker = "sys_platform == 'win32'", specifier = ">=6.168.3,<7" },
-    { name = "pytest", specifier = ">=9.0.2,<10" },
+    { name = "pytest", specifier = ">=9.1.1,<10" },
     { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "pytest-html", specifier = ">=4.2.0,<5" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.8.0,<4" },
