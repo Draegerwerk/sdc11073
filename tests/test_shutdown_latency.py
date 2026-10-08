@@ -77,6 +77,39 @@ def test_consumer_subscription_manager_stops_fast():
         assert not mgr.is_alive()
 
 
+def test_consumer_subscription_manager_fixed_interval_renews():
+    sdc = SdcV1Definitions
+    msg_factory = MessageFactory(sdc, None, logger=None, validate=False)
+    msg_reader = MessageReader(sdc, None, logger=None, validate=False)
+    mgr = ConsumerSubscriptionManager(
+        msg_reader,
+        msg_factory,
+        sdc.data_model,
+        mock.MagicMock(),
+        notification_url='http://localhost:8080/notify',
+        fixed_renew_interval=0.05,
+    )
+    renewed_twice = threading.Event()
+    renew_count = 0
+
+    def _renew():
+        nonlocal renew_count
+        renew_count += 1
+        if renew_count == 1:
+            raise RuntimeError('renew failed')  # loop must survive and renew again on the next interval
+        renewed_twice.set()
+
+    subscription = mock.MagicMock()
+    subscription.renew.side_effect = _renew
+    mgr.subscriptions['filter'] = subscription
+    mgr.start()
+    try:
+        assert renewed_twice.wait(5)
+    finally:
+        mgr.stop()
+    assert not mgr.is_alive()
+
+
 def test_http_server_stops_fast():
     server = HttpServerThreadBase('127.0.0.1', None, [], logging.getLogger('test'))
     server.start()
