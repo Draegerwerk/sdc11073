@@ -158,7 +158,8 @@ class HttpServerThreadBase(threading.Thread):
                 self.base_url = f'http://{self._my_ipaddress}:{self.server_port}/'
 
             self.started_evt.set()
-            self.httpd.serve_forever()
+            # short poll interval, because shutdown() blocks until serve_forever notices the request
+            self.httpd.serve_forever(poll_interval=0.05)
         except Exception:
             if not self._stop_requested:
                 self.logger.exception('Unhandled Exception at thread runtime. Thread will abort!')
