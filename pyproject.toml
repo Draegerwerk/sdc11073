@@ -53,8 +53,8 @@ test = [
     "pytest-html>=4.2.0,<5",
     "pytest-cov>=7.1.0,<8",
     "sdc11073[lz4]",
-    "hypothesis[zoneinfo]>=6.148.2,<7; platform_system == 'Windows'",
-    "hypothesis>=6.148.2,<7; platform_system != 'Windows'",
+    "hypothesis[zoneinfo]>=6.168.3,<7; platform_system == 'Windows'",
+    "hypothesis>=6.168.3,<7; platform_system != 'Windows'",
     "pytest-xdist[psutil]>=3.8.0,<4",
 ]
 dev = [
