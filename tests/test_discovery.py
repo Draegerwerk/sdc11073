@@ -12,6 +12,8 @@ import uuid
 from unittest import mock
 from urllib.parse import urlparse, urlsplit
 
+from lxml import etree
+
 from sdc11073 import loghelper, wsdiscovery
 from sdc11073.wsdiscovery.wsdimpl import MatchBy, match_scope
 from sdc11073.xml_types.wsd_types import ScopesType
@@ -85,9 +87,16 @@ class TestDiscovery(unittest.TestCase):
 
         test_log.debug(f'setUp done{self._testMethodName}')
 
-    def _wait_until_all_sent(self, wsd: wsdiscovery.WSDiscovery):
-        """Wait until all (repeated) messages of wsd are sent, e.g. Hello messages before a client is started."""
-        self.assertTrue(utils.wait_for(wsd._networking_thread._send_queue.empty, 5))
+    def _publish_without_hello(self, epr: str, types: list[etree.QName], scopes: ScopesType, x_addrs: list[str]):
+        """Publish a service on wsd_service without sending Hello messages.
+
+        For tests that start the client after publishing and check the search result: a Hello that is still on its way
+        would add the service to the client's cache, and the test would pass without the ProbeMatches or Resolve
+        handling that it checks. Waiting until the Hellos are sent is not reliable, because the last message is
+        already removed from the send queue while it is being sent.
+        """
+        with mock.patch.object(self.wsd_service, '_send_hello'):
+            self.wsd_service.publish_service(epr, types=types, scopes=scopes, x_addrs=x_addrs)
 
     def tearDown(self):
         test_log.debug(f'tearDown {self._testMethodName}')
@@ -215,13 +224,12 @@ class TestDiscovery(unittest.TestCase):
         self.wsd_service.start()
 
         epr = uuid.uuid4().hex
-        self.wsd_service.publish_service(
+        self._publish_without_hello(
             epr,
             types=[utils.random_qname()],
             scopes=utils.random_scope(),
             x_addrs=[uuid.uuid4().hex],
         )
-        self._wait_until_all_sent(self.wsd_service)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -245,8 +253,7 @@ class TestDiscovery(unittest.TestCase):
 
         addresses = [f'localhost:8080/{uuid.uuid4()}']
         epr = uuid.uuid4().hex
-        self.wsd_service.publish_service(epr, types=ttypes, scopes=scopes, x_addrs=addresses)
-        self._wait_until_all_sent(self.wsd_service)  # hello messages must not reach the client
+        self._publish_without_hello(epr, types=ttypes, scopes=scopes, x_addrs=addresses)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -268,8 +275,7 @@ class TestDiscovery(unittest.TestCase):
         addresses = ['localhost:8080/abc']
         epr = uuid.uuid4().hex
         test_log.info('publish_service...')
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
-        self._wait_until_all_sent(self.wsd_service)
+        self._publish_without_hello(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -294,8 +300,7 @@ class TestDiscovery(unittest.TestCase):
 
         epr = uuid.uuid4().hex
         addresses = [f'localhost:8080/{uuid.uuid4()}']
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
-        self._wait_until_all_sent(self.wsd_service)
+        self._publish_without_hello(epr, types=[ttype], scopes=utils.random_scope(), x_addrs=addresses)
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -321,8 +326,7 @@ class TestDiscovery(unittest.TestCase):
 
         epr = uuid.uuid4().hex
         test_log.info('publish_service...')
-        self.wsd_service.publish_service(epr, types=[ttype], scopes=scopes, x_addrs=[f'localhost:8080/{uuid.uuid4()}'])
-        self._wait_until_all_sent(self.wsd_service)
+        self._publish_without_hello(epr, types=[ttype], scopes=scopes, x_addrs=[f'localhost:8080/{uuid.uuid4()}'])
 
         test_log.info('starting client...')
         self.wsd_client.start()
@@ -396,14 +400,13 @@ class TestDiscovery(unittest.TestCase):
         device_count = 1
         eprs = [uuid.uuid4().hex for _ in range(device_count)]
         for i, epr in enumerate(eprs):
-            self.wsd_service.publish_service(
+            self._publish_without_hello(
                 epr,
                 types=[utils.random_qname()],
                 scopes=utils.random_scope(),
                 x_addrs=[f'localhost:{8080 + i}/{uuid.uuid4()}'],
             )
 
-        self._wait_until_all_sent(self.wsd_service)
         test_log.info('starting client...')
         self.wsd_client.start()
         services = self.wsd_client.search_services(timeout=self.SEARCH_TIMEOUT)
