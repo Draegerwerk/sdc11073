@@ -34,15 +34,13 @@ class TestBuiltinOperations(unittest.TestCase):
         loghelper.basic_logging_setup()
         self._logger = logging.getLogger('sdc.test')
         self._logger.info('############### start setUp %s ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
         # in order to test correct handling of default namespaces, we make participant model the default namespace
         self.sdc_device.start_all(periodic_reports_interval=1.0)
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-
-        time.sleep(0.5)  # allow init of devices to complete
 
         x_addr = self.sdc_device.get_xaddrs()
         # no deferred action handling for easier debugging
@@ -56,9 +54,7 @@ class TestBuiltinOperations(unittest.TestCase):
             components=consumer_components,
         )
         self.sdc_client.start_all()
-        time.sleep(1)
         self._logger.info('############### setUp done %s ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):

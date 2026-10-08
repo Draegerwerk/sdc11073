@@ -144,11 +144,14 @@ jobs:
         run: >-
           uv run --no-sync pytest
           -x
+          -n logical
+          --dist worksteal
+          --durations=25
           --html="pytest_reports/unittest_report_${REPORT_NAME}.html"
           --self-contained-html
           --cov="$(uv run --no-sync python -c "import pathlib;import sdc11073;print(pathlib.Path(sdc11073.__file__).parent)")"
           --cov-report=xml
-          --log-file "pytest_${REPORT_NAME}.log"
+          --log-file "pytest_logs/${REPORT_NAME}/main.log"
 
       - name: Archive test result
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -163,7 +166,7 @@ jobs:
         if: ${{ !cancelled() }}  # upload artifacts also if test stage failed
         with:
           name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}
-          path: pytest_${{ env.REPORT_NAME }}.log
+          path: pytest_logs/${{ env.REPORT_NAME }}/
           retention-days: 5
 
       - name: Upload coverage reports to Codecov

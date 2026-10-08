@@ -3,7 +3,6 @@
 import logging
 import sys
 import threading
-import time
 import unittest
 
 from sdc11073 import loghelper
@@ -28,7 +27,7 @@ class TestClientSomeDeviceAlertDelegate(unittest.TestCase):
     def setUp(self):
         loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_two_mds.xml', log_prefix='<device> ')
         self.sdc_device.start_all()
@@ -40,8 +39,6 @@ class TestClientSomeDeviceAlertDelegate(unittest.TestCase):
             location_context_descriptor_handle='LC.mds0',
         )
 
-        time.sleep(0.5)  # allow full init of devices
-
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(
             x_addr[0],
@@ -51,10 +48,7 @@ class TestClientSomeDeviceAlertDelegate(unittest.TestCase):
             log_prefix='<client> ',
         )
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
-
-        time.sleep(1)
         logging.getLogger('sdc').info('############### setUp done %s ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):

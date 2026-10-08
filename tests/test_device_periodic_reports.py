@@ -24,7 +24,7 @@ class TestDevicePeriodicReports(unittest.TestCase):
         basic_logging_setup()
         logging.getLogger('sdc.device.pReports').setLevel(logging.DEBUG)
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
-        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1')
+        self.wsd = wsdiscovery.WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
 
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, None, 'mdib_single_mds.xml')
@@ -63,7 +63,7 @@ class TestDevicePeriodicReports(unittest.TestCase):
         logging.getLogger('sdc').info('############### tearDown done %s ##############', self._testMethodName)
 
     def test_periodic_reports(self):
-        """Test waits 10 seconds and counts reports that have been received in that time."""
+        """Test that all kinds of periodic reports are received."""
         self.sdc_client.start_all()
 
         metric_coll = ValuesCollector(self.sdc_client, 'periodic_metric_report', 5)
@@ -73,9 +73,8 @@ class TestDevicePeriodicReports(unittest.TestCase):
         context_coll = ValuesCollector(self.sdc_client, 'periodic_context_report', 2)
 
         # any of the result calls will raise a timeout error if expected number of samples
-        # is not collected before timeout
-        wait = 1
-        time.sleep(10)
+        # is not collected before timeout. The collectors run in parallel, so the first wait is the longest.
+        wait = 15
 
         reports = metric_coll.result(timeout=wait)
         self.assertEqual((len(reports)), 5, msg=f'metric_coll got {len(metric_coll._result)}')
