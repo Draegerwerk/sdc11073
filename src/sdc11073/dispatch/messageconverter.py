@@ -28,8 +28,19 @@ class MessageConverterMiddleware:
         self._soap_request_in_logger = logging.getLogger(commlog.SOAP_REQUEST_IN)
         self._soap_response_out_logger = logging.getLogger(commlog.SOAP_RESPONSE_OUT)
 
-    def do_post(self, headers: dict, path: str, peer_name: str, request_bytes: bytes) -> tuple[int, str, str]:  # noqa: PLR0915
-        """Perform a post request."""
+    def do_post(  # noqa: PLR0915
+        self,
+        headers: dict,
+        path: str,
+        peer_name: str,
+        request_bytes: bytes,
+        peer_certificate: dict | None = None,
+    ) -> tuple[int, str, str]:
+        """Perform a post request.
+
+        :param peer_certificate: the decoded x.509 client certificate of the peer (ssl.SSLSocket.getpeercert form),
+                                 or None if the connection is not mutually authenticated.
+        """
         http_status = 200
         http_reason = 'Ok'
         response_xml_string = 'not set yet'
@@ -63,13 +74,13 @@ class MessageConverterMiddleware:
 
         # handle the request
         try:
-            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
+            request_data = RequestData(headers, path, peer_name, request_bytes, message_data, peer_certificate)
             request_data.consume_current_path_element()  # uuid is already used
             response = self._dispatcher.on_post(request_data)
             response_xml_string = response.serialize()
         except HTTPRequestHandlingError as ex:
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
-            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
+            request_data = RequestData(headers, path, peer_name, request_bytes, message_data, peer_certificate)
             response = self._msg_factory.mk_reply_soap_message(request_data, ex.soap_fault)
             response_xml_string = response.serialize()
             http_status = ex.status
@@ -77,7 +88,7 @@ class MessageConverterMiddleware:
         except Exception as ex:
             self._logger.exception('Exception while handling POST request')
             message_data = self._msg_reader.read_received_message(request_bytes, validate=False)
-            request_data = RequestData(headers, path, peer_name, request_bytes, message_data)
+            request_data = RequestData(headers, path, peer_name, request_bytes, message_data, peer_certificate)
             fault = Fault()
             fault.Code.Value = faultcodeEnum.SENDER
             fault.add_reason_text(str(ex))

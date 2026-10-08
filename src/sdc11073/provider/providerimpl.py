@@ -519,15 +519,22 @@ class SdcProvider:
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
+        invocation_source: InstanceIdentifier | None = None,
     ) -> tuple[Enum, MdibVersionGroup]:
-        """Find the responsible sco and forward request to it."""
+        """Find the responsible sco and forward request to it.
+
+        :param invocation_source: identifies the SDC PARTICIPANT that invoked the operation
+                                  (IEEE Std 11073-20701-2018, 7.2.2). If None, an anonymous participant is assumed.
+        """
         for sco in self._sco_operations_registries.values():
             # TODO(a-kleinf): first found/registered operation with this handle is used,  # noqa: FIX002
             #  duplicate registered handlers must be avoided,
             #  https://github.com/Draegerwerk/sdc11073/issues/492
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
-                return sco.handle_operation_request(operation, request, operation_request, transaction_id)
+                return sco.handle_operation_request(
+                    operation, request, operation_request, transaction_id, invocation_source
+                )
         self._logger.error('no sco has operation %s', operation.handle)
         return self.mdib.data_model.msg_types.InvocationState.FAILED, self._mdib.mdib_version_group
 

@@ -8,6 +8,7 @@ from lxml import etree
 
 from sdc11073 import loghelper
 from sdc11073.namespaces import PrefixesEnum
+from sdc11073.provider.porttypes.invocationsource import mk_invocation_source
 
 if TYPE_CHECKING:
     from sdc11073 import xml_utils
@@ -197,6 +198,9 @@ class ServiceWithOperations(DPWSPortTypeBase):
             operation = self._sdc_device.get_operation_by_handle(request.OperationHandleRef)
         transaction_id = self._sdc_device.generate_transaction_id()
         set_response.InvocationInfo.TransactionId = transaction_id
+        # identify the SDC PARTICIPANT that invoked the operation from its tls client certificate
+        # (IEEE Std 11073-20701-2018, 7.2.2, R0077/R0078)
+        invocation_source = mk_invocation_source(request_data.peer_certificate)
         if operation is None:
             error_text = f'no handler registered for "{request.OperationHandleRef}"'
             self._logger.warning('handle operation request: {}', error_text)  # noqa: PLE1205
@@ -205,7 +209,7 @@ class ServiceWithOperations(DPWSPortTypeBase):
             set_response.InvocationInfo.add_error_message(error_text)
         else:
             invocation_state, mdib_version_group = self._sdc_device.handle_operation_request(
-                operation, request_data.message_data.p_msg, request, transaction_id
+                operation, request_data.message_data.p_msg, request, transaction_id, invocation_source
             )
             self._logger.info(  # noqa: PLE1205
                 'operation request "{}" handled, transaction id = {}, invocation-state={}',

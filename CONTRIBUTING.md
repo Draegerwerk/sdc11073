@@ -226,6 +226,7 @@ We thank the following contributors for their valuable contributions to the proj
 
 - 2020-2024 Bernd Deichmann
 - 2023-2024 Leon Budnick
+- 2026 Dominik Meurer
 
 If you want to be listed as a contributor, add your information in the following format:
 
