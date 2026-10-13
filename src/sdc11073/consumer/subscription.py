@@ -432,7 +432,7 @@ class ConsumerSubscriptionManager(
         self.subscriptions: dict[str, ConsumerSubscription] = {}
         self._subscriptions_lock = threading.Lock()
 
-        self._run = False
+        self._stop_event = threading.Event()
         self._notification_url = notification_url
         self._end_to_url = end_to_url or notification_url
         self._logger = loghelper.get_logger_adapter('sdc.client.subscrMgr', log_prefix)
@@ -441,30 +441,25 @@ class ConsumerSubscriptionManager(
 
     def stop(self):
         """Stop the thread."""
-        self._run = False
+        self._stop_event.set()
         self.join(timeout=2)
         with self._subscriptions_lock:
             self.subscriptions.clear()
 
     def run(self):
         """Perform thread."""
-        self._run = True
         try:
             if self._renew_interval is not None:
                 self._fixed_renew_interval_loop()
             else:
                 self._flexible_renew_interval_loop()
         finally:
-            self._logger.info('terminating subscriptions check loop! self._run={}', self._run)  # noqa: PLE1205
+            self._logger.info('terminating subscriptions check loop! stopped={}', self._stop_event.is_set())  # noqa: PLE1205
 
     def _fixed_renew_interval_loop(self):
         """Renew subscriptions in a fixed period."""
-        while self._run:
+        while not self._stop_event.wait(self._renew_interval):
             try:
-                for _ in range(self._renew_interval):
-                    time.sleep(1)
-                    if not self._run:
-                        return
                 with self._subscriptions_lock:
                     # copy list of subscriptions in order to release lock early
                     subscriptions = list(self.subscriptions.values())
@@ -478,11 +473,8 @@ class ConsumerSubscriptionManager(
 
     def _flexible_renew_interval_loop(self):
         """Renew subscriptions when remaining time <= 50% of granted time."""
-        while self._run:
+        while not self._stop_event.wait(1):
             try:
-                time.sleep(1)
-                if not self._run:
-                    return
                 with self._subscriptions_lock:
                     # copy list of subscriptions in order to release lock early
                     subscriptions = list(self.subscriptions.values())

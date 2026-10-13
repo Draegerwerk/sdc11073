@@ -35,7 +35,7 @@ class TestClientSomeDeviceStringEnumDescriptors(unittest.TestCase):
         logging.getLogger('sdc').info('############### start setUp %s ##############', self._testMethodName)
         if ENABLE_COMMLOG:
             comm_logger.start()
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         my_uuid = None  # let device create one
         self.sdc_device = SomeDevice.from_mdib_file(self.wsd, my_uuid, 'mdib_two_mds.xml')
@@ -43,8 +43,6 @@ class TestClientSomeDeviceStringEnumDescriptors(unittest.TestCase):
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-
-        time.sleep(0.5)  # allow full init of devices
 
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(
@@ -55,10 +53,7 @@ class TestClientSomeDeviceStringEnumDescriptors(unittest.TestCase):
         )
 
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
-
-        time.sleep(1)
         logging.getLogger('sdc').info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):

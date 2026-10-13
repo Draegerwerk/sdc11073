@@ -22,7 +22,7 @@ from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
 from sdc11073.xml_types import pm_qnames as pm
 from sdc11073.xml_types.dpws_types import ThisDeviceType, ThisModelType
-from tests import mockstuff
+from tests import mockstuff, utils
 
 MDIB_PATH = pathlib.Path(__file__).parent / 'mdib_single_mds.xml'
 
@@ -59,7 +59,7 @@ class TestDeviceSubscriptions(unittest.TestCase):
             serial_number='123serial',
         )
 
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SdcProvider(
             self.wsd,

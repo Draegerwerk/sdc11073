@@ -21,6 +21,7 @@ import traceback
 import unittest
 import unittest.mock
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from http.client import NotConnected
 from threading import Event
@@ -144,14 +145,28 @@ def _on_waveform_updates(
             event.set()
 
 
+def _assert_fresh(unit_test: unittest.TestCase, determination_time: float, not_before: float) -> None:
+    """Verify that waveform data was generated after not_before and is not from the future."""
+    unit_test.assertGreater(determination_time, not_before)
+    unit_test.assertLessEqual(determination_time, time.time())
+
+
 def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevice, sdc_client: SdcConsumer) -> None:
+    # waveform data received during this test must be generated after this point in time. Do not compare with the
+    # current time, notification latency on loaded (parallel) CI runners can be several seconds.
+    test_start = time.time()
     # a random number for maxRealtimeSamples, not too big, otherwise we have to wait too long.
     # But wait long enough to have at least one full waveform period in buffer for annotations.
     client_mdib = ConsumerMdib(sdc_client, max_realtime_samples=297)
     client_mdib.init_mdib()
     client_mdib.xtra.set_calculate_wf_age_stats(True)
-    time.sleep(3.5)  # Wait long enough to make the rt_buffers full.
     d_handles = {'0x34F05500': threading.Event(), '0x34F05501': threading.Event(), '0x34F05506': threading.Event()}
+
+    def _rt_buffers_full() -> bool:
+        rt_buffers = [client_mdib.rt_buffers.get(handle) for handle in d_handles]
+        return all(b is not None and len(b.rt_data) == client_mdib._max_realtime_samples for b in rt_buffers)
+
+    unit_test.assertTrue(utils.wait_for(_rt_buffers_full, SET_TIMEOUT))
     global_event = threading.Event()
 
     def _verify_buffer(this_handle: str):
@@ -160,7 +175,7 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
         unit_test.assertTrue(this_rt_buffer is not None, msg=f'no rtBuffer for handle {this_handle}')
         this_rt_data = copy.copy(this_rt_buffer.rt_data)  # we need a copy that not change during test
         unit_test.assertEqual(len(this_rt_data), client_mdib._max_realtime_samples)
-        unit_test.assertAlmostEqual(this_rt_data[-1].determination_time, time.time(), delta=0.5)
+        _assert_fresh(unit_test, this_rt_data[-1].determination_time, test_start)
         with_annotation = [x for x in this_rt_data if len(x.annotations) > 0]
         # verify that we have annotations
         unit_test.assertGreater(len(with_annotation), 0)
@@ -182,7 +197,7 @@ def runtest_realtime_samples(unit_test: unittest.TestCase, sdc_device: SomeDevic
                 ):
                     unit_test.assertEqual(waveform_state.ActivationState, pm_types.ComponentActivation.ON)
                     unit_test.assertIsNotNone(waveform_state.MetricValue)
-                    unit_test.assertAlmostEqual(waveform_state.MetricValue.DeterminationTime, time.time(), delta=0.5)
+                    _assert_fresh(unit_test, waveform_state.MetricValue.DeterminationTime, test_start)
                     unit_test.assertGreater(len(waveform_state.MetricValue.Samples), 1)
                     _verify_buffer(handle)
                     evt.set()
@@ -447,7 +462,7 @@ class ClientDeviceSSLIntegration(unittest.TestCase):
     @staticmethod
     def _run_client_with_device(ssl_context_container: certloader.SSLContextContainer | None) -> None:
         log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
-        with WSDiscovery('127.0.0.1') as wsd:
+        with WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port()) as wsd:
             location = SdcLocation(fac='fac1', poc='CU1', bed='Bed')
             sdc_device = SomeDevice.from_mdib_file(wsd, None, MDIB_NAME, ssl_context_container=ssl_context_container)
             sdc_device.start_all(periodic_reports_interval=1.0)
@@ -524,11 +539,14 @@ ignored"""
 
 
 class TestClientSomeDevice(unittest.TestCase):
+    # these tests wait for subscriptions to expire, a short duration makes them faster
+    SHORT_SUBSCRIPTION_DURATION_TESTS = ('test_no_renew', 'test_client_stop_no_unsubscribe')
+
     def setUp(self):
         loghelper.basic_logging_setup()
         self.logger = loghelper.get_logger_adapter('sdc.test')
         self.logger.info('############### setUp %s ... ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
 
         self.request_manipulator: RequestManipulatorProtocol | None = None
@@ -553,7 +571,8 @@ class TestClientSomeDevice(unittest.TestCase):
             self.wsd,
             None,
             MDIB_NAME,
-            max_subscription_duration=10,  # shorter duration for faster tests
+            # shorter duration for faster tests
+            max_subscription_duration=3 if self._testMethodName in self.SHORT_SUBSCRIPTION_DURATION_TESTS else 10,
             log_prefix=f'{self._testMethodName}: ',
             components=provider_components,
         )
@@ -562,8 +581,6 @@ class TestClientSomeDevice(unittest.TestCase):
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
         provide_realtime_data(self.sdc_device)
-
-        time.sleep(0.5)  # allow init of devices to complete
         # no deferred action handling for easier debugging
         consumer_components = default_components_factory()
         consumer_components.action_dispatcher_class = RequestDispatcher
@@ -577,9 +594,7 @@ class TestClientSomeDevice(unittest.TestCase):
             log_prefix=self._testMethodName,
         )
         self.sdc_client.start_all()  # with periodic reports and system error report
-        time.sleep(1)
         self.logger.info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
         self.alert_descriptor_handle = '0xD3C00100'
 
@@ -587,10 +602,12 @@ class TestClientSomeDevice(unittest.TestCase):
         self.logger.info('############### tearDown %s ...  ##############', self._testMethodName)
         self.log_watcher.setPaused(True)
         try:
+            # stop consumer first, otherwise its keep-alive connection delays the stop of the provider's http server.
+            # Unsubscribe, so that the provider does not try to send anything to the stopped consumer.
+            if self.sdc_client:
+                self.sdc_client.stop_all()
             if self.sdc_device:
                 self.sdc_device.stop_all()
-            if self.sdc_client:
-                self.sdc_client.stop_all(unsubscribe=False)
             self.wsd.stop()
         except:
             sys.stderr.write(traceback.format_exc())
@@ -739,11 +756,9 @@ class TestClientSomeDevice(unittest.TestCase):
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions, fixed_renew_interval=1000)
         time.sleep(1)
         self.assertGreater(len(self.sdc_device._soap_client_pool._soap_clients), 0)
-        sleep_time = int(self.sdc_device._max_subscription_duration + 3)
-        self.logger.info('sleep now for %d seconds', sleep_time)
-        time.sleep(sleep_time)
-        self.logger.info('check that all soap clients are closed')
-        self.assertEqual(len(self.sdc_device._soap_client_pool._soap_clients), 0)
+        timeout = self.sdc_device._max_subscription_duration + 3
+        self.logger.info('wait up to %d seconds until all soap clients are closed', timeout)
+        self.assertTrue(utils.wait_for(lambda: len(self.sdc_device._soap_client_pool._soap_clients) == 0, timeout))
         self.sdc_client.stop_all(unsubscribe=False)  # avoid errors in tearDown
 
     def test_client_stop_no_unsubscribe(self):
@@ -773,9 +788,10 @@ class TestClientSomeDevice(unittest.TestCase):
             for s in subscriptions:
                 self.assertFalse(s.is_closed())
         self.sdc_client.stop_all(unsubscribe=False)
-        time.sleep(self.sdc_device._socket_timeout + 3)  # a little longer than socket timeout
 
-        # all subscriptions shall be closed now
+        # all subscriptions shall be closed a little after the socket timeout
+        timeout = self.sdc_device._socket_timeout + 3
+        self.assertTrue(utils.wait_for(lambda: all(s.is_closed() for s in all_subscriptions), timeout))
         for s in all_subscriptions:
             self.assertTrue(s.is_closed(), msg=f'socket {s} is not closed')
 
@@ -1823,6 +1839,12 @@ class TestClientSomeDevice(unittest.TestCase):
         cl_mdib = ConsumerMdib(self.sdc_client)
         cl_mdib.init_mdib()
 
+        # without waveforms nothing is reported for a while, so trigger a report that synchronizes the mdib
+        with self.sdc_device.mdib.metric_state_transaction() as mgr:
+            st = mgr.get_state('0x34F00100')
+            if st.MetricValue is None:
+                st.mk_metric_value()
+            st.MetricValue.Value = Decimal(42)
         self.assertTrue(cl_mdib._synchronized_reports.wait(SET_TIMEOUT))
         self.assertEqual(cl_mdib.status, ConsumerMdibState.initialized)
 
@@ -1962,7 +1984,7 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         loghelper.basic_logging_setup()
         self.logger = loghelper.get_logger_adapter('sdc.test')
         self.logger.info('############### setUp %s ... ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         location = utils.random_location()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
@@ -2001,8 +2023,6 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.sdc_device_2.set_location(location, self._loc_validators)
         provide_realtime_data(self.sdc_device_2)
 
-        time.sleep(0.5)  # allow full init of devices
-
         x_addr = self.sdc_device_1.get_xaddrs()
         self.sdc_client_1 = SdcConsumer(
             x_addr[0],
@@ -2026,8 +2046,6 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         self.sdc_client_2.start_all(shared_http_server=self.httpserver, not_subscribed_actions=periodic_actions)
 
         self._all_cl_dev = ((self.sdc_client_1, self.sdc_device_1), (self.sdc_client_2, self.sdc_device_2))
-
-        time.sleep(1)
         self.logger.info('############### setUp %s done ##############', self._testMethodName)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
@@ -2051,20 +2069,29 @@ class TestDeviceCommonHttpServer(unittest.TestCase):
         runtest_basic_connect(self, self.sdc_client_1)
         runtest_basic_connect(self, self.sdc_client_2)
 
+    def _run_for_both(self, func: Callable[[SdcConsumer, SomeDevice], None]):
+        """Run func for both client/device pairs concurrently, that saves time and loads the common server."""
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(func, sdc_client, sdc_device) for sdc_client, sdc_device in self._all_cl_dev]
+            for future in futures:
+                future.result()  # re-raises assertion errors of the thread
+
     def test_realtime_samples_common(self):
-        runtest_realtime_samples(self, self.sdc_device_1, self.sdc_client_1)
-        runtest_realtime_samples(self, self.sdc_device_2, self.sdc_client_2)
+        self._run_for_both(lambda sdc_client, sdc_device: runtest_realtime_samples(self, sdc_device, sdc_client))
 
     def test_metric_report_common(self):
-        runtest_metric_reports(self, self.sdc_device_1, self.sdc_client_1, self.logger, test_periodic_reports=False)
-        runtest_metric_reports(self, self.sdc_device_2, self.sdc_client_2, self.logger, test_periodic_reports=False)
+        self._run_for_both(
+            lambda sdc_client, sdc_device: runtest_metric_reports(
+                self, sdc_device, sdc_client, self.logger, test_periodic_reports=False
+            )
+        )
 
 
 class TestClientSomeDeviceChunked(unittest.TestCase):
     def setUp(self):
         loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### setUp %s ... ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
@@ -2080,8 +2107,6 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
         provide_realtime_data(self.sdc_device)
 
-        time.sleep(0.5)  # allow full init of devices
-
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(
             x_addr[0],
@@ -2092,10 +2117,7 @@ class TestClientSomeDeviceChunked(unittest.TestCase):
             request_chunk_size=512,
         )
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
-
-        time.sleep(1)
         logging.getLogger('sdc').info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
@@ -2120,7 +2142,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
     def setUp(self):
         loghelper.basic_logging_setup()
         logging.getLogger('sdc').info('############### setUp %s ... ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
 
         provider_components = provider_components_async_factory()
@@ -2141,8 +2163,6 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
-        time.sleep(0.5)  # allow full init of devices
-
         x_addr = self.sdc_device.get_xaddrs()
         consumer_components = default_components_factory()
         consumer_components.subscription_manager_class = ClientSubscriptionManagerReferenceParams
@@ -2156,10 +2176,7 @@ class TestClientSomeDeviceReferenceParametersDispatch(unittest.TestCase):
             request_chunk_size=512,
         )
         self.sdc_client.start_all(not_subscribed_actions=periodic_actions)
-
-        time.sleep(1)
         logging.getLogger('sdc').info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
@@ -2220,7 +2237,7 @@ class TestClientSomeDeviceSync(unittest.TestCase):
         loghelper.basic_logging_setup()
         self.logger = loghelper.get_logger_adapter('sdc.test')
         self.logger.info('############### setUp %s ... ##############', self._testMethodName)
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
@@ -2233,8 +2250,6 @@ class TestClientSomeDeviceSync(unittest.TestCase):
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
 
-        time.sleep(0.5)  # allow full init of devices
-
         x_addr = self.sdc_device.get_xaddrs()
         self.sdc_client = SdcConsumer(
             x_addr[0],
@@ -2245,10 +2260,7 @@ class TestClientSomeDeviceSync(unittest.TestCase):
             request_chunk_size=512,
         )
         self.sdc_client.start_all()  # subscribe all
-
-        time.sleep(1)
         self.logger.info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
@@ -2321,7 +2333,7 @@ class TestEncryptionCombinations(unittest.TestCase):
             server_context=server_ssl_context,
         )
 
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
@@ -2344,10 +2356,7 @@ class TestEncryptionCombinations(unittest.TestCase):
         self.sdc_device_ssl.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device_ssl.set_location(utils.random_location(), self._loc_validators)
-
-        time.sleep(0.5)  # allow init of devices to complete
         self.logger.info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
@@ -2399,7 +2408,7 @@ class TestEncryptionCombinations(unittest.TestCase):
             self.assertTrue(consumer.is_connected)
             self.assertFalse(consumer.is_ssl_connection)
         finally:
-            consumer.stop_all(unsubscribe=False)
+            consumer.stop_all()  # unsubscribe, so that the provider sends nothing to the stopped consumer
 
         # test connection to encrypted provider
         x_addr = self.sdc_device_ssl.get_xaddrs()[0]
@@ -2435,7 +2444,7 @@ class TestQualifiedName(unittest.TestCase):
 
         ip = socket.gethostbyname(FULLY_QUALIFIED_HOST_NAME)
 
-        self.wsd = WSDiscovery(ip)
+        self.wsd = WSDiscovery(ip, multicast_port=utils.wsd_port())
         self.wsd.start()
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd,
@@ -2448,10 +2457,7 @@ class TestQualifiedName(unittest.TestCase):
         self.sdc_device.start_all()
         self._loc_validators = [pm_types.InstanceIdentifier('Validator', extension_string='System')]
         self.sdc_device.set_location(utils.random_location(), self._loc_validators)
-
-        time.sleep(0.5)  # allow init of devices to complete
         self.logger.info('############### setUp %s done ##############', self._testMethodName)
-        time.sleep(0.5)
         self.log_watcher = loghelper.LogWatcher(logging.getLogger('sdc'), level=logging.ERROR)
 
     def tearDown(self):
@@ -2487,7 +2493,7 @@ class TestQualifiedName(unittest.TestCase):
                 if subscription.end_to_address:
                     self.assertIn(FULLY_QUALIFIED_HOST_NAME, subscription.notify_to_address)
         finally:
-            consumer.stop_all(unsubscribe=False)
+            consumer.stop_all()  # unsubscribe, so that the provider sends nothing to the stopped consumer
 
     def test_consumer_exception_wrong_provider_address(self):
         """Exception when consumer tries to connect to SDC Providers address with wrong qualified name."""
