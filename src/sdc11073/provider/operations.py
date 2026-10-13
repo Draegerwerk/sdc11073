@@ -44,9 +44,10 @@ class ExecuteParameters:
     operation_instance: OperationDefinitionProtocol
     operation_request: AbstractSet
     soap_message: ReceivedSoapMessage
-    #: identifies the SDC PARTICIPANT that invoked the operation (IEEE Std 11073-20701-2018, 7.2.2).
-    #: A known participant carries the Common Name of its x.509 certificate (R0078); an unknown
-    #: participant the anonymous instance identifier (R0077). None if the invocation source is unknown.
+    #: identifies the SDC PARTICIPANT that invoked the operation (IEEE Std 11073-20701-2018, 7.2.2), as created by
+    #: SdcProviderComponents.invocation_source_factory: by default a known participant is identified by the Common
+    #: Name of its x.509 certificate (R0078), an unknown participant by the anonymous instance identifier (R0077).
+    #: None if the invocation source is unknown.
     invocation_source: InstanceIdentifier | None = None
 
 

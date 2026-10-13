@@ -1,15 +1,15 @@
 """Integration tests for msg:InvocationSource of OperationInvokedReport (IEEE 11073-20701 R0077/R0078).
 
 Verifies end to end that an operation invoked by a consumer that authenticated with a client
-certificate is reported with the certificate Common Name (R0078), while an operation invoked over an
-unauthenticated connection is reported with the anonymous instance identifier (R0077).
+certificate is reported with the certificate Common Name (R0078) or, if the provider is configured so, with the
+PEM encoded certificate, while an operation invoked over an unauthenticated connection is reported with the
+anonymous instance identifier (R0077).
 """
 
 from __future__ import annotations
 
 import logging
 import pathlib
-import time
 import unittest
 from unittest import mock
 
@@ -18,10 +18,10 @@ from tutorial.codedvaluecomparator import _coded_value_comparator
 from sdc11073 import certloader, loghelper
 from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
 from sdc11073.dispatch import RequestDispatcher
-from sdc11073.mdib import ConsumerMdib
 from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
 from sdc11073.provider.operations import ExecuteParameters, ExecuteResult, SetStringOperation
 from sdc11073.provider.porttypes import invocationsource
+from sdc11073.provider.providerimpl import SdcProviderComponents, provider_components_async_factory
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
 from tests import utils
@@ -54,21 +54,9 @@ class TestOperationInvocationSource(unittest.TestCase):
         self._logger = logging.getLogger('sdc.test')
         self._logger.info('############### start setUp %s ##############', self._testMethodName)
         self.ssl_context_container = _mk_mutual_tls_context()
-
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
-        self.sdc_device_tls = SomeDevice.from_mdib_file(
-            self.wsd, None, _MDIB_NAME, ssl_context_container=self.ssl_context_container
-        )
-        self.sdc_device_plain = SomeDevice.from_mdib_file(self.wsd, None, _MDIB_NAME)
-        for device in (self.sdc_device_tls, self.sdc_device_plain):
-            device.start_all()
-            device.set_location(
-                utils.random_location(),
-                [pm_types.InstanceIdentifier('Validator', extension_string='System')],
-            )
-        time.sleep(0.5)
-
+        self.sdc_device = None
         self.sdc_client = None
         self._logger.info('############### setUp done %s ##############', self._testMethodName)
 
@@ -76,53 +64,63 @@ class TestOperationInvocationSource(unittest.TestCase):
         self._logger.info('############### tearDown %s ... ##############', self._testMethodName)
         if self.sdc_client is not None:
             self.sdc_client.stop_all()
-        self.sdc_device_tls.stop_all()
-        self.sdc_device_plain.stop_all()
+        if self.sdc_device is not None:
+            self.sdc_device.stop_all()
         self.wsd.stop()
 
-    def _connect_consumer(self, device: SomeDevice, *, use_ssl: bool) -> SdcConsumer:
+    def _invoke_set_string(
+        self, *, use_ssl: bool, components: SdcProviderComponents | None = None
+    ) -> msg_types.OperationInvokedReportPart:
+        """Start a provider and a consumer, invoke a SetString operation and return its final report part."""
+        ssl_context_container = self.ssl_context_container if use_ssl else None
+        self.sdc_device = SomeDevice.from_mdib_file(
+            self.wsd, None, _MDIB_NAME, ssl_context_container=ssl_context_container, components=components
+        )
+        self.sdc_device.start_all()
+        self.sdc_device.set_location(
+            utils.random_location(),
+            [pm_types.InstanceIdentifier('Validator', extension_string='System')],
+        )
         consumer_components = default_components_factory()
         consumer_components.action_dispatcher_class = RequestDispatcher  # no deferred handling, easier to reason about
-        consumer = SdcConsumer(
-            device.get_xaddrs()[0],
-            sdc_definitions=device.mdib.sdc_definitions,
-            ssl_context_container=self.ssl_context_container if use_ssl else None,
+        self.sdc_client = SdcConsumer(
+            self.sdc_device.get_xaddrs()[0],
+            sdc_definitions=self.sdc_device.mdib.sdc_definitions,
+            ssl_context_container=ssl_context_container,
             validate=True,
             components=consumer_components,
         )
-        consumer.start_all()
-        self.sdc_client = consumer
-        time.sleep(1)
-        return consumer
-
-    def _invoke_set_string(self, device: SomeDevice, consumer: SdcConsumer) -> msg_types.OperationInvokedReportPart:
-        consumer_mdib = ConsumerMdib(consumer)
-        consumer_mdib.init_mdib()
+        self.sdc_client.start_all()
         operation_descriptor = get_one_descriptor_by_type(
-            device.mdib,
+            self.sdc_device.mdib,
             pm_types.CodedValue('0815'),
             _coded_value_comparator,
         )
-        future = consumer.client('Set').set_string(
+        future = self.sdc_client.client('Set').set_string(
             operation_handle=operation_descriptor.Handle, requested_string='ADULT'
         )
         result = future.result(timeout=_SET_TIMEOUT)
         self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
+        self.assertIsNotNone(result.InvocationSource)
         return result
 
     def test_known_participant_is_identified_by_certificate_common_name(self):
         """R0078: a consumer that authenticated with a client certificate is reported by its Common Name."""
-        consumer = self._connect_consumer(self.sdc_device_tls, use_ssl=True)
-        result = self._invoke_set_string(self.sdc_device_tls, consumer)
-        self.assertIsNotNone(result.InvocationSource)
+        result = self._invoke_set_string(use_ssl=True)
         self.assertEqual(result.InvocationSource.Root, invocationsource.DISTINGUISHED_NAME_ROOT)
         self.assertEqual(result.InvocationSource.Extension, _CERT_COMMON_NAME)
 
+    def test_known_participant_is_identified_by_pem_certificate(self):
+        """Discussed corrigendum of R0078: the provider can be configured to report the PEM encoded certificate."""
+        components = provider_components_async_factory()
+        components.invocation_source_factory = invocationsource.mk_pem_certificate_invocation_source
+        result = self._invoke_set_string(use_ssl=True, components=components)
+        self.assertEqual(result.InvocationSource.Root, invocationsource.X509_CERTIFICATE_PEM_ROOT)
+        self.assertEqual(result.InvocationSource.Extension, _CERT_FOLDER.joinpath('test_certificate.pem').read_text())
+
     def test_unknown_participant_is_anonymous(self):
         """R0077: a consumer without client authentication is reported as anonymous participant."""
-        consumer = self._connect_consumer(self.sdc_device_plain, use_ssl=False)
-        result = self._invoke_set_string(self.sdc_device_plain, consumer)
-        self.assertIsNotNone(result.InvocationSource)
+        result = self._invoke_set_string(use_ssl=False)
         self.assertEqual(result.InvocationSource.Root, invocationsource.ANONYMOUS_PARTICIPANT_ROOT)
         self.assertEqual(result.InvocationSource.Extension, invocationsource.ANONYMOUS_PARTICIPANT_EXTENSION)
 

@@ -38,6 +38,7 @@ from sdc11073.provider import (
 )
 from sdc11073.provider.operations import get_operation_class
 from sdc11073.provider.periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
+from sdc11073.provider.porttypes.invocationsource import mk_common_name_invocation_source
 from sdc11073.provider.porttypes.localizationservice import LocalizationService, LocalizationStorage
 from sdc11073.provider.sco import ScoOperationsRegistry
 from sdc11073.provider.scopesfactory import mk_scopes
@@ -103,6 +104,9 @@ class SdcProviderComponents:
     scopes_factory: Callable[[ProviderMdibProtocol], ScopesType]
     hosted_services: MutableMapping[str, Sequence[type[DPWSPortTypeBase]]]
     additional_schema_specs: set[PrefixNamespace] = dataclasses.field(default_factory=set)
+    # identifies the SDC PARTICIPANT that invoked a SERVICE OPERATION by its DER encoded x.509 certificate (None if it
+    # is not authenticated), see sdc11073.provider.porttypes.invocationsource for the available implementations
+    invocation_source_factory: Callable[[bytes | None], InstanceIdentifier] = mk_common_name_invocation_source
 
 
 @dataclasses.dataclass
@@ -512,6 +516,13 @@ class SdcProvider:
             if op is not None:
                 return op
         return None
+
+    def mk_invocation_source(self, peer_certificate: bytes | None) -> InstanceIdentifier:
+        """Return the msg:InvocationSource that identifies the SDC PARTICIPANT that invoked a SERVICE OPERATION.
+
+        :param peer_certificate: the DER encoded x.509 certificate of the participant, None if it is not authenticated.
+        """
+        return self._components.invocation_source_factory(peer_certificate)
 
     def handle_operation_request(
         self,

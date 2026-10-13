@@ -48,16 +48,17 @@ class DispatchingRequestHandler(BaseHTTPRequestHandler):
     def log_request(self, code: int | str = '-', size: int | str = '-') -> None:
         """Suppress printing of every request to stderr."""
 
-    def _get_peer_certificate(self) -> dict | None:
-        """Return the decoded x.509 client certificate of the peer, or None.
+    def _get_peer_certificate(self) -> bytes | None:
+        """Return the DER encoded x.509 client certificate of the peer, or None.
 
-        None is returned for plain http connections and for tls connections without (verified) client
-        authentication. The decoded form is the dict returned by :meth:`ssl.SSLSocket.getpeercert`.
+        None is returned for plain http connections and for tls connections without client authentication.
+        A client certificate is only received if the server's ssl context requests it, and it is verified during
+        the tls handshake.
         """
         if not isinstance(self.connection, ssl.SSLSocket):
             return None
         try:
-            return self.connection.getpeercert() or None
+            return self.connection.getpeercert(binary_form=True)
         except (ValueError, OSError):
             return None
 

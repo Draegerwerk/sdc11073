@@ -34,11 +34,11 @@ class MessageConverterMiddleware:
         path: str,
         peer_name: str,
         request_bytes: bytes,
-        peer_certificate: dict | None = None,
+        peer_certificate: bytes | None = None,
     ) -> tuple[int, str, str]:
         """Perform a post request.
 
-        :param peer_certificate: the decoded x.509 client certificate of the peer (ssl.SSLSocket.getpeercert form),
+        :param peer_certificate: the DER encoded x.509 client certificate of the peer,
                                  or None if the connection is not mutually authenticated.
         """
         http_status = 200
