@@ -11,19 +11,24 @@ if TYPE_CHECKING:
 class RequestData:
     """Hold all information about the processing of a http request together."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         http_header: dict,
         path: str,
         peer_name: str,
         request: bytes | None = None,
         message_data: ReceivedMessage | None = None,
+        peer_certificate: bytes | None = None,
     ):
         self.http_header: dict = http_header
         self.path = path
         self.peer_name: str = peer_name  # for logging
         self.request: bytes | None = request
         self.message_data: ReceivedMessage | None = message_data
+        # the DER encoded x.509 client certificate of the peer (ssl.SSLSocket.getpeercert(binary_form=True)),
+        # or None if the connection is not mutually authenticated. Used e.g. to identify a known SDC PARTICIPANT
+        # that invoked a SERVICE OPERATION (see IEEE 11073-20701 R0078).
+        self.peer_certificate: bytes | None = peer_certificate
         self.consumed_path_elements = []
         path = path.removeprefix('/')
         self.path_elements = path.split('/')

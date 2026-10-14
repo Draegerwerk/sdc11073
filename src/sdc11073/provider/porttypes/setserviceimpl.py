@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from sdc11073.dispatch import DispatchKey, RequestData
 from sdc11073.namespaces import PrefixesEnum
+from sdc11073.provider.porttypes.invocationsource import mk_anonymous_invocation_source
 from sdc11073.provider.porttypes.porttypebase import (
     ServiceWithOperations,
     WSDLMessageDescription,
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     from sdc11073.mdib.mdibbase import MdibVersionGroup
     from sdc11073.provider.sco import OperationDefinitionBase
     from sdc11073.pysoap.msgfactory import CreatedMessage
+    from sdc11073.xml_types.pm_types import InstanceIdentifier
 
 
 @runtime_checkable
@@ -38,6 +40,7 @@ class SetServiceProtocol(Protocol):
         operation_target: str | None = None,
         error: Enum | None = None,
         error_message: str | None = None,
+        invocation_source: InstanceIdentifier | None = None,
     ): ...
 
 
@@ -167,6 +170,7 @@ class SetService(ServiceWithOperations):
         operation_target: str | None = None,
         error: Enum | None = None,
         error_message: str | None = None,
+        invocation_source: InstanceIdentifier | None = None,
     ):
         data_model = self._sdc_definitions.data_model
         nsh = data_model.ns_helper
@@ -181,13 +185,11 @@ class SetService(ServiceWithOperations):
             report_part.InvocationInfo.InvocationError = error
         if error_message is not None:
             report_part.InvocationInfo.InvocationErrorMessage.append(data_model.pm_types.LocalizedText(error_message))
-        # implemented is only SDC R0077 for value of invocationSource:
-        # Extension = "AnonymousSdcParticipant".
-        # a known participant (R0078) is currently not supported
-        # TODO(a-kleinf): implement R0078,  # noqa: FIX002
-        #  https://github.com/Draegerwerk/sdc11073/issues/490
-        report_part.InvocationSource = data_model.pm_types.InstanceIdentifier(
-            nsh.SDC.namespace, extension_string='AnonymousSdcParticipant'
+        # msg:InvocationSource identifies the SDC PARTICIPANT that invoked the operation
+        # (IEEE Std 11073-20701-2018, 7.2.2): a known participant is identified via its x.509 certificate
+        # (R0078), an unknown participant via the fixed anonymous instance identifier (R0077).
+        report_part.InvocationSource = (
+            invocation_source if invocation_source is not None else mk_anonymous_invocation_source()
         )
         report_part.OperationHandleRef = operation_handle_ref
         report_part.OperationTarget = operation_target
