@@ -309,3 +309,30 @@ def test_client_subscription_manager_reference_params_find_and_unsubscribe_all()
 
     rd = RequestData({}, '/', 'peer', b'', msg)
     assert mgr_ref._find_subscription(rd, 'x') is sub_ref
+
+
+def _mk_subscription_manager() -> ConsumerSubscriptionManager:
+    sdc = SdcV1Definitions
+    return ConsumerSubscriptionManager(
+        MessageReader(sdc, None, logger=None, validate=False),
+        MessageFactory(sdc, None, logger=None, validate=False),
+        sdc.data_model,
+        mock.MagicMock(),
+        notification_url='http://localhost:8080/notify',
+        log_prefix='t',
+    )
+
+
+def test_consumer_subscription_manager_stop_without_start():
+    """Verify that a manager whose thread was never started can be stopped, e.g. after a failed start()."""
+    mgr = _mk_subscription_manager()
+    mgr.stop()  # must not raise 'cannot join thread before it is started'
+    assert not mgr.is_alive()
+
+
+def test_consumer_subscription_manager_stop_ends_thread():
+    """Verify that stop ends a started manager thread."""
+    mgr = _mk_subscription_manager()
+    mgr.start()
+    mgr.stop()
+    assert not mgr.is_alive()

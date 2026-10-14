@@ -40,7 +40,7 @@ class _ThreadingHTTPServer(socketserver.TCPServer):
         self.daemon_threads = True
         self.threads = []
         self.logger = logger
-        self.dispatcher = PathElementRegistry()
+        self.dispatcher: PathElementRegistry | None = PathElementRegistry()
         self.chunk_size = chunk_size
         self.supported_encodings = supported_encodings
         super().__init__(server_address, DispatchingRequestHandler)
@@ -77,9 +77,7 @@ class _ThreadingHTTPServer(socketserver.TCPServer):
 
     def server_close(self):
         super().server_close()
-        if self.dispatcher is not None:
-            self.dispatcher.methods = {}
-            self.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
+        self.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
         for thread_info in self.threads:
             if thread_info.thread.is_alive():
                 try:
@@ -133,6 +131,9 @@ class HttpServerThreadBase(threading.Thread):
         # create and set up the dispatcher for all incoming requests
         self.started_evt = threading.Event()  # helps to wait until thread has initialized is variables
         self._stop_requested = False
+        # makes the check of _stop_requested in run() and its update in stop() atomic, so that a stop during the
+        # initialization is either seen by run(), or stop() sees started_evt and shuts the server down
+        self._stop_lock = threading.Lock()
         self.base_url = None
 
     @property
@@ -142,7 +143,6 @@ class HttpServerThreadBase(threading.Thread):
 
     def run(self):
         """Run the http server."""
-        self._stop_requested = False
         try:
             self.httpd = _ThreadingHTTPServer(
                 self.logger,
@@ -157,7 +157,12 @@ class HttpServerThreadBase(threading.Thread):
             else:
                 self.base_url = f'http://{self._my_ipaddress}:{self.server_port}/'
 
-            self.started_evt.set()
+            with self._stop_lock:
+                if self._stop_requested:
+                    # stop() was called during the initialization, e.g. because the start timed out
+                    self.httpd.server_close()
+                    return
+                self.started_evt.set()
             # short poll interval, because shutdown() blocks until serve_forever notices the request
             self.httpd.serve_forever(poll_interval=0.05)
         except Exception:
@@ -168,18 +173,23 @@ class HttpServerThreadBase(threading.Thread):
             self.logger.info('http server stopped.')
 
     @property
-    def dispatcher(self) -> PathElementRegistry:
+    def dispatcher(self) -> PathElementRegistry | None:
         """Return the dispatcher responsible for handling requests."""
         if not self.started_evt.is_set():
             raise RuntimeError('http server not started yet, dispatcher not available')
         return self.httpd.dispatcher
 
     def stop(self):
-        """Stop the http server."""
-        if not self.started_evt.is_set():
-            self.logger.warning('http server was not started yet - cannot be stopped')
+        """Stop the http server.
+
+        If the server is still initializing, the stop is recorded and the server ends without serving any request.
+        """
+        with self._stop_lock:
+            self._stop_requested = True
+            is_started = self.started_evt.is_set()
+        if not is_started:
+            self.logger.info('http server is not started yet, it will not serve any request')
             return
-        self._stop_requested = True
         self.httpd.shutdown()
         self.httpd.server_close()
         for thread_info in self.httpd.threads:

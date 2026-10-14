@@ -442,7 +442,8 @@ class ConsumerSubscriptionManager(
     def stop(self):
         """Stop the thread."""
         self._stop_event.set()
-        self.join(timeout=2)
+        if self.is_alive():  # join raises if the thread was never started, e.g. because start() failed
+            self.join(timeout=2)
         with self._subscriptions_lock:
             self.subscriptions.clear()
 

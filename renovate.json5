@@ -18,9 +18,6 @@
   // (which resets the age check whenever a dependency releases more often than once a week).
   // https://docs.renovatebot.com/configuration-options/#internalchecksfilter
   internalChecksFilter: "strict",
-  // Don't open a PR while its checks (e.g. renovate/stability-days) are still pending.
-  // https://docs.renovatebot.com/configuration-options/#prcreation
-  prCreation: "not-pending",
   // Every pull request needs a release label (see "Branch naming" in CONTRIBUTING.md). Everything Renovate updates is
   // maintenance by default: dependency-groups, build-system, GitHub Actions, uv.lock maintenance and any manager added
   // later. Only changes to the ranges users install with are listed as dependencies, see packageRules.

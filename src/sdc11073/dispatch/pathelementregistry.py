@@ -19,6 +19,16 @@ class PathElementRegistry:
             raise ApiUsageError(msg)
         self._instances[path_element] = instance
 
+    def unregister_instance(self, path_element: str | None, instance: Any):
+        """Remove the given instance if it is the one registered for the given path element.
+
+        An unknown path element is ignored, so this can be called without knowing whether a registration was done.
+        A different instance registered for the path element is kept, so that a failed registration with a
+        duplicate path element cannot remove the registration that it collided with.
+        """
+        if self._instances.get(path_element) is instance:
+            del self._instances[path_element]
+
     def get_instance(self, path_element: str | None) -> Any:
         """Return the instance registered for the given path element."""
         instance = self._instances.get(path_element)

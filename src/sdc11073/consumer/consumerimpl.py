@@ -45,7 +45,7 @@ from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
     from sdc11073.consumer.subscription import (
@@ -607,37 +607,39 @@ class SdcConsumer:
             msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
             raise RuntimeError(msg)
 
-        self._start_event_sink(shared_http_server, http_server_start_timeout)
-
-        # start subscription manager
-        self._subscription_mgr = self._components.subscription_manager_class(
-            self.msg_reader,
-            self.msg_factory,
-            self.sdc_definitions.data_model,
-            self.get_soap_client,
-            self.base_url,
-            log_prefix=self.log_prefix,
-            fixed_renew_interval=fixed_renew_interval,
-        )
-        self._subscription_mgr.start()
-
-        # start operationInvoked subscription and tell all
-        self.operations_manager = self._components.operations_manager_class(self.msg_reader, self.log_prefix)
-        properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
-        for client in self._service_clients.values():
-            client.set_operations_manager(self.operations_manager)
-
-        # register callback for end of subscription
-        self._services_dispatcher.register_post_handler(
-            DispatchKey(
-                EventingActions.SubscriptionEnd,
-                self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd'),
-            ),
-            self._on_subscription_end,
-        )
-
-        # start all subscriptions - group subscriptions per hosted service
+        # from here on threads are started, so a failure must stop them again
         try:
+            self._services_dispatcher.start()
+            self._start_event_sink(shared_http_server, http_server_start_timeout)
+
+            # start subscription manager
+            self._subscription_mgr = self._components.subscription_manager_class(
+                self.msg_reader,
+                self.msg_factory,
+                self.sdc_definitions.data_model,
+                self.get_soap_client,
+                self.base_url,
+                log_prefix=self.log_prefix,
+                fixed_renew_interval=fixed_renew_interval,
+            )
+            self._subscription_mgr.start()
+
+            # start operationInvoked subscription and tell all
+            self.operations_manager = self._components.operations_manager_class(self.msg_reader, self.log_prefix)
+            properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
+            for client in self._service_clients.values():
+                client.set_operations_manager(self.operations_manager)
+
+            # register callback for end of subscription
+            self._services_dispatcher.register_post_handler(
+                DispatchKey(
+                    EventingActions.SubscriptionEnd,
+                    self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd'),
+                ),
+                self._on_subscription_end,
+            )
+
+            # start all subscriptions - group subscriptions per hosted service
             all_subscribed_results = [
                 self._subscribe_to_hosted_service(dpws_hosted)
                 for dpws_hosted in self.host_description.relationship.Hosted
@@ -655,17 +657,33 @@ class SdcConsumer:
         _update_is_connected(self.subscription_status)
 
     def stop_all(self, unsubscribe: bool = True):
-        """Stop all threads, optionally unsubscribe."""
+        """Stop all threads, optionally unsubscribe.
+
+        Every step is executed even if a previous one failed, so that a failing step does not leave threads behind.
+        Failures are logged, and the first one is raised after all steps were executed.
+        """
+        errors: list[Exception] = []
         if self._subscription_mgr is not None:
             if unsubscribe:
-                self._subscription_mgr.unsubscribe_all()
-            self._subscription_mgr.stop()
-        self.set_mdib(None)
-
+                self._run_stop_step(errors, 'unsubscribe', self._subscription_mgr.unsubscribe_all)
+            self._run_stop_step(errors, 'stop subscription manager', self._subscription_mgr.stop)
+        # first stop receiving notifications, then stop the dispatcher, which discards what is still queued
+        self._run_stop_step(errors, 'stop event sink', self._stop_event_sink)
+        self._run_stop_step(errors, 'stop dispatcher', self._services_dispatcher.stop)
+        self._run_stop_step(errors, 'release mdib', functools.partial(self.set_mdib, None))
         for client in self._soap_clients.values():
-            client.close()
+            self._run_stop_step(errors, 'close soap client', client.close)
         self._soap_clients = {}
-        self._stop_event_sink()
+        if errors:
+            raise errors[0]  # raise any error to make user aware
+
+    def _run_stop_step(self, errors: list[Exception], description: str, step: Callable[[], Any]):
+        """Execute one step of stop_all, append an exception to errors instead of raising it."""
+        try:
+            step()
+        except Exception as ex:
+            self._logger.exception('stop_all: {} failed', description)  # noqa: PLE1205
+            errors.append(ex)
 
     def restart(self):
         """Forget existing data and restart from the beginning."""
@@ -825,10 +843,28 @@ class SdcConsumer:
         else:
             self._http_server = shared_http_server
         # register own epr in http server
-        self._http_server.dispatcher.register_instance(self.path_prefix, self._msg_converter)
+        dispatcher = self._http_server.dispatcher
+        if dispatcher is None:
+            msg = 'http server is shutting down, dispatcher not available'
+            raise RuntimeError(msg)
+        dispatcher.register_instance(self.path_prefix, self._msg_converter)
 
     def _stop_event_sink(self):
-        if self._is_internal_http_server and self._http_server is not None:
+        if self._http_server is None:
+            return  # _start_event_sink was never called
+        try:
+            dispatcher = self._http_server.dispatcher
+        except (RuntimeError, AttributeError) as ex:
+            # the http server is not (or no longer) started, so there is no registration that could be removed
+            self._logger.debug(  # noqa: PLE1205
+                'could not unregister "{}", no dispatcher available: {}',
+                self.path_prefix,
+                ex,
+            )
+        else:
+            if dispatcher is not None:
+                dispatcher.unregister_instance(self.path_prefix, self._msg_converter)
+        if self._is_internal_http_server:
             self._http_server.stop()
 
     def _on_notification(self, message_data: ReceivedMessage):
