@@ -34,7 +34,7 @@ LZ4 = compression.Lz4CompressionHandler.algorithms[0]
 class TestCompression(unittest.TestCase):
     def setUp(self):
         # Start discovery
-        self.wsd = WSDiscovery('127.0.0.1')
+        self.wsd = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.wsd.start()
         # Create a new device
         self.location = utils.random_location()

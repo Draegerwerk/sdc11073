@@ -268,7 +268,7 @@ class TestTutorial(unittest.TestCase):
     def test_create_provider(self):
         # A WsDiscovery instance is needed to publish devices on the network.
         # In this case we want to publish them only on localhost 127.0.0.1.
-        my_ws_discovery = WSDiscovery('127.0.0.1')
+        my_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
@@ -278,7 +278,7 @@ class TestTutorial(unittest.TestCase):
 
     def test_search_provider(self):
         # create one discovery and two device that we can then search for
-        my_ws_discovery = WSDiscovery('127.0.0.1')
+        my_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
@@ -293,7 +293,7 @@ class TestTutorial(unittest.TestCase):
         # create a new discovery instance for searching.
         # (technically this would not be necessary, but it makes things much clearer in our example)
         # for searching we use again localhost adapter. For demonstration purpose a WSDiscoverySingleAdapter is used
-        my_client_ws_discovery = WSDiscoverySingleAdapter(loopback_adapter.name)
+        my_client_ws_discovery = WSDiscoverySingleAdapter(loopback_adapter.name, multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
@@ -317,14 +317,14 @@ class TestTutorial(unittest.TestCase):
 
     def test_create_client(self):
         # create one discovery and one device that we can then search for
-        my_ws_discovery = WSDiscovery('127.0.0.1')
+        my_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
         my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
-        my_client_ws_discovery = WSDiscovery('127.0.0.1')
+        my_client_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
@@ -358,14 +358,14 @@ class TestTutorial(unittest.TestCase):
 
     def test_call_operation(self):
         # create one discovery and one device that we can then search for
-        my_ws_discovery = WSDiscovery('127.0.0.1')
+        my_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
         my_generic_provider1 = create_generic_provider(my_ws_discovery, self.my_location, __MDIB_SINGLE_MDS_PATH__)
         self.my_providers.append(my_generic_provider1)
 
-        my_client_ws_discovery = WSDiscovery('127.0.0.1')
+        my_client_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 
@@ -425,7 +425,7 @@ class TestTutorial(unittest.TestCase):
         """
         # Create a device like in the examples above, but provide an own role provider.
         # This role provider is used instead of the default one.
-        my_ws_discovery = WSDiscovery('127.0.0.1')
+        my_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_ws_discovery)
         my_ws_discovery.start()
 
@@ -446,7 +446,7 @@ class TestTutorial(unittest.TestCase):
         self.my_providers.append(my_generic_provider)
 
         # connect a consumer to this provider:
-        my_client_ws_discovery = WSDiscovery('127.0.0.1')
+        my_client_ws_discovery = WSDiscovery('127.0.0.1', multicast_port=utils.wsd_port())
         self.my_ws_discoveries.append(my_client_ws_discovery)
         my_client_ws_discovery.start()
 

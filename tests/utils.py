@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import math
+import os
 import random
 import string
+import time
 import uuid
 from typing import TYPE_CHECKING
 
@@ -14,11 +16,37 @@ from sdc11073 import location
 from sdc11073.xml_types import wsd_types
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     from sdc11073.mdib.containerbase import ContainerBase
 
 RFC3986 = string.ascii_letters + string.digits + '-_.~'
+
+# below the ephemeral port ranges of Linux (32768+) and Windows (49152+), so it never collides with an outbound socket
+WSD_BASE_PORT = 23702
+
+
+def wsd_port() -> int:
+    """Return the WS-Discovery multicast port for the current pytest-xdist worker.
+
+    Each worker gets its own port, so that discovery traffic of parallel workers does not interfere.
+    Without xdist the port of worker 'gw0' is used, so tests never bind the default port 3702.
+    """
+    worker = os.environ.get('PYTEST_XDIST_WORKER', 'gw0')
+    return WSD_BASE_PORT + int(worker.removeprefix('gw'))
+
+
+def wait_for(condition: Callable[[], bool], timeout: float, interval: float = 0.1) -> bool:
+    """Poll condition until it is true or timeout expires.
+
+    :return: True if condition became true, False on timeout
+    """
+    deadline = time.monotonic() + timeout
+    while not condition():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(interval)
+    return True
 
 
 def get_random_rfc3986_string_of_length(

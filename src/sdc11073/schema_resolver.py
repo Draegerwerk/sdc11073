@@ -15,6 +15,8 @@ from . import loghelper
 if TYPE_CHECKING:
     from .namespaces import NamespaceHelper, PrefixNamespace
 
+_SCHEMA_RETRY_DELAYS = (0.01, 0.1, 0.5)
+
 
 def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceHelper) -> etree.XMLSchema:
     """Create a schema validator."""
@@ -34,16 +36,28 @@ def mk_schema_validator(namespaces: list[PrefixNamespace], ns_helper: NamespaceH
     all_included = tmp.getvalue().encode('utf-8')
 
     elem_tree = etree.fromstring(all_included, parser=parser)
-    # for unknown reason creating the schema fails sometimes. repeat up to 3 times.
-    try:
-        return etree.XMLSchema(etree=elem_tree)
-    except etree.XMLSchemaParseError:
-        time.sleep(0.1)
-    try:
-        return etree.XMLSchema(etree=elem_tree)
-    except etree.XMLSchemaParseError:
-        time.sleep(0.5)
-    return etree.XMLSchema(etree=elem_tree)
+    # lxml routes schema imports to our resolver via libxml2's external entity loader. That loader is process
+    # global (at least in the libxml2 2.11 bundled with lxml on Windows), and every parse in another thread
+    # temporarily replaces and restores it. If that happens while the schema is built, imports bypass the resolver:
+    # either building fails, or (worse) it succeeds silently without the imported namespaces. Detect both, retry.
+    for delay in _SCHEMA_RETRY_DELAYS:
+        try:
+            schema = etree.XMLSchema(etree=elem_tree)
+        except etree.XMLSchemaParseError:
+            pass
+        else:
+            if not _has_unlocated_imports(schema):
+                return schema
+        time.sleep(delay)
+    schema = etree.XMLSchema(etree=elem_tree)
+    if _has_unlocated_imports(schema):
+        msg = f'could not locate imported schemas: {schema.error_log}'
+        raise etree.XMLSchemaParseError(msg)
+    return schema
+
+
+def _has_unlocated_imports(schema: etree.XMLSchema) -> bool:
+    return any(entry.type == etree.ErrorTypes.SCHEMAP_WARN_UNLOCATED_SCHEMA for entry in schema.error_log)
 
 
 class SchemaResolver(etree.Resolver):

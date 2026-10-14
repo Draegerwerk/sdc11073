@@ -1,0 +1,80 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+
+# No filter-by-range / filter-by-commitish needed: release-drafter picks the previous
+# release by the highest semver tag, so releases published from maintenance branches
+# (e.g. v1.x.y) never become the baseline for master.
+
+categories:
+  # Exclusive and first: a breaking pull request is listed only here, not additionally
+  # in its regular section. Add the "breaking" label by hand.
+  - title: "💥 Breaking Changes"
+    exclusive: true
+    semver-increment: "major"
+    when:
+      labels:
+        - "breaking"
+  # Features and fixes are not exclusive, so a pull request labeled with both appears
+  # in both sections.
+  - title: "🚀 Features"
+    exclusive: false
+    semver-increment: "minor"
+    when:
+      labels:
+        - "feature"
+        - "enhancement"
+  - title: "🐛 Bug Fixes"
+    exclusive: false
+    # semver-increment defaults to "patch"
+    when:
+      labels:
+        - "fix"
+        - "bug"
+  - title: "⬆️ Dependencies"
+    exclusive: true
+    when:
+      labels:
+        - "dependencies"
+  - title: "📚 Documentation"
+    exclusive: true
+    when:
+      labels:
+        - "documentation"
+  - title: "🔧 Maintenance"
+    exclusive: true
+    when:
+      labels:
+        - "chore"
+        - "refactor"
+  # Version-resolver-only entry: it affects $RESOLVED_VERSION but is not rendered as a
+  # changelog section.
+  - type: "version-resolver"
+    semver-increment: "patch" # fallback default when nothing else matches
+
+# Labels are applied from the branch name (see "Branch naming" in CONTRIBUTING.md).
+# Renovate labels its own pull requests (see renovate.json5). Keep the prefixes in sync with the check in
+# .github/workflows/autolabeler.yml.
+autolabeler:
+  - label: "feature"
+    branch:
+      - '/^feat\/.+/'
+  - label: "fix"
+    branch:
+      - '/^fix\/.+/'
+  - label: "documentation"
+    branch:
+      - '/^docs\/.+/'
+  - label: "chore"
+    branch:
+      - '/^(chore|refactor|test|ci|build)\/.+/'
+
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+change-title-escapes: '\<*_&'
+no-changes-template: "- No notable changes"
+
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
