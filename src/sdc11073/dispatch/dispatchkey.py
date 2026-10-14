@@ -66,7 +66,8 @@ class RequestDispatcherProtocol(RequestHandlerProtocol):
         """Stop the dispatcher.
 
         An implementation that handles requests in a separate thread ends this thread here. Requests that were
-        already accepted are handled before the thread ends.
+        accepted, but whose handling has not begun yet, are discarded; a request that is already being handled is
+        finished.
         The method must be idempotent, and it must also be callable if start() was never called.
         """
 

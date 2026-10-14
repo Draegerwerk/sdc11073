@@ -77,9 +77,7 @@ class _ThreadingHTTPServer(socketserver.TCPServer):
 
     def server_close(self):
         super().server_close()
-        if self.dispatcher is not None:
-            self.dispatcher.methods = {}
-            self.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
+        self.dispatcher = None  # this leads to a '503' reaction in SOAPNotificationsHandler
         for thread_info in self.threads:
             if thread_info.thread.is_alive():
                 try:

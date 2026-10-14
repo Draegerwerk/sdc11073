@@ -607,38 +607,39 @@ class SdcConsumer:
             msg = f'GetService not detected! found services = {list(self._service_clients.keys())}'
             raise RuntimeError(msg)
 
-        self._services_dispatcher.start()
-        self._start_event_sink(shared_http_server, http_server_start_timeout)
-
-        # start subscription manager
-        self._subscription_mgr = self._components.subscription_manager_class(
-            self.msg_reader,
-            self.msg_factory,
-            self.sdc_definitions.data_model,
-            self.get_soap_client,
-            self.base_url,
-            log_prefix=self.log_prefix,
-            fixed_renew_interval=fixed_renew_interval,
-        )
-        self._subscription_mgr.start()
-
-        # start operationInvoked subscription and tell all
-        self.operations_manager = self._components.operations_manager_class(self.msg_reader, self.log_prefix)
-        properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
-        for client in self._service_clients.values():
-            client.set_operations_manager(self.operations_manager)
-
-        # register callback for end of subscription
-        self._services_dispatcher.register_post_handler(
-            DispatchKey(
-                EventingActions.SubscriptionEnd,
-                self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd'),
-            ),
-            self._on_subscription_end,
-        )
-
-        # start all subscriptions - group subscriptions per hosted service
+        # from here on threads are started, so a failure must stop them again
         try:
+            self._services_dispatcher.start()
+            self._start_event_sink(shared_http_server, http_server_start_timeout)
+
+            # start subscription manager
+            self._subscription_mgr = self._components.subscription_manager_class(
+                self.msg_reader,
+                self.msg_factory,
+                self.sdc_definitions.data_model,
+                self.get_soap_client,
+                self.base_url,
+                log_prefix=self.log_prefix,
+                fixed_renew_interval=fixed_renew_interval,
+            )
+            self._subscription_mgr.start()
+
+            # start operationInvoked subscription and tell all
+            self.operations_manager = self._components.operations_manager_class(self.msg_reader, self.log_prefix)
+            properties.bind(self, operation_invoked_report=self.operations_manager.on_operation_invoked_report)
+            for client in self._service_clients.values():
+                client.set_operations_manager(self.operations_manager)
+
+            # register callback for end of subscription
+            self._services_dispatcher.register_post_handler(
+                DispatchKey(
+                    EventingActions.SubscriptionEnd,
+                    self.sdc_definitions.data_model.ns_helper.WSE.tag('SubscriptionEnd'),
+                ),
+                self._on_subscription_end,
+            )
+
+            # start all subscriptions - group subscriptions per hosted service
             all_subscribed_results = [
                 self._subscribe_to_hosted_service(dpws_hosted)
                 for dpws_hosted in self.host_description.relationship.Hosted
@@ -661,7 +662,7 @@ class SdcConsumer:
             if unsubscribe:
                 self._subscription_mgr.unsubscribe_all()
             self._subscription_mgr.stop()
-        # first stop receiving notifications, then let the dispatcher handle what is already queued
+        # first stop receiving notifications, then stop the dispatcher, which discards what is still queued
         self._stop_event_sink()
         self._services_dispatcher.stop()
         self.set_mdib(None)
@@ -847,7 +848,7 @@ class SdcConsumer:
             )
         else:
             if dispatcher is not None:
-                dispatcher.unregister_instance(self.path_prefix)
+                dispatcher.unregister_instance(self.path_prefix, self._msg_converter)
         if self._is_internal_http_server:
             self._http_server.stop()
 

@@ -50,19 +50,21 @@ class TestPathElementRegistry(TestCase):
 
     def test_unregister_instance(self):
         """Verify that an unregistered path element is no longer known."""
-        self.registry.register_instance('foo', object())
-        self.registry.unregister_instance('foo')
+        instance = object()
+        self.registry.register_instance('foo', instance)
+        self.registry.unregister_instance('foo', instance)
         with self.assertRaises(InvalidPathError):
             self.registry.get_instance('foo')
 
     def test_unregister_unknown_path_element_is_ignored(self):
         """Verify that unregistering an unknown path element is not an error."""
-        self.registry.unregister_instance('unknown')  # must not raise
+        self.registry.unregister_instance('unknown', object())  # must not raise
 
     def test_unregister_none_path_element(self):
         """Verify that None can be unregistered."""
-        self.registry.register_instance(None, object())
-        self.registry.unregister_instance(None)
+        instance = object()
+        self.registry.register_instance(None, instance)
+        self.registry.unregister_instance(None, instance)
         with self.assertRaises(InvalidPathError):
             self.registry.get_instance(None)
 
@@ -71,8 +73,9 @@ class TestPathElementRegistry(TestCase):
 
         This is needed if a consumer is restarted while it uses a shared http server.
         """
-        self.registry.register_instance('foo', object())
-        self.registry.unregister_instance('foo')
+        first = object()
+        self.registry.register_instance('foo', first)
+        self.registry.unregister_instance('foo', first)
         second = object()
         self.registry.register_instance('foo', second)  # must not raise ApiUsageError
         self.assertIs(self.registry.get_instance('foo'), second)
@@ -83,8 +86,19 @@ class TestPathElementRegistry(TestCase):
         second = object()
         self.registry.register_instance('foo', first)
         self.registry.register_instance('bar', second)
-        self.registry.unregister_instance('foo')
+        self.registry.unregister_instance('foo', first)
         self.assertIs(self.registry.get_instance('bar'), second)
+
+    def test_unregister_keeps_a_different_instance(self):
+        """Verify that only the registered instance itself can be unregistered.
+
+        A consumer whose registration failed because the path element was already taken must not remove the
+        registration of the consumer that took it.
+        """
+        original = object()
+        self.registry.register_instance('foo', original)
+        self.registry.unregister_instance('foo', object())
+        self.assertIs(self.registry.get_instance('foo'), original)
 
     def test_get_unknown_path_element_raises(self):
         """Verify that looking up an unregistered path element raises InvalidPathError."""
