@@ -82,7 +82,7 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
 
     QUEUE_SIZE = 1000  # maximum number of requests waiting for the worker thread
     PUT_TIMEOUT = 1.0  # max. seconds that an incoming request waits for a free slot in the queue
-    STOP_TIMEOUT = 5.0  # max. seconds that stop() waits for the worker thread to finish the current request
+    STOP_TIMEOUT = 5.0  # max. seconds that stop() and start() wait for the worker thread to finish the current request
     GET_TIMEOUT = 0.1  # granularity with which an idle worker thread looks for a stop request, must be << STOP_TIMEOUT
 
     def __init__(self, log_prefix: str):
@@ -95,12 +95,32 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
         self._worker: threading.Thread | None = None
         self._queue: _ClosableQueue | None = None
         self._stop_requested: threading.Event | None = None
+        # the worker of the last stop(), it can still be handling a request if stop() timed out
+        self._previous_worker: threading.Thread | None = None
 
     def start(self):
-        """See documentation in RequestDispatcherProtocol."""
+        """See documentation in RequestDispatcherProtocol.
+
+        If the worker thread of the previous start is still handling a request, start() waits at most STOP_TIMEOUT
+        for it and raises a RuntimeError if it is still running then. Otherwise both threads would handle requests at
+        the same time, and an old report could be handled after a newer one.
+        The exception is a start() from a handler of that thread itself (e.g. a restart in an observer): the thread
+        cannot wait for itself, and it handles no further request after the handler returned.
+        """
+        previous_worker = self._previous_worker  # read once, stop() may replace it at any time
+        if previous_worker is not None and previous_worker is not threading.current_thread():
+            previous_worker.join(timeout=self.STOP_TIMEOUT)  # outside of _lifecycle_lock, see __init__
         with self._lifecycle_lock:
             if self._worker is not None:
                 return  # already started
+            previous_worker = self._previous_worker  # a concurrent stop() may have replaced it while joining
+            if (
+                previous_worker is not None
+                and previous_worker.is_alive()
+                and previous_worker is not threading.current_thread()
+            ):
+                msg = f'worker thread "{previous_worker.name}" of the previous start is still handling a request'
+                raise RuntimeError(msg)
             request_queue = _ClosableQueue(self.QUEUE_SIZE)
             stop_requested = threading.Event()
             worker = threading.Thread(
@@ -116,6 +136,7 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
             self._queue = request_queue  # on_post accepts requests from now on
             self._stop_requested = stop_requested
             self._worker = worker
+            self._previous_worker = None
 
     def stop(self):
         """See documentation in RequestDispatcherProtocol.
@@ -123,12 +144,14 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
         Requests that are still queued are discarded, and their number is logged. A request whose handling has
         already begun is finished, because a thread cannot be interrupted. stop() waits at most STOP_TIMEOUT for that;
         it does not wait at all if it was called from a handler, because a thread cannot join itself.
+        A worker thread that is still running after that is waited for by the next start().
         """
         with self._lifecycle_lock:
             worker, request_queue, stop_requested = self._worker, self._queue, self._stop_requested
+            if worker is None or request_queue is None or stop_requested is None:
+                return  # never started, or already stopped
             self._worker = self._queue = self._stop_requested = None  # on_post rejects requests from now on
-        if worker is None or request_queue is None or stop_requested is None:
-            return  # never started, or already stopped
+            self._previous_worker = worker
         stop_requested.set()  # the worker thread handles no further request
         # a request that on_post puts after this is rejected instead of being lost
         discarded = request_queue.close_and_discard()
@@ -144,7 +167,7 @@ class DispatchKeyRegistryDeferred(RequestDispatcher):
         worker.join(timeout=self.STOP_TIMEOUT)
         if worker.is_alive():
             self._logger.warning(  # noqa: PLE1205
-                'worker thread "{}" is still handling a request after {} seconds, it ends when the request is done',
+                'worker thread "{}" is still handling a request after {} seconds, the next start waits for it',
                 worker.name,
                 self.STOP_TIMEOUT,
             )

@@ -294,9 +294,11 @@ class TestDispatchKeyRegistryDeferred(unittest.TestCase):
         worker.join(timeout=10)
         self.assertFalse(worker.is_alive())  # it ends on its own, without a further stop
 
-    def test_start_after_a_timed_out_stop_uses_a_new_worker(self):
-        """Verify that a worker that outlived stop neither is revived nor reads the queue of the new worker."""
-        blocker = threading.Event()
+    def _start_blocked_worker(self, blocker: threading.Event) -> threading.Thread:
+        """Start the dispatcher, let its worker block in a handler and stop it with a timeout.
+
+        Return the worker thread, which is still alive until blocker is set.
+        """
         handler_entered = threading.Event()
 
         def blocking_handler(request_data: RequestData) -> EmptyResponse:
@@ -307,27 +309,90 @@ class TestDispatchKeyRegistryDeferred(unittest.TestCase):
 
         self.dispatcher.register_post_handler(DispatchKey(ACTION, None), blocking_handler)
         self.dispatcher.start()
-        old_worker = self.dispatcher._worker
-        try:
-            self.dispatcher.on_post(_mk_request())
-            self.assertTrue(handler_entered.wait(timeout=10))
-            with mock.patch.object(DispatchKeyRegistryDeferred, 'STOP_TIMEOUT', 0.01):
-                self.dispatcher.stop()
-            self.assertTrue(old_worker.is_alive())
+        worker = self.dispatcher._worker
+        self.dispatcher.on_post(_mk_request())
+        self.assertTrue(handler_entered.wait(timeout=10))
+        with mock.patch.object(DispatchKeyRegistryDeferred, 'STOP_TIMEOUT', 0.01):
+            self.dispatcher.stop()
+        self.assertTrue(worker.is_alive())
+        return worker
 
-            self.dispatcher.start()  # the old worker must not be reused and must not be revived
+    def test_start_waits_for_a_worker_that_outlived_stop(self):
+        """Verify that start waits for the worker of a timed-out stop before it starts a new one.
+
+        Otherwise both workers would handle requests at the same time, and an old report could be handled after a
+        newer one.
+        """
+        blocker = threading.Event()
+        try:
+            old_worker = self._start_blocked_worker(blocker)
+            releaser = threading.Timer(0.2, blocker.set)
+            releaser.start()
+            self.dispatcher.start()
+            self.assertFalse(old_worker.is_alive())
             new_worker = self.dispatcher._worker
             self.assertIsNot(new_worker, old_worker)
             self.assertTrue(new_worker.is_alive())
-            self.dispatcher.on_post(_mk_request())
+        finally:
+            blocker.set()
+        self.dispatcher.on_post(_mk_request())
+        self.assertTrue(utils.wait_for(lambda: len(self.handled) == 2, timeout=10))
+        self.dispatcher.stop()
+        self.assertEqual(_own_worker_threads(), [])
+
+    def test_start_raises_if_a_worker_that_outlived_stop_still_runs(self):
+        """Verify that start raises instead of starting a second worker if the previous one does not end in time."""
+        blocker = threading.Event()
+        try:
+            old_worker = self._start_blocked_worker(blocker)
+            with (
+                mock.patch.object(DispatchKeyRegistryDeferred, 'STOP_TIMEOUT', 0.01),
+                self.assertRaises(RuntimeError),
+            ):
+                self.dispatcher.start()
+            self.assertIsNone(self.dispatcher._worker)
+            self.assertEqual(_own_worker_threads(), [old_worker])
+            with self.assertRaises(RuntimeError):
+                self.dispatcher.on_post(_mk_request())  # still stopped
         finally:
             blocker.set()
         old_worker.join(timeout=10)
         self.assertFalse(old_worker.is_alive())
-        # each worker handled exactly the one request it had accepted
+        self.dispatcher.start()  # works again as soon as the previous worker ended
+        self.dispatcher.on_post(_mk_request())
         self.assertTrue(utils.wait_for(lambda: len(self.handled) == 2, timeout=10))
-        self.dispatcher.stop()
-        self.assertEqual(_own_worker_threads(), [])
+
+    def test_restart_from_handler(self):
+        """Verify that a handler can stop and start the dispatcher, e.g. in an observer that restarts the consumer.
+
+        The worker thread cannot wait for itself, and it handles no further request after the handler returned.
+        """
+        errors = []
+        restarted = threading.Event()
+
+        def restarting_handler(request_data: RequestData) -> EmptyResponse:  # noqa: ARG001
+            try:
+                self.dispatcher.stop()
+                self.dispatcher.start()
+            except BaseException as ex:  # noqa: BLE001
+                errors.append(ex)
+            restarted.set()
+            return EmptyResponse()
+
+        self.dispatcher.register_post_handler(DispatchKey(ACTION, None), restarting_handler)
+        self.dispatcher.start()
+        old_worker = self.dispatcher._worker
+        self.dispatcher.on_post(_mk_request())
+        self.assertTrue(restarted.wait(timeout=10))
+        old_worker.join(timeout=10)
+        self.assertEqual(errors, [])
+        self.assertFalse(old_worker.is_alive())
+        new_worker = self.dispatcher._worker
+        self.assertIsNot(new_worker, old_worker)
+        self.assertTrue(new_worker.is_alive())
+        self.dispatcher.register_post_handler(DispatchKey(ACTION, None), self._handler)
+        self.dispatcher.on_post(_mk_request())
+        self.assertTrue(utils.wait_for(lambda: len(self.handled) == 1, timeout=10))
 
 
 class TestClosableQueue(unittest.TestCase):
