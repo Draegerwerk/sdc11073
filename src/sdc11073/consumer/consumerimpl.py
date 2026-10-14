@@ -45,7 +45,7 @@ from sdc11073.xml_types.dpws_types import DeviceEventingFilterDialectURI
 from sdc11073.xml_types.wsd_types import ProbeMatchesType, ProbeType
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from sdc11073.consumer.serviceclients.serviceclientbase import HostedServiceClient
     from sdc11073.consumer.subscription import (
@@ -657,18 +657,33 @@ class SdcConsumer:
         _update_is_connected(self.subscription_status)
 
     def stop_all(self, unsubscribe: bool = True):
-        """Stop all threads, optionally unsubscribe."""
+        """Stop all threads, optionally unsubscribe.
+
+        Every step is executed even if a previous one failed, so that a failing step does not leave threads behind.
+        Failures are logged, and the first one is raised after all steps were executed.
+        """
+        errors: list[Exception] = []
         if self._subscription_mgr is not None:
             if unsubscribe:
-                self._subscription_mgr.unsubscribe_all()
-            self._subscription_mgr.stop()
+                self._run_stop_step(errors, 'unsubscribe', self._subscription_mgr.unsubscribe_all)
+            self._run_stop_step(errors, 'stop subscription manager', self._subscription_mgr.stop)
         # first stop receiving notifications, then stop the dispatcher, which discards what is still queued
-        self._stop_event_sink()
-        self._services_dispatcher.stop()
-        self.set_mdib(None)
+        self._run_stop_step(errors, 'stop event sink', self._stop_event_sink)
+        self._run_stop_step(errors, 'stop dispatcher', self._services_dispatcher.stop)
+        self._run_stop_step(errors, 'release mdib', functools.partial(self.set_mdib, None))
         for client in self._soap_clients.values():
-            client.close()
+            self._run_stop_step(errors, 'close soap client', client.close)
         self._soap_clients = {}
+        if errors:
+            raise errors[0]  # raise any error to make user aware
+
+    def _run_stop_step(self, errors: list[Exception], description: str, step: Callable[[], Any]):
+        """Execute one step of stop_all, append an exception to errors instead of raising it."""
+        try:
+            step()
+        except Exception as ex:
+            self._logger.exception('stop_all: {} failed', description)  # noqa: PLE1205
+            errors.append(ex)
 
     def restart(self):
         """Forget existing data and restart from the beginning."""

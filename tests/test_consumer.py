@@ -5,10 +5,12 @@ import unittest
 from unittest import mock
 
 from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
+from sdc11073.consumer.subscription import ConsumerSubscriptionManager
 from sdc11073.definitions_sdc import SdcV1Definitions
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.dispatch.pathelementregistry import PathElementRegistry
 from sdc11073.exceptions import ApiUsageError
+from sdc11073.httpserver import httpserverimpl
 from sdc11073.httpserver.httpserverimpl import HttpServerThreadBase
 from tests import utils
 
@@ -74,6 +76,24 @@ class TestConsumerNotificationWorker(unittest.TestCase):
         self.assertIsInstance(consumer._services_dispatcher, RequestDispatcher)
         consumer.stop_all()  # must not raise
 
+    def test_failing_stop_step_does_not_skip_the_others(self):
+        """Verify that stop_all executes all steps if one fails, and raises the first failure afterwards."""
+        consumer = SdcConsumer('http', SdcV1Definitions, None, log_prefix=LOG_PREFIX)
+        consumer._services_dispatcher.start()
+        subscription_mgr = mock.Mock()
+        subscription_mgr.unsubscribe_all.side_effect = KeyError('unsubscribe failed')
+        subscription_mgr.stop.side_effect = ValueError('stop failed')
+        consumer._subscription_mgr = subscription_mgr
+        soap_client = mock.Mock()
+        consumer._soap_clients = {'key': soap_client}
+        with self.assertRaises(KeyError):
+            consumer.stop_all()
+        subscription_mgr.stop.assert_called_once()
+        self.assertIsNone(consumer._services_dispatcher._worker)
+        self.assertEqual(_own_worker_threads(), [])
+        soap_client.close.assert_called_once()
+        self.assertEqual(consumer._soap_clients, {})
+
 
 class TestConsumerStartFailure(unittest.TestCase):
     """Verify that a start_all that fails after the first thread was started leaves no thread behind."""
@@ -95,11 +115,45 @@ class TestConsumerStartFailure(unittest.TestCase):
     def tearDown(self):
         self.consumer.stop_all()
 
-    def test_http_server_start_timeout_stops_worker(self):
-        """Verify that the notification worker is stopped if the internal http server does not start in time."""
-        with mock.patch.object(HttpServerThreadBase, 'start'), self.assertRaises(RuntimeError) as context:
-            self.consumer.start_all(check_get_service=False, http_server_start_timeout=0)
+    def test_http_server_start_timeout_stops_worker_and_http_server(self):
+        """Verify that the worker and the http server are stopped if the internal http server does not start in time.
+
+        The http server is still initializing when it is stopped, so it must not start serving afterwards.
+        """
+        release_init = threading.Event()
+        original_init = httpserverimpl._ThreadingHTTPServer.__init__
+
+        def delayed_init(server, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+            release_init.wait(timeout=10)
+            original_init(server, *args, **kwargs)
+
+        with mock.patch.object(httpserverimpl._ThreadingHTTPServer, '__init__', delayed_init):
+            try:
+                with self.assertRaises(RuntimeError) as context:
+                    self.consumer.start_all(check_get_service=False, http_server_start_timeout=0.01)
+            finally:
+                release_init.set()
+            http_server = self.consumer._http_server
+            self.assertTrue(utils.wait_for(lambda: not http_server.is_alive(), timeout=10))
         self.assertIn('Http server could not be started', str(context.exception))
+        self.assertFalse(http_server.started_evt.is_set())
+        self.assertEqual(http_server.httpd.socket.fileno(), -1)  # the listening socket is closed
+        self.assertIsNone(self.consumer._services_dispatcher._worker)
+        self.assertEqual(_own_worker_threads(), [])
+
+    def test_subscription_manager_start_failure_stops_worker_and_http_server(self):
+        """Verify that the worker and the http server are stopped if the subscription manager cannot be started.
+
+        The thread of the subscription manager was never started, so stopping it must not fail the cleanup.
+        """
+        with (
+            mock.patch.object(ConsumerSubscriptionManager, 'start', side_effect=RuntimeError("can't start new thread")),
+            self.assertRaises(RuntimeError) as context,
+        ):
+            self.consumer.start_all(check_get_service=False)
+        self.assertIn("can't start new thread", str(context.exception))
+        http_server = self.consumer._http_server
+        self.assertTrue(utils.wait_for(lambda: not http_server.is_alive(), timeout=10))
         self.assertIsNone(self.consumer._services_dispatcher._worker)
         self.assertEqual(_own_worker_threads(), [])
 
