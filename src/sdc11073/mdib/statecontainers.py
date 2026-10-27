@@ -239,7 +239,7 @@ class AbstractMetricStateContainer(AbstractStateContainer):
 class MetricStateProtocol(AbstractStateProtocol):
     """Metric state protocol."""
 
-    MetricValue: None | pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue
+    MetricValue: pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue | None
 
     def mk_metric_value(self) -> pm_types.NumericMetricValue | pm_types.StringMetricValue | pm_types.SampleArrayValue:
         """Create a metric value."""

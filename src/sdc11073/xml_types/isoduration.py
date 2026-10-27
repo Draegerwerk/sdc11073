@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
-import datetime
+import datetime as dt
 import decimal
 import io
 import re
@@ -48,7 +48,7 @@ def parse_duration(date_string: str) -> ParsedDurationType:
     groups = match.groupdict()
     seconds = groups['seconds'] or '0'
     fraction = groups['fraction'] or '0'
-    return datetime.timedelta(
+    return dt.timedelta(
         hours=_parse_integer(groups['hours']) or 0,
         minutes=_parse_integer(groups['minutes']) or 0,
         seconds=float(f'{seconds}.{fraction}'),
@@ -70,7 +70,7 @@ def duration_string(seconds: DurationType) -> str:
         return 'PT0S'
     duration = io.StringIO()
     duration.write('PT')
-    tdt = datetime.timedelta(seconds=float(seconds))
+    tdt = dt.timedelta(seconds=float(seconds))
     total_us = tdt.days * 86_400_000_000 + tdt.seconds * 1_000_000 + tdt.microseconds
     seconds, microseconds = divmod(total_us, 1_000_000)
     minutes, seconds = divmod(seconds, 60)
@@ -161,7 +161,7 @@ class XsdDateInformation:
     minute: int | None = None
     second: float | None = None
     end_of_day: bool = False
-    tz_info: datetime.tzinfo | None = None
+    tz_info: dt.tzinfo | None = None
 
     def __validate_date(self):
         if self.month is not None and not (1 <= self.month <= MAX_MONTH):
@@ -235,10 +235,10 @@ class XsdDateInformation:
         return parsed.getvalue()
 
 
-def _parse_tz(groups: Mapping[str, str]) -> datetime.timezone | None:
+def _parse_tz(groups: Mapping[str, str]) -> dt.timezone | None:
     tz_info = groups.get(_RegexKeys.TZ_INFO)
     if tz_info is not None:
-        return datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc  # support 3.10
+        return dt.UTC if sys.version_info >= (3, 11) else dt.timezone.utc  # support 3.10
     tz_sign = groups.get(_RegexKeys.TZ_SIGN)
     if tz_sign is None:
         return None
@@ -252,7 +252,7 @@ def _parse_tz(groups: Mapping[str, str]) -> datetime.timezone | None:
     offset = tz_hour * 60 + tz_minute
     if tz_sign == '-':
         offset *= -1
-    return datetime.timezone(datetime.timedelta(minutes=offset))
+    return dt.timezone(dt.timedelta(minutes=offset))
 
 
 def parse_date_time(date_time_str: str) -> XsdDateInformation | None:
@@ -287,13 +287,13 @@ def parse_date_time(date_time_str: str) -> XsdDateInformation | None:
     )
 
 
-def _tz_to_string(tz: datetime.tzinfo | None) -> str:
+def _tz_to_string(tz: dt.tzinfo | None) -> str:
     if tz is None:
         return ''
     delta = tz.utcoffset(None)
     if delta is None:
         return ''
-    if delta == datetime.timedelta(0):
+    if delta == dt.timedelta(0):
         return 'Z'  # utc
     tz_seconds = int(delta.total_seconds())
     hours, remainder = divmod(abs(tz_seconds), 3600)

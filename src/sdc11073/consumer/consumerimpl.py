@@ -103,7 +103,7 @@ def default_components_factory() -> SdcConsumerComponents:
 class HostedServiceDescription:
     """HostedServiceDescription collects initial structural data from provider."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         service_id: str,
         endpoint_address: str,
@@ -249,7 +249,7 @@ class SdcConsumer:
 
     SSL_CIPHERS = None  # None : use SSL default
 
-    def __init__(  # noqa: PLR0913, PLR0915
+    def __init__(  # noqa: PLR0913, PLR0915, PLR0917
         self,
         provider_address: str,
         sdc_definitions: type[BaseDefinitions],
@@ -446,7 +446,7 @@ class SdcConsumer:
             self._services_dispatcher.register_post_handler(action, subscription.on_notification)
         return subscription
 
-    def do_subscribe(  # noqa: PLR0913
+    def do_subscribe(  # noqa: PLR0913, PLR0917
         self,
         dpws_hosted: HostedServiceType,
         filter_type: eventing_types.FilterType,

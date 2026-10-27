@@ -60,7 +60,7 @@ test = [
 dev = [
     { include-group = "test" },
     "lxml-stubs>=0.5.1,<1",
-    "ruff>=0.15.21,<0.16.0",
+    "ruff>=0.17.1,<0.17.2",
 ]
 
 [tool.uv]
@@ -108,6 +108,7 @@ extend-ignore = [# https://docs.astral.sh/ruff/settings/#extend-ignore
     "C408", # https://docs.astral.sh/ruff/rules/unnecessary-collection-call/
     "C409", # https://docs.astral.sh/ruff/rules/unnecessary-literal-within-tuple-call/
     "COM812", # https://docs.astral.sh/ruff/rules/missing-trailing-comma/
+    "CPY001", # https://docs.astral.sh/ruff/rules/missing-copyright-notice/
     "D105", # undocumented-magic-method
     "D107", # undocumented-public-init
     "D203", # one-blank-line-before-class

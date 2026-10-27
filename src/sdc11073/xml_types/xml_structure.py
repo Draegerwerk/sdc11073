@@ -666,7 +666,7 @@ class NodeTextProperty(_ElementBase):
     Python representation depends on value converter.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         sub_element_name: etree.QName | None,
         value_converter: DataConverterProtocol,

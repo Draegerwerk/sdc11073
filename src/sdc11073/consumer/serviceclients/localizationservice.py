@@ -21,7 +21,7 @@ class LocalizationServiceClient(HostedServiceClient):
 
     port_type_name = PrefixesEnum.SDC.tag('LocalizationService')
 
-    def get_localized_texts(  # noqa: PLR0913
+    def get_localized_texts(  # noqa: PLR0913, PLR0917
         self,
         refs: Iterable[str] | None = None,
         version: int | None = None,

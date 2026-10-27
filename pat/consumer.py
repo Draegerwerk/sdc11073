@@ -30,7 +30,7 @@ def _setup_logging():
     sdc_logger.setLevel(logging.DEBUG)
 
 
-def run_ref_test(  # noqa: PLR0913, PLR0915
+def run_ref_test(  # noqa: PLR0913, PLR0915, PLR0917
     ip: str,
     epr: str,
     certificate_folder: pathlib.Path | None,

@@ -77,7 +77,7 @@ class SoapClientProtocol(Protocol):
 
     sock_name: tuple[str, int] | None
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         netloc: str,
         socket_timeout: float,
@@ -126,7 +126,7 @@ class SoapClient(SoapClientProtocol):
 
     roundtrip_time = observableproperties.ObservableProperty()
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         netloc: str,
         socket_timeout: float,

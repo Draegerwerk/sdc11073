@@ -134,7 +134,7 @@ class ThisModelType(XMLTypeBase):
     PresentationUrl = cp.NodeStringProperty(default_ns_helper.DPWS.tag('PresentationUrl'), is_optional=True)
     _props = ('Manufacturer', 'ManufacturerUrl', 'ModelName', 'ModelNumber', 'ModelUrl', 'PresentationUrl')
 
-    def __init__(  # noqa: PLR0913 - mirrors the DPWS ThisModelType schema fields; part of public API
+    def __init__(  # noqa: PLR0913, PLR0917 - mirrors the DPWS ThisModelType schema fields; part of public API
         self,
         manufacturer: str | LocalizedStringTypeDict | None = None,
         manufacturer_url: str | None = None,

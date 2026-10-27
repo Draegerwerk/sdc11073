@@ -7,7 +7,7 @@ waveforms, alerts, and subscription handling.
 from __future__ import annotations
 
 import copy
-import datetime
+import datetime as dt
 import functools
 import itertools
 import logging
@@ -982,7 +982,7 @@ class TestClientSomeDevice(unittest.TestCase):
                 13,
                 12,
                 11,
-                tz_info=datetime.timezone.utc,
+                tz_info=dt.timezone.utc,
             )
         coll.result(timeout=NOTIFICATION_TIMEOUT)
         patient_context_state_container = client_mdib.context_states.NODETYPE.get_one(

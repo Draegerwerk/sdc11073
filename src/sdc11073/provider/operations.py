@@ -87,7 +87,7 @@ class OperationDefinitionBase:
     OP_DESCR_QNAME: etree.QName | None = None  # to be defined in derived classes
     OP_STATE_QNAME: etree.QName | None = None  # to be defined in derived classes
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         handle: str,
         operation_target_handle: str,

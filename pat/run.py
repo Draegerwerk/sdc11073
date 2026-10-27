@@ -15,7 +15,7 @@ from concurrent import futures
 from pat import consumer, provider
 
 
-def run(  # noqa: PLR0913
+def run(  # noqa: PLR0913, PLR0917
     ip: str,
     epr: str,
     certificate_folder: pathlib.Path | None,
