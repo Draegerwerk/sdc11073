@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import json
 import pathlib
 import random
@@ -331,8 +331,8 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
                         print(traceback.format_exc())
                     try:
                         with sdc_provider.mdib.descriptor_transaction() as mgr:
-                            now = datetime.datetime.now(
-                                datetime.UTC if sys.version_info >= (3, 11) else datetime.timezone.utc
+                            now = dt.datetime.now(
+                                dt.UTC if sys.version_info >= (3, 11) else dt.timezone.utc
                             )  # support 3.10
                             text = f'last changed at {now.hour:02d}:{now.minute:02d}:{now.second:02d}'
                             descriptor: descriptorcontainers.AlertConditionDescriptorContainer = mgr.get_descriptor(
@@ -418,7 +418,7 @@ def run_provider(  # noqa: C901, PLR0912, PLR0915
 
                 if not existing_vmds:
                     # Create new VMD with unique timestamp-based handle
-                    timestamp = int(datetime.datetime.now(tz=datetime.timezone.utc).timestamp() * 1000)
+                    timestamp = int(dt.datetime.now(tz=dt.timezone.utc).timestamp() * 1000)
                     add_rm_vmd_handle = f'add_rm_vmd_{timestamp}'
                     add_rm_channel_handle = f'add_rm_channel_{timestamp}'
                     add_rm_metric_handle = f'add_rm_metric_{timestamp}'

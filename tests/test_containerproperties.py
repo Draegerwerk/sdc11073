@@ -1,6 +1,6 @@
 """Test container properties."""
 
-import datetime
+import datetime as dt
 import unittest
 import uuid
 from decimal import Decimal
@@ -144,25 +144,25 @@ class TestContainerProperties(unittest.TestCase):
         result = DoB.mk_value_object('2003-06-30T15:53:12Z')
         self.assertEqual(result.second, 12)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(0))
+        self.assertEqual(result.tz_info.utcoffset(None), dt.timedelta(0))
 
         # add time zone UTC
         result = DoB.mk_value_object('2003-06-30T15:53:12.4Z')
         self.assertEqual(result.second, 12.4)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(0))
+        self.assertEqual(result.tz_info.utcoffset(None), dt.timedelta(0))
 
         # add time zone +6hours
         result = DoB.mk_value_object('2003-06-30T15:53:12.4+06:02')
         self.assertEqual(result.second, 12.4)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(minutes=60 * 6 + 2))
+        self.assertEqual(result.tz_info.utcoffset(None), dt.timedelta(minutes=60 * 6 + 2))
 
         # add time zone -3hours
         result = DoB.mk_value_object('2003-06-30T15:53:12.4-03:01')
         self.assertEqual(result.second, 12.4)
         self.assertEqual(result.hour, 15)
-        self.assertEqual(result.tz_info.utcoffset(None), datetime.timedelta(minutes=(30 * 6 + 1) * -1))
+        self.assertEqual(result.tz_info.utcoffset(None), dt.timedelta(minutes=(30 * 6 + 1) * -1))
 
     def test_date_of_birth_to_string(self):
         date_string = DoB._mk_datestring(isoduration.XsdDateInformation(2004, 3, 6))
@@ -178,7 +178,7 @@ class TestContainerProperties(unittest.TestCase):
         self.assertEqual(date_string, '2004-03-06T14:15:16.7')
 
         date_string = DoB._mk_datestring(
-            isoduration.XsdDateInformation(2004, 3, 6, 14, 15, 16.700000, tz_info=datetime.timezone.utc),
+            isoduration.XsdDateInformation(2004, 3, 6, 14, 15, 16.700000, tz_info=dt.timezone.utc),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7Z')
 
@@ -190,7 +190,7 @@ class TestContainerProperties(unittest.TestCase):
                 14,
                 15,
                 16.700000,
-                tz_info=datetime.timezone(datetime.timedelta(minutes=180), 'UTC+1'),
+                tz_info=dt.timezone(dt.timedelta(minutes=180), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:00')
@@ -203,7 +203,7 @@ class TestContainerProperties(unittest.TestCase):
                 14,
                 15,
                 16.700000,
-                tz_info=datetime.timezone(datetime.timedelta(minutes=-120), 'UTC+1'),
+                tz_info=dt.timezone(dt.timedelta(minutes=-120), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:00')
@@ -216,7 +216,7 @@ class TestContainerProperties(unittest.TestCase):
                 14,
                 15,
                 16.700000,
-                tz_info=datetime.timezone(datetime.timedelta(minutes=181), 'UTC+1'),
+                tz_info=dt.timezone(dt.timedelta(minutes=181), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7+03:01')
@@ -229,7 +229,7 @@ class TestContainerProperties(unittest.TestCase):
                 14,
                 15,
                 16.700000,
-                tz_info=datetime.timezone(datetime.timedelta(minutes=-121), 'UTC+1'),
+                tz_info=dt.timezone(dt.timedelta(minutes=-121), 'UTC+1'),
             ),
         )
         self.assertEqual(date_string, '2004-03-06T14:15:16.7-02:01')

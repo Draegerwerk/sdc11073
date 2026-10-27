@@ -1,6 +1,6 @@
 """Unit tests for isoduration module."""
 
-import datetime
+import datetime as dt
 import decimal
 import re
 from typing import Literal
@@ -12,8 +12,8 @@ from hypothesis import strategies as st
 from sdc11073.xml_types import isoduration
 
 
-@given(st.timedeltas(max_value=datetime.timedelta(microseconds=-1)))
-def test_negative_durations_are_not_allowed(timedelta: datetime.timedelta) -> None:
+@given(st.timedeltas(max_value=dt.timedelta(microseconds=-1)))
+def test_negative_durations_are_not_allowed(timedelta: dt.timedelta) -> None:
     """Test that negative durations raise ValueError."""
     with pytest.raises(ValueError, match='Negative durations are not supported'):
         isoduration.duration_string(timedelta.total_seconds())
@@ -22,7 +22,7 @@ def test_negative_durations_are_not_allowed(timedelta: datetime.timedelta) -> No
 @given(
     second=st.floats(
         min_value=0,
-        max_value=datetime.timedelta.max.total_seconds(),
+        max_value=dt.timedelta.max.total_seconds(),
         allow_nan=False,
         allow_infinity=False,
         exclude_max=True,
@@ -36,7 +36,7 @@ def test_duration_parsing(second: float) -> None:
     """
     duration_string = isoduration.duration_string(second)
     duration_seconds = isoduration.parse_duration(duration_string)
-    assert duration_seconds == datetime.timedelta(seconds=second).total_seconds()
+    assert duration_seconds == dt.timedelta(seconds=second).total_seconds()
 
 
 @pytest.mark.parametrize('duration', ['P1Y2M', '-P3Y', 'P0Y5M', 'P2Y0M', 'P1Y2M3DT4H5M6S', 'PT4H5M.6S', 'PT1,6S'])
@@ -47,8 +47,8 @@ def test_parse_duration_raises_value_error_for_years_months(duration: str) -> No
 
 
 @st.composite
-def timezones(draw: st.DrawFn) -> datetime.tzinfo:
-    return datetime.timezone(datetime.timedelta(hours=draw(st.integers(min_value=-14, max_value=14))))
+def timezones(draw: st.DrawFn) -> dt.tzinfo:
+    return dt.timezone(dt.timedelta(hours=draw(st.integers(min_value=-14, max_value=14))))
 
 
 @st.composite
@@ -182,7 +182,7 @@ def test_xsddatetime_invalid_day_raises_value_error(year: int, month: int, day: 
     minute=minutes(),
     second=seconds(),
 )
-def test_xsddatetime_invalid_hour_raises_value_error(  # noqa: PLR0913
+def test_xsddatetime_invalid_hour_raises_value_error(  # noqa: PLR0913, PLR0917
     year: int,
     month: int,
     day: int,
@@ -209,7 +209,7 @@ def test_xsddatetime_invalid_hour_raises_value_error(  # noqa: PLR0913
     minute=st.integers().filter(lambda x: x < 0 or x > isoduration.MAX_MINUTE),
     second=seconds(),
 )
-def test_xsddatetime_invalid_minute_raises_value_error(  # noqa: PLR0913
+def test_xsddatetime_invalid_minute_raises_value_error(  # noqa: PLR0913, PLR0917
     year: int,
     month: int,
     day: int,
@@ -236,7 +236,7 @@ def test_xsddatetime_invalid_minute_raises_value_error(  # noqa: PLR0913
     minute=minutes(),
     second=st.floats().filter(lambda x: x < 0.0 or x >= isoduration.MAX_SECOND),
 )
-def test_xsddatetime_invalid_second_raises_value_error(  # noqa: PLR0913
+def test_xsddatetime_invalid_second_raises_value_error(  # noqa: PLR0913, PLR0917
     year: int,
     month: int,
     day: int,
@@ -276,7 +276,7 @@ def test_xsddatetime_day_without_month_raises_value_error(year: int, day: int) -
     minute=st.none() | minutes(),
     second=st.none() | seconds(),
 )
-def test_xsddatetime_time_requires_hours_minutes_second(  # noqa: PLR0913
+def test_xsddatetime_time_requires_hours_minutes_second(  # noqa: PLR0913, PLR0917
     year: int,
     month: int,
     day: int,
@@ -307,7 +307,7 @@ def test_xsddatetime_time_requires_hours_minutes_second(  # noqa: PLR0913
     minute=minutes(),
     second=seconds(),
 )
-def test_xsddatetime_end_of_day_excludes_time_components(  # noqa: PLR0913
+def test_xsddatetime_end_of_day_excludes_time_components(  # noqa: PLR0913, PLR0917
     year: int,
     month: int,
     day: int,
@@ -351,7 +351,7 @@ def test_xsddatetime_end_of_day_requires_day(year: int, month: int) -> None:
 def test_timezone_needs_to_be_14_00_at_max(year: int, tz_minute: int, sign: Literal['-', '+']) -> None:
     """Test that timezone offsets greater than 14:00h raise ValueError."""
     multiplier = 1 if sign == '+' else -1
-    tz_info = datetime.timezone(datetime.timedelta(hours=multiplier * 14, minutes=multiplier * tz_minute))
+    tz_info = dt.timezone(dt.timedelta(hours=multiplier * 14, minutes=multiplier * tz_minute))
     with pytest.raises(
         ValueError,
         match=re.escape(
@@ -367,14 +367,14 @@ def test_timezone_needs_to_be_14_00_at_max(year: int, tz_minute: int, sign: Lite
         isoduration.parse_date_time(f'{"-" if year < 0 else ""}{abs(year):04d}{sign}14:{tz_minute:02d}')
 
 
-class MyTimezone(datetime.tzinfo):
-    def utcoffset(self, _: datetime.datetime | None) -> None:
+class MyTimezone(dt.tzinfo):
+    def utcoffset(self, _: dt.datetime | None) -> None:
         return None
 
-    def tzname(self, _: datetime.datetime | None) -> str:
+    def tzname(self, _: dt.datetime | None) -> str:
         raise NotImplementedError
 
-    def dst(self, _: datetime.datetime | None) -> None:
+    def dst(self, _: dt.datetime | None) -> None:
         raise NotImplementedError
 
 
