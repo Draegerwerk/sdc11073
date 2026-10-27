@@ -187,7 +187,7 @@ class SdcProvider:
 
     DEFAULT_CONTEXTSTATES_IN_GETMDIB = True  # defines weather get_mdib and getMdStates contain context states or not.
 
-    def __init__(  # noqa: PLR0913, PLR0915
+    def __init__(  # noqa: PLR0913, PLR0915, PLR0917
         self,
         ws_discovery: WsDiscoveryProtocol,
         this_model: ThisModelType,

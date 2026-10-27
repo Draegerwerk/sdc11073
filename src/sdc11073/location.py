@@ -33,7 +33,7 @@ class SdcLocation:
 
     url_elements = ('fac', 'bldng', 'flr', 'poc', 'rm', 'bed')  # order also defines hierarchy
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         fac: str | None = None,
         poc: str | None = None,

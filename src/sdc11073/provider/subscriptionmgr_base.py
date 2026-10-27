@@ -71,7 +71,7 @@ class SubscriptionBase:
     MAX_NOTIFY_ERRORS = 1
     IDENT_TAG = etree.QName('http.local.com', 'MyDevIdentifier')
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         mgr,  # noqa: ANN001
         subscribe_request: evt_types.Subscribe,

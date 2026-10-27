@@ -94,7 +94,7 @@ def container_diff(
     first: ContainerBase,
     second: ContainerBase,
     max_float_diff: float = 1e-15,
-) -> None | Sequence[str]:
+) -> Sequence[str] | None:
     """Compare all properties (except to be ignored ones).
 
     :param first: the first object to compare

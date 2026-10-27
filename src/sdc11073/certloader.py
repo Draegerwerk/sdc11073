@@ -21,7 +21,7 @@ class SSLContextContainer:
     server_context: ssl.SSLContext
 
 
-def mk_ssl_contexts_from_folder(  # noqa: PLR0913
+def mk_ssl_contexts_from_folder(  # noqa: PLR0913, PLR0917
     ca_folder: str | pathlib.Path,
     private_key: str = 'userkey.pem',
     certificate: str = 'usercert.pem',

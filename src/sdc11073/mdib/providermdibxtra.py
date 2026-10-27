@@ -308,7 +308,7 @@ class DescriptorFactory:
         cls = model.get_descriptor_container_class(model.pm_names.ChannelDescriptor)
         return self._create_descriptor_container(cls, handle, parent_handle, coded_value, safety_classification)
 
-    def create_string_metric_descriptor_container(  # noqa: PLR0913
+    def create_string_metric_descriptor_container(  # noqa: PLR0913, PLR0917
         self,
         handle: str,
         parent_handle: str,
@@ -337,7 +337,7 @@ class DescriptorFactory:
         obj.MetricCategory = metric_category
         return obj
 
-    def create_enum_string_metric_descriptor_container(  # noqa: PLR0913
+    def create_enum_string_metric_descriptor_container(  # noqa: PLR0913, PLR0917
         self,
         handle: str,
         parent_handle: str,

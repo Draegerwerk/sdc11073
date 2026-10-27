@@ -418,7 +418,7 @@ class CodedValue(PropertyBasedPMType):  # noqa: PLW1641
         'SymbolicCodeName',
     )
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         code: str,
         coding_system: str | None = None,
@@ -937,7 +937,7 @@ class LocationDetail(PropertyBasedPMType):
     Floor: str | None = cp.StringAttributeProperty('Floor')
     _props = ('ExtExtension', 'PoC', 'Room', 'Bed', 'Facility', 'Building', 'Floor')
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         poc: str | None = None,
         room: str | None = None,
@@ -1094,7 +1094,7 @@ class ImagingProcedure(PropertyBasedPMType):
         'ProtocolCode',
     )
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         accession_identifier: InstanceIdentifier | None = None,
         requested_procedure_id: InstanceIdentifier | None = None,
@@ -1165,7 +1165,7 @@ class RequestedOrderDetail(OrderDetail):
     PlacerOrderNumber: InstanceIdentifier = cp.SubElementProperty(pm.PlacerOrderNumber, value_class=InstanceIdentifier)
     _props = ('ReferringPhysician', 'RequestingPhysician', 'PlacerOrderNumber')
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         start: str | None = None,
         end: str | None = None,
@@ -1200,7 +1200,7 @@ class PerformedOrderDetail(OrderDetail):
     )
     _props = ('FillerOrderNumber', 'ResultingClinicalInfo')
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         start: str | None = None,
         end: str | None = None,
@@ -1259,7 +1259,7 @@ class WorkflowDetail(PropertyBasedPMType):
         'PerformedOrderDetail',
     )
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         patient: PersonReference | None = None,
         assigned_location: LocationReference | None = None,

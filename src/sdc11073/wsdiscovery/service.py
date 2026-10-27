@@ -16,7 +16,7 @@ class Service:
     They are used for publishing a service or as result (list) when searching for services in the network.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         types: list[etree.QName] | None,
         scopes: wsd_types.ScopesType | None,

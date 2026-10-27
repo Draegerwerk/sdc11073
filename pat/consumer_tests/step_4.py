@@ -26,7 +26,7 @@ __STEP__ = '4'
 logger = logging.getLogger(f'pat.consumer.step_{__STEP__}')
 
 
-def _count_states_occurrences(  # noqa: PLR0913
+def _count_states_occurrences(  # noqa: PLR0913, PLR0917
     step: str,
     update_queue: queue.Queue,
     updates_required_count: int,
@@ -164,7 +164,7 @@ def test_4d(mdib: ConsumerMdib) -> bool:
     )
 
 
-def _on_alert_system_update(  # noqa: PLR0913
+def _on_alert_system_update(  # noqa: PLR0913, PLR0917
     step: str,
     descriptor_handle_to_observe: str,
     first_update: threading.Event,
@@ -309,7 +309,7 @@ def _on_waveform_updates(
         waveform_updates[handle].append(copy.copy(state.MetricValue.Samples))
 
 
-def _verify_waveform_tests(  # noqa: PLR0913
+def _verify_waveform_tests(  # noqa: PLR0913, PLR0917
     mdib: ConsumerMdib,
     step: str,
     at_least_waveform_descriptors: int,

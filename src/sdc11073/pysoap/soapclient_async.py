@@ -32,7 +32,7 @@ class SoapClientAsync:
 
     roundtrip_time = observableproperties.ObservableProperty()
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         netloc: str,
         socket_timeout: float,
