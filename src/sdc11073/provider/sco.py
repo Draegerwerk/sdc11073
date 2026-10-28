@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from sdc11073.provider.protocols.roleproviderprotocol import OperationClassGetter
     from sdc11073.pysoap.soapenvelope import ReceivedSoapMessage
     from sdc11073.xml_types.msg_types import AbstractSet
+    from sdc11073.xml_types.pm_types import InstanceIdentifier
 
 
 @dataclasses.dataclass
@@ -40,6 +41,7 @@ class _OpTask:
     operation: OperationDefinitionBase
     operation_request: AbstractSet
     request: ReceivedSoapMessage
+    invocation_source: InstanceIdentifier | None = None
 
 
 @dataclasses.dataclass
@@ -74,10 +76,15 @@ class _OperationsWorker(threading.Thread):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
+        invocation_source: InstanceIdentifier | None = None,
     ):
         """Enqueue operation."""
         op_task = _OpTask(
-            transaction_id=transaction_id, operation=operation, request=request, operation_request=operation_request
+            transaction_id=transaction_id,
+            operation=operation,
+            request=request,
+            operation_request=operation_request,
+            invocation_source=invocation_source,
         )
         self._operations_queue.put(_QueueItem(op_task=op_task), timeout=1)
 
@@ -102,15 +109,23 @@ class _OperationsWorker(threading.Thread):
                     )
                     # duplicate the WAIT response to the operation request as notification. Standard requires this.
                     self._set_service.notify_operation(
-                        op_task.operation, op_task.transaction_id, InvocationState.WAIT, self._mdib.mdib_version_group
+                        op_task.operation,
+                        op_task.transaction_id,
+                        InvocationState.WAIT,
+                        self._mdib.mdib_version_group,
+                        invocation_source=op_task.invocation_source,
                     )
                     time.sleep(0.001)  # not really necessary, but in real world there might also be some delay.
                     self._set_service.notify_operation(
-                        op_task.operation, op_task.transaction_id, InvocationState.START, self._mdib.mdib_version_group
+                        op_task.operation,
+                        op_task.transaction_id,
+                        InvocationState.START,
+                        self._mdib.mdib_version_group,
+                        invocation_source=op_task.invocation_source,
                     )
                     try:
                         execute_result: ExecuteResult = op_task.operation.execute_operation(
-                            op_task.request, op_task.operation_request
+                            op_task.request, op_task.operation_request, op_task.invocation_source
                         )
                         self._logger.info(
                             '%s: successfully finished operation "%s"',
@@ -123,6 +138,7 @@ class _OperationsWorker(threading.Thread):
                             execute_result.invocation_state,
                             execute_result.mdib_version_group,
                             execute_result.operation_target_handle,
+                            invocation_source=op_task.invocation_source,
                         )
                     except Exception as ex:
                         self._logger.exception(
@@ -137,6 +153,7 @@ class _OperationsWorker(threading.Thread):
                             self._mdib.mdib_version_group,
                             error=InvocationError.OTHER,
                             error_message=repr(ex),
+                            invocation_source=op_task.invocation_source,
                         )
             except Exception:  # noqa: PERF203
                 self._logger.exception('%s: unexpected error while handling operation', self.__class__.__name__)
@@ -191,6 +208,7 @@ class AbstractScoOperationsRegistry(ABC):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
+        invocation_source: InstanceIdentifier | None = None,
     ) -> tuple[InvocationState, MdibVersionGroup]:
         """Handle operation "operation"."""
 
@@ -236,13 +254,18 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
+        invocation_source: InstanceIdentifier | None = None,
     ) -> tuple[InvocationState, MdibVersionGroup]:
-        """Handle operation immediately or delayed in worker thread, depending on operation.delayed_processing."""
+        """Handle operation immediately or delayed in worker thread, depending on operation.delayed_processing.
+
+        :param invocation_source: identifies the SDC PARTICIPANT that invoked the operation
+                                  (IEEE Std 11073-20701-2018, 7.2.2). Forwarded to every OperationInvokedReport.
+        """
         if operation.delayed_processing:
-            self._worker.enqueue_operation(operation, request, operation_request, transaction_id)
+            self._worker.enqueue_operation(operation, request, operation_request, transaction_id, invocation_source)
             return InvocationState.WAIT, self._mdib.mdib_version_group
         try:
-            execute_result: ExecuteResult = operation.execute_operation(request, operation_request)
+            execute_result: ExecuteResult = operation.execute_operation(request, operation_request, invocation_source)
             self._logger.info(
                 '%s: successfully finished operation "%s"', operation.__class__.__name__, operation.handle
             )
@@ -256,6 +279,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
                 mdib_version_group,
                 error=self._mdib.data_model.msg_types.InvocationError.OTHER,
                 error_message=repr(ex),
+                invocation_source=invocation_source,
             )
             return InvocationState.FAILED, mdib_version_group
 
@@ -265,6 +289,7 @@ class ScoOperationsRegistry(AbstractScoOperationsRegistry):
             execute_result.invocation_state,
             execute_result.mdib_version_group,
             execute_result.operation_target_handle,
+            invocation_source=invocation_source,
         )
         self._logger.debug('notifications for operation %s sent', operation.handle)
 
