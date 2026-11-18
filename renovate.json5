@@ -42,7 +42,7 @@
       rangeStrategy: "bump",
     },
     {
-      // The test group installs the package itself (`sdc11073[lz4]`), which must never be updated.
+      // The test group installs the package itself (`sdc11073[lz4,cryptography]`), which must never be updated.
       matchPackageNames: ["sdc11073"],
       enabled: false,
     },

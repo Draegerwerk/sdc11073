@@ -36,6 +36,7 @@ from sdc11073.provider import (
     StateEventService,
     WaveformService,
 )
+from sdc11073.provider.invocationsource import mk_pem_certificate_invocation_source
 from sdc11073.provider.operations import get_operation_class
 from sdc11073.provider.periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
 from sdc11073.provider.porttypes.localizationservice import LocalizationService, LocalizationStorage
@@ -103,6 +104,11 @@ class SdcProviderComponents:
     scopes_factory: Callable[[ProviderMdibProtocol], ScopesType]
     hosted_services: MutableMapping[str, Sequence[type[DPWSPortTypeBase]]]
     additional_schema_specs: set[PrefixNamespace] = dataclasses.field(default_factory=set)
+    # identifies the SDC PARTICIPANT that invoked a SERVICE OPERATION by its DER encoded x.509 certificate (None if it
+    # is not authenticated), by default by the entire PEM encoded certificate. See
+    # sdc11073.provider.invocationsource for the available implementations, e.g. the Common Name (R0078).
+    # Called with None during provider construction to detect configuration errors before starting services.
+    invocation_source_factory: Callable[[bytes | None], InstanceIdentifier] = mk_pem_certificate_invocation_source
 
 
 @dataclasses.dataclass
@@ -240,6 +246,7 @@ class SdcProvider:
 
         # entries of components will be modified, so copy it to avoid side effects
         self._components = copy.deepcopy(components) if components else provider_components_async_factory()
+        self._components.invocation_source_factory(None)
 
         self._role_provider_components = (
             copy.deepcopy(role_provider_components) if role_provider_components else RoleProviderComponents()
@@ -513,21 +520,35 @@ class SdcProvider:
                 return op
         return None
 
+    def mk_invocation_source(self, peer_certificate: bytes | None) -> InstanceIdentifier:
+        """Return the msg:InvocationSource that identifies the SDC PARTICIPANT that invoked a SERVICE OPERATION.
+
+        :param peer_certificate: the DER encoded x.509 certificate of the participant, None if it is not authenticated.
+        """
+        return self._components.invocation_source_factory(peer_certificate)
+
     def handle_operation_request(
         self,
         operation: OperationDefinitionBase,
         request: ReceivedSoapMessage,
         operation_request: AbstractSet,
         transaction_id: int,
+        invocation_source: InstanceIdentifier | None = None,
     ) -> tuple[Enum, MdibVersionGroup]:
-        """Find the responsible sco and forward request to it."""
+        """Find the responsible sco and forward request to it.
+
+        :param invocation_source: identifies the SDC PARTICIPANT that invoked the operation
+                                  (IEEE Std 11073-20701-2018, 7.2.2). If None, an anonymous participant is assumed.
+        """
         for sco in self._sco_operations_registries.values():
             # TODO(a-kleinf): first found/registered operation with this handle is used,  # noqa: FIX002
             #  duplicate registered handlers must be avoided,
             #  https://github.com/Draegerwerk/sdc11073/issues/492
             has_this_operation = sco.get_operation_by_handle(operation.handle) is not None
             if has_this_operation:
-                return sco.handle_operation_request(operation, request, operation_request, transaction_id)
+                return sco.handle_operation_request(
+                    operation, request, operation_request, transaction_id, invocation_source
+                )
         self._logger.error('no sco has operation %s', operation.handle)
         return self.mdib.data_model.msg_types.InvocationState.FAILED, self._mdib.mdib_version_group
 

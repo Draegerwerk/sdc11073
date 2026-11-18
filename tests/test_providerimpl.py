@@ -10,10 +10,68 @@ from sdc11073.dispatch import DispatchKey
 from sdc11073.mdib import ProviderMdib
 from sdc11073.namespaces import EventingActions, PrefixNamespace
 from sdc11073.namespaces import default_ns_helper as ns_hlp
-from sdc11073.provider.providerimpl import SdcProvider, provider_components_async_factory
+from sdc11073.provider import invocationsource
+from sdc11073.provider.providerimpl import SdcProvider, SdcProviderComponents, provider_components_async_factory
+from sdc11073.xml_types import pm_types
 
 __MDIB_FOLDER__ = pathlib.Path(__file__).parent
 __MDIB_PATH__ = __MDIB_FOLDER__.joinpath('mdib_single_mds.xml')
+
+
+class TestInvocationSourceFactoryValidation(unittest.TestCase):
+    def setUp(self):
+        self.mdib = ProviderMdib.from_mdib_file(
+            __MDIB_PATH__,
+            protocol_definition=SdcV1Definitions,
+        )
+
+    def _mk_provider(self, components: SdcProviderComponents) -> SdcProvider:
+        return SdcProvider(
+            ws_discovery=mock.MagicMock(),
+            this_model=mock.MagicMock(),
+            this_device=mock.MagicMock(),
+            device_mdib_container=self.mdib,
+            epr='urn:uuid:test-device',
+            components=components,
+        )
+
+    def test_custom_factory_is_checked_with_none_during_construction(self):
+        certificates: list[bytes | None] = []
+
+        def factory(certificate: bytes | None) -> pm_types.InstanceIdentifier:
+            certificates.append(certificate)
+            return invocationsource.mk_anonymous_invocation_source()
+
+        components = provider_components_async_factory()
+        components.invocation_source_factory = factory
+        self._mk_provider(components)
+        self.assertEqual(certificates, [None])
+
+    def test_missing_cryptography_fails_before_components_are_set_up(self):
+        components = provider_components_async_factory()
+        components.invocation_source_factory = invocationsource.mk_common_name_invocation_source
+
+        with (
+            mock.patch.object(invocationsource, '_CRYPTOGRAPHY_AVAILABLE', False),
+            mock.patch.object(SdcProvider, '_setup_components') as setup_components,
+            self.assertRaisesRegex(ImportError, r'pip install sdc11073\[cryptography\]') as caught,
+        ):
+            self._mk_provider(components)
+
+        self.assertEqual(caught.exception.name, 'cryptography')
+        setup_components.assert_not_called()
+
+    def test_custom_factory_error_is_propagated_during_construction(self):
+        error = RuntimeError('invalid invocation source configuration')
+
+        def factory(_certificate: bytes | None) -> pm_types.InstanceIdentifier:
+            raise error
+
+        components = provider_components_async_factory()
+        components.invocation_source_factory = factory
+        with self.assertRaises(RuntimeError) as caught:
+            self._mk_provider(components)
+        self.assertIs(caught.exception, error)
 
 
 class TestProviderHttpServerTimeout(unittest.TestCase):
