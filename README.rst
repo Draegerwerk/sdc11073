@@ -51,7 +51,7 @@ Install lz4 compression with::
     pip install sdc11073[lz4]
 
 Install cryptography to identify the SDC PARTICIPANT that invoked a SERVICE OPERATION by the Common Name of its
-certificate (IEEE 11073-20701 R0078, see ``sdc11073.provider.porttypes.invocationsource``) with::
+certificate (IEEE 11073-20701 R0078, see ``sdc11073.provider.invocationsource``) with::
 
     pip install sdc11073[cryptography]
 

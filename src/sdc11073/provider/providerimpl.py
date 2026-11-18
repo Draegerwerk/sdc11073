@@ -36,9 +36,9 @@ from sdc11073.provider import (
     StateEventService,
     WaveformService,
 )
+from sdc11073.provider.invocationsource import mk_pem_certificate_invocation_source
 from sdc11073.provider.operations import get_operation_class
 from sdc11073.provider.periodicreports import PeriodicReportsHandler, PeriodicReportsNullHandler
-from sdc11073.provider.porttypes.invocationsource import mk_pem_certificate_invocation_source
 from sdc11073.provider.porttypes.localizationservice import LocalizationService, LocalizationStorage
 from sdc11073.provider.sco import ScoOperationsRegistry
 from sdc11073.provider.scopesfactory import mk_scopes
@@ -106,7 +106,8 @@ class SdcProviderComponents:
     additional_schema_specs: set[PrefixNamespace] = dataclasses.field(default_factory=set)
     # identifies the SDC PARTICIPANT that invoked a SERVICE OPERATION by its DER encoded x.509 certificate (None if it
     # is not authenticated), by default by the entire PEM encoded certificate. See
-    # sdc11073.provider.porttypes.invocationsource for the available implementations, e.g. the Common Name (R0078).
+    # sdc11073.provider.invocationsource for the available implementations, e.g. the Common Name (R0078).
+    # Called with None during provider construction to detect configuration errors before starting services.
     invocation_source_factory: Callable[[bytes | None], InstanceIdentifier] = mk_pem_certificate_invocation_source
 
 
@@ -245,6 +246,7 @@ class SdcProvider:
 
         # entries of components will be modified, so copy it to avoid side effects
         self._components = copy.deepcopy(components) if components else provider_components_async_factory()
+        self._components.invocation_source_factory(None)
 
         self._role_provider_components = (
             copy.deepcopy(role_provider_components) if role_provider_components else RoleProviderComponents()

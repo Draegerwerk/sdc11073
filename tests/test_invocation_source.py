@@ -1,10 +1,12 @@
-"""Tests for :mod:`sdc11073.provider.porttypes.invocationsource` (IEEE 11073-20701 R0077/R0078)."""
+"""Tests for :mod:`sdc11073.provider.invocationsource` (IEEE 11073-20701 R0077/R0078)."""
 
 from __future__ import annotations
 
 import datetime as dt
 import pathlib
 import ssl
+import subprocess
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -13,7 +15,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from sdc11073.provider.porttypes import invocationsource
+from sdc11073.provider import invocationsource
 from sdc11073.provider.providerimpl import provider_components_async_factory, provider_components_sync_factory
 
 if TYPE_CHECKING:
@@ -52,7 +54,35 @@ def _mk_certificate(*subject: x509.RelativeDistinguishedName) -> bytes:
 @pytest.fixture
 def without_cryptography(monkeypatch: pytest.MonkeyPatch):
     """Behave as if the optional dependency cryptography is not installed."""
-    monkeypatch.setattr(invocationsource, 'x509', None)
+    monkeypatch.setattr(invocationsource, '_CRYPTOGRAPHY_AVAILABLE', False)
+
+
+def test_provider_module_without_cryptography():
+    script = """
+import sys
+sys.modules['cryptography'] = None
+
+from sdc11073.provider.invocationsource import (
+    get_common_names,
+    mk_common_name_invocation_source,
+    mk_pem_certificate_invocation_source,
+)
+
+pem = mk_pem_certificate_invocation_source(b'test')
+assert pem.Root == 'http://standards.ieee.org/downloads/11073/11073-20701-2018/X509Certificate/PEM'
+assert 'dGVzdA==' in pem.Extension
+assert mk_pem_certificate_invocation_source(None).Extension == 'AnonymousSdcParticipant'
+for invoke in (lambda: get_common_names(b'test'), lambda: mk_common_name_invocation_source(None)):
+    try:
+        invoke()
+    except ImportError as exc:
+        assert exc.name == 'cryptography'
+        assert 'pip install sdc11073[cryptography]' in str(exc)
+    else:
+        raise AssertionError('Common Name identification should require cryptography')
+"""
+    result = subprocess.run([sys.executable, '-c', script], capture_output=True, check=False, text=True)  # noqa: S603
+    assert result.returncode == 0, result.stderr
 
 
 class TestGetCommonNames:

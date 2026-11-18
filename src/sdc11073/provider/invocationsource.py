@@ -28,7 +28,9 @@ from sdc11073.xml_types import pm_types
 try:
     from cryptography import x509
 except ImportError:
-    x509 = None
+    _CRYPTOGRAPHY_AVAILABLE = False
+else:
+    _CRYPTOGRAPHY_AVAILABLE = True
 
 # IEEE Std 11073-20701-2018, 7.2.2
 _SDC_NAMESPACE = PrefixesEnum.SDC.namespace
@@ -46,7 +48,7 @@ X509_CERTIFICATE_PEM_ROOT = f'{_SDC_NAMESPACE}/X509Certificate/PEM'
 
 def _require_cryptography() -> None:
     """Raise an ImportError if the optional dependency cryptography is not installed."""
-    if x509 is None:
+    if not _CRYPTOGRAPHY_AVAILABLE:
         raise ImportError(
             'identifying an SDC PARTICIPANT by the Common Name of its certificate requires the optional dependency '
             'cryptography, install it with "pip install sdc11073[cryptography]"',

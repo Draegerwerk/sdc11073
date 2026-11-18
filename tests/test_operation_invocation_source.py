@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import logging
 import pathlib
+import ssl
 import unittest
+from typing import TYPE_CHECKING
 from unittest import mock
 
 from tutorial.codedvaluecomparator import _coded_value_comparator
@@ -19,13 +21,16 @@ from sdc11073 import certloader, loghelper
 from sdc11073.consumer.consumerimpl import SdcConsumer, default_components_factory
 from sdc11073.dispatch import RequestDispatcher
 from sdc11073.mdib.mdibaccessor import get_one_descriptor_by_type
+from sdc11073.provider import invocationsource
 from sdc11073.provider.operations import ExecuteParameters, ExecuteResult, SetStringOperation
-from sdc11073.provider.porttypes import invocationsource
 from sdc11073.provider.providerimpl import SdcProviderComponents, provider_components_async_factory
 from sdc11073.wsdiscovery import WSDiscovery
 from sdc11073.xml_types import msg_types, pm_types
 from tests import utils
 from tests.mockstuff import SomeDevice
+
+if TYPE_CHECKING:
+    from sdc11073.consumer.operations import OperationResult
 
 _CERT_FOLDER = pathlib.Path(__file__).parent.joinpath('certificates')
 _CERT_PASSWORD = 'password'  # noqa: S105 - password of the checked-in test key
@@ -69,9 +74,14 @@ class TestOperationInvocationSource(unittest.TestCase):
         self.wsd.stop()
 
     def _invoke_set_string(
-        self, *, use_ssl: bool, components: SdcProviderComponents | None = None
-    ) -> msg_types.OperationInvokedReportPart:
-        """Start a provider and a consumer, invoke a SetString operation and return its final report part."""
+        self,
+        *,
+        use_ssl: bool,
+        components: SdcProviderComponents | None = None,
+        operation_handle: str | None = None,
+        expected_state: msg_types.InvocationState = msg_types.InvocationState.FINISHED,
+    ) -> OperationResult:
+        """Start a provider and a consumer, invoke a SetString operation and return its result."""
         ssl_context_container = self.ssl_context_container if use_ssl else None
         self.sdc_device = SomeDevice.from_mdib_file(
             self.wsd, None, _MDIB_NAME, ssl_context_container=ssl_context_container, components=components
@@ -91,17 +101,18 @@ class TestOperationInvocationSource(unittest.TestCase):
             components=consumer_components,
         )
         self.sdc_client.start_all()
-        operation_descriptor = get_one_descriptor_by_type(
-            self.sdc_device.mdib,
-            pm_types.CodedValue('0815'),
-            _coded_value_comparator,
-        )
-        future = self.sdc_client.client('Set').set_string(
-            operation_handle=operation_descriptor.Handle, requested_string='ADULT'
-        )
+        if operation_handle is None:
+            operation_descriptor = get_one_descriptor_by_type(
+                self.sdc_device.mdib,
+                pm_types.CodedValue('0815'),
+                _coded_value_comparator,
+            )
+            operation_handle = operation_descriptor.Handle
+        future = self.sdc_client.client('Set').set_string(operation_handle=operation_handle, requested_string='ADULT')
         result = future.result(timeout=_SET_TIMEOUT)
-        self.assertEqual(result.InvocationInfo.InvocationState, msg_types.InvocationState.FINISHED)
-        self.assertIsNotNone(result.InvocationSource)
+        self.assertEqual(result.InvocationInfo.InvocationState, expected_state)
+        if expected_state == msg_types.InvocationState.FINISHED:
+            self.assertIsNotNone(result.InvocationSource)
         return result
 
     def test_known_participant_is_identified_by_pem_certificate(self):
@@ -123,6 +134,63 @@ class TestOperationInvocationSource(unittest.TestCase):
         result = self._invoke_set_string(use_ssl=False)
         self.assertEqual(result.InvocationSource.Root, invocationsource.ANONYMOUS_PARTICIPANT_ROOT)
         self.assertEqual(result.InvocationSource.Extension, invocationsource.ANONYMOUS_PARTICIPANT_EXTENSION)
+
+    def test_unknown_operation_does_not_identify_participant(self):
+        operation_handle = 'unknown-operation'
+        with mock.patch.object(SomeDevice, 'mk_invocation_source', autospec=True) as identify_participant:
+            result = self._invoke_set_string(
+                use_ssl=False,
+                operation_handle=operation_handle,
+                expected_state=msg_types.InvocationState.FAILED,
+            )
+
+        identify_participant.assert_not_called()
+        self.assertEqual(result.InvocationInfo.InvocationError, msg_types.InvocationError.INVALID_VALUE)
+        self.assertEqual(
+            [message.text for message in result.InvocationInfo.InvocationErrorMessage],
+            [f'no handler registered for "{operation_handle}"'],
+        )
+        self.assertGreater(result.InvocationInfo.TransactionId, 0)
+
+    def test_identification_error_returns_failed_response_without_executing_operation(self):
+        certificates: list[bytes | None] = []
+
+        def factory(certificate: bytes | None) -> pm_types.InstanceIdentifier:
+            certificates.append(certificate)
+            if certificate is None:
+                return invocationsource.mk_anonymous_invocation_source()
+            raise ValueError('certificate identification failed')
+
+        components = provider_components_async_factory()
+        components.invocation_source_factory = factory
+        with (
+            mock.patch.object(SomeDevice, 'handle_operation_request', autospec=True) as handle_operation,
+            self.assertLogs('sdc.device.SetService', level='ERROR') as logs,
+        ):
+            result = self._invoke_set_string(
+                use_ssl=True,
+                components=components,
+                expected_state=msg_types.InvocationState.FAILED,
+            )
+
+        handle_operation.assert_not_called()
+        self.assertEqual(
+            certificates,
+            [None, ssl.PEM_cert_to_DER_cert(_CERT_FOLDER.joinpath('test_certificate.pem').read_text())],
+        )
+        self.assertEqual(result.InvocationInfo.InvocationError, msg_types.InvocationError.OTHER)
+        self.assertEqual(
+            [message.text for message in result.InvocationInfo.InvocationErrorMessage],
+            ['invoking participant could not be identified'],
+        )
+        self.assertGreater(result.InvocationInfo.TransactionId, 0)
+        self.assertIsNone(result.InvocationSource)
+        self.assertEqual(result.report_parts, [])
+        self.assertEqual(result.set_response.MdibVersion, self.sdc_device.mdib.mdib_version)
+        self.assertEqual(result.set_response.SequenceId, self.sdc_device.mdib.sequence_id)
+        self.assertEqual(result.set_response.InstanceId, self.sdc_device.mdib.instance_id)
+        self.assertIn('cannot identify invoking participant', '\n'.join(logs.output))
+        self.assertIn('certificate identification failed', '\n'.join(logs.output))
 
 
 class TestExecuteParametersInvocationSource(unittest.TestCase):

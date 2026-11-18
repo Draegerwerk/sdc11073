@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from sdc11073.dispatch import DispatchKey, RequestData
 from sdc11073.namespaces import PrefixesEnum
-from sdc11073.provider.porttypes.invocationsource import mk_anonymous_invocation_source
+from sdc11073.provider.invocationsource import mk_anonymous_invocation_source
 from sdc11073.provider.porttypes.porttypebase import (
     ServiceWithOperations,
     WSDLMessageDescription,
