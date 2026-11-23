@@ -17,10 +17,10 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  sdc11073_provider_v2:
+  pat-tests:
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-14, windows-latest ]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
         tls_enable: [ true, false ]
       fail-fast: false
     runs-on: ${{ matrix.os }}
@@ -40,3 +40,21 @@ jobs:
       - name: Run tests with tls ${{ matrix.tls_enable && 'enabled' || 'disabled' }}
         run: uv run -m pat.run ${{ matrix.tls_enable && '--tls' || '' }}
         timeout-minutes: 2
+
+  # Single required status check for the whole PAT matrix, so the branch ruleset does not have to list every
+  # combination. It must run even when the PAT tests fail or are skipped: a skipped required check counts as passed.
+  pat-tests-passed:
+    name: pat tests passed
+    needs: pat-tests
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check PAT matrix result
+        env:
+          RESULT: ${{ needs.pat-tests.result }}
+        run: |
+          if [ "$RESULT" != success ]; then
+            echo "::error::PAT matrix result: $RESULT"
+            exit 1
+          fi
