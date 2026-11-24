@@ -46,13 +46,16 @@ dependencies = [
 lz4 = [
     'lz4>=4.4.5,<5',
 ]
+cryptography = [
+    'cryptography>=50.0.2,<51',
+]
 
 [dependency-groups]
 test = [
     "pytest>=9.1.1,<10",
     "pytest-html>=4.2.0,<5",
     "pytest-cov>=7.1.0,<8",
-    "sdc11073[lz4]",
+    "sdc11073[lz4,cryptography]",
     "hypothesis[zoneinfo]>=6.168.3,<7; platform_system == 'Windows'",
     "hypothesis>=6.168.3,<7; platform_system != 'Windows'",
     "pytest-xdist[psutil]>=3.8.0,<4",
