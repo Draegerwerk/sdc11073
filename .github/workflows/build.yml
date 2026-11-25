@@ -83,6 +83,7 @@ jobs:
 
     strategy:
       fail-fast: false
+      # Every job uploads coverage: keep after_n_builds in codecov.yml equal to the number of jobs.
       matrix:
         python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         os: [ ubuntu-latest, windows-latest ]
