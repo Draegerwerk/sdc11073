@@ -192,10 +192,13 @@ the issue number, e.g. `fix/123-mdib-version`:
 A required check fails if the branch name matches none of the prefixes and the pull request has no release label.
 Renaming a branch closes its pull request, so instead ask a maintainer to add the matching label by hand.
 
+If your change breaks existing functionality, tick "This is a breaking change" in the pull request template. This adds
+the `breaking` label, which increments the major version and lists the pull request in the 💥 Breaking Changes section
+only. Unticking the box does not remove the label again, ask a maintainer to do that.
+
 Maintainers additionally add labels by hand where needed:
 
-- `breaking` for a change that breaks existing functionality. It increments the major version and lists the pull
-  request in the 💥 Breaking Changes section only.
+- `breaking` if a breaking change was not marked as such.
 - A second label (e.g. `fix` on a `feat/` branch) if the pull request belongs to more than one section.
 
 Pull requests opened by [Renovate](renovate.json5) label themselves. A change to the version range of a runtime
@@ -203,7 +206,7 @@ dependency (`[project.dependencies]` or `[project.optional-dependencies]` in `py
 is listed in the ⬆️ Dependencies section; Renovate only widens the upper bound of these ranges when a release falls
 outside of them. Everything else Renovate updates (dependency groups, build system, GitHub Actions, `uv.lock`) gets
 `chore`. Raising the lower bound of a runtime dependency is done by a maintainer, in a pull request labeled
-`dependencies` by hand.
+`dependencies` by hand. Security updates additionally get the `security` label.
 
 ## How to release (maintainers only)
 

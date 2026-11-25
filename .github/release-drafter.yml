@@ -7,7 +7,8 @@ tag-template: "v$RESOLVED_VERSION"
 
 categories:
   # Exclusive and first: a breaking pull request is listed only here, not additionally
-  # in its regular section. Add the "breaking" label by hand.
+  # in its regular section. The label comes from the checkbox in the pull request template
+  # (see autolabeler below), or is added by hand.
   - title: "💥 Breaking Changes"
     exclusive: true
     semver-increment: "major"
@@ -42,6 +43,8 @@ categories:
         - "documentation"
   - title: "🔧 Maintenance"
     exclusive: true
+    # Mostly Renovate updates: always fold them into a <details> block.
+    collapse-after: 0
     when:
       labels:
         - "chore"
@@ -52,9 +55,15 @@ categories:
     semver-increment: "patch" # fallback default when nothing else matches
 
 # Labels are applied from the branch name (see "Branch naming" in CONTRIBUTING.md).
-# Renovate labels its own pull requests (see renovate.json5). Keep the prefixes in sync with the check in
-# .github/workflows/autolabeler.yml.
+# Renovate labels its own pull requests (see renovate.json5). The "Check branch name or release label"
+# job in .github/workflows/autolabeler.yml reads the branch patterns below and the category labels above
+# from this file, so there is nothing to keep in sync. Branch patterns have to be written as /regex/
+# without flags.
 autolabeler:
+  # Ticked checkbox from .github/pull_request_template.md. Unticking it does not remove the label.
+  - label: "breaking"
+    body:
+      - '/^\s*[-*] \[[xX]\] This is a breaking change/m'
   - label: "feature"
     branch:
       - '/^feat\/.+/'
