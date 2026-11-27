@@ -57,6 +57,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.9"
 
       - name: Set new version
         if: inputs.version != ''
@@ -81,17 +83,34 @@ jobs:
 
     strategy:
       fail-fast: false
+      # Every job uploads coverage: keep after_n_builds in codecov.yml equal to the number of jobs.
       matrix:
         python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
         os: [ ubuntu-latest, windows-latest ]
-        distribution: [ whl, tar_gz ]
+        distribution: [ whl ]
+        resolution: [ locked ]
+        include:
+          # The package is pure Python and uv build builds the wheel from the sdist, so after installation both
+          # contain the same code. A single job is enough to catch what only the sdist can break: missing files,
+          # metadata, and building it with the uv_build version a user resolves.
+          - python-version: "3.14"
+            os: ubuntu-latest
+            distribution: tar_gz
+            resolution: locked
+          # Runtime dependencies at their lower bounds. rangeStrategy "widen" in renovate.json5 never raises them, and
+          # uv.lock only holds the newest versions, so this is the only job that checks the lower bounds still work.
+          - python-version: "3.10"
+            os: ubuntu-latest
+            distribution: whl
+            resolution: lowest-direct
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash
     env:
       DISTRIBUTION: ${{ matrix.distribution }}
-      REPORT_NAME: ${{ matrix.os }}_py${{ matrix.python-version }}_${{ matrix.distribution }}
+      RESOLUTION: ${{ matrix.resolution }}
+      REPORT_NAME: ${{ matrix.os }}_py${{ matrix.python-version }}_${{ matrix.distribution }}_${{ matrix.resolution }}
 
     steps:
       - name: Check out Git repository
@@ -102,6 +121,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.9"
           python-version: ${{ matrix.python-version }}
 
       - name: Download Artifact
@@ -119,8 +139,16 @@ jobs:
       - name: Install package
         run: |
           case "$DISTRIBUTION" in
-            whl) uv pip install dist/*.whl ;;
-            tar_gz) uv pip install dist/*.tar.gz ;;
+            whl) PACKAGE=(dist/*.whl) ;;
+            tar_gz) PACKAGE=(dist/*.tar.gz) ;;
+          esac
+
+          case "$RESOLUTION" in
+            locked) uv pip install "${PACKAGE[@]}" ;;
+            # -r pyproject.toml makes the runtime dependencies (and the lz4 extra) direct requirements, so
+            # lowest-direct lowers them but not their own dependencies. --upgrade stops uv from keeping the newer
+            # versions that uv sync just installed from uv.lock. The test tools stay at their locked versions.
+            lowest-direct) uv pip install --upgrade --resolution lowest-direct -r pyproject.toml --extra lz4 "${PACKAGE[@]}" ;;
           esac
 
       # Guards against silently testing the editable source checkout instead of the built distribution.
@@ -157,7 +185,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}  # upload artifacts also if test stage failed
         with:
-          name: unittest_reports-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}
+          name: unittest_reports-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}-${{ matrix.resolution }}
           path: pytest_reports/unittest_report_${{ env.REPORT_NAME }}*
           retention-days: 5
 
@@ -165,7 +193,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}  # upload artifacts also if test stage failed
         with:
-          name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}
+          name: pytest_logs-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.distribution }}-${{ matrix.resolution }}
           path: pytest_logs/${{ env.REPORT_NAME }}/
           retention-days: 5
 

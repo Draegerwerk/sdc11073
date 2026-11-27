@@ -18,7 +18,24 @@
   // (which resets the age check whenever a dependency releases more often than once a week).
   // https://docs.renovatebot.com/configuration-options/#internalchecksfilter
   internalChecksFilter: "strict",
-  // Every pull request needs a release label (see "Branch naming" in CONTRIBUTING.md). Everything Renovate updates is
+  // Do not open pull requests on their own: every update, including lockFileMaintenance, waits in the Dependency
+  // Dashboard issue until its checkbox is ticked.
+  // https://docs.renovatebot.com/configuration-options/#dependencydashboardapproval
+  dependencyDashboardApproval: true,
+  // Security updates open a pull request right away, without the Dependency Dashboard approval and the
+  // minimumReleaseAge cooldown above. Both are already Renovate's defaults for vulnerabilityAlerts, set here so they
+  // do not look overridden by the top-level settings. addLabels (unlike labels) keeps the release label from the
+  // packageRules below, which release-drafter needs to sort the pull request into the release notes.
+  // https://docs.renovatebot.com/configuration-options/#vulnerabilityalerts
+  vulnerabilityAlerts: {
+    dependencyDashboardApproval: false,
+    minimumReleaseAge: null,
+    addLabels: ["security"],
+  },
+  // Also use the advisories from osv.dev, in addition to GitHub's Dependabot alerts.
+  // https://docs.renovatebot.com/configuration-options/#osvvulnerabilityalerts
+  osvVulnerabilityAlerts: true,
+  // Every pull request needs a release label (see "Release labels" in CONTRIBUTING.md). Everything Renovate updates is
   // maintenance by default: dependency-groups, build-system, GitHub Actions, uv.lock maintenance and any manager added
   // later. Only changes to the ranges users install with are listed as dependencies, see packageRules.
   // Labels are not mergeable: the last matching packageRule wins.
@@ -40,6 +57,22 @@
       matchManagers: ["pep621"],
       matchDepTypes: ["dependency-groups"],
       rangeStrategy: "bump",
+    },
+    {
+      // One pull request (and one CI run) for all non-major updates of the actions, including the uv version
+      // pinned through astral-sh/setup-uv. Major updates stay separate, they may need workflow changes.
+      // https://docs.renovatebot.com/configuration-options/#groupname
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch", "digest", "pinDigest"],
+      groupName: "GitHub Actions",
+    },
+    {
+      // One pull request for all non-major updates of the dependency-groups.
+      // Runtime dependencies are not grouped: each one changes what users install and gets its own release note.
+      matchManagers: ["pep621"],
+      matchDepTypes: ["dependency-groups"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "Dependency groups",
     },
     {
       // The test group installs the package itself (`sdc11073[lz4]`), which must never be updated.

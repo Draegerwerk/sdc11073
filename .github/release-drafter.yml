@@ -42,6 +42,8 @@ categories:
         - "documentation"
   - title: "🔧 Maintenance"
     exclusive: true
+    # Mostly Renovate updates: always fold them into a <details> block.
+    collapse-after: 0
     when:
       labels:
         - "chore"
@@ -51,22 +53,8 @@ categories:
   - type: "version-resolver"
     semver-increment: "patch" # fallback default when nothing else matches
 
-# Labels are applied from the branch name (see "Branch naming" in CONTRIBUTING.md).
-# Renovate labels its own pull requests (see renovate.json5). Keep the prefixes in sync with the check in
-# .github/workflows/autolabeler.yml.
-autolabeler:
-  - label: "feature"
-    branch:
-      - '/^feat\/.+/'
-  - label: "fix"
-    branch:
-      - '/^fix\/.+/'
-  - label: "documentation"
-    branch:
-      - '/^docs\/.+/'
-  - label: "chore"
-    branch:
-      - '/^(chore|refactor|test|ci|build)\/.+/'
+# Maintainers add one of the labels above to every pull request by hand (see "Release labels" in
+# CONTRIBUTING.md). Renovate labels its own pull requests (see renovate.json5).
 
 change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
 change-title-escapes: '\<*_&'

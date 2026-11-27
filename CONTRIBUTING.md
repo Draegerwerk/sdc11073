@@ -145,8 +145,8 @@ you for contributing to our tests!
 
 Creating a pull request is a critical step in contributing to our project. Here's how to do it effectively:
 
-1. **Ensure Your Branch is Up-to-Date and Named Correctly**: Before starting, make sure your branch is up-to-date with
-   the branch you're planning to merge into, and that it follows the [branch naming](#branch-naming) convention.
+1. **Ensure Your Branch is Up-to-Date**: Before starting, make sure your branch is up-to-date with the branch you're
+   planning to merge into.
 
 2. **Check Your Changes**:
     - Run tests with `pytest` to ensure all tests pass.
@@ -176,34 +176,28 @@ Creating a pull request is a critical step in contributing to our project. Here'
     - Once your pull request is approved by a project maintainer and all CI checks pass, it will be merged.
     - Congratulations! You've successfully contributed to the project.
 
-### Branch naming
+### Release labels
 
-The branch name decides which label your pull request gets, which in turn decides the section of the release notes
-it is listed in and the part of the version it increments. Name your branch `<type>/<description>`, optionally with
-the issue number, e.g. `fix/123-mdib-version`:
+A maintainer adds a label to every pull request, which decides the section of the release notes it is listed in and
+the part of the version it increments:
 
-| Prefix                                          | Label           | Release notes section | Version increment |
-|-------------------------------------------------|-----------------|-----------------------|-------------------|
-| `feat/`                                         | `feature`       | 🚀 Features            | minor             |
-| `fix/`                                          | `fix`           | 🐛 Bug Fixes           | patch             |
-| `docs/`                                         | `documentation` | 📚 Documentation       | patch             |
-| `chore/`, `refactor/`, `test/`, `ci/`, `build/` | `chore`         | 🔧 Maintenance         | patch             |
+| Label           | Release notes section | Version increment |
+|-----------------|-----------------------|-------------------|
+| `breaking`      | 💥 Breaking Changes    | major             |
+| `feature`       | 🚀 Features            | minor             |
+| `fix`           | 🐛 Bug Fixes           | patch             |
+| `documentation` | 📚 Documentation       | patch             |
+| `chore`         | 🔧 Maintenance         | patch             |
 
-A required check fails if the branch name matches none of the prefixes and the pull request has no release label.
-Renaming a branch closes its pull request, so instead ask a maintainer to add the matching label by hand.
-
-Maintainers additionally add labels by hand where needed:
-
-- `breaking` for a change that breaks existing functionality. It increments the major version and lists the pull
-  request in the 💥 Breaking Changes section only.
-- A second label (e.g. `fix` on a `feat/` branch) if the pull request belongs to more than one section.
+A `breaking` pull request is listed in the 💥 Breaking Changes section only. A pull request that belongs to more than
+one of the other sections (e.g. a feature that also fixes a bug) gets both labels.
 
 Pull requests opened by [Renovate](renovate.json5) label themselves. A change to the version range of a runtime
 dependency (`[project.dependencies]` or `[project.optional-dependencies]` in `pyproject.toml`) gets `dependencies` and
 is listed in the ⬆️ Dependencies section; Renovate only widens the upper bound of these ranges when a release falls
 outside of them. Everything else Renovate updates (dependency groups, build system, GitHub Actions, `uv.lock`) gets
 `chore`. Raising the lower bound of a runtime dependency is done by a maintainer, in a pull request labeled
-`dependencies` by hand.
+`dependencies` by hand. Security updates additionally get the `security` label.
 
 ## How to release (maintainers only)
 

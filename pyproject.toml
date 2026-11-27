@@ -57,10 +57,21 @@ test = [
     "hypothesis>=6.168.3,<7; platform_system != 'Windows'",
     "pytest-xdist[psutil]>=3.8.0,<4",
 ]
+# Workflow linters run by .github/workflows/workflow_lint.yml. Pinned exactly, so lockFileMaintenance cannot update
+# them: a new release (e.g. new zizmor audits) only arrives through its own Renovate update.
+ci = [
+    "actionlint-py==1.7.12.25",
+    # actionlint runs shellcheck on the run: scripts only if it is on the PATH, and skips it silently otherwise.
+    # Installing it here gives the same version locally and in CI instead of whatever the runner image ships.
+    "shellcheck-py==0.11.0.1",
+    "zizmor==1.32.0; python_version >= '3.11'",
+]
 dev = [
     { include-group = "test" },
+    { include-group = "ci" },
     "lxml-stubs>=0.5.1,<1",
-    "ruff>=0.17.5,<0.17.6",
+    # Pinned exactly like the ci group: .github/workflows/build.yml reads this version (ruff-action version-file).
+    "ruff==0.17.5",
 ]
 
 [tool.uv]
