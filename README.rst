@@ -30,7 +30,7 @@ ISO/IEEE 11073 is a standards family for the communication of medical devices. S
 (Service-Oriented Device Connectivity) is one of the latest additions to
 this family and is `described here <https://en.wikipedia.org/wiki/IEEE_11073_service-oriented_device_connectivity>`__.
 
-Market-oriented information on SDC from Dräger can be found `here <https://www.draeger.com/Library/Content/sdc-information-sheet-9107546-en.pdf>`__.
+Market-oriented information on SDC from Dräger can be found `here <https://www.draeger.com/en_aunz/Hospital/Interoperability-ISO-IEEE-11073-SDC>`__.
 
 SDC is supported by the interoperability association `OR.Net <https://ornet.org/en>`__.
 
